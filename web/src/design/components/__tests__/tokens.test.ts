@@ -44,3 +44,31 @@ describe('tokens only', () => {
     })
   }
 })
+
+// WCAG AA (4.5:1 for text under 18 px) for every text token on the surfaces it sits on.
+describe('text contrast', () => {
+  const val = (name: string) => {
+    const m = new RegExp('(?:^|[ \t;{])' + name + '[ \t]*:[ \t]*(#[0-9a-fA-F]{6})', 'm').exec(tokensCss)
+    if (!m) throw new Error('token not found: ' + name)
+    return m[1]
+  }
+  const lum = (hex: string) => {
+    const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+  }
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+  const pairs: [string, string[]][] = [
+    ['--muted', ['--cream', '--card', '--canvas-deep', '--lav']],
+    ['--text', ['--cream', '--card', '--lav']],
+    ['--ok', ['--ok-bg', '--cream', '--card']],
+    ['--warn', ['--warn-bg', '--cream', '--card']],
+    ['--bad', ['--bad-bg', '--cream', '--card']],
+    ['--blue', ['--blue-bg', '--cream', '--card']],
+    ['--dpv', ['--dpv-bg', '--cream', '--card']],
+    ['--text-on-indigo', ['--indigo', '--indigo-2']],
+    ['--text-on-indigo-muted', ['--indigo', '--indigo-2']],
+  ]
+  for (const [fg, bgs] of pairs) for (const bg of bgs) {
+    it(`${fg} on ${bg} is at least 4.5:1`, () => { expect(ratio(val(fg), val(bg))).toBeGreaterThanOrEqual(4.5) })
+  }
+})
