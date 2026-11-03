@@ -77,7 +77,7 @@ function Review({ uploadId }: { uploadId: string }) {
   if (upload.error && !u) {
     const nf = (upload.error as { status?: number }).status === 404
     return nf
-      ? <StatePanel kind="not-found" title="Upload not found" message="No upload has this id. It may have been removed." actions={<Link to="/admin/uploads/queue" className="ds-btn ds-btn--ghost">Back to the queue</Link>} />
+      ? <StatePanel kind="not-found" title="Upload not found" message="No upload has this id. It may have been removed." actions={<Button as="link" to="/admin/uploads/queue">Back to the queue</Button>} />
       : <StatePanel kind="error" message={errorText(upload.error)} actions={<Button onClick={() => refresh()}>Retry</Button>} />
   }
   if (!u) return <div className="rv-page" aria-busy="true"><Card><SkeletonBlock lines={3} /></Card><Card><SkeletonBlock lines={6} /></Card><span className="ds-visually-hidden">Loading</span></div>

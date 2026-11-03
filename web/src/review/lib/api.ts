@@ -1,10 +1,9 @@
-/** Every network call the review pages make. JSON goes through the shell client (X-Role / X-Partner headers); page
- * images need the same headers, so they are fetched as blobs here and shown through object URLs. */
-import { api } from '@/shell/api'
-import { loadRole, ROLES, type Role } from '@/shell/roles'
+/** Every network call the review pages make, through the shell client (X-Role / X-Partner headers). Page images come
+ * from apiBlob and are shown through object URLs. */
+import { api, apiBlob } from '@/shell/api'
+import { loadRole, type Role } from '@/shell/roles'
 import type { AuditEntry, Deal, Extraction, Finding, OverrideChoice, Program, Upload } from './types'
 
-const BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
 export const reviewApi = {
@@ -32,13 +31,7 @@ export function pageImageUrl(uploadId: string, page: number): Promise<string> {
   const key = `${role}:${uploadId}:${page}`
   let p = pageCache.get(key)
   if (!p) {
-    const meta = ROLES.find(r => r.id === role)!
-    const headers: Record<string, string> = { 'X-Role': role }
-    if (meta.partner) headers['X-Partner'] = meta.partner
-    p = fetch(`${BASE}/uploads/${uploadId}/pages/${page}.png`, { headers }).then(async res => {
-      if (!res.ok) throw Object.assign(new Error(`Page ${page} image: HTTP ${res.status}`), { status: res.status })
-      return URL.createObjectURL(await res.blob())
-    })
+    p = apiBlob(`/uploads/${uploadId}/pages/${page}.png`).then(b => URL.createObjectURL(b))
     p.catch(() => pageCache.delete(key))
     pageCache.set(key, p)
   }
