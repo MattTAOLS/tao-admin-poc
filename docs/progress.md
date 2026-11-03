@@ -2,6 +2,12 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Lead: UI-wave prep (branch lead/ui-prep). `web/vite.config.ts` reads VITE_PORT and VITE_API_PROXY, so a
+  dev server can sit beside compose's :5173 and proxy /api to any API (set VITE_API_URL=/api/v1; no CORS change).
+  `scripts/compose.agent.yml` gives each agent a private stack (API on ${API_PORT}, no host ports for Postgres/Redis).
+  `scripts/demo_data.py --profile admin|review` loads demo state through the HTTP API from the real samples; review
+  leaves a seeded Moneda Aug (R05 −100.00) in needs_review. Approving accepts R11 restatements first: Xpedite's Jun
+  and Jul reports revise Jan-26 equity/D-E and May-26 rolling loss ratios, exactly as the reference `restatements` list.
 - 2026-11-03 — Extraction: wave 1c history. `worker/extract/history.py: extend(prior_deal, extraction)` chains one
   upload onto the deal's last published object (an earlier extend/chain result or a seeded reference object):
   period_history oldest first, aging_history newest first, ratio_history gaps, restatements, balance

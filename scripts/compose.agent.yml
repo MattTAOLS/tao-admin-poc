@@ -1,0 +1,12 @@
+# A private API stack per agent, beside the default one. Postgres and Redis get no host ports; the API is on
+# ${API_PORT}. Run from the repo root with a project name of your own:
+#   API_PORT=18100 docker compose -p tao-ui-admin -f docker-compose.yml -f scripts/compose.agent.yml up -d --build postgres redis api worker
+#   API_PORT=18100 python scripts/demo_data.py --api http://localhost:18100 --profile admin
+#   docker compose -p tao-ui-admin -f docker-compose.yml -f scripts/compose.agent.yml down -v
+services:
+  postgres:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  api:
+    ports: !override ["${API_PORT:-18000}:8000"]
