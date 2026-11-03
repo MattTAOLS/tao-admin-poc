@@ -1,12 +1,13 @@
 """SQLAlchemy models for db/migrations/001_init.sql (+ 002). Column names match the SQL exactly so the same
 models run against PostgreSQL (compose) and SQLite (tests)."""
 import uuid, datetime as dt
-from sqlalchemy import String, Text, Integer, Numeric, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text
+from sqlalchemy import String, Text, Integer, Numeric, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 Json = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
-Id = Uuid(as_uuid=False)
+# SQLite stores the same dashed text PostgreSQL prints, so raw SQL (worker/validate) can match ids the API returns.
+Id = Uuid(as_uuid=False).with_variant(String(36), "sqlite")
 ACTIVE_UPLOAD = "status not in ('rejected', 'extraction_failed')"
 
 
@@ -81,7 +82,7 @@ class SetrepUpload(Base):
     file_path: Mapped[str] = mapped_column(Text)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     uploaded_by: Mapped[str] = mapped_column(Text)
-    uploaded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    uploaded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     status: Mapped[str] = mapped_column(Text, default="received")
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -95,7 +96,7 @@ class Extraction(Base):
     deal: Mapped[dict] = mapped_column(Json)
     sources: Mapped[dict] = mapped_column(Json)
     confidence: Mapped[float | None] = mapped_column(Numeric(5, 4, asdecimal=False), nullable=True)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
 
 
 class Finding(Base):
@@ -117,7 +118,7 @@ class Finding(Base):
     context: Mapped[dict | None] = mapped_column(Json, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="open")
     resolution: Mapped[dict | None] = mapped_column(Json, nullable=True)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
 
 
 class ReviewAction(Base):
@@ -130,7 +131,7 @@ class ReviewAction(Base):
     action: Mapped[str] = mapped_column(Text)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail: Mapped[dict | None] = mapped_column(Json, nullable=True)
-    at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
 
 
 class Publication(Base):
@@ -141,6 +142,6 @@ class Publication(Base):
     deal_slug: Mapped[str] = mapped_column(Text, ForeignKey("deal.slug"))
     collection_period: Mapped[str] = mapped_column(Text)
     published_by: Mapped[str] = mapped_column(Text)
-    published_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    published_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     deal: Mapped[dict] = mapped_column(Json)
     rollup_version: Mapped[int] = mapped_column(Integer, default=1)

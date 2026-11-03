@@ -6,9 +6,10 @@ The Lead reads this at every merge.
 ## Design System
 ## Data & API
 
-- 2026-11-03 → Lead (compose): mount the reference deals into the api container so the demo seed works there:
+- ~~2026-11-03 → Lead (compose): mount the reference deals into the api container so the demo seed works there:
   `./docs/dashboard-json:/app/docs/dashboard-json:ro`. Then `docker compose exec api python -m app.seed --reference-publications`
-  publishes the 12 real deal objects (partner portals have data before any SetRep is approved). Suggest a `make seed-demo` target.
+  publishes the 12 real deal objects (partner portals have data before any SetRep is approved). Suggest a `make seed-demo` target.~~
+  RESOLVED by 75884f0 (lead/wave1-seams mounts docs/dashboard-json into api); the `make seed-demo` target is still open.
 - 2026-11-03 → Lead (db): I added `db/migrations/002_upload_active_unique.sql` and `003_covenant_threshold_width.sql`.
   002: 001's `unique (deal_slug, collection_period, status)` forbade a second rejected upload for the same period; replaced
   by a partial unique index (one active upload per deal + period). 003: `covenant_definition.threshold numeric(12,6)` overflows

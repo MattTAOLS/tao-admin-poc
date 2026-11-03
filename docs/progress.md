@@ -2,6 +2,13 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: wave 1b schema parity. Merged lead/wave1-seams. `api/app/models.py` now matches migration 001
+  for raw-SQL writers (worker/validate): the five timestamp columns have `server_default=now()` as well as the Python
+  default, and ids are stored on SQLite as the dashed 36-character text PostgreSQL prints (was 32-char hex, so raw
+  updates by the API's id matched 0 rows). New `tests/test_schema_parity.py` inserts an extraction with raw SQL (dashed
+  upload id, no created_at) and reads it back through the API; it fails on the old models. 111 passed on SQLite and on
+  PostgreSQL 16 built from db/migrations. Existing SQLite files built by the old models must be deleted and re-seeded.
+
 - 2026-11-03 — Data & API: wave 1 deliverables 1–7. All 23 operations in `contracts/openapi.yaml` are real and backed by
   the database (SQLAlchemy models over 001 + new migrations 002/003). Seed: `python -m app.seed` loads seed/*.json
   idempotently; `--reference-publications` also publishes the 12 real deal objects for the partner portals. Uploads store
