@@ -1,25 +1,85 @@
-/* Shell layout only. Components live in src/design/components (Design System agent). Tokens come from contracts/tokens.css. */
+/* Shell layout only (sidebar, top bar, content column, role switcher). Components live in src/design/components
+   and bring their own components.css. Tokens come from contracts/tokens.css; no raw colours here (a test checks). */
+*, *::before, *::after { box-sizing: border-box; }
+code { font-family: var(--mono); font-size: .92em; }
+
 .app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; background: var(--cream); }
-.sidebar { background: var(--indigo); color: var(--text-on-indigo); display: flex; flex-direction: column; padding: 18px 14px; position: sticky; top: 0; height: 100vh; }
-.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 18px; color: #fff; font-weight: 700; letter-spacing: .02em; }
-.brand small { display: block; font-weight: 500; font-size: var(--fs-small); color: var(--text-on-indigo); letter-spacing: .12em; text-transform: uppercase; }
-.navlabel { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #8980b8; padding: 10px 11px 6px; }
-.nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-control); color: var(--text-on-indigo); font-size: var(--fs-body); font-weight: 500; text-decoration: none; transition: background var(--t-control) var(--ease), color var(--t-control) var(--ease); }
-.nav a:hover { background: var(--indigo-2); color: #fff; }
+
+/* ---------- Sidebar (static frame: never animates on route change) ---------- */
+.sidebar { background: var(--indigo); color: var(--text-on-indigo); display: flex; flex-direction: column; padding: 18px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 18px; color: var(--text-on-purple); }
+.brand__mark { width: 34px; height: 34px; border-radius: 10px; background: var(--grad-primary); display: grid; place-items: center; box-shadow: var(--sh-primary); flex: none; color: var(--text-on-purple); }
+.brand b { display: block; font-weight: 700; font-size: 15px; letter-spacing: -.2px; line-height: 1.1; }
+.brand small { display: block; font-size: 11px; color: color-mix(in srgb, var(--text-on-indigo) 85%, var(--indigo)); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
+.navlabel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--text-on-indigo) 62%, var(--indigo)); padding: 14px 10px 6px; }
+.nav { display: flex; flex-direction: column; gap: 3px; }
+.nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-control); color: var(--text-on-indigo); font-size: var(--fs-body); font-weight: 500; text-decoration: none;
+  transition: background var(--t-control) var(--ease), color var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease); }
+.nav a svg { flex: none; opacity: .9; }
+.nav a:hover { background: color-mix(in srgb, var(--card) 6%, transparent); color: var(--text-on-purple); }
 .nav a.active { background: var(--purple); color: var(--text-on-purple); box-shadow: var(--sh-primary); }
-.sidebar .foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; }
-.main { min-width: 0; }
-.topbar { position: sticky; top: 0; z-index: 5; background: rgba(255,250,243,.82); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 18px var(--gutter); display: flex; align-items: flex-end; gap: 16px; min-height: var(--topbar-h); }
-.crumb { font-size: var(--fs-small); color: var(--muted); } .crumb b { color: var(--purple); font-weight: 600; }
+.nav a.active svg { opacity: 1; }
+.nav a:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--lav-2) 55%, transparent); }
+.sidebar .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--card) 8%, transparent); }
+
+/* ---------- User card / role switcher (sidebar footer) ---------- */
+.usercard { position: relative; }
+.usercard__btn { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--r-control); cursor: pointer; color: var(--text-on-purple);
+  transition: background var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease); }
+.usercard__btn:hover, .usercard__btn[aria-expanded="true"] { background: color-mix(in srgb, var(--card) 6%, transparent); }
+.usercard__btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--lav-2) 55%, transparent); }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--lav-2); color: var(--indigo); display: grid; place-items: center; font: 700 12px var(--font); flex: none; }
+.usercard__text { min-width: 0; flex: 1; }
+.usercard__text b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.usercard__text small { display: block; color: color-mix(in srgb, var(--text-on-indigo) 80%, var(--indigo)); font-size: 11px; }
+.usercard__chev { color: var(--text-on-indigo); flex: none; transition: transform var(--t-control) var(--ease); }
+.usercard__btn[aria-expanded="false"] .usercard__chev { transform: rotate(180deg); }
+.rolemenu { position: absolute; left: 0; right: -12px; bottom: calc(100% + 8px); z-index: 30; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-panel); padding: 6px; box-shadow: var(--sh-panel); color: var(--text);
+  animation: ds-panel-in var(--t-panel) var(--ease); min-width: 250px; }
+.rolemenu__head { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 8px 10px 6px; }
+.rolemenu__opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--text); outline: none;
+  transition: background var(--t-control) var(--ease); }
+.rolemenu__opt:hover, .rolemenu__opt:focus-visible, .rolemenu__opt:focus { background: var(--lav); }
+.rolemenu__opt small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+.rolemenu__opt.is-current { color: var(--indigo); font-weight: 600; }
+.rolemenu__check { margin-left: auto; color: var(--purple); opacity: 0; flex: none; }
+.rolemenu__opt.is-current .rolemenu__check { opacity: 1; }
+
+/* ---------- Main column ---------- */
+.main { min-width: 0; position: relative; }
+.topbar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--cream) 82%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 18px var(--gutter); min-height: var(--topbar-h); }
 .content { padding: 22px var(--gutter) 48px; animation: page var(--t-page) var(--ease); }
 @keyframes page { from { opacity: 0; transform: translateX(8px) } to { opacity: 1; transform: none } }
-.card { background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-card); box-shadow: var(--sh-card); padding: 18px 20px; }
+
+/* Route-load progress bar, directly under the top bar. */
+.routebar { position: fixed; top: var(--ds-sticky-top, var(--topbar-h)); left: var(--sidebar-w); right: 0; height: 2px; z-index: 6; overflow: hidden; background: var(--lav); }
+.routebar::after { content: ""; position: absolute; inset: 0; background: var(--grad-primary); transform-origin: left; animation: routebar 1.2s var(--ease) forwards; }
+@keyframes routebar { from { transform: scaleX(.05) } to { transform: scaleX(.85) } }
+.routeskel { display: grid; gap: var(--gap); }
+.routeskel__tiles { display: grid; gap: var(--gap); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Placeholder for routed pages not built in the POC. */
 .placeholder { border: 1px dashed var(--border); border-radius: var(--r-card); padding: 28px; color: var(--muted); background: var(--card); }
 .placeholder h2 { color: var(--indigo); margin-bottom: 6px; }
-.btn { font-family: var(--font); font-size: 13px; font-weight: 600; border-radius: var(--r-control); padding: 9px 15px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 7px; transition: transform var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease), background var(--t-control) var(--ease); }
-.btn-primary { background: var(--grad-primary); color: var(--text-on-purple); box-shadow: var(--sh-primary); } .btn-primary:hover { transform: translateY(-1px); }
-.btn-ghost { background: var(--card); color: var(--indigo); border-color: var(--border); } .btn-ghost:hover { background: var(--lav); }
+.placeholder__meta { font-size: var(--fs-small); }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .routebar { left: 0; }
+}
+@media print {
+  .sidebar, .topbar .ds-pagehead__actions, .ds-toasts { display: none !important; }
+  .app { display: block; background: var(--card); }
+  .topbar { position: static; backdrop-filter: none; }
+  .content { animation: none; }
+}
+
+/* Deprecated day-0 classes, kept so early page drafts keep rendering. Use Card / Button / StatusPill instead. */
+.card { background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-card); box-shadow: var(--sh-card); padding: 18px 20px; }
+.btn { font-family: var(--font); font-size: 13px; font-weight: 600; border-radius: var(--r-control); padding: 9px 15px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
+.btn-primary { background: var(--grad-primary); color: var(--text-on-purple); box-shadow: var(--sh-primary); }
+.btn-ghost { background: var(--card); color: var(--indigo); border-color: var(--border); }
 .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-chip); padding: 3px 10px; font-size: var(--fs-small); font-weight: 600; font-family: var(--data); }
 .pill i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: currentColor; }
 .pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.bad { color: var(--bad); background: var(--bad-bg); } .pill.blue { color: var(--blue); background: var(--blue-bg); } .pill.dpv { color: var(--dpv); background: var(--dpv-bg); }
-.roleswitch { width: 100%; background: var(--indigo-2); color: #fff; border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-control); padding: 8px 10px; font: 500 12.5px var(--font); }

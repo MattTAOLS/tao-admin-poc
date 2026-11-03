@@ -1,6 +1,16 @@
+import type { ComponentType } from 'react'
 /** Every page in docs/portal-map.md, by shell. `built: true` pages get a real component in wave 1; the rest render a
- * routed placeholder so navigation and the role switcher behave as the finished app will. Owner = agent folder. */
-export type Page = { path: string; title: string; nav?: 'main' | 'account'; roles?: string[]; built?: boolean; owner: 'admin' | 'review' | 'portfolio' | 'shell'; purpose?: string }
+ * routed placeholder so navigation and the role switcher behave as the finished app will. Owner = agent folder.
+ *
+ * To register a page, add `load` to its entry (one line, tell the Design System agent who owns this file):
+ *   { path: '/admin/uploads', ..., load: () => import('@/admin/UploadsPage') }
+ * The module's default export is rendered inside the shell (lazy, with the route progress bar while it loads).
+ * Read route params with react-router's useParams; set the top bar with usePageHeader from '@/shell/header'. */
+export type Page = {
+  path: string; title: string; nav?: 'main' | 'account'; roles?: string[]; built?: boolean
+  owner: 'admin' | 'review' | 'portfolio' | 'shell'; purpose?: string
+  load?: () => Promise<{ default: ComponentType }>
+}
 export const ADMIN_PAGES: Page[] = [
   { path: '/admin', title: 'Dashboard', nav: 'main', built: true, owner: 'admin', purpose: 'Queue counts, recent uploads, covenant status across programs' },
   { path: '/admin/uploads', title: 'Uploads', nav: 'main', built: true, owner: 'admin' },
