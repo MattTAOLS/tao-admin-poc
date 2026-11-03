@@ -21,7 +21,7 @@ The Lead reads this at every merge.
   by a partial unique index (one active upload per deal + period). 003: `covenant_definition.threshold numeric(12,6)` overflows
   on SLFA 9.1 (j) Minimum Total Equity = 2,500,000, so `make seed` failed on PostgreSQL; widened to numeric(20,6).
   Both only run on a fresh `pgdata` volume (`make down` first).
-- 2026-11-03 → Lead (contract, additive only, please fold into `contracts/openapi.yaml` or tell me to drop them):
+- ~~2026-11-03 → Lead (contract, additive only, please fold into `contracts/openapi.yaml` or tell me to drop them):
   (a) error responses the API returns that the contract does not list: 409 `bad_state` (approve/reject/reextract/override in
   the wrong upload status), 409 `not_open` (override of a resolved finding), 409 `upload_in_progress` (second active upload for
   deal + period), 409 `no_extraction`, 422 `invalid` / `unknown_deal` / `unknown_program` / `unknown_partner` / `not_a_pdf`;
@@ -30,17 +30,29 @@ The Lead reads this at every merge.
   (master record) and `available_periods`; PublishedDeal `published_period`, `available_periods`; PublishedPortfolio is
   `{partner, programs: [program aggregate minus deals + program + available_periods + deals: [{deal_slug, deal_name,
   collection_period, worst_status, covenant_summary, closing_tranche_balance}]]}`; regenerate returns `{queued, programs, publications}`.
-  (c) `PUT /master/covenants`: `id` is optional (omit = new definition/version); the contract schema marks it required.
+  (c) `PUT /master/covenants`: `id` is optional (omit = new definition/version); the contract schema marks it required.~~
+  RESOLVED by 4546513 (lead/wave3 folds all of it into openapi.yaml).
 - 2026-11-03 → Rules: on override the API re-runs `rules.run(extraction, ctx, phases=(1, 2))` with a Context it builds itself
   (shape in `api/app/review.py` docstring: prior = last published deal object before the period; master = {program, deal,
   covenants as of the period end}; published_periods; upload = Upload dict). Please confirm `worker/validate` builds the same
   shape and uses the same phases, or tell me yours and I will match it. Note `engine.finding()` sets `extraction_id` to
   `meta.upload_id`; the API overwrites it with the extraction row id, and the worker adapter must do the same.
-- 2026-11-03 → Extraction / worker glue: the API expects the worker to (1) set the upload to `extracting` when it takes a
+- ~~2026-11-03 → Extraction / worker glue: the API expects the worker to (1) set the upload to `extracting` when it takes a
   pass-1 job (the API already sets it for pass 2), (2) insert one `extraction` row per pass with `meta.reporting_period`,
   (3) insert findings with `extraction_id` = that row, (4) set the upload to `needs_review` or `extraction_failed` and fill
   `setrep_upload.reporting_period`. Roll-up ownership: the program aggregate lives in `api/app/rollup.py` (pure function,
-  pinned to both real program files) and is computed on read from `publication` rows, so no `worker/publish` is needed.
+  pinned to both real program files) and is computed on read from `publication` rows, so no `worker/publish` is needed.~~
+  RESOLVED by 75884f0 + main: worker/validate owns the writes (`mark_extracting`, `handle_extraction`, `mark_failed`).
+- 2026-11-03 (wave 3) → Lead (db): `db/migrations/005_finding_targets.sql` adds `finding.targets jsonb`. 004 put `targets`
+  in finding.schema.json but no column held it, so neither the worker nor the API could store it. Fresh `pgdata` needed.
+- 2026-11-03 (wave 3) → Rules: (1) `worker/validate/adapter.py` must write `targets`: add it to `FINDING_COLUMNS` and
+  `_JSON_COLUMNS` (needs 005). Until then every stored finding has no targets and use_ours / use_report get 409 `no_target`.
+  The API keeps stored targets when an override re-run produces none. (2) The Lead's wave-3 seed patch adds `partner_slugs`
+  to seed/programs.json, and `rules/tests/test_rules.py::test_fixtures_are_reproducible` freezes the program record from
+  the seed in the r02-pass fixture, so it now fails ("rerun make_fixtures.py"). Please regenerate the fixtures.
+- 2026-11-03 (wave 3) → Lead (contract vs auth.py): the Error description lists 403 codes `forbidden`, `tao_only`,
+  `admin_only`; `api/app/auth.py` (role gates kept as they are) returns `bad_role` and `bad_partner` for an unknown role or a
+  wrong X-Partner. Either add those two codes to the contract or say so and I will map them. A missing X-Role is 422 `invalid`.
 ## Extraction
 - RESOLVED 2026-11-03 (extraction, wave 1b: `worker/requirements-dev.txt` has pypdf + pytest) — to Lead: add `pypdf` to `worker/requirements.txt` (or a dev requirements file). Only the seeded-error
   test uses it (it edits one digit in a page content stream); the test skips without it.

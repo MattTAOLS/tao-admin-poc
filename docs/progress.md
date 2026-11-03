@@ -2,6 +2,16 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: wave 3. Merged main (e20ce7d) and lead/wave3. Multi-partner programs: `ProgramPartner` model over
+  004; Program and Upload return `partner_slugs` (partner_slug = the first); `visible_programs` reads program_partner, so the
+  manager now sees MOVE Trust and F-PIL and a partner not listed gets 404. `PUT /master/programs` takes `partner_slugs` (or
+  `partner_slug` alone) and audits. New `GET /master/partners`; `CovenantDefinition.unit` on GET/PUT; `GET /uploads?collection_period=`
+  and `GET /audit?action=`. Overrides: use_ours / use_report need `targets` (else 409 `no_target`); approve writes the chosen
+  value to every target in the published deal (the extraction is untouched) and appends one `data_corrections` entry per
+  changed pointer, listed in the approve audit detail. Migration 005 adds `finding.targets`. Seed loads `partner_slugs` and
+  `unit` idempotently. 122 tests pass on SQLite and on PostgreSQL 16 built from db/migrations 001-005. Waiting on Rules:
+  adapter must write `targets`, and the r02 fixture needs regenerating after the seed patch (see requests.md).
+
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON

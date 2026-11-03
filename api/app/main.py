@@ -15,7 +15,7 @@ from typing import Literal
 from .auth import caller, tao_only, admin_only, Caller
 from .db import get_db, file_store
 from .jobs import get_queue
-from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication, new_id, utcnow
+from .models import Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication, new_id, utcnow
 from . import views, review, rollup
 
 log = logging.getLogger("api")
@@ -119,13 +119,16 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
 
 
 @app.get(API + "/uploads")
-def list_uploads(status: str | None = None, deal_slug: str | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+def list_uploads(status: str | None = None, deal_slug: str | None = None, collection_period: str | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     if status is not None and status not in STATUSES:
         raise err(422, "invalid", f"status must be one of {', '.join(STATUSES)}")
     qry = select(SetrepUpload)
     if status: qry = qry.where(SetrepUpload.status == status)
     if deal_slug: qry = qry.where(SetrepUpload.deal_slug == deal_slug)
+    if collection_period:
+        _check_period(collection_period, "collection_period")
+        qry = qry.where(SetrepUpload.collection_period == collection_period)
     return [views.upload_dict(s, u) for u in s.scalars(qry.order_by(SetrepUpload.uploaded_at.desc())).all()]
 
 
@@ -180,6 +183,8 @@ def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller =
         raise err(409, "bad_state", f"upload is {u.status}; findings can be overridden only while it needs review")
     if f.status != "open":
         raise err(409, "not_open", f"finding is already {f.status}")
+    if body.choice in review.VALUE_CHOICES and not f.targets:
+        raise err(409, "no_target", f"{f.rule_id} names no value to change; use restatement or acknowledge")
     review.resolve(f, body.choice, body.reason, c.role)
     views.audit(s, c, "restate" if body.choice == "restatement" else "override", upload_id=u.id, finding_id=f.id, reason=body.reason,
                 detail={"choice": body.choice, "rule_id": f.rule_id, "our_value": f.our_value, "report_value": f.report_value})
@@ -217,16 +222,19 @@ def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depe
     blocks = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.severity == "block", Finding.status == "open")).all()
     if blocks:
         raise err(409, "open_block_findings", f"{len(blocks)} block finding(s) still open: {', '.join(sorted({b.rule_id for b in blocks}))}")
-    overrides = [f.id for f in s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.resolution.is_not(None))).all()]
+    resolved = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.resolution.is_not(None)).order_by(Finding.created_at)).all()
+    overrides = [f.id for f in resolved]
+    published_deal, corrections = review.apply_overrides(ex.deal, resolved, u.collection_period)
     u.status = "approved"
-    views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides})
+    views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides,
+                                                          "corrections": corrections})
     pub = s.scalars(select(Publication).where(Publication.deal_slug == u.deal_slug, Publication.collection_period == u.collection_period)).first()
     replaced = pub.upload_id if pub else None
     if pub is None:
-        pub = Publication(upload_id=u.id, deal_slug=u.deal_slug, collection_period=u.collection_period, published_by=c.role, deal=ex.deal)
+        pub = Publication(upload_id=u.id, deal_slug=u.deal_slug, collection_period=u.collection_period, published_by=c.role, deal=published_deal)
         s.add(pub)
     else:                                                     # R12 replace: same (deal, period), new upload
-        pub.upload_id, pub.published_by, pub.published_at, pub.deal = u.id, c.role, utcnow(), ex.deal
+        pub.upload_id, pub.published_by, pub.published_at, pub.deal = u.id, c.role, utcnow(), published_deal
         pub.rollup_version += 1
     u.status = "published"
     views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced})
@@ -283,7 +291,8 @@ def get_file(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depen
 class ProgramIn(BaseModel):
     slug: str
     name: str
-    partner_slug: str
+    partner_slug: str | None = None
+    partner_slugs: list[str] | None = Field(default=None, min_length=1)
     currency: str = "CAD"
     limit: float
     warehouse_limit: float | None = None
@@ -319,33 +328,46 @@ class CovenantIn(BaseModel):
     watch_buffer_pct: float = 0.1
     effective_from: dt.date
     source: str | None = None
+    unit: Literal["fraction", "ratio", "currency"] | None = None
 
 
 def _master_change(s, c, entity, key, before, after):
     views.audit(s, c, "master_change", detail={"entity": entity, "key": key, "before": before, "after": after})
 
 
+@app.get(API + "/master/partners")
+def partners(c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    tao_only(c)
+    return [views.partner_dict(p) for p in s.scalars(select(Partner).order_by(Partner.slug)).all()]
+
+
 @app.get(API + "/master/programs")
 def programs(c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
-    return [views.program_dict(p) for p in s.scalars(select(Program).order_by(Program.slug)).all()]
+    return [views.program_dict(s, p) for p in s.scalars(select(Program).order_by(Program.slug)).all()]
 
 
 @app.put(API + "/master/programs")
 def put_program(body: ProgramIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
-    if s.get(Partner, body.partner_slug) is None:
-        raise err(422, "unknown_partner", f"no partner {body.partner_slug}")
+    slugs = list(dict.fromkeys(body.partner_slugs or ([body.partner_slug] if body.partner_slug else [])))
+    if not slugs:
+        raise err(422, "invalid", "a program needs partner_slugs (or partner_slug)")
+    for ps in slugs + ([body.partner_slug] if body.partner_slug else []):     # partner_slugs wins; a stray partner_slug must still exist
+        if s.get(Partner, ps) is None:
+            raise err(422, "unknown_partner", f"no partner {ps}")
     p = s.get(Program, body.slug)
-    before = views.program_dict(p) if p else None
+    before = views.program_dict(s, p) if p else None
     if p is None:
         p = Program(slug=body.slug); s.add(p)
-    for k, v in body.model_dump().items():
+    for k, v in body.model_dump(exclude={"partner_slug", "partner_slugs"}).items():
         setattr(p, k, v)
+    p.partner_slug = slugs[0]
     s.flush()
-    _master_change(s, c, "program", body.slug, before, views.program_dict(p))
+    views.set_partner_slugs(s, p, slugs)
+    _master_change(s, c, "program", body.slug, before, views.program_dict(s, p))
     s.commit()
-    return views.program_dict(p)
+    return views.program_dict(s, p)
 
 
 @app.get(API + "/master/deals")
@@ -409,9 +431,10 @@ def partner_filter(c: Caller = Depends(caller)) -> str | None:
 
 
 def visible_programs(s: Session, partner: str | None) -> list[Program]:
+    """The programs a partner sees: its rows in program_partner (004). TAO (partner None) sees every program."""
     q = select(Program).order_by(Program.slug)
     if partner is not None:
-        q = q.where(Program.partner_slug == partner)
+        q = q.where(Program.slug.in_(select(ProgramPartner.program_slug).where(ProgramPartner.partner_slug == partner)))
     return list(s.scalars(q).all())
 
 
@@ -437,7 +460,7 @@ def _program_aggregate(s: Session, program: Program, period: str | None) -> dict
         return None
     agg = rollup.build_program(period, deals)
     periods = sorted({p.collection_period for p in pubs}, reverse=True)
-    return {"program": views.program_dict(program), "available_periods": periods, **agg}
+    return {"program": views.program_dict(s, program), "available_periods": periods, **agg}
 
 
 @app.get(API + "/published/portfolio")
@@ -503,11 +526,13 @@ def regenerate(body: RegenerateRequest | None = None, c: Caller = Depends(admin_
 
 
 @app.get(API + "/audit")
-def audit(upload_id: str | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+def audit(upload_id: str | None = None, action: str | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     q = select(ReviewAction)
     if upload_id:
         if not _is_uuid(upload_id):
             raise err(422, "invalid", "upload_id must be a uuid")
         q = q.where(ReviewAction.upload_id == upload_id)
+    if action:
+        q = q.where(ReviewAction.action == action)
     return [views.audit_dict(a) for a in s.scalars(q.order_by(ReviewAction.at.desc())).all()]

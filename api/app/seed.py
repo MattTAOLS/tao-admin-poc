@@ -9,7 +9,7 @@ Covenant definitions carry no id in the seed file; their id is a uuid5 of (deal,
 so re-running updates the same row instead of adding a copy."""
 import json, pathlib, sys, uuid, datetime as dt
 from sqlalchemy import select
-from . import db
+from . import db, views
 from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction
 
 HERE = pathlib.Path(__file__).resolve()
@@ -44,10 +44,18 @@ def period_of(label: str) -> str:
 
 def load(s, root: pathlib.Path = SEED) -> dict:
     counts = {}
-    for name, model, key in [("partners", Partner, "slug"), ("programs", Program, "slug"), ("deals", Deal, "slug")]:
+    for name, model in [("partners", Partner), ("programs", Program), ("deals", Deal)]:
         rows = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
         for r in rows:
-            s.merge(model(**r))
+            r = dict(r)
+            slugs = r.pop("partner_slugs", None)
+            if model is Program:
+                slugs = slugs or [r["partner_slug"]]
+                r["partner_slug"] = slugs[0]
+            row = s.merge(model(**r))
+            if model is Program:
+                s.flush()
+                views.set_partner_slugs(s, row, slugs)
         s.flush()
         counts[name] = len(rows)
     rows = json.loads((root / "covenant_definitions.json").read_text(encoding="utf-8"))

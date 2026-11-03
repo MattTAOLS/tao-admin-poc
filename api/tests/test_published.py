@@ -2,7 +2,7 @@
 import json, math
 import pytest
 from conftest import TAO, ANALYST, INV, MGR, REF
-from app import db, seed
+from app import db, seed, views
 from app.models import Program
 
 P = "/api/v1/published"
@@ -16,9 +16,10 @@ def published():
         seed.load_reference_publications(s)
 
 
-def give_program_to_manager(slug="f-pil-2-0"):
+def only(partner: str, slug="f-pil-2-0"):
+    """Restrict a program to one partner (both see both programs in the seed)."""
     with db.session() as s:
-        s.get(Program, slug).partner_slug = "manager"; s.commit()
+        views.set_partner_slugs(s, s.get(Program, slug), [partner]); s.commit()
 
 
 def test_portfolio_tao_sees_all(client):
@@ -33,9 +34,9 @@ def test_portfolio_tao_sees_all(client):
 def test_portfolio_is_partner_filtered(client):
     assert {p["program"]["slug"] for p in client.get(f"{P}/portfolio", headers=INV).json()["programs"]} == {"move-trust", "f-pil-2-0"}
     r = client.get(f"{P}/portfolio", headers=MGR).json()
-    assert r == {"partner": "manager", "programs": []}
-    give_program_to_manager()
-    assert [p["program"]["slug"] for p in client.get(f"{P}/portfolio", headers=MGR_ADMIN).json()["programs"]] == ["f-pil-2-0"]
+    assert r["partner"] == "manager" and {p["program"]["slug"] for p in r["programs"]} == {"move-trust", "f-pil-2-0"}
+    only("manager")
+    assert [p["program"]["slug"] for p in client.get(f"{P}/portfolio", headers=MGR_ADMIN).json()["programs"]] == ["f-pil-2-0", "move-trust"]
     assert [p["program"]["slug"] for p in client.get(f"{P}/portfolio", headers=INV_ADMIN).json()["programs"]] == ["move-trust"]
 
 
@@ -73,9 +74,16 @@ def test_deal_route(client):
     assert client.get(f"{P}/programs/f-pil-2-0/deals/nope", headers=TAO).status_code == 404
 
 
-# ---- negative tenancy: another partner's resources look missing (404), never forbidden-but-present ----
+def test_manager_sees_both_programs_and_their_deals(client):
+    for slug, deal in [("f-pil-2-0", "f-pil-2-0-moneda-capital-corp"), ("move-trust", "move-trust-vcc-iv-lp")]:
+        assert client.get(f"{P}/programs/{slug}", headers=MGR).status_code == 200
+        assert client.get(f"{P}/programs/{slug}/deals/{deal}", headers=MGR_ADMIN).json()["deal_slug"] == deal
+
+
+# ---- negative tenancy: a program the partner is not listed on looks missing (404), never forbidden-but-present ----
 @pytest.mark.parametrize("h", [MGR, MGR_ADMIN])
-def test_manager_cannot_read_investor_program_or_deal(client, h):
+def test_manager_cannot_read_program_it_is_not_on(client, h):
+    only("investor"); only("investor", "move-trust")
     r = client.get(f"{P}/programs/f-pil-2-0", headers=h)
     assert r.status_code == 404 and r.json()["code"] == "not_found"
     assert client.get(f"{P}/programs/move-trust/deals/move-trust-vcc-iv-lp", headers=h).status_code == 404
@@ -83,7 +91,7 @@ def test_manager_cannot_read_investor_program_or_deal(client, h):
 
 
 def test_investor_cannot_read_manager_program_after_reassignment(client):
-    give_program_to_manager()
+    only("manager")
     assert client.get(f"{P}/programs/f-pil-2-0", headers=INV).status_code == 404
     assert client.get(f"{P}/programs/f-pil-2-0/deals/f-pil-2-0-moneda-capital-corp", headers=INV).status_code == 404
     assert client.get(f"{P}/programs/f-pil-2-0/deals/f-pil-2-0-moneda-capital-corp", headers=MGR).status_code == 200
