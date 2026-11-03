@@ -77,3 +77,17 @@
 .rv-dialog-error { color: var(--bad); font-size: var(--fs-small); margin-top: 8px; }
 .rv-dialog-body { display: flex; flex-direction: column; gap: 12px; }
 .rv-summary { margin: 0; padding-left: 18px; }
+.rv-section + .rv-section { margin-top: 22px; }
+.rv-section__title { font: 700 13.5px var(--font); color: var(--indigo); margin: 0 0 8px; }
+.rv-section__title .rv-muted { font-weight: 400; font-size: var(--fs-small); }
+.rv-gap { height: 12px; }
+.rv-choices { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rv-choices legend { margin-bottom: 6px; padding: 0; }
+.rv-choice { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border-card); border-radius: var(--r-control); cursor: pointer;
+  transition: background var(--t-control) var(--ease), border-color var(--t-control) var(--ease); }
+.rv-choice:hover { background: var(--lav); }
+.rv-choice:has(input:checked) { border-color: var(--purple); background: var(--lav); }
+.rv-choice input { margin-top: 3px; accent-color: var(--purple); }
+.rv-choice b { display: block; color: var(--indigo); font: 600 13px var(--font); }
+.rv-choice small { color: var(--muted); font-size: var(--fs-small); }
+.rv-pages input { accent-color: var(--purple); }
