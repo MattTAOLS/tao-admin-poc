@@ -1,0 +1,249 @@
+# F-PIL 2.0 settlement report (SetRep), template v1.
+#
+# Mapping from report sections to deal-object paths, as data. Sections are found by heading (regex, matched on
+# whitespace-collapsed upper-case text) with a page hint; the three F-PIL servicers print the same sections on
+# different pages (Moneda 16 pp, Xpedite 17 pp, Stride 13 pp), so the heading wins over the page number.
+# Column lists are per layout variant; a variant is chosen when every keyword in `when_header_has` appears in
+# the header lines between the heading and the first data row.
+#
+# A second template (MOVE Trust, not yet seen) is a new file with the same keys; mapper.py has no deal or
+# servicer names in it.
+
+template_id: fpil-2.0-settrep-v1
+program:
+  name: "F-PIL 2.0"
+  deal_name_format: "{program} - {borrower}"     # borrower = cover-page title before "Settlement Report"
+
+terminology:
+  balance_label: Finance Contract Balance
+  amount_label: Principal Balance
+  unit_label: Advance
+
+number_format:
+  thousands: ","
+  decimal: "."
+  zero: ["-"]                    # Excel accounting zero
+  skip_row_markers: ["#N/A"]     # placeholder rows in the loss report: stripped, never extracted
+  null_markers: ["n.a."]
+  percent: fraction              # "1.79%" is stored as 0.0179
+  negative: [leading_minus, parentheses, sign_hugging_previous_cell, trailing_minus_glued_to_previous_cell]
+  footnote_marker: drop_small_integer_after_label   # "Jan-26 ¹ 55,096,943 ..." on the borrower table
+
+dates:
+  settlement_date: "%B %d, %Y"       # "August 7, 2026" (kept as printed in deal.settlement_date)
+  month_row: "%b-%y"                 # "Jul-26"
+  advance_date: "%d-%b-%y"           # "26-Jul-23"
+  collection_period_out: "%B %Y"     # deal.collection_period = cover block month = settlement month
+  period_out: "%Y-%m"
+
+derived:
+  watch_buffer_pct: 0.1
+  trend_flat_band: 0.01          # |relative change| below this is "flat"
+  top_movers: {tranche: 10, contracts: 10}
+  written_off_bucket_label: "91+ Days / Other Defaults"
+  reconcile_tolerance: 1.00
+
+sections:
+  cover:
+    page_hint: 1
+    patterns:
+      borrower: '^(?P<v>.+?) SETTLEMENT REPORT$'
+      settlement_date: '^SETTLEMENT DATE (?P<v>[A-Z]+ \d{1,2}, \d{4})'
+      collection_start: 'COLLECTION PERIOD START DATE: (?P<v>[A-Z]+ \d{1,2}, \d{4})'
+  reporting_period:
+    # printed in the page header of the later pages: "Settlement Date August 7, 2026, for reporting period July 2026"
+    pattern: 'FOR REPORTING PERIOD (?P<v>[A-Z]+ \d{4})'
+
+  funded_contracts:
+    source_page_key: tranche_balance
+    page_hint: 2
+    heading: 'SUMMARY OF FUNDED FINANCE CONTRACTS \((NPV|NET BOOK VALUE)\)'
+    end: 'SUMMARY OF OUTSTANDING CONTRACTS'
+    variants:
+      - name: per_advance_with_npv_adjustment
+        when_header_has: ["ADJUSTMENT"]
+        advance_rows: {label: [advance_date, advance_no]}
+        columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, npv_adjustment, original_yield, effective_yield, closing]
+        total_row: {label: '^PORTFOLIO BALANCES$', columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, npv_adjustment, effective_yield, closing]}
+      - name: per_advance
+        when_header_has: ["ADVANCE #", "PRINCIPAL"]
+        advance_rows: {label: [advance_date, advance_no]}
+        columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, original_yield, effective_yield, closing]
+        total_row: {label: '^PORTFOLIO BALANCES$', columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, effective_yield, closing]}
+      - name: portfolio_only
+        when_header_has: ["NEW FUNDED"]
+        total_row: {label: '^$', columns: [opening, new_funded, principal, prepayments, ineligible_buyback, defaults, interest, penalties, recoveries, effective_yield, closing]}
+    map:
+      /tranche_balance/opening: total.opening
+      /tranche_balance/closing: total.closing
+      /tranche_balance/principal: total.principal
+      /tranche_balance/principal_prepayments: total.prepayments
+      /tranche_balance/losses: total.defaults
+      /tranche_balance/interest: total.interest
+      /tranche_balance/recoveries: total.recoveries
+
+  outstanding_contracts:
+    source_page_key: outstanding_contracts
+    page_hint: 2
+    heading: 'SUMMARY OF OUTSTANDING CONTRACTS'
+    variants:
+      - name: per_advance
+        when_header_has: ["ADVANCE #"]
+        advance_rows: {label: [advance_no]}
+        columns: [opening, change, closing]
+        total_row: {label: '^CONTRACT TOTALS$', columns: [opening, change, closing]}
+      - name: portfolio_only
+        when_header_has: ["TERMINATIONS"]
+        total_row: {label: '^$', columns: [opening, new_funded, terminations, closing]}
+    map:
+      /contracts/opening: total.opening
+      /contracts/closing: total.closing
+
+  principal_balances:
+    source_page_key: tranche_amounts
+    page_hint: 4
+    heading: 'SUMMARY OF OUTSTANDING (PRINCIPAL|LOAN) BALANCES'
+    lines:   # label regex -> field; the value is the first number after the label
+      max_term_limit: '^MAXIMUM TERM FACILITY LIMIT'
+      max_warehouse_limit: '^MAXIMUM WAREHOUSE FACILITY LIMIT'
+      term_limit: '^TERM FACILITY LIMIT'
+      closing_principal: '^CLOSING PRINCIPAL BALANCE( UNDER (THE )?TERM FACILITY)?$'
+      availability: '^(AVAILABILITY UNDER (THE )?TERM FACILITY|AVAILABLE FACILITY)$'
+    # per-advance principal table: the Total row's layout depends on whether an opening column is printed
+    total_row:
+      label: '^TOTAL$'
+      by_cell_count:
+        5: [original_npv, original_principal, opening_principal, distribution, closing_principal_total]
+        3: [original_nbv, original_principal, closing_principal_total]
+    map:
+      /tranche_amount/opening: opening_principal|cost_of_funds.opening_advances   # opening incl. advances made in the period
+      /program/program_limit: term_limit
+      /program/program_amount: closing_principal
+      /program/unused_facility: availability
+      /program/maximum_program_limit: max_term_limit|term_limit
+      /warehouse/maximum_warehouse_facility_limit: max_warehouse_limit
+      /tranche_amount/closing: closing_principal
+
+  cost_of_funds:
+    source_page_key: funding_costs
+    page_hint: 5
+    heading: 'SUMMARY OF CURRENT PERIOD COST OF FUNDS?'
+    lines:
+      opening_advances: '^OPENING ADVANCES( OUTSTANDING)?$'    # followed by a date, then the principal balance
+    value_after_date: true
+    map:
+      /tranche_amount/opening: opening_advances    # fallback when the principal table prints no opening column
+
+  warehouse:
+    page_hint: 3
+    heading: '^SUMMARY OF FUNDED FINANCE CONTRACTS \(NBV\)$'    # absent when the facility has no warehouse line
+    # Total row: opening advances outstanding is the 2nd cell, closing advance outstanding the last
+    total_row: {label: '^TOTAL$', opening_index: 1, closing_index: -1}
+    map:
+      /warehouse/opening_advances_outstanding: opening
+      /warehouse/closing_advances_outstanding: closing
+
+  enhancement:
+    source_page_key: enhancement
+    page_hint: 9
+    heading: 'SUMMARY OF (CASH )?ENHANCEMENT'
+    lines:
+      total_amount: '^TOTAL ENHANCEMENT \(\$\)$'
+      total_pct: '^TOTAL ENHANCEMENT \(%\)$'
+    unfunded_heading: 'ENHANCEMENT FROM UNFUNDED AMOUNT'
+    # when no total is printed: enhancement = actual unfunded amount (unfunded table total row, the column whose
+    # header says "Actual Unfunded Amount ($)" or, without it, the "Unfunded Amount" column); % = amount / closing principal
+    unfunded_columns:
+      with_actual: [closing_npv, unfunded_amount, required_principal, closing_principal, actual_unfunded_amount]
+      plain: [closing_npv, closing_principal]
+
+  aging:
+    source_page_key: aging_summary
+    also_source_page_keys: [cumulative_losses]
+    page_hint: 11
+    heading: 'AGING SUMMARY PER POOL'
+    variants:
+      - name: with_payment_deferral
+        when_header_has: ["DEFERRAL"]
+        columns: [current_0_30, days_31_60, days_61_90, days_91_plus, payment_deferral, cumulative_losses, closing]
+      - name: plain
+        when_header_has: []
+        columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, closing]
+
+  aggregate_performance:
+    source_page_key: aggregate_performance
+    also_source_page_keys: [financial_ratios]
+    page_hint: 12
+    heading: 'AGGREGATE PORTFOLIO PERFORMANCE'
+    month_rows: true
+    variants:
+      - name: with_monthly_delinquency
+        when_header_has: ["MONTHLY"]
+        columns: [portfolio_balance, delinquencies, gross_losses, actual_recoveries, estimated_recoveries, net_losses, delinquency_ratio, monthly_delinquency_ratio, rolling_3m_loss_ratio, rolling_12m_loss_ratio]
+      - name: plain
+        when_header_has: []
+        columns: [portfolio_balance, delinquencies, gross_losses, actual_recoveries, estimated_recoveries, net_losses, delinquency_ratio, rolling_3m_loss_ratio, rolling_12m_loss_ratio]
+
+  cumulative_losses:
+    page_hint: 12
+    heading: 'CUMULATIVE (NET )?LOSSES$'
+    period_row: '^(?P<period>[A-Z][a-z]{2}-\d{2} \S [A-Z][a-z]{2}-\d{2})(?: (?P<advances>\d+ ?\S ?\d+))? '
+    variants:
+      - name: npv
+        when_header_has: ["NPV"]
+        base_field: original_finance_contract_npv
+        with_advance_range: true
+      - name: nbv
+        when_header_has: ["NBV"]
+        base_field: original_finance_contract_nbv
+        with_advance_range: false
+    columns: [base, gross_losses, actual_recoveries, estimated_recoveries, cumulative_net_losses, cnl_ratio]
+
+  borrower_ratios:
+    page_hint: 13
+    heading: '^(BORROWER|BORROWER & GUARANTOR) DATA, AND FINANCIAL RATIOS'
+    month_rows: true
+    # Several month tables on the page, recognised by their header keywords. Column counts differ by borrower
+    # (Moneda prints 5 value columns, Xpedite 7), so cells are picked relative to the ratio column: the one cell
+    # printed as a plain two-decimal number ("7.57"). Offsets are relative to that cell.
+    tables:
+      - when_header_has: ["LEVERAGE"]
+        pick: {leverage_ratio: 0, total_equity: -1}
+      - when_header_has: ["INTEREST COVERAGE"]
+        pick: {interest_coverage_ratio: 0}
+
+  quantitative_tests:
+    source_page_key: quantitative_tests
+    page_hint: 14
+    heading: 'SUMMARY OF QUANTITATIVE TESTS AND TRIGGERS'
+    test_row: '^(?P<ref>(SLFA|ARFA|FA) [0-9.]+ ?\([a-z]\)( / [0-9.]+ ?\([a-z]\))?|(SLFA|ARFA|FA) [0-9.]+) (?P<desc>.+?)(?: (?P<answer>YES|NO)\**)?$'   # "YES*" / "YES**" point at footnotes
+    conditional_threshold: '^(?P<pct>[\d.]+%) ?IF THE AGGREGATE NET PRESENT VALUE .* (?P<op>≤|>) \$(?P<amount>[\d,]+)'
+    category: Event of Termination
+    binary_note: "Reported directly by the servicer/originator; no underlying data series available."
+    # which extracted series feeds each test, matched on the description; first match wins
+    metrics:
+      - {match: 'ROLLING THREE MONTH LOSS RATIO', series: rolling_3m_loss_ratio, kind: ceiling}
+      - {match: 'ROLLING TWELVE MONTH LOSS RATIO', series: rolling_12m_loss_ratio, kind: ceiling}
+      - {match: 'DELINQUENCY RATIO', series: delinquency_ratio, kind: ceiling}
+      - {match: 'CUMULATIVE NET LOSS RATIO|CNL RATIO', series: cnl_worst_vintage, kind: ceiling}
+      - {match: 'INTEREST COVERAGE RATIO', series: interest_coverage_ratio, kind: floor}
+      - {match: 'LEVERAGE RATIO', series: leverage_ratio, kind: ceiling}
+      - {match: 'TOTAL EQUITY', series: total_equity, kind: floor}
+
+financial_ratios:   # deal.financial_ratios, in this order, when the series exists on the report
+  - {key: delinquency_ratio, label: Delinquency Ratio, format: pct, group: Portfolio Performance, series: delinquency_ratio}
+  - {key: rolling_3month_loss_ratio, label: Rolling 3-Month Loss Ratio, format: pct, group: Portfolio Performance, series: rolling_3m_loss_ratio}
+  - {key: rolling_12month_loss_ratio, label: Rolling 12-Month Loss Ratio, format: pct, group: Portfolio Performance, series: rolling_12m_loss_ratio}
+  - {key: cnl_ratio, label: CNL Ratio (worst vintage), format: pct, group: Cumulative Net Losses, series: cnl_worst_vintage}
+  - {key: interest_coverage_ratio, label: Interest Coverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: interest_coverage_ratio}
+  - {key: debt_equity_ratio, label: Leverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: leverage_ratio}
+  - {key: total_equity, label: Total Equity, format: dollar, group: Borrower Data and Financial Ratios, series: total_equity}
+
+ratio_history_fields:   # deal.ratio_history[] key <- series
+  delinquency_ratio_pct: delinquency_ratio
+  monthly_delinquency_ratio_pct: monthly_delinquency_ratio
+  rolling_3month_loss_ratio_pct: rolling_3m_loss_ratio
+  rolling_12month_loss_ratio_pct: rolling_12m_loss_ratio
+  debt_equity_ratio: leverage_ratio
+  total_equity: total_equity
+  interest_coverage_ratio: interest_coverage_ratio
