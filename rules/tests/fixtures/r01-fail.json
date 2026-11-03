@@ -1,13 +1,16 @@
 {
  "rule_id": "R01",
+ "name": "r01",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/tranche_balance/closing",
-  "value": null,
-  "why": "closing balance not found on page 2"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/tranche_balance/closing",
+   "value": null,
+   "why": "closing balance not found on page 2"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

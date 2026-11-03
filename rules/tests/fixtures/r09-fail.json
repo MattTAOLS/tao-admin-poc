@@ -1,13 +1,16 @@
 {
  "rule_id": "R09",
+ "name": "r09",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/program/unused_facility",
-  "value": 34908028.48,
-  "why": "unused facility 34,980,028.48 transposed to 34,908,028.48"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/program/unused_facility",
+   "value": 34908028.48,
+   "why": "unused facility 34,980,028.48 transposed to 34,908,028.48"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

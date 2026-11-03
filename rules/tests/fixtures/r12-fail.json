@@ -1,13 +1,16 @@
 {
  "rule_id": "R12",
+ "name": "r12",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "context",
-  "path": "/published_periods/2026-08",
-  "value": "2026-08-12T16:40:00Z",
-  "why": "August 2026 already published for Moneda"
- },
+ "changes": [
+  {
+   "target": "context",
+   "path": "/published_periods/2026-08",
+   "value": "2026-08-12T16:40:00Z",
+   "why": "August 2026 already published for Moneda"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

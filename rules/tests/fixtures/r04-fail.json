@@ -1,13 +1,16 @@
 {
  "rule_id": "R04",
+ "name": "r04",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/settlement_date",
-  "value": "October 7, 2026",
-  "why": "settlement month misread"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/settlement_date",
+   "value": "October 7, 2026",
+   "why": "settlement month misread"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

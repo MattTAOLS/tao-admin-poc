@@ -1,13 +1,16 @@
 {
  "rule_id": "R03",
+ "name": "r03",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/financial_ratios/0/value",
-  "value": 1.79,
-  "why": "delinquency ratio 1.79% read as 1.79"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/financial_ratios/0/value",
+   "value": 1.79,
+   "why": "delinquency ratio 1.79% read as 1.79"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

@@ -142,18 +142,25 @@ def periods_line_up(rule, ex, ctx, tol):
 # ---------- R05 ----------
 def tranche_rollforward(rule, ex, ctx, tol):
     """opening − principal − prepayments − defaults − NPV adjustment = closing on the current period_history row
-    (page 2: k = b − c − d − e − i). The NPV adjustment column is `charge_off` where the template carries it
-    (Meridian OneCap closes to the cent in all four months only with it). The deal-level tranche_balance
-    opening/closing must be the same numbers as that row."""
+    (page 2: k = b − c − d − e − i), plus new funded (+) and ineligible buyback (−) where the layout prints them:
+    opening + new_funded − principal − prepayments − losses − charge_off − ineligible_buyback = closing. All terms
+    are positive amounts; absent or null counts as 0. `charge_off` is the NPV adjustment, column i (Meridian OneCap
+    closes to the cent in all four months only with it). The deal-level tranche_balance opening/closing must be
+    the same numbers as that row."""
     d = ex["deal"]; period = _current_row(d)
     if not period: return []
     out = []
-    co = period.get("charge_off") if _num(period.get("charge_off")) else 0.0
-    computed = period["opening_balance"] - period["principal"] - period["principal_prepayments"] - period["losses"] - co
+    opt = lambda k: period[k] if _num(period.get(k)) else 0.0
+    nf, co, ib = opt("new_funded"), opt("charge_off"), opt("ineligible_buyback")
+    computed = period["opening_balance"] + nf - period["principal"] - period["principal_prepayments"] - period["losses"] - co - ib
     if not near(computed, period["closing_balance"], tol["currency"]):
-        c = {"opening": period["opening_balance"], "principal": period["principal"], "prepayments": period["principal_prepayments"], "losses": period["losses"], "charge_off": co,
-             "computed": round(computed, 2), "closing": period["closing_balance"]}
-        kw = {"message": "Opening {opening} − principal {principal} − prepayments {prepayments} − defaults {losses} − NPV adjustment {charge_off} = {computed}, report says closing {closing} (difference {difference})"} if co else {}
+        c = {"opening": period["opening_balance"], "new_funded": nf, "principal": period["principal"], "prepayments": period["principal_prepayments"], "losses": period["losses"],
+             "charge_off": co, "ineligible_buyback": ib, "computed": round(computed, 2), "closing": period["closing_balance"]}
+        kw = {}
+        if nf or co or ib:
+            kw["message"] = ("Opening {opening}" + (" + new funded {new_funded}" if nf else "") + " − principal {principal} − prepayments {prepayments} − defaults {losses}"
+                             + (" − NPV adjustment {charge_off}" if co else "") + (" − ineligible buyback {ineligible_buyback}" if ib else "")
+                             + " = {computed}, report says closing {closing} (difference {difference})")
         out.append(finding(rule, _uid(ex), our_value=round(computed, 2), report_value=period["closing_balance"], difference=round(period["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency", context=c, **kw))
     tb = d.get("tranche_balance") or {}
     for side in ("opening", "closing"):
@@ -414,7 +421,7 @@ def _effective(defs, period):
     return {k: v[1] | {"_effective_from": v[0].isoformat() if v[0] else None} for k, v in best.items()}
 
 def thresholds_match_master(rule, ex, ctx, tol):
-    d = ex["deal"]; defs = _effective(ctx.master.get("covenant_definitions") or [], period_key(d.get("collection_period"))); out = []
+    d = ex["deal"]; defs = _effective(ctx.master.get("covenants") or ctx.master.get("covenant_definitions") or [], period_key(d.get("collection_period"))); out = []
     if not defs: return out
     for i, c in enumerate(d.get("covenants") or []):
         m = defs.get(_ref(c.get("legal_ref")))
@@ -538,7 +545,8 @@ def derive_status(value, threshold, kind, buffer):
 def covenant_status_matches(rule, ex, ctx, tol):
     """Per ceiling / floor covenant: derived status = covenants[].status. Then worst_status and covenant_summary must
     agree with the statuses listed (binary tests carry the report's own status; AVAILABLE is not a severity).
-    The page-14 YES / NO is not in the deal object yet; the status stands in for it."""
+    Where the report's own YES / NO is extracted (covenants[].reported_triggered), YES must mean BREACH and NO must
+    mean not BREACH: our derived status for ceiling / floor tests, the report's status for binary ones."""
     d = ex["deal"]; buf = d.get("watch_buffer_pct") if _num(d.get("watch_buffer_pct")) else 0.1; out = []
     for i, c in enumerate(d.get("covenants") or []):
         v, th, k = c.get("current_value"), c.get("threshold"), c.get("kind")
@@ -547,6 +555,15 @@ def covenant_status_matches(rule, ex, ctx, tol):
         if ours != c.get("status"):
             out.append(finding(rule, _uid(ex), our_value=ours, report_value=c.get("status"), unit="text", fields=[f"/covenants/{i}"],
                                context={"legal_ref": c.get("legal_ref"), "value": v, "threshold": th, "kind": k, "watch_buffer_pct": buf, "description": c.get("description")}))
+    for i, c in enumerate(d.get("covenants") or []):
+        rt = c.get("reported_triggered")
+        if rt not in ("YES", "NO") or c.get("status") == "AVAILABLE": continue
+        v, th, k = c.get("current_value"), c.get("threshold"), c.get("kind")
+        derived = derive_status(v, th, k, buf) if k in ("ceiling", "floor") and _num(v) and _num(th) else c.get("status")
+        if derived is None or (rt == "YES") == (derived == "BREACH"): continue
+        out.append(finding(rule, _uid(ex), our_value="YES" if derived == "BREACH" else "NO", report_value=rt, unit="text", fields=[f"/covenants/{i}/reported_triggered", f"/covenants/{i}"],
+                           context={"legal_ref": c.get("legal_ref"), "value": v, "threshold": th, "kind": k, "status": derived, "watch_buffer_pct": buf, "description": c.get("description")},
+                           message="{legal_ref}: report answers {report_value} on its triggered test, but value {value} vs threshold {threshold} ({kind}) is {status}, so the answer should be {our_value}"))
     statuses = [c.get("status") for c in d.get("covenants") or []]
     sev = [s for s in statuses if s in ORDER]
     worst = max(sev, key=ORDER.get) if sev else None

@@ -1,13 +1,16 @@
 {
  "rule_id": "R17",
+ "name": "r17",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/covenants/2/current_value",
-  "value": 0.0197,
-  "why": "delinquency ratio 1.79% transposed to 1.97%"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/covenants/2/current_value",
+   "value": 0.0197,
+   "why": "delinquency ratio 1.79% transposed to 1.97%"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

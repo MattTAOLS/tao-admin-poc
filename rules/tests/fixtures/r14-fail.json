@@ -1,13 +1,16 @@
 {
  "rule_id": "R14",
+ "name": "r14",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/covenants/0/threshold",
-  "value": 0.06,
-  "why": "9.1(c) threshold read from the below-$10M band; balance is $15.0M"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/covenants/0/threshold",
+   "value": 0.06,
+   "why": "9.1(c) threshold read from the below-$10M band; balance is $15.0M"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
@@ -36,7 +39,7 @@
     "servicer": "Moneda Capital Corp.",
     "template_id": "fpil-2.0-settrep-v1"
    },
-   "covenant_definitions": [
+   "covenants": [
     {
      "deal_slug": "f-pil-2-0-moneda-capital-corp",
      "legal_ref": "SLFA 9.1 (c)",

@@ -1,13 +1,16 @@
 {
  "rule_id": "R10",
+ "name": "r10",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-stride-capital.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/total_enhancement/total_enhancement_pct",
-  "value": 0.1728,
-  "why": "enhancement 12.78% transposed to 17.28%"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/total_enhancement/total_enhancement_pct",
+   "value": 0.1728,
+   "why": "enhancement 12.78% transposed to 17.28%"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

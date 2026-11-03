@@ -1,13 +1,16 @@
 {
  "rule_id": "R19",
+ "name": "r19",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/prior_covenants/2/status",
-  "value": "WATCH",
-  "why": "delinquency was WATCH last period; OK now"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/prior_covenants/2/status",
+   "value": "WATCH",
+   "why": "delinquency was WATCH last period; OK now"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

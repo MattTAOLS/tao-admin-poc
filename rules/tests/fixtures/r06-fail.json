@@ -1,13 +1,16 @@
 {
  "rule_id": "R06",
+ "name": "r06",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-xpedite-leasing.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/contracts/closing",
-  "value": 656.0,
-  "why": "closing contracts 655 read as 656"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/contracts/closing",
+   "value": 656.0,
+   "why": "closing contracts 655 read as 656"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

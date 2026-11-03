@@ -3,8 +3,11 @@
     python rules/tests/fixtures/make_fixtures.py
 
 Each rule gets <rule>-pass.json and <rule>-fail.json here: a real deal object, plus at most one deliberate change
-(recorded under "change", applied to the deal or to the context), the meta and the Context the rule runs with.
-The failing case's expected finding is frozen to findings/<rule>-fail.json (validated by scripts/check_contracts.py).
+(recorded under "changes", applied to the deal or to the context), the meta and the Context the rule runs with.
+EXTRA adds named fixtures for specific terms (r05-new-funded, r05-ineligible-buyback, r18-reported-triggered).
+Their failing case is one change; a passing case may need two changes on the same row to stay consistent
+(a new-funded amount offset by principal), and records both.
+The failing case's expected findings are frozen to findings/<name>-fail.json (validated by scripts/check_contracts.py).
 Never edit the JSON by hand; change SPECS and rerun. test_rules.py checks each fixture against its source deal."""
 import copy, json, pathlib, sys, uuid
 HERE = pathlib.Path(__file__).resolve().parent
@@ -23,7 +26,7 @@ def master_for(slug):
     """Master record as worker/validate builds it, from the seed files."""
     deal = next(d for d in seed("deals.json") if d["slug"] == slug)
     prog = next(p for p in seed("programs.json") if p["slug"] == deal["program_slug"])
-    return {"program": prog, "deal": deal, "covenant_definitions": [c for c in seed("covenant_definitions.json") if c["deal_slug"] == slug]}
+    return {"program": prog, "deal": deal, "covenants": [c for c in seed("covenant_definitions.json") if c["deal_slug"] == slug]}
 
 def prior_from_history(d):
     """The prior period's published values, taken from the rows this deal object already carries for that month
@@ -64,6 +67,28 @@ SPECS = {
     "R19": (MONEDA, lambda d: {}, {}, {"target": "deal", "path": "/prior_covenants/2/status", "value": "WATCH", "why": "delinquency was WATCH last period; OK now"}),
 }
 
+# name -> (rule, source deal, context builder, meta overrides, pass changes, fail changes)
+CUR = "/period_history/3"   # Moneda's current period (August 2026) row
+EXTRA = {
+    "r05-new-funded": ("R05", MONEDA, lambda d: {}, {},
+        [{"target": "deal", "path": f"{CUR}/new_funded", "value": 1000.0, "why": "a 1,000.00 advance funded in the period"},
+         {"target": "deal", "path": f"{CUR}/principal", "value": 647926.71, "why": "offset: principal 1,000.00 higher, closing unchanged"}],
+        [{"target": "deal", "path": f"{CUR}/new_funded", "value": 1000.0, "why": "new funded printed but not carried into the closing balance"}]),
+    "r05-ineligible-buyback": ("R05", MONEDA, lambda d: {}, {},
+        [{"target": "deal", "path": f"{CUR}/ineligible_buyback", "value": 1000.0, "why": "1,000.00 of the principal line was an ineligible buyback"},
+         {"target": "deal", "path": f"{CUR}/principal", "value": 645926.71, "why": "offset: principal 1,000.00 lower, closing unchanged"}],
+        [{"target": "deal", "path": f"{CUR}/ineligible_buyback", "value": 1000.0, "why": "buyback printed but the closing balance does not reflect it"}]),
+    "r18-reported-triggered": ("R18", MONEDA, lambda d: {}, {},
+        [{"target": "deal", "path": "/covenants/5/reported_triggered", "value": "NO", "why": "ICR 1.27 vs floor 1.10: report answers NO"}],
+        [{"target": "deal", "path": "/covenants/5/reported_triggered", "value": "YES", "why": "report answers YES on SLFA 9.1 (h) while the value is OK (as Moneda May 2026 prints)"}]),
+}
+NAMES = [r.lower() for r in SPECS] + list(EXTRA)
+
+def spec(name):
+    if name in EXTRA: return EXTRA[name]
+    src, ctx_fn, meta_over, change = SPECS[name.upper()]
+    return name.upper(), src, ctx_fn, meta_over, [], [change]
+
 def set_ptr(obj, ptr, value):
     parts = ptr.strip("/").split("/"); cur = obj
     for p in parts[:-1]: cur = cur[int(p)] if isinstance(cur, list) else cur.setdefault(p, {})
@@ -71,13 +96,14 @@ def set_ptr(obj, ptr, value):
     if isinstance(cur, list): cur[int(last)] = value
     else: cur[last] = value
 
-def build(rule_id, case):
-    src, ctx_fn, meta_over, change = SPECS[rule_id]
+def build(name, case):
+    rule_id, src, ctx_fn, meta_over, pass_changes, fail_changes = spec(name)
     deal = load_deal(src); meta = {**META, **meta_over}; context = ctx_fn(deal)
-    if case == "fail":
+    changes = fail_changes if case == "fail" else pass_changes
+    for change in changes:
         target = {"deal": deal, "context": context, "meta": meta}[change["target"]]
         set_ptr(target, change["path"], copy.deepcopy(change["value"]))
-    return {"rule_id": rule_id, "case": case, "source": f"docs/dashboard-json/{src}", "change": change if case == "fail" else None,
+    return {"rule_id": rule_id, "name": name, "case": case, "source": f"docs/dashboard-json/{src}", "changes": changes,
             "meta": meta, "context": context, "deal": deal}
 
 def context_of(fx):
@@ -88,24 +114,25 @@ def context_of(fx):
 def evaluate(fx):
     return run({"meta": fx["meta"], "deal": fx["deal"], "sources": {}}, context_of(fx), only={fx["rule_id"]})
 
-def frozen(f, i=0):
-    f = dict(f); f["id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, f"tao-admin-poc/fixture/{f['rule_id']}/{i}")); f["created_at"] = "2026-10-28T00:00:00Z"
+def frozen(f, name, i=0):
+    seed_ = f"{f['rule_id']}/{i}" if name == f["rule_id"].lower() else f"{name}/{i}"
+    f = dict(f); f["id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, f"tao-admin-poc/fixture/{seed_}")); f["created_at"] = "2026-10-28T00:00:00Z"
     return f
 
 def main():
-    for rule_id in SPECS:
+    for name in NAMES:
         for case in ("pass", "fail"):
-            fx = build(rule_id, case)
-            (HERE / f"{rule_id.lower()}-{case}.json").write_text(json.dumps(fx, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+            fx = build(name, case); rule_id = fx["rule_id"]
+            (HERE / f"{name}-{case}.json").write_text(json.dumps(fx, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
             fs = evaluate(fx)
             if case == "pass": assert not fs, f"{rule_id} pass fixture fired: {[f['message'] for f in fs]}"
             else:
                 assert fs, f"{rule_id} fail fixture did not fire"
                 for i, f in enumerate(fs):   # one change can break more than one identity (R06: the closing count and the movers bound)
-                    (HERE / "findings" / expected_name(rule_id, i)).write_text(json.dumps(frozen(f, i), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
-                    print(rule_id, "->", f["message"])
+                    (HERE / "findings" / expected_name(name, i)).write_text(json.dumps(frozen(f, name, i), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+                    print(name, "->", f["message"])
 
-def expected_name(rule_id, i): return f"{rule_id.lower()}-fail.json" if i == 0 else f"{rule_id.lower()}-fail-{i + 1}.json"
+def expected_name(name, i): return f"{name.lower()}-fail.json" if i == 0 else f"{name.lower()}-fail-{i + 1}.json"
 
 if __name__ == "__main__":
     main()

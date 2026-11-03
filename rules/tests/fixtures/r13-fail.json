@@ -1,13 +1,16 @@
 {
  "rule_id": "R13",
+ "name": "r13",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "context",
-  "path": "/upload/deal_slug",
-  "value": "f-pil-2-0-stride-capital",
-  "why": "analyst selected Stride, uploaded the Moneda file"
- },
+ "changes": [
+  {
+   "target": "context",
+   "path": "/upload/deal_slug",
+   "value": "f-pil-2-0-stride-capital",
+   "why": "analyst selected Stride, uploaded the Moneda file"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

@@ -1,8 +1,9 @@
 {
  "rule_id": "R06",
+ "name": "r06",
  "case": "pass",
  "source": "docs/dashboard-json/f-pil-2-0-xpedite-leasing.dashboard.json",
- "change": null,
+ "changes": [],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

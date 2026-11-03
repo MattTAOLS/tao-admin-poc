@@ -1,13 +1,16 @@
 {
  "rule_id": "R05",
+ "name": "r05",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/period_history/3/principal",
-  "value": 647926.71,
-  "why": "scheduled principal 646,926.71 read as 647,926.71"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/period_history/3/principal",
+   "value": 647926.71,
+   "why": "scheduled principal 646,926.71 read as 647,926.71"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

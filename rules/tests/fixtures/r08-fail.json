@@ -1,13 +1,16 @@
 {
  "rule_id": "R08",
+ "name": "r08",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/cnl_by_period/0/actual_recoveries",
-  "value": 2252563.34,
-  "why": "actual recoveries 2,252,653.34 transposed to 2,252,563.34"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/cnl_by_period/0/actual_recoveries",
+   "value": 2252563.34,
+   "why": "actual recoveries 2,252,653.34 transposed to 2,252,563.34"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

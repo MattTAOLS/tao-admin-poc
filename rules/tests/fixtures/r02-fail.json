@@ -1,13 +1,16 @@
 {
  "rule_id": "R02",
+ "name": "r02",
  "case": "fail",
  "source": "docs/dashboard-json/move-trust-finloc-2000-inc.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/currency",
-  "value": "USD",
-  "why": "report currency read as USD; facility is CAD"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/currency",
+   "value": "USD",
+   "why": "report currency read as USD; facility is CAD"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
@@ -36,7 +39,7 @@
     "servicer": "Finloc 2000 Inc.",
     "template_id": "move-trust-settrep-v1"
    },
-   "covenant_definitions": []
+   "covenants": []
   }
  },
  "deal": {

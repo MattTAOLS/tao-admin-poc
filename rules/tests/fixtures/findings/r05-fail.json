@@ -21,10 +21,12 @@
   "source_page": 2,
   "context": {
     "opening": 15792784.34,
+    "new_funded": 0.0,
     "principal": 647926.71,
     "prepayments": 113057.43,
     "losses": 12828.68,
     "charge_off": 0.0,
+    "ineligible_buyback": 0.0,
     "computed": 15018971.52,
     "closing": 15019971.52
   },

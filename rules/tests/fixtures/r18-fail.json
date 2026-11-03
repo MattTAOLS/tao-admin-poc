@@ -1,13 +1,16 @@
 {
  "rule_id": "R18",
+ "name": "r18",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/covenants/3/status",
-  "value": "OK",
-  "why": "CNL 3.30% vs 3.50% is inside the 10% watch buffer"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/covenants/3/status",
+   "value": "OK",
+   "why": "CNL 3.30% vs 3.50% is inside the 10% watch buffer"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,

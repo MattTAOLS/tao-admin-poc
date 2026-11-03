@@ -1,13 +1,16 @@
 {
  "rule_id": "R15",
+ "name": "r15",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/warehouse/maximum_warehouse_facility_limit",
-  "value": 500000.0,
-  "why": "warehouse limit 5,000,000 read as 500,000"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/warehouse/maximum_warehouse_facility_limit",
+   "value": 500000.0,
+   "why": "warehouse limit 5,000,000 read as 500,000"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
@@ -36,7 +39,7 @@
     "servicer": "Moneda Capital Corp.",
     "template_id": "fpil-2.0-settrep-v1"
    },
-   "covenant_definitions": [
+   "covenants": [
     {
      "deal_slug": "f-pil-2-0-moneda-capital-corp",
      "legal_ref": "SLFA 9.1 (c)",

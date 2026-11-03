@@ -47,18 +47,32 @@ def test_pass_fixture_is_the_real_deal_and_passes(rule_id):
 @pytest.mark.parametrize("rule_id", IMPLEMENTED)
 def test_fail_fixture_has_one_change_and_fires(rule_id):
     fx = load(FIX / f"{rule_id.lower()}-fail.json")
+    assert len(fx["changes"]) == 1
     diffs = leaf_diffs(load(ROOT / fx["source"]), fx["deal"])
-    if fx["change"]["target"] == "deal": assert diffs == [fx["change"]["path"]], diffs
+    if fx["changes"][0]["target"] == "deal": assert diffs == [fx["changes"][0]["path"]], diffs
     else: assert diffs == [], "context-only change must leave the deal untouched"
     got = mf.evaluate(fx); want = expected_findings(rule_id)
     assert [strip(f) for f in got] == [strip(f) for f in want]
     assert all(f["rule_id"] == rule_id for f in got)
 
+@pytest.mark.parametrize("name", list(mf.EXTRA))
+def test_extra_fixtures(name):
+    """Term-specific fixtures: the deal differs from the real one exactly at the recorded paths; pass is clean,
+    fail produces the frozen findings (one change)."""
+    for case in ("pass", "fail"):
+        fx = load(FIX / f"{name}-{case}.json")
+        assert sorted(leaf_diffs(load(ROOT / fx["source"]), fx["deal"])) == sorted(c["path"] for c in fx["changes"] if c["target"] == "deal")
+        got = mf.evaluate(fx)
+        if case == "pass": assert got == [], [f["message"] for f in got]
+        else:
+            assert len(fx["changes"]) == 1
+            assert [strip(f) for f in got] == [strip(f) for f in expected_findings(name)] and got
+
 def test_fixtures_are_reproducible():
     """The committed fixtures are exactly what make_fixtures.py builds now (no hand edits)."""
-    for rule_id in mf.SPECS:
+    for name in mf.NAMES:
         for case in ("pass", "fail"):
-            assert load(FIX / f"{rule_id.lower()}-{case}.json") == json.loads(json.dumps(mf.build(rule_id, case))), f"{rule_id}-{case}: rerun make_fixtures.py"
+            assert load(FIX / f"{name}-{case}.json") == json.loads(json.dumps(mf.build(name, case))), f"{name}-{case}: rerun make_fixtures.py"
 
 def test_expected_findings_validate_against_schema():
     for p in sorted(glob.glob(str(FIX / "findings/*.json"))): jsonschema.validate(load(p), FINDING_SCHEMA)
@@ -111,7 +125,7 @@ def test_threshold_rule_resolves_against_pointer():
 
 def test_r14_ignores_definitions_not_yet_effective():
     d = mf.load_deal(mf.MONEDA); m = mf.master_for(d["deal_slug"])
-    m["covenant_definitions"].append({**m["covenant_definitions"][2], "threshold": 0.03, "effective_from": "2026-09-01"})
+    m["covenants"].append({**m["covenants"][2], "threshold": 0.03, "effective_from": "2026-09-01"})
     assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"}) == []
 
 def test_r11_new_tranche_explains_opening_gap():
@@ -137,7 +151,7 @@ def test_r05_subtracts_the_npv_adjustment():
     fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R05"})
     assert len(fs) == 1 and abs(fs[0]["difference"] - (-598714.81)) < 0.01
 
-def test_r09_runs_without_fn_in_rules_yaml():
+def test_r09_resolves_from_the_contract():
     d = mf.load_deal(mf.MONEDA); d["program"]["program_utilization_pct"] = 0.33
     fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R09"})
     assert [f["unit"] for f in fs] == ["percent_points"]

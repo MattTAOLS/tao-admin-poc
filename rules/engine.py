@@ -8,10 +8,13 @@ class Context:
     """What a rule may look at besides the extraction.
 
     prior              the deal's last PUBLISHED deal object (extraction.deal shape) for an earlier period, or None.
-    master             {"program": {slug, currency, limit, warehouse_limit}, "deal": {slug, name, program_slug, ...},
-                        "covenant_definitions": [rows as in seed/covenant_definitions.json]}.
+    master             {"program": {slug, name, partner_slug, currency, limit, warehouse_limit},
+                        "deal": {slug, name, program_slug, servicer, template_id},
+                        "covenants": [covenant definitions in force at the period end, as the API's covenant_dict]}.
+                        ("covenant_definitions" is accepted as an older name for "covenants".)
     published_periods  periods ("YYYY-MM") already published for this deal: a set, or a dict period -> published_at.
-    upload             what the analyst selected before uploading: {deal_slug, deal_name, collection_period, ...}.
+    upload             the upload the analyst created (API upload_dict shape: id, deal_slug, program_slug,
+                        collection_period, reporting_period, ...).
     """
     def __init__(self, prior: dict | None = None, master: dict | None = None, published_periods: set | dict | None = None, upload: dict | None = None):
         self.prior, self.master, self.published_periods, self.upload = prior, master or {}, published_periods or set(), upload or {}
@@ -29,10 +32,6 @@ def finding(rule: dict, extraction_id: str, **kw) -> dict:
     except (KeyError, IndexError, ValueError): pass
     return f
 
-# Rules whose rules.yaml entry carries only an `expr` (no `fn`). The engine does not evaluate expressions; each one is
-# implemented as a named function. Remove an entry once the Lead adds the `fn:` to rules.yaml (see docs/requests.md).
-FN_FALLBACK = {"R09": "utilization_recomputes"}
-
 def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = None, only: set | None = None) -> list[dict]:
     """Evaluate every enabled rule in the given phases (or just the rule ids in `only`).
     A rule function returns a list of findings (possibly empty)."""
@@ -43,7 +42,7 @@ def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = No
         if only is not None:
             if rule["id"] not in only: continue
         elif rule.get("phase", 1) not in phases: continue
-        fn = getattr(checks, rule.get("fn") or FN_FALLBACK.get(rule["id"], ""), None)
+        fn = getattr(checks, rule.get("fn") or "", None)
         if fn is None: continue   # not implemented: skipped so the pipeline runs (R16, R20-R22 in the POC)
         out.extend(fn(rule, extraction, ctx, tol))
     return out

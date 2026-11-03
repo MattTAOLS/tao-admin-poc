@@ -1,13 +1,16 @@
 {
  "rule_id": "R11",
+ "name": "r11",
  "case": "fail",
  "source": "docs/dashboard-json/f-pil-2-0-moneda-capital-corp.dashboard.json",
- "change": {
-  "target": "deal",
-  "path": "/tranche_balance/opening",
-  "value": 15793784.34,
-  "why": "opening balance 15,792,784.34 read as 15,793,784.34"
- },
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/tranche_balance/opening",
+   "value": 15793784.34,
+   "why": "opening balance 15,792,784.34 read as 15,793,784.34"
+  }
+ ],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
