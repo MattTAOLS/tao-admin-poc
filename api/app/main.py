@@ -27,6 +27,15 @@ STATUSES = ("received", "extracting", "needs_review", "approved", "rejected", "p
 PAGE_DPI = 110
 
 
+def tao_caller(c: Caller = Depends(caller)) -> Caller:
+    """Resolves the role gate as a dependency so a forbidden caller gets 403 before the body is validated."""
+    return tao_only(c)
+
+
+def admin_caller(c: Caller = Depends(caller)) -> Caller:
+    return admin_only(c)
+
+
 def err(status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status, {"code": code, "message": message})
 
@@ -72,7 +81,7 @@ def _upload_dir(upload_id: str):
 # ---- uploads (TAO) ----
 @app.post(API + "/uploads", status_code=201)
 async def create_upload(deal_slug: str = Form(...), collection_period: str = Form(...), file: UploadFile = File(...),
-                        c: Caller = Depends(caller), s: Session = Depends(get_db), q=Depends(get_queue)):
+                        c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
     tao_only(c)
     _check_period(collection_period, "collection_period")
     if s.get(Deal, deal_slug) is None:
@@ -110,7 +119,7 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
 
 
 @app.get(API + "/uploads")
-def list_uploads(status: str | None = None, deal_slug: str | None = None, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def list_uploads(status: str | None = None, deal_slug: str | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     if status is not None and status not in STATUSES:
         raise err(422, "invalid", f"status must be one of {', '.join(STATUSES)}")
@@ -121,13 +130,13 @@ def list_uploads(status: str | None = None, deal_slug: str | None = None, c: Cal
 
 
 @app.get(API + "/uploads/{upload_id}")
-def get_upload(upload_id: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def get_upload(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     return views.upload_dict(s, get_upload_or_404(s, upload_id))
 
 
 @app.get(API + "/uploads/{upload_id}/extraction")
-def get_extraction(upload_id: str, pass_: int | None = Query(default=None, alias="pass", ge=1, le=2), c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def get_extraction(upload_id: str, pass_: int | None = Query(default=None, alias="pass", ge=1, le=2), c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     ex = views.latest_extraction(s, u.id, pass_)
@@ -137,7 +146,7 @@ def get_extraction(upload_id: str, pass_: int | None = Query(default=None, alias
 
 
 @app.get(API + "/uploads/{upload_id}/findings")
-def get_findings(upload_id: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def get_findings(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     ex = views.latest_extraction(s, u.id)
@@ -160,7 +169,7 @@ class RejectRequest(BaseModel):
 
 
 @app.post(API + "/uploads/{upload_id}/findings/{finding_id}/override")
-def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     u = get_upload_or_404(s, upload_id)
     ex = views.latest_extraction(s, u.id)
@@ -181,7 +190,7 @@ def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller =
 
 
 @app.post(API + "/uploads/{upload_id}/reextract", status_code=202)
-def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(caller), s: Session = Depends(get_db), q=Depends(get_queue)):
+def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     if u.status not in ("needs_review", "extraction_failed"):
@@ -197,7 +206,7 @@ def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(caller
 
 
 @app.post(API + "/uploads/{upload_id}/approve")
-def approve(upload_id: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     u = get_upload_or_404(s, upload_id)
     if u.status != "needs_review":
@@ -228,7 +237,7 @@ def approve(upload_id: str, c: Caller = Depends(caller), s: Session = Depends(ge
 
 
 @app.post(API + "/uploads/{upload_id}/reject")
-def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     u = get_upload_or_404(s, upload_id)
     if u.status not in ("received", "extracting", "needs_review", "extraction_failed"):
@@ -240,7 +249,7 @@ def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(caller), s: 
 
 
 @app.get(API + "/uploads/{upload_id}/pages/{n}.png")
-def page_image(upload_id: str, n: int, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def page_image(upload_id: str, n: int, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     if n < 1 or (u.page_count and n > u.page_count):
@@ -261,7 +270,7 @@ def page_image(upload_id: str, n: int, c: Caller = Depends(caller), s: Session =
 
 
 @app.get(API + "/uploads/{upload_id}/file")
-def get_file(upload_id: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def get_file(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     src = _upload_dir(u.id) / "source.pdf"
@@ -317,13 +326,13 @@ def _master_change(s, c, entity, key, before, after):
 
 
 @app.get(API + "/master/programs")
-def programs(c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def programs(c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     return [views.program_dict(p) for p in s.scalars(select(Program).order_by(Program.slug)).all()]
 
 
 @app.put(API + "/master/programs")
-def put_program(body: ProgramIn, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def put_program(body: ProgramIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     if s.get(Partner, body.partner_slug) is None:
         raise err(422, "unknown_partner", f"no partner {body.partner_slug}")
@@ -340,7 +349,7 @@ def put_program(body: ProgramIn, c: Caller = Depends(caller), s: Session = Depen
 
 
 @app.get(API + "/master/deals")
-def deals(program_slug: str | None = None, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def deals(program_slug: str | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     q = select(Deal)
     if program_slug: q = q.where(Deal.program_slug == program_slug)
@@ -348,7 +357,7 @@ def deals(program_slug: str | None = None, c: Caller = Depends(caller), s: Sessi
 
 
 @app.put(API + "/master/deals")
-def put_deal(body: DealIn, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def put_deal(body: DealIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     if s.get(Program, body.program_slug) is None:
         raise err(422, "unknown_program", f"no program {body.program_slug}")
@@ -365,13 +374,13 @@ def put_deal(body: DealIn, c: Caller = Depends(caller), s: Session = Depends(get
 
 
 @app.get(API + "/master/covenants")
-def covenants(deal_slug: str | None = None, as_of: dt.date | None = None, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def covenants(deal_slug: str | None = None, as_of: dt.date | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     return [views.covenant_dict(r) for r in views.covenants_as_of(s, deal_slug, as_of)]
 
 
 @app.put(API + "/master/covenants")
-def put_covenant(body: CovenantIn, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def put_covenant(body: CovenantIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     if s.get(Deal, body.deal_slug) is None:
         raise err(422, "unknown_deal", f"no deal {body.deal_slug}")
@@ -476,7 +485,7 @@ class RegenerateRequest(BaseModel):
 
 
 @app.post(API + "/published/regenerate", status_code=202)
-def regenerate(body: RegenerateRequest | None = None, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def regenerate(body: RegenerateRequest | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     """Roll-ups are computed from publication rows on every read, so they are never stale; this bumps
     rollup_version on the affected publications and records the reprocess in the audit log."""
     admin_only(c)
@@ -494,7 +503,7 @@ def regenerate(body: RegenerateRequest | None = None, c: Caller = Depends(caller
 
 
 @app.get(API + "/audit")
-def audit(upload_id: str | None = None, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def audit(upload_id: str | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
     q = select(ReviewAction)
     if upload_id:
