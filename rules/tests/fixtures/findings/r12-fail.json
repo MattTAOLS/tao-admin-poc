@@ -1,0 +1,26 @@
+{
+  "id": "b6e287d1-a52b-52ce-a865-9f5debe024f5",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R12",
+  "layer": "cross_period",
+  "severity": "block",
+  "message": "f-pil-2-0-moneda-capital-corp already has a published report for 2026-08 (published 2026-08-12T16:40:00Z)",
+  "fields": [
+    "/deal_slug",
+    "/collection_period"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": null,
+  "report_value": "2026-08",
+  "difference": null,
+  "tolerance": null,
+  "unit": "months",
+  "source_page": null,
+  "context": {
+    "deal": "f-pil-2-0-moneda-capital-corp",
+    "period": "2026-08",
+    "published_at": "2026-08-12T16:40:00Z"
+  },
+  "resolution": null
+}

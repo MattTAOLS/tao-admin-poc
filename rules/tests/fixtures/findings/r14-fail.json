@@ -1,0 +1,41 @@
+{
+  "id": "fecb6400-bc89-5b75-ba53-fb4bbbde5e21",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R14",
+  "layer": "cross_source",
+  "severity": "review",
+  "message": "SLFA 9.1 (c): report threshold 0.06, master record says 0.04 (effective 2022-12-09)",
+  "fields": [
+    "/covenants/0/threshold",
+    "master:/covenant_definitions"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 0.04,
+  "report_value": 0.06,
+  "difference": 0.02,
+  "tolerance": 0,
+  "unit": "percent_points",
+  "source_page": 14,
+  "context": {
+    "legal_ref": "SLFA 9.1 (c)",
+    "effective_from": "2022-12-09",
+    "description": "Has the Rolling Three Month Loss Ratio at any time exceeded:",
+    "master_description": "Rolling Three Month Loss Ratio",
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.06
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.04
+        }
+      ]
+    },
+    "master_source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
+  },
+  "resolution": null
+}

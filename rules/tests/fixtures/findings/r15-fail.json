@@ -1,0 +1,24 @@
+{
+  "id": "b60e6727-f20e-5344-a848-fd918842f04a",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R15",
+  "layer": "cross_source",
+  "severity": "review",
+  "message": "Warehouse facility limit: report 500000.0, master record 5000000.0",
+  "fields": [
+    "/warehouse/maximum_warehouse_facility_limit",
+    "master:/program/warehouse_limit"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 5000000.0,
+  "report_value": 500000.0,
+  "difference": -4500000.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 4,
+  "context": {
+    "limit_name": "Warehouse facility limit"
+  },
+  "resolution": null
+}

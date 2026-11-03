@@ -1,0 +1,28 @@
+{
+  "id": "b9901fdc-e242-59ec-a4e1-f2332c2cdd0c",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R06",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Opening contracts 665.0 − change 10.0 = 655.0, report says 656.0",
+  "fields": [
+    "/contracts/opening",
+    "/contracts/closing",
+    "/contracts/top_movers"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 655.0,
+  "report_value": 656.0,
+  "difference": 1.0,
+  "tolerance": 0,
+  "unit": "count",
+  "source_page": 2,
+  "context": {
+    "opening": 665.0,
+    "change": 10.0,
+    "computed": 655.0,
+    "closing": 656.0
+  },
+  "resolution": null
+}

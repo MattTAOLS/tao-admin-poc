@@ -1,0 +1,646 @@
+{
+ "rule_id": "R10",
+ "case": "fail",
+ "source": "docs/dashboard-json/f-pil-2-0-stride-capital.dashboard.json",
+ "change": {
+  "target": "deal",
+  "path": "/total_enhancement/total_enhancement_pct",
+  "value": 0.1728,
+  "why": "enhancement 12.78% transposed to 17.28%"
+ },
+ "meta": {
+  "upload_id": "00000000-0000-4000-8000-000000000000",
+  "pass": 1,
+  "template_id": "fpil-2.0-settrep-v1",
+  "page_count": 16,
+  "extracted_at": "2026-10-28T00:00:00Z",
+  "engine": {
+   "text_layer": "pdfplumber",
+   "model": "claude"
+  }
+ },
+ "context": {},
+ "deal": {
+  "deal_slug": "f-pil-2-0-stride-capital",
+  "deal_name": "F-PIL 2.0 - Stride Capital",
+  "terminology": {
+   "balance_label": "Finance Contract Balance",
+   "amount_label": "Principal Balance",
+   "unit_label": "Advance"
+  },
+  "source_pages": {
+   "tranche_balance": 2,
+   "tranche_amounts": 3,
+   "outstanding_contracts": 2,
+   "funding_costs": null,
+   "enhancement": 6,
+   "top10_obligor": null,
+   "aging_summary": 8,
+   "aggregate_performance": 9,
+   "cumulative_losses": 8,
+   "quantitative_tests": 11,
+   "financial_ratios": 9
+  },
+  "source_file": "Stride_Capital_-_202608_-_SETTREP.pdf",
+  "settlement_date": "August 5, 2026",
+  "collection_period": "August 2026",
+  "ratio_history": [
+   {
+    "month": "Jul-25",
+    "delinquency_ratio_pct": 0.0292,
+    "monthly_delinquency_ratio_pct": 0.0371,
+    "rolling_3month_loss_ratio_pct": 0.011899999999999999,
+    "rolling_12month_loss_ratio_pct": 0.0073
+   },
+   {
+    "month": "Aug-25",
+    "delinquency_ratio_pct": 0.0338,
+    "monthly_delinquency_ratio_pct": 0.0355,
+    "rolling_3month_loss_ratio_pct": 0.019299999999999998,
+    "rolling_12month_loss_ratio_pct": 0.008100000000000001
+   },
+   {
+    "month": "Sep-25",
+    "delinquency_ratio_pct": 0.028300000000000002,
+    "monthly_delinquency_ratio_pct": 0.0125,
+    "rolling_3month_loss_ratio_pct": 0.019299999999999998,
+    "rolling_12month_loss_ratio_pct": 0.008100000000000001
+   },
+   {
+    "month": "Oct-25",
+    "delinquency_ratio_pct": 0.0174,
+    "monthly_delinquency_ratio_pct": 0.0042,
+    "rolling_3month_loss_ratio_pct": 0.023700000000000002,
+    "rolling_12month_loss_ratio_pct": 0.0124
+   },
+   {
+    "month": "Nov-25",
+    "delinquency_ratio_pct": 0.0092,
+    "monthly_delinquency_ratio_pct": 0.0108,
+    "rolling_3month_loss_ratio_pct": 0.0158,
+    "rolling_12month_loss_ratio_pct": 0.015
+   },
+   {
+    "month": "Dec-25",
+    "delinquency_ratio_pct": 0.006500000000000001,
+    "monthly_delinquency_ratio_pct": 0.0046,
+    "rolling_3month_loss_ratio_pct": 0.0166,
+    "rolling_12month_loss_ratio_pct": 0.0152
+   },
+   {
+    "month": "Jan-26",
+    "delinquency_ratio_pct": 0.009399999999999999,
+    "monthly_delinquency_ratio_pct": 0.0127,
+    "rolling_3month_loss_ratio_pct": 0.0003,
+    "rolling_12month_loss_ratio_pct": 0.0152
+   },
+   {
+    "month": "Feb-26",
+    "delinquency_ratio_pct": 0.0074,
+    "monthly_delinquency_ratio_pct": 0.005,
+    "rolling_3month_loss_ratio_pct": 0.0008,
+    "rolling_12month_loss_ratio_pct": 0.012199999999999999
+   },
+   {
+    "month": "Mar-26",
+    "delinquency_ratio_pct": 0.0059,
+    "monthly_delinquency_ratio_pct": 0.0,
+    "rolling_3month_loss_ratio_pct": -0.0271,
+    "rolling_12month_loss_ratio_pct": 0.0055000000000000005
+   },
+   {
+    "month": "Apr-26",
+    "delinquency_ratio_pct": 0.0089,
+    "monthly_delinquency_ratio_pct": 0.0217,
+    "rolling_3month_loss_ratio_pct": -0.0281,
+    "rolling_12month_loss_ratio_pct": 0.0019
+   },
+   {
+    "month": "May-26",
+    "delinquency_ratio_pct": 0.0169,
+    "monthly_delinquency_ratio_pct": 0.0291,
+    "rolling_3month_loss_ratio_pct": -0.0344,
+    "rolling_12month_loss_ratio_pct": 0.0004
+   },
+   {
+    "month": "Jun-26",
+    "delinquency_ratio_pct": 0.0269,
+    "monthly_delinquency_ratio_pct": 0.03,
+    "rolling_3month_loss_ratio_pct": 0.025699999999999997,
+    "rolling_12month_loss_ratio_pct": 0.0086
+   },
+   {
+    "month": "Jul-26",
+    "delinquency_ratio_pct": 0.0233,
+    "monthly_delinquency_ratio_pct": 0.0108,
+    "rolling_3month_loss_ratio_pct": 0.0148,
+    "rolling_12month_loss_ratio_pct": 0.0027
+   }
+  ],
+  "period_history": [
+   {
+    "period": "2026-05",
+    "collection_period": "May 2026",
+    "opening_balance": 10350403.13,
+    "closing_balance": 9832715.58,
+    "opening_amount": 9832882.98,
+    "closing_amount": 9341079.8,
+    "principal": 459202.46,
+    "principal_prepayments": 58485.09,
+    "losses": 0.0,
+    "interest": 81376.18,
+    "recoveries": 14508.44,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 138.0,
+    "opening_contracts": 147.0
+   },
+   {
+    "period": "2026-06",
+    "collection_period": "June 2026",
+    "opening_balance": 9832715.58,
+    "closing_balance": 8901401.76,
+    "opening_amount": 9341079.8,
+    "closing_amount": 8456331.68,
+    "principal": 415145.75,
+    "principal_prepayments": 293949.94,
+    "losses": 222218.12,
+    "interest": 73474.99,
+    "recoveries": 81829.02,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 131.0,
+    "opening_contracts": 138.0
+   },
+   {
+    "period": "2026-07",
+    "collection_period": "July 2026",
+    "opening_balance": 8901401.76,
+    "closing_balance": 8235905.91,
+    "opening_amount": 8456331.68,
+    "closing_amount": 7824110.62,
+    "principal": 416135.2,
+    "principal_prepayments": 70600.77,
+    "losses": 178759.89,
+    "interest": 68219.92,
+    "recoveries": 62354.22,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 126.0,
+    "opening_contracts": 131.0
+   },
+   {
+    "period": "2026-08",
+    "collection_period": "August 2026",
+    "opening_balance": 8235905.91,
+    "closing_balance": 7487265.38,
+    "opening_amount": 7824110.62,
+    "closing_amount": 7112902.11,
+    "principal": 403465.45,
+    "principal_prepayments": 345175.09,
+    "losses": 0.0,
+    "interest": 61851.29,
+    "recoveries": 232010.19,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 119.0,
+    "opening_contracts": 126.0
+   }
+  ],
+  "tranche_balance": {
+   "opening": 8235905.91,
+   "closing": 7487265.38,
+   "change_abs": -748640.5300000003,
+   "change_pct": -0.09089959722475754,
+   "top_movers": [],
+   "all_tranches": [],
+   "by_currency": null,
+   "principal": 403465.45,
+   "principal_prepayments": 345175.09,
+   "losses": 0.0,
+   "interest": 61851.29,
+   "recoveries": 232010.19,
+   "activity_by_currency": null
+  },
+  "tranche_amount": {
+   "opening": 7824110.62,
+   "closing": 7112902.11,
+   "by_currency": null
+  },
+  "contracts": {
+   "opening": 126.0,
+   "closing": 119.0,
+   "change_abs": -7.0,
+   "change_pct": -0.05555555555555555,
+   "top_movers": []
+  },
+  "program": {
+   "program_limit": 50000000.0,
+   "program_amount": 7112902.11,
+   "unused_facility": 42887097.89,
+   "program_utilization_pct": 0.1422580422,
+   "maximum_program_limit": 50000000.0
+  },
+  "warehouse": {
+   "opening_advances_outstanding": null,
+   "closing_advances_outstanding": null,
+   "maximum_warehouse_facility_limit": null
+  },
+  "top10_obligors": [],
+  "total_enhancement": {
+   "total_enhancement_amount": 957208.59,
+   "total_enhancement_pct": 0.1728
+  },
+  "cnl_by_period": [
+   {
+    "period": "Sep-17 - Aug-18",
+    "original_finance_contract_nbv": 11665668.24,
+    "cumulative_net_losses": -198166.28,
+    "cnl_ratio_pct": -0.017,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 1066690.29,
+    "actual_recoveries": 1264856.57,
+    "estimated_recoveries": 0.0
+   },
+   {
+    "period": "Sep-18 - Aug-19",
+    "original_finance_contract_nbv": 16614046.18,
+    "cumulative_net_losses": -82912.17,
+    "cnl_ratio_pct": -0.005,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 950542.02,
+    "actual_recoveries": 1033454.19,
+    "estimated_recoveries": 0.0
+   },
+   {
+    "period": "Sep-19 - Aug-20",
+    "original_finance_contract_nbv": 8624133.73,
+    "cumulative_net_losses": 49188.93,
+    "cnl_ratio_pct": 0.0057,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 267307.64,
+    "actual_recoveries": 218118.71,
+    "estimated_recoveries": 0.0
+   },
+   {
+    "period": "Sep-20 - Aug-21",
+    "original_finance_contract_nbv": 4007336.81,
+    "cumulative_net_losses": 22607.04,
+    "cnl_ratio_pct": 0.0056,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 222292.31,
+    "actual_recoveries": 199685.27,
+    "estimated_recoveries": 0.0
+   },
+   {
+    "period": "Sep-21 - Aug-22",
+    "original_finance_contract_nbv": 13363409.41,
+    "cumulative_net_losses": 348068.75,
+    "cnl_ratio_pct": 0.026,
+    "cnl_limit": 0.035,
+    "cnl_limit_is_exception": true,
+    "cnl_within_limit": true,
+    "gross_losses": 1754684.87,
+    "actual_recoveries": 1315025.96,
+    "estimated_recoveries": 91590.16
+   },
+   {
+    "period": "Sep-22 - Aug-23",
+    "original_finance_contract_nbv": 11646137.66,
+    "cumulative_net_losses": -82870.35,
+    "cnl_ratio_pct": -0.0071,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 561567.54,
+    "actual_recoveries": 567015.27,
+    "estimated_recoveries": 77422.62
+   },
+   {
+    "period": "Sep-23 - Aug-24",
+    "original_finance_contract_nbv": 24628503.87,
+    "cumulative_net_losses": 249076.61,
+    "cnl_ratio_pct": 0.0101,
+    "cnl_limit": 0.0275,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": true,
+    "gross_losses": 2791753.65,
+    "actual_recoveries": 1402806.14,
+    "estimated_recoveries": 1139870.9
+   }
+  ],
+  "aging_history": [
+   {
+    "period": "2026-08",
+    "collection_period": "August 2026",
+    "current_0_30": 7397936.87,
+    "days_31_60": 27403.84,
+    "days_61_90": 61924.66,
+    "written_off_bucket_label": "91+ Days / Other Defaults",
+    "written_off": 0.0,
+    "cumulative_net_losses": 304992.54,
+    "closing_balance": 7487265.38,
+    "bucket_sum": 7487265.37,
+    "bucket_sum_with_writeoff": 7487265.37,
+    "reconciles": true
+   },
+   {
+    "period": "2026-07",
+    "collection_period": "July 2026",
+    "current_0_30": 7968755.76,
+    "days_31_60": 267150.15,
+    "days_61_90": 0.0,
+    "written_off_bucket_label": "91+ Days / Other Defaults",
+    "written_off": 178759.89,
+    "cumulative_net_losses": 331709.1,
+    "closing_balance": 8235905.91,
+    "bucket_sum": 8235905.91,
+    "bucket_sum_with_writeoff": 8414665.8,
+    "reconciles": true
+   },
+   {
+    "period": "2026-06",
+    "collection_period": "June 2026",
+    "current_0_30": 8615640.26,
+    "days_31_60": 102425.88,
+    "days_61_90": 183335.63,
+    "written_off_bucket_label": "91+ Days / Other Defaults",
+    "written_off": 222218.12,
+    "cumulative_net_losses": 250563.63,
+    "closing_balance": 8901401.76,
+    "bucket_sum": 8901401.77,
+    "bucket_sum_with_writeoff": 9123619.889999999,
+    "reconciles": true
+   },
+   {
+    "period": "2026-05",
+    "collection_period": "May 2026",
+    "current_0_30": 9607922.62,
+    "days_31_60": 224792.96,
+    "days_61_90": 0.0,
+    "written_off_bucket_label": "91+ Days / Other Defaults",
+    "written_off": 0.0,
+    "cumulative_net_losses": 266678.36,
+    "closing_balance": 9832715.58,
+    "bucket_sum": 9832715.58,
+    "bucket_sum_with_writeoff": 9832715.58,
+    "reconciles": true
+   }
+  ],
+  "ratio_test_detail": {},
+  "restatements": [],
+  "balance_discontinuities": [],
+  "covenant_summary": {
+   "BREACH": 0,
+   "WATCH": 0,
+   "OK": 8,
+   "AVAILABLE": 0
+  },
+  "watch_buffer_pct": 0.1,
+  "worst_status": "OK",
+  "covenants": [
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(d)",
+    "description": "Has the Rolling Three Month Loss Ratio exceeded 3.50%?",
+    "current_value": 0.0148,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.4229,
+    "trend": "falling",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(e)",
+    "description": "Has the Rolling Twelve Month Loss Ratio exceeded 2.50%?",
+    "current_value": 0.0027,
+    "threshold": 0.025,
+    "kind": "ceiling",
+    "utilization_pct": 0.108,
+    "trend": "falling",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(f)",
+    "description": "Has the Delinquency Ratio at any time exceeded 3.5%?",
+    "current_value": 0.0233,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.6657,
+    "trend": "falling",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(g)",
+    "description": "Has the Borrower failed at any time to maintain a Cumulative Net Loss Ratio for any period, other than the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 2.75%, and for the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 3.50%?",
+    "current_value": 0.026,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.7429,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null,
+    "worst_vintage": "Sep-21 - Aug-22"
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(h)",
+    "description": "Has the Performance Guarantor failed at any time to maintain the minimum Capital as a percentage of total assets as may be required under the Credit Union Act (Alberta), which may be revised from time to time either through the Credit Union Act (Alberta), its regulations or by the Performance Guarantor's regulator acting within its authority?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(i)",
+    "description": "Has the Performance Guarantor failed at any time to maintain the minimum Capital as a percentage of risk weighted assets as required under the Credit Union Act (Alberta), which may be revised from time to time either through the Credit Union Act (Alberta), its regulators or by the Performance Guarantor's regulator acting within its authority?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (k) / 7.2 (i)",
+    "description": "Has the Borrower borrowed/been issued any funds from any Subordinated Debt Provider if the cost of any such borrowing or issuance exceeds an annual rate equal to 12% ?",
+    "current_value": null,
+    "threshold": 0.12,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 3.5",
+    "description": "From and after the Revolving Period Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit?",
+    "current_value": null,
+    "threshold": 0.1,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   }
+  ],
+  "financial_ratios": [
+   {
+    "key": "delinquency_ratio",
+    "label": "Delinquency Ratio",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0233
+   },
+   {
+    "key": "rolling_3month_loss_ratio",
+    "label": "Rolling 3-Month Loss Ratio",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0148
+   },
+   {
+    "key": "rolling_12month_loss_ratio",
+    "label": "Rolling 12-Month Loss Ratio",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0027
+   },
+   {
+    "key": "cnl_ratio",
+    "label": "CNL Ratio (worst vintage)",
+    "format": "pct",
+    "group": "Cumulative Net Losses",
+    "value": 0.026,
+    "vintage": "Sep-21 - Aug-22"
+   }
+  ],
+  "prior_period": "2026-07",
+  "prior_covenants": [
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(d)",
+    "description": "Has the Rolling Three Month Loss Ratio exceeded 3.50%?",
+    "current_value": 0.025699999999999997,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.7343,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(e)",
+    "description": "Has the Rolling Twelve Month Loss Ratio exceeded 2.50%?",
+    "current_value": 0.0086,
+    "threshold": 0.025,
+    "kind": "ceiling",
+    "utilization_pct": 0.344,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(f)",
+    "description": "Has the Delinquency Ratio at any time exceeded 3.5%?",
+    "current_value": 0.0269,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.7686,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(g)",
+    "description": "Has the Borrower failed at any time to maintain a Cumulative Net Loss Ratio for any period, other than the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 2.75%, and for the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 3.50%?",
+    "current_value": 0.0263,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.7514,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null,
+    "worst_vintage": "Sep-21 - Aug-22"
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(h)",
+    "description": "Has the Performance Guarantor failed at any time to maintain the minimum Capital as a percentage of total assets as may be required under the Credit Union Act (Alberta), which may be revised from time to time either through the Credit Union Act (Alberta), its regulations or by the Performance Guarantor's regulator acting within its authority?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1(i)",
+    "description": "Has the Performance Guarantor failed at any time to maintain the minimum Capital as a percentage of risk weighted assets as required under the Credit Union Act (Alberta), which may be revised from time to time either through the Credit Union Act (Alberta), its regulators or by the Performance Guarantor's regulator acting within its authority?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (k) / 7.2 (i)",
+    "description": "Has the Borrower borrowed/been issued any funds from any Subordinated Debt Provider if the cost of any such borrowing or issuance exceeds an annual rate equal to 12% ?",
+    "current_value": null,
+    "threshold": 0.12,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 3.5",
+    "description": "From and after the Revolving Period Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit?",
+    "current_value": null,
+    "threshold": 0.1,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   }
+  ],
+  "prior_closing_tranche_balance": 8235905.91,
+  "prior_closing_contracts": 126.0
+ }
+}

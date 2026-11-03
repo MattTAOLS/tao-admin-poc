@@ -1,0 +1,28 @@
+{
+  "id": "eed270b6-05de-54c7-9758-b0e6ca537580",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R19",
+  "layer": "covenant",
+  "severity": "note",
+  "message": "SLFA 9.1 (e) moved WATCH → OK",
+  "fields": [
+    "/covenants/2/status",
+    "prior:/covenants"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "WATCH",
+  "report_value": "OK",
+  "difference": null,
+  "tolerance": null,
+  "unit": "text",
+  "source_page": null,
+  "context": {
+    "legal_ref": "SLFA 9.1 (e)",
+    "prior_status": "WATCH",
+    "status": "OK",
+    "value": 0.0179,
+    "prior_value": 0.0182
+  },
+  "resolution": null
+}

@@ -1,0 +1,35 @@
+{
+  "id": "7c9c544b-c04f-50db-b1a7-233d6e37f1b8",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R18",
+  "layer": "covenant",
+  "severity": "review",
+  "message": "Covenant summary counts {'BREACH': 0, 'WATCH': 1, 'OK': 8, 'AVAILABLE': 0} do not match the covenants listed {'BREACH': 0, 'WATCH': 0, 'OK': 9, 'AVAILABLE': 0}",
+  "fields": [
+    "/covenant_summary",
+    "/covenants"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "{'BREACH': 0, 'WATCH': 0, 'OK': 9, 'AVAILABLE': 0}",
+  "report_value": "{'BREACH': 0, 'WATCH': 1, 'OK': 8, 'AVAILABLE': 0}",
+  "difference": null,
+  "tolerance": null,
+  "unit": "count",
+  "source_page": 14,
+  "context": {
+    "counted": {
+      "BREACH": 0,
+      "WATCH": 0,
+      "OK": 9,
+      "AVAILABLE": 0
+    },
+    "summary": {
+      "BREACH": 0,
+      "WATCH": 1,
+      "OK": 8,
+      "AVAILABLE": 0
+    }
+  },
+  "resolution": null
+}

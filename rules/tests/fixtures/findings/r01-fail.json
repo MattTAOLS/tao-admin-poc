@@ -1,0 +1,24 @@
+{
+  "id": "84e99776-1b5a-5a2e-b330-63fdf7406752",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R01",
+  "layer": "structural",
+  "severity": "block",
+  "message": "1 required field(s) missing or non-numeric: /tranche_balance/closing",
+  "fields": [
+    "/tranche_balance/closing"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": null,
+  "report_value": null,
+  "difference": null,
+  "tolerance": null,
+  "unit": null,
+  "source_page": null,
+  "context": {
+    "count": 1,
+    "missing": "/tranche_balance/closing"
+  },
+  "resolution": null
+}
