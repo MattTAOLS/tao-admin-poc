@@ -2,6 +2,19 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Rules, wave 1c (history chaining): `handle_extraction(job, extraction, conn=None, enqueue=None,
+  extend=None)`. With `extend`, the extraction is chained onto the prior publication (the same one build_context
+  hands the rules as ctx.prior, via `prior_publication`) before it is validated and stored, so the stored row,
+  the findings and a later approve all carry the full history. No prior: stored unchanged, extend not called.
+  extend raises: logged, unchained document stored with a note in `meta.notes`, upload not failed. On all 12
+  reference deals, the chained object against the previous month as prior raises no block or review finding the
+  single-month extraction does not; R11's restatement check finds the chained earlier months equal to the prior.
+  Chaining removes three R11 blocks (Dynamic, Essex, TLFC LP: opening gap = tranche funded since the prior) when
+  the prior has no tranche list, because the chained `balance_discontinuities` explain the gap; with a prior that
+  carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
+  `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
+  (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
+
 - 2026-11-03 — Data & API: seed paths require content. `app/seed.py` picks the first seed folder that holds
   partners.json and the first reference folder with a *.dashboard.json, so an empty compose mount point (api/seed) no
   longer shadows the real one. Decoy tests in tests/test_seed.py; 113 API tests pass.

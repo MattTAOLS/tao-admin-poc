@@ -167,3 +167,55 @@ def test_importable_as_validate_like_the_container():
     code = "import sys; sys.path[:0] = [sys.argv[1], sys.argv[2]]; import validate; print(validate.handle_extraction.__module__)"
     out = subprocess.run([sys.executable, "-c", code, str(ROOT / "worker"), str(ROOT)], capture_output=True, text=True, cwd=str(ROOT / "worker"))
     assert out.returncode == 0 and out.stdout.strip() == "validate.adapter", out.stderr
+
+# ---------- history chaining (extend injected by worker/main.py; a fake stands in for worker/extract/history.py) ----------
+class FakeExtend:
+    """Chains like history.extend should: prior period rows before the current one, prior covenants, and records
+    what it was called with. `tamper` lets a test change the current row to prove the rules see the chained doc."""
+    def __init__(self, tamper=None, fail=False): self.calls, self.tamper, self.fail = [], tamper, fail
+    def __call__(self, prior, ex):
+        self.calls.append((prior, ex))
+        if self.fail: raise KeyError("period_history")
+        d = ex["deal"]
+        d["period_history"] = prior["period_history"] + d["period_history"]
+        d["aging_history"] = d["aging_history"] + prior["aging_history"]
+        d["prior_covenants"] = prior["covenants"]
+        ex["meta"]["chained_periods"] = [r["period"] for r in d["period_history"]]
+        if self.tamper: self.tamper(d)
+        return ex
+
+def stored_deal(c, eid): return json.loads(c.execute(text("select deal from extraction where id = :id"), {"id": eid}).scalar())
+
+def test_extend_called_with_prior_publication_and_stored(conn):
+    full = mf.load_deal(mf.MONEDA); prior = mf.prior_state(full)
+    publish(conn, full["deal_slug"], "2026-06", {"collection_period": "June 2026", "period_history": []})
+    publish(conn, full["deal_slug"], "2026-07", prior)
+    uid = new_upload(conn, status="extracting"); ext = FakeExtend()
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.single_month(full)), conn=conn, enqueue=FakeQueue(), extend=ext)
+    assert len(ext.calls) == 1 and ext.calls[0][0] == prior            # the 2026-07 publication, not 2026-06
+    d = stored_deal(conn, out["extraction_id"])
+    assert [r["period"] for r in d["period_history"]] == ["2026-05", "2026-06", "2026-07", "2026-08"] and d["period_history"] == full["period_history"]
+    meta = json.loads(conn.execute(text("select meta from extraction where id = :id"), {"id": out["extraction_id"]}).scalar())
+    assert meta["chained_periods"] == ["2026-05", "2026-06", "2026-07", "2026-08"] and meta["upload_id"] == uid
+    assert out["status"] == "needs_review" and out["counts"] == {"block": 0, "review": 0, "note": 0}
+
+def test_findings_come_from_the_extended_document(conn):
+    full = mf.load_deal(mf.MONEDA); publish(conn, full["deal_slug"], "2026-07", mf.prior_state(full))
+    uid = new_upload(conn, status="extracting")
+    def tamper(d): d["period_history"][-1]["principal"] += 1000      # only the chained document has the error
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.single_month(full)), conn=conn, enqueue=False, extend=FakeExtend(tamper))
+    assert [r.rule_id for r in conn.execute(text("select rule_id from finding where extraction_id = :e"), {"e": out["extraction_id"]})] == ["R05"]
+
+def test_no_prior_stores_extraction_unchanged(conn):
+    uid = new_upload(conn, status="extracting"); ext = FakeExtend(); single = mf.single_month(mf.load_deal(mf.MONEDA))
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(single), conn=conn, enqueue=False, extend=ext)
+    assert ext.calls == [] and stored_deal(conn, out["extraction_id"]) == single
+
+def test_extend_failure_stores_unchained_with_note(conn, caplog):
+    full = mf.load_deal(mf.MONEDA); publish(conn, full["deal_slug"], "2026-07", mf.prior_state(full))
+    uid = new_upload(conn, status="extracting"); single = mf.single_month(full)
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(single), conn=conn, enqueue=False, extend=FakeExtend(fail=True))
+    assert stored_deal(conn, out["extraction_id"]) == single and out["status"] == "needs_review" and status(conn, uid) == "needs_review"
+    meta = json.loads(conn.execute(text("select meta from extraction where id = :id"), {"id": out["extraction_id"]}).scalar())
+    assert len(meta["notes"]) == 1 and "2026-07" in meta["notes"][0] and "KeyError" in meta["notes"][0]
+    assert "history chaining failed" in caplog.text
