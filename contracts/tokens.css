@@ -16,8 +16,10 @@
 
   /* Text */
   --text: #3f3a55;
-  --muted: #8b8597;
+  --muted: #6e687a;          /* was #8b8597 (3.09:1); now >= 4.64:1 on cream, card, canvas-deep and lav (WCAG AA) */
   --text-on-indigo: #c8c1e6; /* nav text on the sidebar */
+  --text-on-indigo-muted: #a49fc3; /* sidebar group labels: 5.45:1 on --indigo, 4.67:1 on --indigo-2 */
+  --line-on-indigo: rgba(255,255,255,.08); /* hairlines on the sidebar */
   --text-on-purple: #ffffff;
 
   /* Lines */
@@ -25,10 +27,10 @@
   --border-card: #f1ece3;    /* hairlines on cards */
   --border-table: #f4efe6;   /* table row rules */
 
-  /* Status (dot + word, never colour alone) */
-  --ok: #1f9d6b;   --ok-bg: #e7f5ee;     /* OK, approved, published */
-  --warn: #bd7a18; --warn-bg: #fbf0da;   /* WATCH, needs review */
-  --bad: #d24b46;  --bad-bg: #fae4e2;    /* BREACH / triggered, block finding, rejected */
+  /* Status (dot + word, never colour alone). Text tones darkened for 4.5:1 on their -bg and on cream/card. */
+  --ok: #187b54;   --ok-bg: #e7f5ee;     /* OK, approved, published */
+  --warn: #976113; --warn-bg: #fbf0da;   /* WATCH, needs review */
+  --bad: #be332e;  --bad-bg: #fae4e2;    /* BREACH / triggered, block finding, rejected */
   --blue: #2f5fd0; --blue-bg: #e9f0fe;   /* informational chip: reformatted, source, note */
   --dpv: #6a37d8;  --dpv-bg: #efe7ff;    /* derived / computed value (our recomputation) */
 

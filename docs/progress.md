@@ -2,62 +2,6 @@
 
 Append an entry when a work package lands. Newest first.
 
-- 2026-11-03 — Data & API: wave 3b. Merged agent/rules (7d05e5b, findings carry `targets`). Override re-runs refresh
-  `targets`. Approve plans every resolved use_ours / use_report write first: different values for one pointer → 409
-  `conflicting_corrections`; equal values are written once. After writing, if anything changed, the rules re-run on the
-  corrected deal and any block finding no resolved finding covers → 409 `correction_inconsistent`; derived fields are not
-  hand-computed. Seeded demo: use_ours writes 15,020,071.52 to all five R05 targets, the R05 identity holds on the
-  published deal (opening − components = 15,020,071.52) and approve succeeds; use_report changes nothing. Also normalised
-  my files back to LF (earlier edits had written CRLF). 125 API tests pass on SQLite and PostgreSQL.
-
-- 2026-11-03 — Data & API: wave 3. Merged main (e20ce7d) and lead/wave3. Multi-partner programs: `ProgramPartner` model over
-  004; Program and Upload return `partner_slugs` (partner_slug = the first); `visible_programs` reads program_partner, so the
-  manager now sees MOVE Trust and F-PIL and a partner not listed gets 404. `PUT /master/programs` takes `partner_slugs` (or
-  `partner_slug` alone) and audits. New `GET /master/partners`; `CovenantDefinition.unit` on GET/PUT; `GET /uploads?collection_period=`
-  and `GET /audit?action=`. Overrides: use_ours / use_report need `targets` (else 409 `no_target`); approve writes the chosen
-  value to every target in the published deal (the extraction is untouched) and appends one `data_corrections` entry per
-  changed pointer, listed in the approve audit detail. Migration 005 adds `finding.targets`. Seed loads `partner_slugs` and
-  `unit` idempotently. 122 tests pass on SQLite and on PostgreSQL 16 built from db/migrations 001-005. Waiting on Rules:
-  adapter must write `targets`, and the r02 fixture needs regenerating after the seed patch (see requests.md).
-- 2026-11-03 — Rules, wave 3 (override targets): findings carry `targets` (finding.schema.json) where use ours /
-  use report should change the published value. Each target is the field plus every other copy of the same number
-  in the deal (to the cent for money, exact for counts and ratios); the current period row is found by
-  collection_period, so pointers are right in single-month and chained objects. Tests: every target in every
-  fixture, and in all 12 reference deals as single-month and chained objects with seeded errors, resolves to
-  report_value; writing our_value to the targets makes the finding go away. `insert_findings` writes `targets` when
-  the finding table has the column (it does not yet: see requests.md). Run: `cd rules && python -m pytest -q` (80),
-  `cd worker/validate && python -m pytest -q` (17).
-
-  | Rule | Finding | targets | Why |
-  | --- | --- | --- | --- |
-  | R01 | field missing | none | nothing to choose between |
-  | R02 | currency vs facility | none | text, master data |
-  | R03 | value out of range | none | no our_value to write |
-  | R04 | periods | none | months, other period |
-  | R05 | roll-forward | current `period_history[i].closing_balance` + copies: `tranche_balance.closing`, `period_history[i].closing_amount`, `tranche_amount.closing`, `program.program_amount` | our_value = computed closing (Lead decision) |
-  | R05 | page-2 vs roll-forward row | `tranche_balance.opening` or `.closing` | our_value = the row's figure for the same field |
-  | R06 | contracts roll-forward | `contracts.closing` + `period_history[i].closing_contracts` when equal | our_value = opening + change |
-  | R06 | top-mover row | `contracts.top_movers[j].closing_contracts` | same, per tranche |
-  | R06 | movers exceed net decrease | none | aggregate, no single field |
-  | R07 | aging buckets | `aging_history[0].closing_balance` | our_value = bucket sum |
-  | R08 | vintage gross − recoveries | `cnl_by_period[i].cumulative_net_losses` | our_value = computed CNL |
-  | R08 | vintage ratio | `cnl_by_period[i].cnl_ratio_reported_pct` if stored, else `.cnl_ratio_pct` | the field report_value came from |
-  | R08 | vintage total vs page 11 | `aging_history[0].cumulative_net_losses` | our_value = vintage sum |
-  | R09 | unused / utilization | `program.unused_facility` / `program.program_utilization_pct` | recomputed from limit and drawn |
-  | R10 | enhancement % | `total_enhancement.total_enhancement_pct` | recomputed |
-  | R10 | coverage / leverage / equity | `financial_ratios[k].value` + same-number covenant `current_value`s | our_value = the ratio-history row |
-  | R11 | opening vs prior, restatements | none | other period; restatement is accept / reject |
-  | R12, R13 | published period, wrong deal | none | not a value |
-  | R14, R15 | thresholds, limits | none | master data |
-  | R17 | covenant recompute | `covenants[i].current_value` + same-number copies (other covenants on the metric, `financial_ratios`) | our_value = recomputed |
-  | R18, R19 | status, YES/NO, summary, status change | none | statuses / text |
-
-- 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
-  partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
-  Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
-  pointers to every copy of the value); approve writes the chosen value there and appends `data_corrections`; no
-  targets means 409 `no_target`. (3) the API's extra fields and error codes are now in openapi.yaml, plus
-  `GET /master/partners`, `CovenantDefinition.unit`, and `collection_period` / `action` query filters.
 - 2026-11-03 — Lead: UI-wave prep (branch lead/ui-prep). `web/vite.config.ts` reads VITE_PORT and VITE_API_PROXY, so a
   dev server can sit beside compose's :5173 and proxy /api to any API (set VITE_API_URL=/api/v1; no CORS change).
   `scripts/compose.agent.yml` gives each agent a private stack (API on ${API_PORT}, no host ports for Postgres/Redis).
@@ -255,6 +199,84 @@ Append an entry when a work package lands. Newest first.
   R04 note shown, 4 block findings, polling stopped); PUT program / deal / covenant on the real API with the
   dialogs' bodies, then the master_change entries in the Audit log. Lighthouse accessibility 96 on Upload report and
   Upload history (only failure: Design System colour contrast). Needs: see `docs/requests.md` › UI-Admin.
+- 2026-11-03 — Data & API: wave 3b. Merged agent/rules (7d05e5b, findings carry `targets`). Override re-runs refresh
+  `targets`. Approve plans every resolved use_ours / use_report write first: different values for one pointer → 409
+  `conflicting_corrections`; equal values are written once. After writing, if anything changed, the rules re-run on the
+  corrected deal and any block finding no resolved finding covers → 409 `correction_inconsistent`; derived fields are not
+  hand-computed. Seeded demo: use_ours writes 15,020,071.52 to all five R05 targets, the R05 identity holds on the
+  published deal (opening − components = 15,020,071.52) and approve succeeds; use_report changes nothing. Also normalised
+  my files back to LF (earlier edits had written CRLF). 125 API tests pass on SQLite and PostgreSQL.
+- 2026-11-03 — Data & API: wave 3. Merged main (e20ce7d) and lead/wave3. Multi-partner programs: `ProgramPartner` model over
+  004; Program and Upload return `partner_slugs` (partner_slug = the first); `visible_programs` reads program_partner, so the
+  manager now sees MOVE Trust and F-PIL and a partner not listed gets 404. `PUT /master/programs` takes `partner_slugs` (or
+  `partner_slug` alone) and audits. New `GET /master/partners`; `CovenantDefinition.unit` on GET/PUT; `GET /uploads?collection_period=`
+  and `GET /audit?action=`. Overrides: use_ours / use_report need `targets` (else 409 `no_target`); approve writes the chosen
+  value to every target in the published deal (the extraction is untouched) and appends one `data_corrections` entry per
+  changed pointer, listed in the approve audit detail. Migration 005 adds `finding.targets`. Seed loads `partner_slugs` and
+  `unit` idempotently. 122 tests pass on SQLite and on PostgreSQL 16 built from db/migrations 001-005. Waiting on Rules:
+  adapter must write `targets`, and the r02 fixture needs regenerating after the seed patch (see requests.md).
+- 2026-11-03 — Rules, wave 3 (override targets): findings carry `targets` (finding.schema.json) where use ours /
+  use report should change the published value. Each target is the field plus every other copy of the same number
+  in the deal (to the cent for money, exact for counts and ratios); the current period row is found by
+  collection_period, so pointers are right in single-month and chained objects. Tests: every target in every
+  fixture, and in all 12 reference deals as single-month and chained objects with seeded errors, resolves to
+  report_value; writing our_value to the targets makes the finding go away. `insert_findings` writes `targets` when
+  the finding table has the column (it does not yet: see requests.md). Run: `cd rules && python -m pytest -q` (80),
+  `cd worker/validate && python -m pytest -q` (17).
+
+  | Rule | Finding | targets | Why |
+  | --- | --- | --- | --- |
+  | R01 | field missing | none | nothing to choose between |
+  | R02 | currency vs facility | none | text, master data |
+  | R03 | value out of range | none | no our_value to write |
+  | R04 | periods | none | months, other period |
+  | R05 | roll-forward | current `period_history[i].closing_balance` + copies: `tranche_balance.closing`, `period_history[i].closing_amount`, `tranche_amount.closing`, `program.program_amount` | our_value = computed closing (Lead decision) |
+  | R05 | page-2 vs roll-forward row | `tranche_balance.opening` or `.closing` | our_value = the row's figure for the same field |
+  | R06 | contracts roll-forward | `contracts.closing` + `period_history[i].closing_contracts` when equal | our_value = opening + change |
+  | R06 | top-mover row | `contracts.top_movers[j].closing_contracts` | same, per tranche |
+  | R06 | movers exceed net decrease | none | aggregate, no single field |
+  | R07 | aging buckets | `aging_history[0].closing_balance` | our_value = bucket sum |
+  | R08 | vintage gross − recoveries | `cnl_by_period[i].cumulative_net_losses` | our_value = computed CNL |
+  | R08 | vintage ratio | `cnl_by_period[i].cnl_ratio_reported_pct` if stored, else `.cnl_ratio_pct` | the field report_value came from |
+  | R08 | vintage total vs page 11 | `aging_history[0].cumulative_net_losses` | our_value = vintage sum |
+  | R09 | unused / utilization | `program.unused_facility` / `program.program_utilization_pct` | recomputed from limit and drawn |
+  | R10 | enhancement % | `total_enhancement.total_enhancement_pct` | recomputed |
+  | R10 | coverage / leverage / equity | `financial_ratios[k].value` + same-number covenant `current_value`s | our_value = the ratio-history row |
+  | R11 | opening vs prior, restatements | none | other period; restatement is accept / reject |
+  | R12, R13 | published period, wrong deal | none | not a value |
+  | R14, R15 | thresholds, limits | none | master data |
+  | R17 | covenant recompute | `covenants[i].current_value` + same-number copies (other covenants on the metric, `financial_ratios`) | our_value = recomputed |
+  | R18, R19 | status, YES/NO, summary, status change | none | statuses / text |
+- 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
+  partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
+  Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
+  pointers to every copy of the value); approve writes the chosen value there and appends `data_corrections`; no
+  targets means 409 `no_target`. (3) the API's extra fields and error codes are now in openapi.yaml, plus
+  `GET /master/partners`, `CovenantDefinition.unit`, and `collection_period` / `action` query filters.
+- 2026-11-03 — Design System: wave 3 fixes on `agent/design` (merged main e20ce7d and lead/wave3 72c66e8).
+  (1) `percent_points` findings are fractions: formatByUnit / formatDiffByUnit multiply by 100, so Stride R14 reads
+  ours 4.00%, report 3.50%, difference −0.50 pp, tolerance ±0.00%; context fractions follow, context amounts in a
+  percent_points finding (R10 enhancement_amount, base) stay plain numbers. (2) FindingCard is a size container: under
+  680 px the values go to two columns and the page crop moves below them; the values never overlap. (3) Contrast, WCAG
+  AA (4.5:1), hues kept and darkened (ratios are the worst case over the listed surfaces):
+
+  | Token | Surfaces | Old | Old ratio | New | New ratio |
+  | --- | --- | --- | --- | --- | --- |
+  | `--muted` | cream, card, canvas-deep, lav | #8b8597 | 3.09:1 lav, 3.43:1 cream, 3.56:1 card | #6e687a | 4.64:1 lav, 5.15:1 cream, 5.35:1 card |
+  | `--ok` (pill word) | ok-bg, cream, card | #1f9d6b | 3.07:1 (ok-bg) | #187b54 | 4.67:1 (ok-bg) |
+  | `--warn` (pill word) | warn-bg, cream, card | #bd7a18 | 3.12:1 (warn-bg) | #976113 | 4.60:1 (warn-bg) |
+  | `--bad` (pill word) | bad-bg, cream, card | #d24b46 | 3.57:1 (bad-bg) | #be332e | 4.66:1 (bad-bg) |
+  | `.navlabel` → new `--text-on-indigo-muted` | indigo, indigo-2 | color-mix = #8c86b3 | 4.04:1 (indigo) | #a49fc3 | 5.45:1 indigo, 4.67:1 indigo-2 |
+  | `--blue`, `--dpv` (unchanged) | own -bg, cream, card | #2f5fd0, #6a37d8 | 5.00:1, 5.57:1 | same | same |
+
+  New token `--line-on-indigo` (sidebar hairline, decorative). A test recomputes every pair from tokens.css.
+  (4) KpiTile values never ellipsize: font size follows the tile width (clamp 16 px to --fs-kpi, container units),
+  then wraps. (5) pages.ts: admin routes `/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId` (owner
+  portfolio, no nav); `tao_analyst` on Partners, Partner details, Program record. (6) `apiBlob(path)`, `roleHeaders()`
+  and `API_BASE` in shell/api.ts; `Button as="link" to` (router) and `as="a" href`, disabled renders an aria-disabled span.
+  Tests: web 303 passed, 16 skipped, 2 failed — both are UI tests that pin the pre-registration fallback (see
+  docs/requests.md, To UI-Partner / To UI-Review). api 112 passed, 1 failed (`/master/partners` parity, pre-existing).
+  Not checked in a browser by me; layout fixes rely on container queries (supported in current Chrome, Edge, Firefox, Safari).
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.

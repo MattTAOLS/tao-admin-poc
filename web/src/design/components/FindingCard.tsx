@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { SeverityPill, FindingStatusPill, type Severity, type FindingStatus } from './StatusPill'
-import { formatByUnit, formatDiffByUnit, type ValueUnit } from './format'
+import { formatByUnit, formatDiffByUnit, formatNumber, type ValueUnit } from './format'
 
 /** The fields of contracts/finding.schema.json the card renders. A Finding from the API fits this type as is. */
 export type FindingView = {
@@ -44,6 +44,13 @@ const CHOICE: Record<string, string> = {
   use_ours: 'Used our value', use_report: 'Used the report value', restatement: 'Accepted as restatement', reject: 'Rejected', acknowledge: 'Acknowledged',
 }
 
+/** Context numbers follow the finding unit, except that a percent_points finding can also carry amounts (R10's
+ * enhancement_amount and base): only fractions (|v| <= 1) are shown as percentages, larger numbers as plain numbers. */
+export function formatContextNumber(v: number, unit: ValueUnit) {
+  if (unit === 'percent_points' && Math.abs(v) > 1) return formatNumber(v, Number.isInteger(v) ? 0 : 2)
+  return formatByUnit(v, unit)
+}
+
 const humanKey = (k: string) => k.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
 
 /** One validation finding: rule id, severity, message, ours vs report with the difference, the arithmetic from
@@ -54,12 +61,13 @@ export function FindingCard({ finding: f, ruleTitle, crop, actions, formatContex
   const hasValues = f.our_value !== undefined || f.report_value !== undefined || f.difference != null
   const withinTol = f.difference != null && f.tolerance != null && Math.abs(f.difference) <= f.tolerance
   const fmtCtx = formatContext ?? ((_k: string, v: unknown) =>
-    typeof v === 'number' ? formatByUnit(v, f.unit) : typeof v === 'boolean' || typeof v === 'string' ? formatByUnit(v, f.unit) : v == null ? '—' : JSON.stringify(v))
+    typeof v === 'number' ? formatContextNumber(v, f.unit) : typeof v === 'boolean' || typeof v === 'string' ? formatByUnit(v, f.unit) : v == null ? '—' : JSON.stringify(v))
   const ctx = f.context ? Object.entries(f.context) : []
   const titleId = `finding-${f.id}-title`
 
   return (
     <article className={['ds-finding', `ds-finding--${f.severity}`, resolved && 'ds-finding--resolved', className].filter(Boolean).join(' ')} aria-labelledby={titleId}>
+      <div className="ds-finding__layout">
       <div className="ds-finding__main">
         <div className="ds-finding__head">
           <span className="ds-finding__rule">{f.rule_id}</span>
@@ -75,17 +83,17 @@ export function FindingCard({ finding: f, ruleTitle, crop, actions, formatContex
 
         {hasValues && (
           <div className="ds-finding__values" role="group" aria-label="Values">
-            <span className="ds-finding__vlabel">Ours</span>
-            <span className="ds-finding__vlabel">Report</span>
-            <span className="ds-finding__vlabel">Difference</span>
-            <span className="ds-finding__vlabel">Tolerance</span>
-            <span className="ds-finding__v ds-finding__v--ours" data-testid="our-value">{formatByUnit(f.our_value, f.unit)}</span>
-            <span className="ds-finding__v" data-testid="report-value">{formatByUnit(f.report_value, f.unit)}</span>
-            <span className={['ds-finding__v', f.difference != null && (withinTol ? 'ds-finding__v--diff-ok' : 'ds-finding__v--diff-bad')].filter(Boolean).join(' ')} data-testid="difference">
-              {formatDiffByUnit(f.difference, f.unit)}
-              {f.difference != null && f.tolerance != null && <span className="ds-visually-hidden">{withinTol ? ' within tolerance' : ' outside tolerance'}</span>}
-            </span>
-            <span className="ds-finding__v" data-testid="tolerance">{f.tolerance != null ? '±' + formatByUnit(f.tolerance, f.unit) : '—'}</span>
+            <div className="ds-finding__cell"><span className="ds-finding__vlabel">Ours</span>
+              <span className="ds-finding__v ds-finding__v--ours" data-testid="our-value">{formatByUnit(f.our_value, f.unit)}</span></div>
+            <div className="ds-finding__cell"><span className="ds-finding__vlabel">Report</span>
+              <span className="ds-finding__v" data-testid="report-value">{formatByUnit(f.report_value, f.unit)}</span></div>
+            <div className="ds-finding__cell"><span className="ds-finding__vlabel">Difference</span>
+              <span className={['ds-finding__v', f.difference != null && (withinTol ? 'ds-finding__v--diff-ok' : 'ds-finding__v--diff-bad')].filter(Boolean).join(' ')} data-testid="difference">
+                {formatDiffByUnit(f.difference, f.unit)}
+                {f.difference != null && f.tolerance != null && <span className="ds-visually-hidden">{withinTol ? ' within tolerance' : ' outside tolerance'}</span>}
+              </span></div>
+            <div className="ds-finding__cell"><span className="ds-finding__vlabel">Tolerance</span>
+              <span className="ds-finding__v" data-testid="tolerance">{f.tolerance != null ? '±' + formatByUnit(f.tolerance, f.unit) : '—'}</span></div>
           </div>
         )}
 
@@ -116,6 +124,7 @@ export function FindingCard({ finding: f, ruleTitle, crop, actions, formatContex
         <span className="ds-finding__croplabel">{f.source_page != null ? `Page ${f.source_page}` : 'Page'}</span>
         {crop ?? <div className="ds-finding__cropempty">{f.source_page != null ? 'Page image not loaded' : 'No source page for this finding'}</div>}
       </aside>
+      </div>
     </article>
   )
 }

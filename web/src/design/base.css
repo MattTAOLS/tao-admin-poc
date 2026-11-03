@@ -11,7 +11,7 @@ code { font-family: var(--mono); font-size: .92em; }
 .brand__mark { width: 34px; height: 34px; border-radius: 10px; background: var(--grad-primary); display: grid; place-items: center; box-shadow: var(--sh-primary); flex: none; color: var(--text-on-purple); }
 .brand b { display: block; font-weight: 700; font-size: 15px; letter-spacing: -.2px; line-height: 1.1; }
 .brand small { display: block; font-size: 11px; color: color-mix(in srgb, var(--text-on-indigo) 85%, var(--indigo)); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
-.navlabel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--text-on-indigo) 62%, var(--indigo)); padding: 14px 10px 6px; }
+.navlabel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-on-indigo-muted); padding: 14px 10px 6px; }
 .nav { display: flex; flex-direction: column; gap: 3px; }
 .nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-control); color: var(--text-on-indigo); font-size: var(--fs-body); font-weight: 500; text-decoration: none;
   transition: background var(--t-control) var(--ease), color var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease); }
@@ -20,7 +20,7 @@ code { font-family: var(--mono); font-size: .92em; }
 .nav a.active { background: var(--purple); color: var(--text-on-purple); box-shadow: var(--sh-primary); }
 .nav a.active svg { opacity: 1; }
 .nav a:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--lav-2) 55%, transparent); }
-.sidebar .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--card) 8%, transparent); }
+.sidebar .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line-on-indigo); }
 
 /* ---------- User card / role switcher (sidebar footer) ---------- */
 .usercard { position: relative; }

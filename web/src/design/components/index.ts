@@ -2,7 +2,7 @@
  * Importing this module also loads components.css (tokens come from contracts/tokens.css via main.tsx). */
 import './components.css'
 
-export { Button, type ButtonProps, type ButtonVariant } from './Button'
+export { Button, type ButtonProps, type ButtonVariant, type ButtonAsButton, type ButtonAsLink, type ButtonAsAnchor } from './Button'
 export {
   StatusPill, UploadStatusPill, SeverityPill, FindingStatusPill, CovenantPill,
   UPLOAD_STATUS, UPLOAD_TERMINAL, SEVERITY, FINDING_STATUS, COVENANT_STATUS,

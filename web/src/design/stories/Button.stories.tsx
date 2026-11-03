@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { MemoryRouter } from 'react-router-dom'
 import { Button, icons } from '../components'
 
 const meta: Meta<typeof Button> = {
@@ -32,6 +33,19 @@ export const Matrix: S = {
           <Button variant={v} disabled>disabled</Button>
         </div>
       ))}
+    </div>
+  ),
+}
+
+/** Navigation that looks like a button: `as="link"` (router) or `as="a"` (plain href). Disabled renders a span. */
+export const AsLink: S = {
+  decorators: [Story => <MemoryRouter><Story /></MemoryRouter>],
+  render: () => (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <Button as="link" to="/admin/uploads/new" variant="primary" icon={<icons.IconUpload />}>Upload report</Button>
+      <Button as="link" to="/admin/uploads/queue" size="sm">Back to the queue</Button>
+      <Button as="link" to="/admin/portfolio" disabled>Partner view</Button>
+      <Button as="a" href="#" iconAfter={<icons.IconArrowRight />}>Plain anchor</Button>
     </div>
   ),
 }
