@@ -9,6 +9,7 @@ import uploadFx from './fixtures/upload-moneda.json'
 import findingsFx from './fixtures/findings-moneda.json'
 import extractionFx from './fixtures/extraction-moneda.json'
 import auditFx from './fixtures/audit-moneda.json'
+import overrideFx from './fixtures/override-moneda.json'
 import deals from './fixtures/deals.json'
 import programs from './fixtures/programs.json'
 
@@ -16,8 +17,10 @@ const ID = uploadFx.id
 const PATH = `/admin/uploads/queue/${ID}`
 const R05 = findingsFx[0]
 
-/** The recorded R05 finding after a use_ours override (the one deliberate change: status + resolution). */
-const overridden = () => [{ ...clone(R05), status: 'overridden', resolution: { by: 'tao_admin', at: '2026-11-03T20:20:00+00:00', choice: 'use_ours', reason: 'checked page 2 by hand' } }]
+/** The real override response recorded from the review stack (R05 overridden with use_ours and a reason). Its ids
+ * come from a later reload of the stack, so the finding id is aligned with the recorded findings. */
+const REASON = overrideFx[0].resolution.reason
+const overridden = () => [{ ...clone(overrideFx[0]), id: R05.id, extraction_id: R05.extraction_id }]
 
 type State = { upload: Upload; findings: unknown[]; audit: unknown[] }
 function stack(state: State, extra: Parameters<typeof mockApi>[0] = []) {
@@ -74,15 +77,15 @@ describe('Review report', () => {
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save and re-run rules' }))
     expect(within(dlg).getByRole('alert').textContent).toMatch(/at least 3 characters/)
     expect(calls.some(c => c.method === 'POST')).toBe(false)
-    await userEvent.type(within(dlg).getByRole('textbox', { name: /Reason/ }), 'checked page 2 by hand')
+    await userEvent.type(within(dlg).getByRole('textbox', { name: /Reason/ }), REASON)
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save and re-run rules' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const post = calls.find(c => c.method === 'POST') as Call
     expect(post.path).toBe(`/uploads/${ID}/findings/${R05.id}/override`)
-    expect(post.body).toEqual({ choice: 'use_ours', reason: 'checked page 2 by hand' })
+    expect(post.body).toEqual({ choice: 'use_ours', reason: REASON })
     expect(within(card()).getByText('Overridden')).toBeTruthy()
     expect(within(screen.getByRole('region', { name: 'Report' })).getByText('1 resolved')).toBeTruthy()
-    expect(within(card()).getByText(/checked page 2 by hand/)).toBeTruthy()
+    expect(within(card()).getByText(REASON, { exact: false })).toBeTruthy()
     expect(within(card()).queryByRole('button', { name: /for R05/ })).toBeNull()
     expect(await screen.findByText(/R05 resolved: Use ours/)).toBeTruthy()
     await waitFor(() => expect((screen.getByRole('button', { name: 'Publish to partner…' }) as HTMLButtonElement).disabled).toBe(false))

@@ -168,5 +168,34 @@ The Lead reads this at every merge.
 
 ## UI-Admin
 ## UI-Review
+- 2026-11-03 — to Design System (bug, visible on Stride Aug 2026): `formatByUnit` / `formatDiffByUnit` treat `percent_points`
+  values as points, but findings carry fractions (rules.yaml: "0.01 pp expressed as a fraction"). R14 on Stride shows
+  ours 0.04 as "0.04%" (should be 4.00%), report 0.035 as "0.04%" (3.50%), difference −0.005 as "−0.01 pp" (−0.50 pp) and
+  tolerance 0 as "±0.00%". Multiply by 100 for `percent_points` (value, difference, tolerance, and `context` numbers via the
+  default formatter). The review page passes findings through unchanged, so the fix lands everywhere at once.
+- 2026-11-03 — to Design System: FindingCard's Ours / Report / Difference / Tolerance grid overlaps when the main column is
+  narrow (an 800 px window: main column ≈ 280 px beside the 240 px crop). Wrap to two columns or stack the crop below
+  ~1000 px. Fine at 1440 px.
+- 2026-11-03 — to Design System (suggestion): page images need the X-Role header, so `web/src/review/lib/api.ts:
+  pageImageUrl` repeats the shell client's base URL and header logic to fetch a blob. An `apiBlob(path)` (or `apiUrl`) in
+  `shell/api.ts` would remove the copy.
+- 2026-11-03 — to Lead / UI-Partner: the admin shell registers only `/admin/portfolio` for the portfolio pages, so the
+  Reports library's "Partner view" link can only land there. Register an admin-shell deal route (e.g.
+  `/admin/portfolio/:programId/deals/:dealId`, read `?period=`). `ReportsLibraryPage.partnerViewPath` picks the deepest
+  registered route automatically, so no change on my side once it exists.
+- 2026-11-03 — to Data & API (question): after `use_ours` on R05 (ours 15,020,071.52, report 15,019,971.52) and approve,
+  `/published/.../f-pil-2-0-moneda-capital-corp` still carries `tranche_balance.closing` 15,019,971.52, the report figure.
+  If `use_ours` / `use_report` should change the published value, the approve step does not apply it yet; if an override
+  only records the decision, say so and I will word the choices as "accept with reason" instead of "use ours".
+- 2026-11-03 — to Data & API / Lead (contract, what the review UI uses beyond `contracts/openapi.yaml`; all tolerated when
+  absent): Extraction `pass`, `confidence`; Upload `reject_reason`; `meta.history.carried` / `.extended_from` for carried
+  months; error codes `open_block_findings`, `not_open`, `bad_state`, `admin_only`, `tao_only`; regenerate response
+  `publications`. The queue also asks for `status=approved`; the real API publishes on approve, so that list is always
+  empty and harmless.
+- 2026-11-03 — to Lead (env): in Git Bash, `VITE_API_URL=/api/v1 npx vite` is rewritten to `C:/Program Files/Git/api/v1`
+  (MSYS path conversion), so every call fails with "Failed to fetch". Prefix `MSYS_NO_PATHCONV=1`. Worth a line in
+  `scripts/compose.agent.yml` or the README.
+- 2026-11-03 — to Lead: the build plan's demo steps 4–5 are not in the repo (artifact link only). I built the walkthrough
+  from your description: R05 block on page 2, override with reason, re-run clears it, publish, audit shows both values.
 ## UI-Partner
 ## QA & Demo

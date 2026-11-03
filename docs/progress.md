@@ -139,3 +139,25 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Review, wave 1 (deliverables 1–3) on `agent/ui-review`. Registered in `web/src/shell/pages.ts` (load
+  fields only). Approval queue (`/admin/uploads/queue`): needs_review (+ approved) uploads oldest first, deal and program
+  names from master data, finding counts as severity pills, row or link opens the review. Review report
+  (`/admin/uploads/queue/:uploadId`): header facts (deal, collection period with settlement date, reporting period,
+  uploader, extraction pass and re-read pages, confidence, open/resolved counts); findings grouped block → review → note as
+  FindingCards with the rule title from `contracts/rules.yaml`, the page image fetched with the role headers, centred on the
+  report-value cell and outlining every cell the rule read (bboxes from `sources`), click for a page viewer with
+  Fit/100/150/200 % and previous/next page; per-card Use ours / Use report / Accept as restatement / Acknowledge for
+  `tao_admin`, each requiring a reason, then the findings refresh from the override response. Extracted values panel:
+  balances, month-by-month roll-forward, contracts, aging, CNL by vintage, covenants, financial ratios and ratio history,
+  each value or row with a page link (opens the viewer on that cell with its raw text) or "from published Jul 2026" for
+  carried months. Activity table from `/audit` (admin only). Sticky footer: Re-extract pages… (pages with open findings
+  preselected, then 2 s polling until the pass settles), Reject… (reason), Publish to partner… (disabled with the reason
+  while a block is open; shows the API's 409 if it refuses). Analysts see everything read-only; partner roles get "no
+  access" and no intake request. Reports library (`/admin/reports`): published uploads by program, deal and period with
+  filters, Partner view and Review record links, Regenerate dashboard pop-up (all programs or one).
+  Verified against the private stack (tao-ui-review, :18200 via Vite on :5175): the walkthrough ran in a browser and again
+  over HTTP — R05 block on page 2 (−$100.00) with its crop, override use_ours with a reason, finding overridden and
+  publish enabled, approve → published, `/audit` has the override with ours 15,020,071.52 and report 15,019,971.52; analyst
+  403 on override/approve, approve 409 while blocked. Run: `cd web && npx vitest run src/review` (45 tests; fixtures are
+  recorded real API responses). Needs: see docs/requests.md › UI-Review (percent_points formatting, narrow FindingCard,
+  admin deal route for Partner view, override-vs-published question, MSYS path note).
