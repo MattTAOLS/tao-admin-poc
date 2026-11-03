@@ -81,6 +81,7 @@ describe('Review report', () => {
     expect(post.path).toBe(`/uploads/${ID}/findings/${R05.id}/override`)
     expect(post.body).toEqual({ choice: 'use_ours', reason: 'checked page 2 by hand' })
     expect(within(card()).getByText('Overridden')).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: 'Report' })).getByText('1 resolved')).toBeTruthy()
     expect(within(card()).getByText(/checked page 2 by hand/)).toBeTruthy()
     expect(within(card()).queryByRole('button', { name: /for R05/ })).toBeNull()
     expect(await screen.findByText(/R05 resolved: Use ours/)).toBeTruthy()

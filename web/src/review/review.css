@@ -91,3 +91,5 @@
 .rv-choice b { display: block; color: var(--indigo); font: 600 13px var(--font); }
 .rv-choice small { color: var(--muted); font-size: var(--fs-small); }
 .rv-pages input { accent-color: var(--purple); }
+.rv-scroll { overflow-x: auto; max-width: 100%; }
+.rv-scroll .ds-table th { top: 0; }

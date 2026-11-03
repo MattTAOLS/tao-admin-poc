@@ -64,7 +64,7 @@ function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
     ...cols.map(c => ({ key: c.key, header: c.header, numeric: c.numeric, render: (r: Row) => <span className={c.className}>{c.render ? c.render(r) : c.fmt(r[c.key])}</span> })),
     { key: '__src', header: 'Source', align: 'right' as const, render: (r: Row) => <SourceRef ex={ex} pointer={`${base}/${r.__i}`} label={`${title}, ${rowName(r)}`} onOpen={onOpen} /> },
   ]
-  return <DataTable<Row> caption={title} captionHidden columns={columns} rows={rows} rowKey={r => String(r.__i)} density="compact" />
+  return <div className="rv-scroll"><DataTable<Row> caption={title} captionHidden columns={columns} rows={rows} rowKey={r => String(r.__i)} density="compact" /></div>
 }
 
 const period: Fmt = v => (typeof v === 'string' ? formatPeriod(v) : text(v))
@@ -237,5 +237,5 @@ function CovenantTable({ ex, onOpen }: { ex: Extraction; onOpen: Open }) {
     { key: 'reported_triggered', header: 'Report says', render: c => text(c.reported_triggered) },
     { key: '__src', header: 'Source', align: 'right', render: c => <SourceRef ex={ex} pointer={`/covenants/${c.__i}`} label={`Covenant ${text(c.legal_ref)}`} onOpen={onOpen} /> },
   ]
-  return <DataTable<C> caption="Covenants" captionHidden columns={columns} rows={rows} rowKey={c => String(c.__i)} density="compact" />
+  return <div className="rv-scroll"><DataTable<C> caption="Covenants" captionHidden columns={columns} rows={rows} rowKey={c => String(c.__i)} density="compact" /></div>
 }

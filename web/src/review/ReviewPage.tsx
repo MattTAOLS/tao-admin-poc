@@ -8,7 +8,7 @@ import { access, errorText, reviewApi } from './lib/api'
 import { useLoad } from './lib/useLoad'
 import { useMasterNames } from './lib/master'
 import { ruleTitle } from './lib/rules'
-import { findingBoxes, getPointer } from './lib/provenance'
+import { findingBoxes, focusBox, getPointer } from './lib/provenance'
 import { formatDateTime, pct, text } from './lib/format'
 import type { Finding, OverrideChoice, Upload } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
@@ -123,7 +123,7 @@ function Review({ uploadId }: { uploadId: string }) {
           <div><dt>Uploaded</dt><dd>{formatDateTime(u.uploaded_at)}<small>by {u.uploaded_by}</small></dd></div>
           <div><dt>Extraction</dt><dd>{pass ? `Pass ${pass}` : '—'}<small>{reread && reread.length ? `re-read page${reread.length === 1 ? '' : 's'} ${reread.join(', ')}` : ex?.meta?.template_id ?? ''}</small></dd></div>
           <div><dt>Confidence</dt><dd>{typeof confidence === 'number' ? pct(confidence) : '—'}<small>extraction</small></dd></div>
-          <div><dt>Findings</dt><dd><FindingCountPills counts={u.finding_counts} /></dd></div>
+          <div><dt>Findings</dt><dd><FindingsFact findings={findings.data} counts={u.finding_counts} /></dd></div>
           {u.published_at && <div><dt>Published</dt><dd>{formatDateTime(u.published_at)}</dd></div>}
           {u.reject_reason && <div><dt>Reject reason</dt><dd>{text(u.reject_reason)}</dd></div>}
         </dl>
@@ -145,7 +145,7 @@ function Review({ uploadId }: { uploadId: string }) {
               <div className="rv-group__head"><SeverityPill severity={sev} count={group.length} size="sm" /><span className="rv-muted">{openN} open</span></div>
               {group.map(f => (
                 <FindingCard key={f.id} finding={f} ruleTitle={ruleTitle(f.rule_id)} actions={cardActions(f)}
-                  crop={f.source_page != null ? <PageCrop uploadId={uploadId} page={f.source_page} boxes={findingBoxes(ex, f.fields, f.source_page)} onZoom={openCrop(f)} /> : undefined} />
+                  crop={f.source_page != null ? <PageCrop uploadId={uploadId} page={f.source_page} boxes={findingBoxes(ex, f.fields, f.source_page)} focus={focusBox(ex, f.fields, f.source_page, f.report_value)} onZoom={openCrop(f)} /> : undefined} />
               ))}
             </section>
           )
@@ -172,6 +172,21 @@ function Review({ uploadId }: { uploadId: string }) {
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
       </>}
     </div>
+  )
+}
+
+/** Open findings by severity plus the resolved count, from the findings list once loaded (finding_counts before). */
+function FindingsFact({ findings, counts }: { findings?: Finding[]; counts: Upload['finding_counts'] }) {
+  if (!findings) return <FindingCountPills counts={counts} />
+  const open = (s: Severity) => findings.filter(f => f.severity === s && f.status === 'open').length
+  const resolved = findings.filter(f => f.status !== 'open').length
+  if (findings.length === 0) return <span className="rv-muted">None</span>
+  return (
+    <span className="rv-pills">
+      {SEVERITIES.map(s => open(s) > 0 && <SeverityPill key={s} severity={s} count={open(s)} size="sm" />)}
+      {resolved > 0 && <small>{resolved} resolved</small>}
+      {resolved === 0 && SEVERITIES.every(s => open(s) === 0) && <span className="rv-muted">None open</span>}
+    </span>
   )
 }
 

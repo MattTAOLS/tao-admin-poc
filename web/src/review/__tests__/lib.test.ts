@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { RULE_TITLES, parseRuleTitles } from '../lib/rules'
-import { provenance, findingBoxes, carriedLabel } from '../lib/provenance'
+import { provenance, findingBoxes, focusBox, carriedLabel } from '../lib/provenance'
 import { covenantValue, byFormat } from '../lib/format'
 import type { Extraction } from '../lib/types'
 import extractionFx from './fixtures/extraction-moneda.json'
@@ -41,6 +41,8 @@ describe('provenance', () => {
     const f = findingsFx[0]
     expect(findingBoxes(ex, f.fields, f.source_page)).toEqual([[427.41, 582.84, 485.7, 592.84], [1206.42, 582.84, 1264.71, 592.84]])
     expect(findingBoxes(ex, ['master:/covenant_definitions'], 14)).toEqual([])
+    // The crop centres on the closing balance, the figure the report states
+    expect(focusBox(ex, f.fields, f.source_page, f.report_value)).toEqual([1206.42, 582.84, 1264.71, 592.84])
   })
 })
 

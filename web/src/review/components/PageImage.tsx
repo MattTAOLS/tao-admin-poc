@@ -28,20 +28,22 @@ function Marks({ boxes, nat, tone }: { boxes: Box[]; nat?: Nat; tone: 'finding' 
   return <>{boxes.map((b, i) => <span key={i} className={'rv-mark' + (tone === 'source' ? ' rv-mark--source' : '')} style={markStyle(b, nat)} data-testid="page-mark" />)}</>
 }
 
-/** Thumbnail of one report page for a finding card. With bboxes it zooms in on them and outlines them; without, it
- * shows the top of the page. Click (or Enter) opens the page viewer. */
-export function PageCrop({ uploadId, page, boxes = [], onZoom }: { uploadId: string; page: number; boxes?: Box[]; onZoom: () => void }) {
+/** Thumbnail of one report page for a finding card. With bboxes it zooms in on `focus` (or all boxes) and outlines
+ * every box; without, it shows the top of the page. Click (or Enter) opens the page viewer. */
+export function PageCrop({ uploadId, page, boxes = [], focus, onZoom }: { uploadId: string; page: number; boxes?: Box[]; focus?: Box; onZoom: () => void }) {
   const { url, failed } = usePageImage(uploadId, page)
   const [nat, setNat] = useState<Nat>()
   if (failed) return <div className="rv-cropstate">Page {page} image is not available. Open the PDF to check this page.</div>
   if (!url) return <div aria-busy="true"><SkeletonBlock height={170} radius={8} /><span className="ds-visually-hidden">Loading page {page}</span></div>
 
   let style: CSSProperties | undefined
-  if (nat && boxes.length > 0) {
-    const x0 = Math.min(...boxes.map(b => b[0])), x1 = Math.max(...boxes.map(b => b[2]))
-    const y0 = Math.min(...boxes.map(b => b[1])), y1 = Math.max(...boxes.map(b => b[3]))
-    const span = Math.max((x1 - x0) * PX_PER_PT / nat.w, 0.01)
-    const k = Math.min(3.5, Math.max(1.4, 0.85 / span))
+  const around = focus ? [focus] : boxes
+  if (nat && around.length > 0) {
+    const x0 = Math.min(...around.map(b => b[0])), x1 = Math.max(...around.map(b => b[2]))
+    const y0 = Math.min(...around.map(b => b[1])), y1 = Math.max(...around.map(b => b[3]))
+    // Scale so the focused cells fill about a third of the thumbnail width, between 1.4x and 6x the thumbnail.
+    const span = Math.max((x1 - x0) * PX_PER_PT / nat.w, 0.005)
+    const k = Math.min(6, Math.max(1.4, 0.33 / span))
     const cx = ((x0 + x1) / 2) * PX_PER_PT / nat.w, cy = ((y0 + y1) / 2) * PX_PER_PT / nat.h
     style = { width: `${k * 100}%`, transform: `translate(-${cx * 100}%, -${cy * 100}%)` }
   }

@@ -57,3 +57,18 @@ export function findingBoxes(ex: Extraction | undefined, fields: string[] | unde
   }
   return out
 }
+
+/** The box to centre a crop on: the field whose extracted value is the finding's report value (the figure the
+ * reviewer is checking), else the first box. A lookup for display; nothing is recomputed. */
+export function focusBox(ex: Extraction | undefined, fields: string[] | undefined, page: number | null | undefined, reportValue: unknown): Box | undefined {
+  if (!ex || !fields || page == null) return undefined
+  let first: Box | undefined
+  for (const f of fields) {
+    if (!f.startsWith('/')) continue
+    const s = ex.sources?.[f]
+    if (!s || s.page !== page || !Array.isArray(s.bbox) || s.bbox.length !== 4) continue
+    first ??= s.bbox
+    if (reportValue !== undefined && reportValue !== null && getPointer(ex.deal, f) === reportValue) return s.bbox
+  }
+  return first
+}

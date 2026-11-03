@@ -40,6 +40,9 @@ function Detail({ e, unit }: { e: AuditEntry; unit: Finding['unit'] }) {
   if (d.file_name) parts.push(<span key="f">{String(d.file_name)}</span>)
   if (d.status && !d.rule_id) parts.push(<span key="s">{String(d.status).replace(/_/g, ' ')}</span>)
   if (d.program_slug) parts.push(<span key="g">{String(d.program_slug)}</span>)
+  if (typeof d.pass === 'number') parts.push(<span key="x">pass {d.pass}</span>)
+  if (Array.isArray(d.overrides_used)) parts.push(<span key="o">{d.overrides_used.length} override{d.overrides_used.length === 1 ? '' : 's'} applied</span>)
+  if (d.collection_period && !d.file_name) parts.push(<span key="cp">{String(d.collection_period)}</span>)
   if (parts.length === 0) return <span className="rv-detail">—</span>
   return <span className="rv-detail">{parts.map((p, i) => <span key={i}>{i > 0 && ' · '}{p}</span>)}</span>
 }
