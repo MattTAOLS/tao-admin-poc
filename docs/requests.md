@@ -43,7 +43,7 @@ The Lead reads this at every merge.
   ratio do not match any captured series), and page-13 components (EBITDA, interest, indebtedness, equity) so R10/R17
   can rebuild coverage and leverage instead of comparing to the ratio history. Roll-forward: Meridian is not a
   missing column (see R05 above); Finloc and TLFC LP still are.
-- 2026-11-03 — to Lead (Makefile): add `cd worker/validate && python -m pytest -q` to `make check` (6 adapter tests,
+- 2026-11-03 — to Lead (Makefile): add `cd worker/validate && python -m pytest -q` to `make check` (12 adapter tests,
   SQLite, no Postgres needed).
 - RESOLVED (75884f0: worker runs `python main.py`; adapter tested as `validate` and `worker.validate`) — 2026-11-03 — to Lead / Extraction (docker-compose.yml, worker/main.py): compose mounts `./worker` at `/app` and
   runs `python -m worker.main`, so there is no `worker` package inside the container; the adapter would import as
