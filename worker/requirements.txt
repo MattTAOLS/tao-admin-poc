@@ -1,9 +1,10 @@
-redis==5.2.1
-sqlalchemy==2.0.36
-psycopg[binary]==3.2.3
-pdfplumber==0.11.4
-pypdfium2==4.30.0
-anthropic==0.42.0
-pyyaml==6.0.2
-jsonschema==4.23.0
-pytest==8.3.4
+# Worker container runtime: extraction (worker/extract), validation + persistence (worker/validate, rules/).
+# Test-only packages are in requirements-dev.txt.
+pdfplumber==0.11.4        # text layer; pulls pdfminer.six==20231228
+pypdfium2==4.30.0         # pdfplumber page rendering; OCR fallback page images (wave 2)
+pyyaml==6.0.2             # extraction templates, contracts/rules.yaml
+jsonschema==4.23.0        # model-fallback answer validation, contract checks
+anthropic==0.42.0         # Claude fallback for unplaced cells (imported only when ANTHROPIC_MODEL is set)
+sqlalchemy==2.0.36        # worker/validate adapter
+psycopg[binary]==3.2.3    # worker/validate adapter (postgresql+psycopg)
+redis==5.2.1              # job queue extract:jobs

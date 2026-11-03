@@ -1,0 +1,4 @@
+# Tests for worker/extract and worker/validate: pip install -r worker/requirements-dev.txt
+-r requirements.txt
+pytest==8.3.4
+pypdf==6.18.1             # seeded-error test edits one digit in a page content stream
