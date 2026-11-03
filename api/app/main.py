@@ -127,7 +127,7 @@ def get_upload(upload_id: str, c: Caller = Depends(caller), s: Session = Depends
 
 
 @app.get(API + "/uploads/{upload_id}/extraction")
-def get_extraction(upload_id: str, pass_: Literal[1, 2] | None = Query(default=None, alias="pass"), c: Caller = Depends(caller), s: Session = Depends(get_db)):
+def get_extraction(upload_id: str, pass_: int | None = Query(default=None, alias="pass", ge=1, le=2), c: Caller = Depends(caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     ex = views.latest_extraction(s, u.id, pass_)
