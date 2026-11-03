@@ -1,0 +1,30 @@
+/* UI-Admin page layout only. Components come from @/design/components; tokens from contracts/tokens.css. */
+.adm-stack { display: grid; gap: var(--gap); }
+.adm-grid-2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.adm-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.adm-filters > .ds-field { min-width: 180px; flex: 0 1 220px; }
+.adm-form { display: grid; gap: 14px; }
+.adm-form__row { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.adm-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.adm-muted { color: var(--muted); }
+.adm-mono { font-family: var(--mono); font-size: 12px; }
+.adm-link { color: var(--purple-700); font-weight: 600; text-decoration: none; }
+.adm-link:hover { text-decoration: underline; }
+.adm-link:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+.adm-dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; font-size: 13px; }
+.adm-dl dt { color: var(--muted); }
+.adm-dl dd { margin: 0; font-variant-numeric: var(--tabular); }
+.adm-dl dd.adm-num { font-family: var(--data); }
+.adm-steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0; flex-wrap: wrap; align-items: center; }
+.adm-steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.adm-steps li[aria-current='step'] { color: var(--text); font-weight: 600; }
+.adm-steps li[data-done='true'] { color: var(--text); }
+.adm-steps__sep { color: var(--border); }
+.adm-chip-status { transition: opacity var(--t-control) var(--ease); }
+.adm-note { font-size: 13px; padding: 10px 12px; border-radius: 10px; background: var(--lav); color: var(--text); }
+.adm-note--warn { background: color-mix(in srgb, var(--warn) 14%, var(--card)); }
+.adm-counts { display: inline-flex; gap: 10px; font-variant-numeric: var(--tabular); }
+.adm-bands { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.adm-band-row { display: grid; grid-template-columns: 110px 1fr 1fr auto; gap: 8px; align-items: end; }
+.adm-section-title { font-size: 13px; font-weight: 700; margin: 4px 0 0; }
+.adm-pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }

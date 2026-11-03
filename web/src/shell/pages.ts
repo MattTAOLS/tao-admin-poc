@@ -14,7 +14,7 @@ export type Page = {
 export const ADMIN_PAGES: Page[] = [
   { path: '/admin', title: 'Dashboard', nav: 'main', built: true, owner: 'admin', purpose: 'Queue counts, recent uploads, covenant status across programs' },
   { path: '/admin/uploads', title: 'Uploads', nav: 'main', built: true, owner: 'admin' },
-  { path: '/admin/uploads/new', title: 'Upload report', built: true, owner: 'admin', purpose: 'Pick deal and period first, then the file; shows both dates back before accepting' },
+  { path: '/admin/uploads/new', title: 'Upload report', built: true, owner: 'admin', purpose: 'Pick deal and period first, then the file; shows both dates back before accepting', load: () => import('@/admin/UploadReportPage') },
   { path: '/admin/uploads/history', title: 'Upload history', built: true, owner: 'admin' },
   { path: '/admin/uploads/queue', title: 'Approval queue', built: true, owner: 'review' },
   { path: '/admin/uploads/queue/:uploadId', title: 'Review report', built: true, owner: 'review', purpose: 'Finding cards: rule, severity, ours vs report, page crop; override / restate / reject / publish' },
