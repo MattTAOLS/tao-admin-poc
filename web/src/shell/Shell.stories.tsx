@@ -23,7 +23,7 @@ type S = StoryObj<Args>
 
 export const AdminDashboard: S = { args: { role: 'tao_admin', path: '/admin' } }
 export const AdminNested: S = { args: { role: 'tao_admin', path: '/admin/uploads/queue/7f0b7c3e' } }
-export const AnalystNoAccess: S = { args: { role: 'tao_analyst', path: '/admin/partners' } }
+export const AnalystNoAccess: S = { args: { role: 'tao_analyst', path: '/admin/settings/users/audit' } }
 export const NotFound: S = { args: { role: 'tao_admin', path: '/admin/does-not-exist' } }
 export const InvestorPortal: S = { args: { role: 'investor_admin', path: '/investor/portfolio' } }
 export const ManagerViewer: S = { args: { role: 'manager_viewer', path: '/manager/data-room' } }

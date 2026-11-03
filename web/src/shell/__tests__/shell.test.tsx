@@ -34,9 +34,23 @@ describe('shell routing', () => {
     expect(within(ws).getByRole('link', { name: 'Dashboard' }).className).toContain('active')
   })
   it('hides admin-only nav from analysts and shows No access on direct visit', () => {
-    renderAt('/admin/partners', 'tao_analyst')
-    expect(screen.queryByRole('link', { name: 'Partners' })).toBeNull()
+    renderAt('/admin/settings/users/audit', 'tao_analyst')
+    const acc = screen.getByRole('navigation', { name: 'Account' })
+    expect(within(acc).queryByRole('link', { name: 'System settings' })).toBeNull()
+    expect(within(acc).queryByRole('link', { name: 'User management' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
+  })
+  it('lets analysts reach master data (read only in the pages) but not the audit log', () => {
+    renderAt('/admin/settings/users/audit', 'tao_analyst')
+    expect(screen.getByRole('link', { name: 'Partners' })).toBeTruthy()
+  })
+  it('registers the nested portfolio routes in the admin shell', () => {
+    for (const p of ['/admin/portfolio/:programId', '/admin/portfolio/:programId/dashboard', '/admin/portfolio/:programId/deals/:dealId']) {
+      const e = ADMIN_PAGES.find(x => x.path === p)
+      expect(e?.owner).toBe('portfolio'); expect(e?.nav).toBeUndefined(); expect(typeof e?.load).toBe('function')
+    }
+    const c = routeCrumbs(ADMIN_PAGES, '/admin/portfolio/move-trust/deals/move-trust-vcc-iv-lp', 'TAO Admin')
+    expect(c.map(x => x.label)).toEqual(['TAO Admin', 'Portfolio Executive Summary', 'Program Executive Summary', 'Deal page'])
   })
   it('shows Not found with a way home for an unknown path', async () => {
     renderAt('/admin/nope')
