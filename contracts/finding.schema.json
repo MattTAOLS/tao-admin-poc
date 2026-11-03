@@ -17,6 +17,11 @@
       "description": "JSON pointers into extraction.deal that the rule read.",
       "items": { "type": "string" }
     },
+    "targets": {
+      "type": "array",
+      "description": "JSON pointers into extraction.deal that hold the value our_value and report_value describe (every copy, e.g. /tranche_balance/closing and /period_history/<i>/closing_balance). Present only when use_ours or use_report can change a value; approve writes the chosen value to each pointer and records it in deal.data_corrections.",
+      "items": { "type": "string" }
+    },
     "our_value": { "type": ["number", "string", "boolean", "null"], "description": "What we computed or expected." },
     "report_value": { "type": ["number", "string", "boolean", "null"], "description": "What the report states (as extracted)." },
     "difference": { "type": ["number", "null"] },
