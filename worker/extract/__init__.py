@@ -27,6 +27,10 @@ from .text import engine_version, pages_without_text, read_pdf
 log = logging.getLogger("extract")
 DEFAULT_TEMPLATE = "fpil-2.0-settrep-v1"
 
+
+class ExtractionError(ValueError):
+    """The PDF cannot be extracted with this template; the message is meant for the audit log as is."""
+
 # fields the model fallback may fill, by Parsed attribute (simple label -> value sections only)
 _FILLABLE = {"cover", "principal", "cost_of_funds", "enhancement", "aging", "funded_total", "contracts_total"}
 _SECTION_ATTR = {"cover": "cover", "principal_balances": "principal", "cost_of_funds": "cost_of_funds",
@@ -69,6 +73,15 @@ def extract(pdf_path: str, template_id: str = DEFAULT_TEMPLATE, pages: Optional[
         hint_pages = sorted({u[2] for u in p.unplaced if u[2]} or {1})
         texts = {pg.number: pg.text for pg in read if pg.number in hint_pages}
         _apply_model_cells(p, model.ask(asked, texts))
+
+    if not pages and "collection_start" not in p.cover:
+        # without the cover block there is no period to file the report under; say why in plain words
+        if 1 in no_text:
+            raise ExtractionError("page 1 has no text layer; cover block not found"
+                                  + (" (no page has text: scanned or blank PDF, OCR fallback not built yet)"
+                                     if len(no_text) == page_count else ""))
+        raise ExtractionError("cover block not found on page 1 (no 'Collection Period Start Date'); "
+                              f"is this a {template_id} settlement report?")
 
     rec = Recorder(pass_no)
     derive.build(p, rec, prior=prior, partial=bool(pages))
@@ -129,4 +142,4 @@ def merge_patch(base: dict, patch: dict) -> dict:
     return out
 
 
-__all__ = ["extract", "merge_patch", "DEFAULT_TEMPLATE"]
+__all__ = ["extract", "merge_patch", "DEFAULT_TEMPLATE", "ExtractionError"]

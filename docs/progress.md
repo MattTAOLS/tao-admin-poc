@@ -2,23 +2,19 @@
 
 Append an entry when a work package lands. Newest first.
 
-- 2026-11-03 — Rules, wave 1c (history chaining): `handle_extraction(job, extraction, conn=None, enqueue=None,
-  extend=None)`. With `extend`, the extraction is chained onto the prior publication (the same one build_context
-  hands the rules as ctx.prior, via `prior_publication`) before it is validated and stored, so the stored row,
-  the findings and a later approve all carry the full history. No prior: stored unchanged, extend not called.
-  extend raises: logged, unchained document stored with a note in `meta.notes`, upload not failed. On all 12
-  reference deals, the chained object against the previous month as prior raises no block or review finding the
-  single-month extraction does not; R11's restatement check finds the chained earlier months equal to the prior.
-  Chaining removes three R11 blocks (Dynamic, Essex, TLFC LP: opening gap = tranche funded since the prior) when
-  the prior has no tranche list, because the chained `balance_discontinuities` explain the gap; with a prior that
-  carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
-  `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
-  (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
-
+- 2026-11-03 — Extraction: wave 1c history. `worker/extract/history.py: extend(prior_deal, extraction)` chains one
+  upload onto the deal's last published object (an earlier extend/chain result or a seeded reference object):
+  period_history oldest first, aging_history newest first, ratio_history gaps, restatements, balance
+  discontinuities, prior_covenants (with the prior CNL value) and prior closings. Pure; extend(None, ex) is ex;
+  a prior that is not before the extraction's period raises ValueError. May→Jun→Jul→Aug month by month equals
+  chain() and the reference object for all 3 F-PIL deals. Carried months get no `sources` entries (the schema
+  requires a page); meta.history says "published <period>" and lists the carried pointers. worker/main.py passes
+  `extend=history.extend` to handle_extraction when its signature accepts it (inspect), else the plain call. A PDF
+  with no text on page 1 now fails with "page 1 has no text layer; cover block not found" (ExtractionError)
+  instead of an IndexError. Tests: 62 in worker/extract/tests.
 - 2026-11-03 — Data & API: seed paths require content. `app/seed.py` picks the first seed folder that holds
   partners.json and the first reference folder with a *.dashboard.json, so an empty compose mount point (api/seed) no
   longer shadows the real one. Decoy tests in tests/test_seed.py; 113 API tests pass.
-
 - 2026-11-03 — Data & API: wave 1b schema parity. Merged lead/wave1-seams. `api/app/models.py` now matches migration 001
   for raw-SQL writers (worker/validate): the five timestamp columns have `server_default=now()` as well as the Python
   default, and ids are stored on SQLite as the dashed 36-character text PostgreSQL prints (was 32-char hex, so raw
@@ -120,6 +116,18 @@ Append an entry when a work package lands. Newest first.
   printed ratio history (no EBITDA / interest captured); R17 skips "(Definitions)" trigger tests; R15 lacks a
   deal-level facility limit; R18 cannot check page-14 YES / NO. Needs: see `docs/requests.md` › Rules (R09 `fn`,
   R05 / R18 / R03 wording, Stride/Xpedite covenant seed, deal facility limit, worker mount path, `make check` line).
+- 2026-11-03 — Rules, wave 1c (history chaining): `handle_extraction(job, extraction, conn=None, enqueue=None,
+  extend=None)`. With `extend`, the extraction is chained onto the prior publication (the same one build_context
+  hands the rules as ctx.prior, via `prior_publication`) before it is validated and stored, so the stored row,
+  the findings and a later approve all carry the full history. No prior: stored unchanged, extend not called.
+  extend raises: logged, unchained document stored with a note in `meta.notes`, upload not failed. On all 12
+  reference deals, the chained object against the previous month as prior raises no block or review finding the
+  single-month extraction does not; R11's restatement check finds the chained earlier months equal to the prior.
+  Chaining removes three R11 blocks (Dynamic, Essex, TLFC LP: opening gap = tranche funded since the prior) when
+  the prior has no tranche list, because the chained `balance_discontinuities` explain the gap; with a prior that
+  carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
+  `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
+  (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.

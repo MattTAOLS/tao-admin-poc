@@ -112,3 +112,138 @@ def chain(extractions: list[dict]) -> dict:
         sources.update(_remap(prev["sources"], "/contracts/closing", "/prior_closing_contracts", periods[-2]))
     newest["meta"]["chained_periods"] = periods
     return newest
+
+
+# ---------------------------------------------------------------- one month at a time
+_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _reporting_month(ym: str) -> str:
+    """A report for collection period YYYY-MM covers reporting month MM - 1, as 'Mon-YY'."""
+    y, m = map(int, ym.split("-"))
+    m, y = (12, y - 1) if m == 1 else (m - 1, y)
+    return f"{_MON[m - 1]}-{y % 100:02d}"
+
+
+def _months_between(a: str, b: str) -> int:
+    (ya, ma), (yb, mb) = _month_key(a), _month_key(b)
+    return (yb - ya) * 12 + (mb - ma)
+
+
+def _latest_period(deal: dict):
+    ps = [r.get("period") for r in deal.get("period_history") or [] if r.get("period")]
+    return max(ps) if ps else None
+
+
+def _shift_sources(sources: dict, old_prefix: str, new_prefix: str):
+    if old_prefix == new_prefix:
+        return
+    moved = {new_prefix + k[len(old_prefix):]: v for k, v in sources.items() if k.startswith(old_prefix + "/")}
+    for k in [k for k in sources if k.startswith(old_prefix + "/")]:
+        del sources[k]
+    sources.update(moved)
+
+
+def extend(prior_deal: dict | None, extraction: dict) -> dict:
+    """Add one month to a deal's history. `prior_deal` is the deal object last published before the
+    extraction's period (an earlier extend() or chain() result, or a seeded reference object); `extraction` is
+    one upload's extraction document. Returns the extraction document with every cross-report field filled as
+    chain() fills it. Pure: no I/O, `extraction` is not modified; extend(None, ex) returns ex unchanged.
+
+    Restatements need to know which earlier reports printed a month, which a deal object does not record. It is
+    inferred from the report format: the report for period P prints field f for the months from
+    (reporting month of P) - span_f up to that reporting month, where span_f is how far back the new report
+    prints f. Those reports printed the prior deal's value unless the prior deal already lists a restatement.
+
+    Carried-over values have no page in this upload, so they get no `sources` entries (the schema requires a
+    page). meta.history names the published period they came from and lists the pointers carried."""
+    if prior_deal is None:
+        return extraction
+    out = copy.deepcopy(extraction)
+    deal, sources = out["deal"], out["sources"]
+    prior = copy.deepcopy(prior_deal)
+    cur_period = deal["period_history"][0]["period"]
+    prior_period = _latest_period(prior)
+    if prior_period is None or prior_period >= cur_period:
+        raise ValueError(f"prior deal's latest period {prior_period!r} is not before the extraction's {cur_period!r}")
+    carried: list[str] = []
+
+    # period_history oldest first, aging_history newest first
+    old_ph = sorted([r for r in prior.get("period_history") or [] if r.get("period", "") < cur_period],
+                    key=lambda r: r["period"])
+    deal["period_history"] = old_ph + deal["period_history"][:1]
+    _shift_sources(sources, "/period_history/0", f"/period_history/{len(old_ph)}")
+    carried += [f"/period_history/{i}" for i in range(len(old_ph))]
+    old_ag = sorted([r for r in prior.get("aging_history") or [] if r.get("period", "") < cur_period],
+                    key=lambda r: r["period"], reverse=True)
+    deal["aging_history"] = deal["aging_history"][:1] + old_ag
+    carried += [f"/aging_history/{i + 1}" for i in range(len(old_ag))]
+
+    # ratio_history gaps from the prior deal (its rows already hold the latest earlier value)
+    prior_rows = {r["month"]: r for r in prior.get("ratio_history") or []}
+    for i, row in enumerate(deal.get("ratio_history") or []):
+        for k, v in (prior_rows.get(row["month"]) or {}).items():
+            if k not in row:
+                row[k] = v
+                carried.append(f"/ratio_history/{i}/{k}")
+
+    # restatements
+    new_rows = {r["month"]: r for r in extraction["deal"].get("ratio_history") or []}
+    report_periods = sorted({r["period"] for r in prior.get("period_history") or [] if r.get("period")})
+    span: dict[str, int] = {}
+    if new_rows:
+        newest = max(new_rows, key=_month_key)
+        for m, r in new_rows.items():
+            for k in r:
+                if k != "month":
+                    span[k] = max(span.get(k, 0), _months_between(m, newest))
+    rest = {(r["month"], r["field"]): r for r in prior.get("restatements") or []}
+    for m, r in new_rows.items():
+        for k, v in r.items():
+            if k == "month" or v is None:
+                continue
+            if (m, k) in rest:
+                rest[(m, k)]["as_reported"].append({"source_period": cur_period, "value": v})
+                continue
+            pv = prior_rows.get(m, {}).get(k)
+            if pv is None or abs(pv - v) <= EPS:
+                continue
+            printed_by = [p for p in report_periods if 0 <= _months_between(m, _reporting_month(p)) <= span.get(k, 12)]
+            rest[(m, k)] = {"month": m, "field": k,
+                            "as_reported": [{"source_period": p, "value": pv} for p in printed_by]
+                            + [{"source_period": cur_period, "value": v}]}
+    deal["restatements"] = sorted(rest.values(), key=lambda r: (_month_key(r["month"]), r["field"]))
+
+    # balance discontinuities: the prior deal's, plus the one between its period and this one
+    disc = [d for d in prior.get("balance_discontinuities") or [] if d.get("period", "") < cur_period]
+    ptb, ctb = prior.get("tranche_balance") or {}, deal.get("tranche_balance") or {}
+    prev_ids = {t["tranche"] for t in ptb.get("all_tranches") or []}
+    new = [t for t in ctb.get("all_tranches") or [] if t["tranche"] not in prev_ids] if prev_ids else []
+    for label, pclose, copen, explain in (
+            ("Tranche Balance", ptb.get("closing"), ctb.get("opening"), sum(t["opening"] for t in new) if new else None),
+            ("Tranche Amount", (prior.get("tranche_amount") or {}).get("closing"),
+             (deal.get("tranche_amount") or {}).get("opening"), None)):
+        if pclose is None or copen is None or abs(copen - pclose) <= 0.01:
+            continue
+        gap = copen - pclose
+        residual = gap - (explain or 0.0)
+        disc.append({"field": label, "period": cur_period, "prior_period": prior_period, "prior_closing": pclose,
+                     "current_opening": copen, "gap": gap, "new_tranche_count": len(new),
+                     "new_tranche_ids": [t["tranche"] for t in new], "explained_by_new_tranches": explain,
+                     "residual": residual, "fully_explained": abs(residual) <= 0.01})
+    deal["balance_discontinuities"] = disc
+
+    # the prior published period's covenants (with its CNL value) and closings
+    deal["prior_covenants"] = copy.deepcopy(prior.get("covenants") or [])
+    carried.append("/prior_covenants")
+    for key, val in (("prior_closing_tranche_balance", ptb.get("closing")),
+                     ("prior_closing_contracts", (prior.get("contracts") or {}).get("closing"))):
+        if val is not None:
+            deal[key] = val
+            carried.append(f"/{key}")
+
+    for k in [k for k in sources if any(k == c or k.startswith(c + "/") for c in carried)]:
+        del sources[k]
+    out["meta"]["history"] = {"extended_from": f"published {prior_period}", "carried": carried,
+                              "periods": [r["period"] for r in deal["period_history"]]}
+    return out

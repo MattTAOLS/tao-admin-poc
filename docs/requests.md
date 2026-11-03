@@ -88,6 +88,13 @@ The Lead reads this at every merge.
   pypdfium2, pyyaml, jsonschema, anthropic, sqlalchemy, psycopg[binary], redis); pytest moved to
   `worker/requirements-dev.txt` with pypdf. Rules and the agent/rules adapter import nothing beyond these.
   The Dockerfile still installs poppler-utils, which nothing in worker/ uses; drop it if you want a smaller image.
+- 2026-11-03 — to Lead (wave 1c, contract): values `history.extend` carries over from the published deal have no
+  page in the new upload, and `sources[].page` is required (integer ≥ 1), so carried leaves have no source entry;
+  `meta.history.extended_from` / `.carried` record where they came from. If the review UI wants per-leaf
+  provenance for carried months, allow `page: null` plus an `origin` (e.g. "published 2026-07") in the schema.
+- 2026-11-03 — to Rules (wave 1c): worker/main.py passes `extend=history.extend` to `handle_extraction` when the
+  signature has an `extend` parameter (or **kwargs). Call it as `extend(last_published_deal_or_None, extraction)`
+  before validating; it raises ValueError if the published deal's latest period is not before the upload's.
 ## Rules
 
 - RESOLVED (75884f0; FN_FALLBACK removed in aa6aa6c) — 2026-11-03 — to Lead (contracts/rules.yaml), R09: add `fn: utilization_recomputes`. R09 has only an `expr`, which
