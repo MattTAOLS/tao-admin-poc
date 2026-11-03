@@ -18,7 +18,7 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/uploads/history', title: 'Upload history', built: true, owner: 'admin' },
   { path: '/admin/uploads/queue', title: 'Approval queue', built: true, owner: 'review', load: () => import('@/review/QueuePage') },
   { path: '/admin/uploads/queue/:uploadId', title: 'Review report', built: true, owner: 'review', purpose: 'Finding cards: rule, severity, ours vs report, page crop; override / restate / reject / publish', load: () => import('@/review/ReviewPage') },
-  { path: '/admin/reports', title: 'Reports library', nav: 'main', built: true, owner: 'review', purpose: 'Published reports; Regenerate dashboard pop-up' },
+  { path: '/admin/reports', title: 'Reports library', nav: 'main', built: true, owner: 'review', purpose: 'Published reports; Regenerate dashboard pop-up', load: () => import('@/review/ReportsLibraryPage') },
   { path: '/admin/partners', title: 'Partners', nav: 'main', roles: ['tao_admin'], built: true, owner: 'admin' },
   { path: '/admin/partners/:partnerId', title: 'Partner details', roles: ['tao_admin'], built: true, owner: 'admin' },
   { path: '/admin/partners/:partnerId/programs/:programId', title: 'Program / facility record', roles: ['tao_admin'], built: true, owner: 'admin', purpose: 'Limits, covenant definitions with threshold rules, amendment dates' },
