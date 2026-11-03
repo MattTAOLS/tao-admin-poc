@@ -72,3 +72,12 @@ describe('text contrast', () => {
     it(`${fg} on ${bg} is at least 4.5:1`, () => { expect(ratio(val(fg), val(bg))).toBeGreaterThanOrEqual(4.5) })
   }
 })
+
+describe('KPI numbers', () => {
+  it('are never ellipsized or clipped', () => {
+    const css = readFileSync(resolve(web, 'src/design/components/components.css'), 'utf8')
+    const rule = /\.ds-kpi__value \{([^}]*)\}/.exec(css)![1]
+    expect(rule).not.toMatch(/ellipsis|nowrap|overflow:\s*hidden/)
+    expect(rule).toMatch(/clamp\(/)
+  })
+})
