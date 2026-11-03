@@ -39,6 +39,27 @@ def prior_from_history(d):
             "contracts": {"opening": last["opening_contracts"], "closing": last["closing_contracts"]},
             "period_history": rows, "ratio_history": d["ratio_history"][:-1], "covenants": d["prior_covenants"]}
 
+def single_month(d):
+    """What one SetRep yields before history chaining: the current period row and aging row only, no cross-report
+    fields (the report's own 13-month ratio_history is printed on it, so it stays)."""
+    d = copy.deepcopy(d)
+    d["period_history"] = [r for r in d["period_history"] if r["collection_period"] == d["collection_period"]]
+    d["aging_history"] = d["aging_history"][:1]
+    d["balance_discontinuities"], d["restatements"] = [], []
+    return d
+
+def prior_state(d):
+    """The previous month's published deal, rebuilt from the rows this (chained) object carries for earlier months:
+    period_history and aging_history up to that month, ratio_history without the current month, prior covenants and
+    closings. Real numbers only; fields the current object has no earlier value for are left as they are."""
+    p = copy.deepcopy(d)
+    rows = [r for r in p["period_history"] if r["collection_period"] != d["collection_period"]]
+    last = rows[-1]
+    p.update(collection_period=last["collection_period"], period_history=rows, aging_history=p["aging_history"][1:], ratio_history=p["ratio_history"][:-1],
+             covenants=p["prior_covenants"], tranche_balance={**p["tranche_balance"], "opening": last["opening_balance"], "closing": last["closing_balance"], "all_tranches": []},
+             contracts={**p["contracts"], "opening": last["opening_contracts"], "closing": last["closing_contracts"]})
+    return p
+
 def upload_for(d):
     deal = next(x for x in seed("deals.json") if x["slug"] == d["deal_slug"])
     return {"deal_slug": deal["slug"], "deal_name": deal["name"], "collection_period": "2026-08" if d["collection_period"] == "August 2026" else "2026-07"}

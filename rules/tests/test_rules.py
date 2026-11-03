@@ -168,3 +168,18 @@ def test_finding_message_override_and_no_context_clash():
     rule = next(r for r in RULES if r["id"] == "R05")
     f = finding(rule, "x", our_value=1, report_value=2, difference=1, context={"a": 5}, message="a={a} ours={our_value}")
     assert f["message"] == "a=5 ours=1"
+
+# ---------- history chaining ----------
+def test_chained_history_adds_no_findings():
+    """The upload as handle_extraction sees it after chaining (the 4-month reference object) against the 3-month
+    state as ctx.prior, versus the single-month extraction against the same prior: chaining must add no block or
+    review finding. ctx.prior and the chained period_history carry the same earlier months; R11's restatement check
+    compares them and must find them equal, and every other rule reads the current month by collection_period."""
+    for f in sorted(glob.glob(str(ROOT / "docs/dashboard-json/[fm]*.dashboard.json"))):
+        full = load(f); prior = mf.prior_state(full)
+        def kept(deal):
+            ctx = Context(prior=prior, master=mf.master_for(deal["deal_slug"]), upload=mf.upload_for(deal), published_periods={prior["collection_period"]})
+            return {(x["rule_id"], x["message"]) for x in run({"meta": mf.META, "deal": deal, "sources": {}}, ctx, phases=(1, 2)) if x["severity"] != "note"}
+        chained, single = kept(full), kept(mf.single_month(full))
+        assert chained <= single, (full["deal_slug"], chained - single)
+        assert not [m for r, m in chained if r == "R11" and "Restatement" in m], full["deal_slug"]

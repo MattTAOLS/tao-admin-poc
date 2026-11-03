@@ -17,7 +17,7 @@ both run phases (1, 2): prior = last published deal object before the upload's p
 covenants in force at the period end}; published_periods = set of published periods; upload = the API's Upload dict.
 """
 from __future__ import annotations
-import calendar, contextlib, datetime as dt, decimal, json, logging, os, uuid
+import calendar, contextlib, copy, datetime as dt, decimal, json, logging, os, uuid
 from sqlalchemy import create_engine, text
 from rules import run, load_rules
 from rules.engine import Context
@@ -123,13 +123,18 @@ def upload_dict(store: SqlStore, u: dict) -> dict:
             "finding_counts": store.open_counts(ex["id"]) if ex else {"block": 0, "review": 0, "note": 0},
             "latest_extraction_id": ex["id"] if ex else None, "published_at": pub["published_at"] if pub else None, "reject_reason": u.get("reject_reason")}
 
+def prior_publication(pubs: list[dict], period: str | None) -> dict | None:
+    """The last publication with a period before `period` (pubs ordered by collection_period). Used by build_context
+    for ctx.prior and by handle_extraction for history chaining, so both see the same prior."""
+    return next((p for p in reversed(pubs) if period and period_key(p["collection_period"]) and period_key(p["collection_period"]) < period), None)
+
 def build_context(store: SqlStore, upload: dict, deal_obj: dict | None = None) -> Context:
     slug = upload["deal_slug"]
     period = period_key(upload.get("collection_period")) or period_key((deal_obj or {}).get("collection_period"))
     deal_row = store.deal(slug)
     program = store.program(deal_row["program_slug"]) if deal_row else None
     pubs = store.publications(slug)
-    prior = next((p["deal"] for p in reversed(pubs) if period and period_key(p["collection_period"]) and period_key(p["collection_period"]) < period), None)
+    prior = (prior_publication(pubs, period) or {}).get("deal")
     master = {"program": program, "deal": deal_row,
               "covenants": covenants_as_of(store.covenant_definitions(slug), period_end(period) if period else None)}
     return Context(prior=prior, master=master, published_periods={p["collection_period"] for p in pubs}, upload=upload_dict(store, upload))
@@ -197,17 +202,37 @@ def mark_failed(upload_id, error: str, conn=None) -> None:
         c.execute(text("insert into review_action (id, upload_id, actor_role, actor_label, action, reason, detail) values (:id, :u, 'system', 'worker', 'extract', :r, :d)"),
                   {"id": str(uuid.uuid4()), "u": str(upload_id), "r": (error or "")[:1000], "d": json.dumps({"status": "extraction_failed"})})
 
-def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None) -> dict:
+def chain_history(store: SqlStore, upload_id: str, extraction: dict, extend) -> dict:
+    """extraction = extend(prior published deal, extraction), with the same prior build_context gives the rules.
+    No prior (first upload for the deal): returned unchanged. If extend raises, the unchained extraction is returned
+    with a note in meta.notes; the upload is not failed for it."""
+    u = store.upload(upload_id)
+    if u is None: return extraction
+    period = period_key(u.get("collection_period")) or period_key((extraction.get("deal") or {}).get("collection_period"))
+    prior = prior_publication(store.publications(u["deal_slug"]), period)
+    if prior is None: return extraction
+    try:
+        return extend(copy.deepcopy(prior["deal"]), copy.deepcopy(extraction))
+    except Exception as e:
+        log.exception("history chaining failed for upload %s; continuing unchained", upload_id)
+        out = copy.deepcopy(extraction); meta = out.setdefault("meta", {})
+        meta["notes"] = list(meta.get("notes") or []) + [f"history not chained onto the {prior['collection_period']} publication: {type(e).__name__}: {e}"]
+        return out
+
+def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None, extend=None) -> dict:
     """Store one extraction for job["pass"], validate it, store its findings and move the upload on.
+    With `extend` (worker/extract/history.py, injected by worker/main.py), the extraction is first chained onto the
+    prior published deal (chain_history), so the stored row, the rules and a later approve all see the full history.
     Pass 1: block findings that ask for a retry queue {"upload_id", "pass": 2, "pages"} (status stays extracting);
     otherwise, or if the queue is unavailable (enqueue=False or it raises), needs_review.
     Pass 2: open pass-1 findings pass 2 no longer produces become resolved_by_pass_2; needs_review.
     Returns {"extraction_id", "status", "counts"}."""
     upload_id, pass_ = str(job["upload_id"]), int(job.get("pass", 1))
-    meta = {**(extraction.get("meta") or {}), "upload_id": upload_id, "pass": pass_}
     eid = str(uuid.uuid4())
     with _tx(conn) as c:
         store = SqlStore(c)
+        if extend is not None: extraction = chain_history(store, upload_id, extraction, extend)
+        meta = {**(extraction.get("meta") or {}), "upload_id": upload_id, "pass": pass_}
         prev = store.latest_extraction(upload_id, 1) if pass_ == 2 else None
         c.execute(text("insert into extraction (id, upload_id, pass, meta, deal, sources, confidence) values (:id, :u, :p, :m, :d, :s, :conf)"),
                   {"id": eid, "u": upload_id, "p": pass_, "m": json.dumps(meta), "d": json.dumps(extraction["deal"]), "s": json.dumps(extraction.get("sources") or {}),
