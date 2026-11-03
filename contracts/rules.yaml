@@ -1,0 +1,314 @@
+# SetRep validation rules — data, not code.
+# The rule engine (rules/ package) loads this file, evaluates each rule against an extraction
+# (contracts/extraction.schema.json) plus context, and emits findings (contracts/finding.schema.json).
+#
+# Field paths are JSON pointers into extraction.deal unless prefixed:
+#   prior:   the deal's last PUBLISHED extraction.deal for the previous period
+#   master:  the program/facility master record (api: GET /master/...)
+#   meta:    extraction.meta
+# `expr` is a small expression language the engine implements: + - * / abs() sum() count() len()
+# exists() months_between() near(a, b, tol) and comparisons. Keep it declarative; if a rule needs
+# code, put a named function in rules/custom.py and reference it with `fn:`.
+#
+# severity: block = cannot publish · review = goes to approval queue with the finding · note = shown only
+# phase:    1 = built in wave 1 · 2 = wave 2 · 3 = after the POC (listed so the catalogue is complete)
+# tolerance.unit: currency ($1 per line) · percent_points (0.01 pp) · count (0) · ratio · months
+
+version: 1
+tolerances:
+  currency: 1.00
+  percent_points: 0.0001   # 0.01 pp expressed as a fraction, since the data stores 0.0179 for 1.79%
+  count: 0
+  ratio: 0.005             # for leverage / coverage ratios (two decimals on the report)
+
+rules:
+  # ---------- Layer 1: structural ----------
+  - id: R01
+    layer: structural
+    phase: 1
+    severity: block
+    title: Required fields present
+    description: Every required field of the deal object is present, numeric where numeric, and not null.
+    fields: [/deal_slug, /deal_name, /settlement_date, /collection_period, /tranche_balance/opening, /tranche_balance/closing, /contracts/opening, /contracts/closing, /aging_history, /cnl_by_period, /covenants, /program/program_limit, /program/program_amount]
+    fn: required_fields_present
+    on_failure: retry_pass_2_then_review
+    message: "{count} required field(s) missing or non-numeric: {missing}"
+
+  - id: R02
+    layer: structural
+    phase: 1
+    severity: block
+    title: Currency matches the facility
+    fields: [/terminology, master:/program/currency]
+    fn: currency_matches_master
+    on_failure: review
+    message: "Report currency {report_value} does not match facility currency {our_value}"
+
+  - id: R03
+    layer: structural
+    phase: 1
+    severity: block
+    title: Values in plausible ranges
+    description: Ratios between 0 and 1 (stored as fractions), no negative balances or contract counts, utilization 0..1.5.
+    fields: [/financial_ratios, /tranche_balance, /contracts, /program/program_utilization_pct]
+    fn: plausible_ranges
+    on_failure: retry_pass_2_then_review
+    message: "{field} = {report_value} is outside its plausible range {range}"
+
+  - id: R04
+    layer: structural
+    phase: 1
+    severity: block
+    title: Dates parse and periods line up
+    description: >
+      settlement_date and collection_period parse; collection_period (cover block, = settlement month under
+      the current convention) is exactly one month after meta.reporting_period (page header "for reporting
+      period"), and exactly one month after prior:/collection_period when a prior published period exists.
+    fields: [/settlement_date, /collection_period, meta:/reporting_period, prior:/collection_period]
+    fn: periods_line_up
+    on_failure: review
+    message: "{detail}"
+
+  # ---------- Layer 2: arithmetic identities ----------
+  - id: R05
+    layer: arithmetic
+    phase: 1
+    severity: block
+    title: Tranche balance roll-forward
+    description: >
+      Page 2 prints k = b − c − d − e − i per advance. On the Portfolio Balances row:
+      opening − scheduled principal − prepayments − defaults − NPV adjustment = closing. The deal object
+      carries the period totals in period_history (current period row): principal, principal_prepayments,
+      losses (defaults). Check the total, then each top_movers row where both opening and closing are present.
+    fields: [/tranche_balance/opening, /tranche_balance/closing, /period_history, /tranche_balance/top_movers]
+    expr: "near(period.opening_balance - period.principal - period.principal_prepayments - period.losses, period.closing_balance, tol.currency)"
+    fn: tranche_rollforward
+    tolerance: { unit: currency }
+    on_failure: retry_pass_2_then_review
+    source_page_hint: 2
+    message: "Opening {opening} − principal {principal} − prepayments {prepayments} − defaults {losses} = {computed}, report says closing {closing} (difference {difference})"
+
+  - id: R06
+    layer: arithmetic
+    phase: 1
+    severity: block
+    title: Contract count roll-forward
+    description: "Page 2 prints o = m − n. opening_contracts − change = closing_contracts, exactly; also the sum of top_movers changes ≤ opening − closing."
+    fields: [/contracts/opening, /contracts/closing, /contracts/top_movers]
+    fn: contracts_rollforward
+    tolerance: { unit: count }
+    on_failure: retry_pass_2_then_review
+    source_page_hint: 2
+    message: "Opening contracts {opening} − change {change} = {computed}, report says {closing}"
+
+  - id: R07
+    layer: arithmetic
+    phase: 1
+    severity: block
+    title: Aging buckets sum to the closing balance
+    description: "Page 11 prints g = a + b + c + e. current_0_30 + days_31_60 + days_61_90 = closing_balance (F-PIL convention) OR the same plus written_off = closing_balance (most MOVE Trust deals). Both conventions occur in the 12 reference deals; the pipeline records bucket_sum and bucket_sum_with_writeoff for this reason. The aging closing vs page-2 closing comparison is context only (Meridian OneCap differs by deemed defaults)."
+    fields: [/aging_history/0, /tranche_balance/closing]
+    expr: "near(aging.current_0_30 + aging.days_31_60 + aging.days_61_90, aging.closing_balance, tol.currency) and near(aging.closing_balance, deal.tranche_balance.closing, tol.currency)"
+    fn: aging_buckets_sum
+    tolerance: { unit: currency }
+    on_failure: retry_pass_2_then_review
+    source_page_hint: 11
+    message: "Aging buckets ({bucket_label}) sum to {computed}; page 11 closing balance is {closing_balance}; page 2 closing is {tranche_closing}"
+
+  - id: R08
+    layer: arithmetic
+    phase: 1
+    severity: block
+    title: Losses, recoveries and cumulative net losses tie out
+    description: >
+      Page 11: net = gross − actual recoveries − estimated recoveries (e = c − d on the loss report; the
+      cumulative table on page 12 prints e = b − c − d). For each cnl_by_period row:
+      gross_losses − actual_recoveries − estimated_recoveries = cumulative_net_losses, and
+      cnl_ratio_pct = cumulative_net_losses ÷ original_finance_contract_npv. The vintage totals sum to the
+      Total row. Cross-page: this period's net losses = prior CNL total delta.
+    fields: [/cnl_by_period, /aging_history/0/cumulative_net_losses, prior:/aging_history/0/cumulative_net_losses]
+    fn: losses_tie_out
+    tolerance: { unit: currency }
+    on_failure: retry_pass_2_then_review
+    source_page_hint: 12
+    message: "{vintage}: gross {gross} − recoveries {recoveries} = {computed}, report says CNL {cnl} (ratio {ratio_report} vs computed {ratio_ours})"
+
+  - id: R09
+    layer: arithmetic
+    phase: 1
+    severity: review
+    title: Facility utilization recomputes
+    fields: [/program/program_limit, /program/program_amount, /program/unused_facility, /program/program_utilization_pct]
+    expr: "near(program.program_limit - program.program_amount, program.unused_facility, tol.currency) and near(program.program_amount / program.program_limit, program.program_utilization_pct, tol.percent_points)"
+    tolerance: { unit: currency }
+    on_failure: review
+    source_page_hint: 4
+    message: "Limit {limit} − drawn {drawn} = {computed_unused}, report says unused {unused}; utilization computed {computed_util} vs {util}"
+
+  - id: R10
+    layer: arithmetic
+    phase: 2
+    severity: review
+    title: Enhancement and coverage recompute
+    fields: [/total_enhancement, /tranche_balance/closing, /financial_ratios, /ratio_history]
+    fn: enhancement_and_coverage
+    tolerance: { unit: ratio }
+    on_failure: review
+    source_page_hint: 13
+    message: "{metric}: computed {our_value} vs report {report_value}"
+
+  # ---------- Layer 3: cross-period ----------
+  - id: R11
+    layer: cross_period
+    phase: 1
+    severity: block
+    title: Opening equals prior period closing
+    description: >
+      tranche_balance.opening = prior published tranche_balance.closing and contracts.opening = prior
+      contracts.closing. Second check, free from the report itself: the prior month's row in
+      ratio_history / period_history must equal the prior published report's values; a difference is a
+      restatement the reviewer must accept or reject.
+    fields: [/tranche_balance/opening, /contracts/opening, /period_history, prior:/tranche_balance/closing, prior:/contracts/closing, prior:/period_history]
+    fn: opening_equals_prior_closing
+    tolerance: { unit: currency }
+    on_failure: review_restatement_or_reject
+    source_page_hint: 2
+    message: "Opening {opening} does not equal prior period closing {prior_closing} (difference {difference}); contracts {opening_contracts} vs prior {prior_contracts}"
+
+  - id: R12
+    layer: cross_period
+    phase: 1
+    severity: block
+    title: Period not already published
+    fields: [/deal_slug, /collection_period]
+    fn: period_not_published        # queries the API: publications for (deal, period)
+    on_failure: review_replace_or_reject
+    message: "{deal} already has a published report for {period} (published {published_at})"
+
+  - id: R13
+    layer: cross_period
+    phase: 1
+    severity: block
+    title: Deal and program match the upload
+    description: The deal named on the cover page and the program in the facility record match the deal and period the analyst selected before uploading.
+    fields: [/deal_name, /deal_slug, meta:/upload_id]
+    fn: deal_matches_upload
+    on_failure: review
+    message: "Report is for {report_deal} but was uploaded against {selected_deal}"
+
+  # ---------- Layer 4: cross-source ----------
+  - id: R14
+    layer: cross_source
+    phase: 2
+    severity: review
+    title: Covenant thresholds equal the master record
+    description: >
+      For each covenant on page 14, the threshold stated on the report equals the master covenant_definition
+      effective for this period. SLFA 9.1(c)/(d) are conditional on portfolio NPV (threshold_rule), so compare
+      the resolved threshold, not the raw number.
+    fields: [/covenants, master:/covenant_definitions]
+    fn: thresholds_match_master
+    on_failure: review_notify_master_owner
+    source_page_hint: 14
+    message: "{legal_ref}: report threshold {report_value}, master record says {our_value} (effective {effective_from})"
+
+  - id: R15
+    layer: cross_source
+    phase: 2
+    severity: review
+    title: Program and warehouse limits equal the master record
+    fields: [/program/program_limit, /program/maximum_program_limit, /warehouse/maximum_warehouse_facility_limit, master:/program/limit, master:/program/warehouse_limit]
+    fn: limits_match_master
+    tolerance: { unit: currency }
+    on_failure: review_notify_master_owner
+    source_page_hint: 4
+    message: "{limit_name}: report {report_value}, master record {our_value}"
+
+  - id: R16
+    layer: cross_source
+    phase: 3
+    severity: review
+    title: Sum of deal balances equals the program total
+    description: Only when a program-level SetRep exists. Sum of tranche_balance.closing across the program's deals for the period = program-level total.
+    fields: [/tranche_balance/closing]
+    fn: program_total_reconciles
+    tolerance: { unit: currency }
+    on_failure: review
+    message: "Deals sum to {our_value}; program report says {report_value}"
+
+  # ---------- Layer 5: covenant recomputation ----------
+  - id: R17
+    layer: covenant
+    phase: 1
+    severity: review
+    title: Covenant values recompute from components
+    description: >
+      delinquency_ratio = delinquencies ÷ aggregate portfolio NPV (page 12 current row);
+      rolling 3- and 12-month loss ratios from the ratio_history rows; CNL ratio per vintage from
+      cnl_by_period (R08); leverage = indebtedness ÷ total equity; interest coverage = EBITDA ÷ interest
+      (page 13); total equity and cash vs six-month opex from page 13. Each must be within 0.01 pp
+      (ratios: 0.005) of covenants[].current_value.
+    fields: [/covenants, /financial_ratios, /ratio_history, /cnl_by_period, /aging_history/0]
+    fn: covenants_recompute
+    tolerance: { unit: percent_points }
+    on_failure: review_show_both_values
+    source_page_hint: 14
+    message: "{legal_ref} {metric}: computed {our_value} vs report {report_value}"
+
+  - id: R18
+    layer: covenant
+    phase: 1
+    severity: review
+    title: Covenant status matches our derivation
+    description: >
+      status = BREACH if value breaches threshold per kind (ceiling: value > threshold; floor: value < threshold);
+      WATCH if within watch_buffer_pct of the threshold (|threshold − value| ≤ watch_buffer_pct × threshold);
+      else OK. Must equal covenants[].status, and the report's YES/NO on page 14 must agree with BREACH/not.
+    fields: [/covenants, /watch_buffer_pct, /worst_status, /covenant_summary]
+    fn: covenant_status_matches
+    on_failure: review
+    source_page_hint: 14
+    message: "{legal_ref}: value {value} vs threshold {threshold} ({kind}) → {our_value}; report says {report_value}"
+
+  - id: R19
+    layer: covenant
+    phase: 2
+    severity: note
+    title: Covenant status changed since the prior period
+    fields: [/covenants, prior:/covenants]
+    fn: status_changed
+    on_failure: note_and_notify
+    message: "{legal_ref} moved {prior_status} → {status}"
+
+  # ---------- Layer 6: reasonableness ----------
+  - id: R20
+    layer: reasonableness
+    phase: 3
+    severity: review
+    title: Month-on-month movement within the deal's historical band
+    fields: [/tranche_balance/change_pct, /contracts/change_pct, /ratio_history]
+    fn: within_historical_band
+    params: { sigma: 3, window_months: 12 }
+    on_failure: review
+    message: "{metric} moved {report_value}; the 12-month band is {band}"
+
+  - id: R21
+    layer: reasonableness
+    phase: 3
+    severity: review
+    title: Report is not a copy of the prior period
+    fields: [/period_history, /tranche_balance, /contracts, prior:/period_history]
+    fn: not_identical_to_prior
+    on_failure: review
+    message: "Every tracked value equals the prior period; possible stale upload"
+
+  - id: R22
+    layer: reasonableness
+    phase: 3
+    severity: note
+    title: Provenance and second-pass agreement
+    fields: [meta:/confidence]
+    fn: provenance_sampled
+    params: { sample: 12 }
+    on_failure: note
+    message: "{agree}/{sampled} re-read values agree; confidence {confidence}"

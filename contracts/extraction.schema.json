@@ -1,0 +1,1682 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taosolutions.ca/tao-admin-poc/extraction.schema.json",
+  "title": "SetRep extraction result",
+  "description": "Output of the extraction worker for one SetRep. \"deal\" is the dashboard.json deal object (schema inferred from the 12 real objects in docs/dashboard-json; unchanged so the roll-up generator keeps working). \"meta\" describes the run. \"sources\" gives provenance for every leaf value written into \"deal\", keyed by JSON pointer. Missing values are null, never omitted and never zero.",
+  "type": "object",
+  "required": [
+    "meta",
+    "deal",
+    "sources"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "upload_id",
+        "pass",
+        "template_id",
+        "page_count",
+        "extracted_at",
+        "engine"
+      ],
+      "properties": {
+        "upload_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pass": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "description": "1 = first full extraction; 2 = targeted re-read of named pages"
+        },
+        "pages_reread": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "pass 2 only: the pages re-read"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "extraction mapping used, e.g. fpil-2.0-settrep-v1"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reporting_period": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}-\\d{2}$",
+          "description": "month named in the page header \"for reporting period\"; one month before collection_period under the current convention"
+        },
+        "extracted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "engine": {
+          "type": "object",
+          "required": [
+            "text_layer",
+            "model"
+          ],
+          "properties": {
+            "text_layer": {
+              "type": "string",
+              "description": "e.g. pdfplumber 0.11"
+            },
+            "ocr": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "OCR engine if any page had no text layer"
+            },
+            "model": {
+              "type": "string",
+              "description": "Claude model id used for cell-to-field mapping"
+            }
+          }
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "deal": {
+      "type": "object",
+      "properties": {
+        "deal_slug": {
+          "type": "string"
+        },
+        "deal_name": {
+          "type": "string"
+        },
+        "terminology": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "balance_label": {
+              "type": "string"
+            },
+            "amount_label": {
+              "type": "string"
+            },
+            "unit_label": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "balance_label",
+            "amount_label",
+            "unit_label"
+          ]
+        },
+        "source_pages": {
+          "type": "object",
+          "properties": {
+            "tranche_balance": {
+              "type": "integer"
+            },
+            "tranche_amounts": {
+              "type": "integer"
+            },
+            "outstanding_contracts": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "funding_costs": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "enhancement": {
+              "type": "integer"
+            },
+            "top10_obligor": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "aging_summary": {
+              "type": "integer"
+            },
+            "aggregate_performance": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "cumulative_losses": {
+              "type": "integer"
+            },
+            "quantitative_tests": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "financial_ratios": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "tranche_balance",
+            "tranche_amounts",
+            "enhancement",
+            "aging_summary",
+            "cumulative_losses",
+            "financial_ratios"
+          ]
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "settlement_date": {
+          "type": "string"
+        },
+        "collection_period": {
+          "type": "string"
+        },
+        "ratio_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "month": {
+                "type": "string"
+              },
+              "delinquency_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "loss_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "interest_coverage_ratio": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "debt_equity_ratio": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "total_equity": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rolling_3month_loss_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rolling_12month_loss_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "monthly_delinquency_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rvl_ratio_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "period_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": "string"
+              },
+              "collection_period": {
+                "type": "string"
+              },
+              "opening_balance": {
+                "type": "number"
+              },
+              "closing_balance": {
+                "type": "number"
+              },
+              "opening_amount": {
+                "type": "number"
+              },
+              "closing_amount": {
+                "type": "number"
+              },
+              "principal": {
+                "type": "number"
+              },
+              "principal_prepayments": {
+                "type": "number"
+              },
+              "losses": {
+                "type": "number"
+              },
+              "interest": {
+                "type": "number"
+              },
+              "recoveries": {
+                "type": "number"
+              },
+              "charge_off": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "by_currency": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "cad_opening": {
+                    "type": "number"
+                  },
+                  "cad_closing": {
+                    "type": "number"
+                  },
+                  "usd_opening_cad_equivalent": {
+                    "type": "number"
+                  },
+                  "usd_closing_cad_equivalent": {
+                    "type": "number"
+                  },
+                  "usd_closing_raw": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "activity_by_currency": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "CAD": {
+                    "type": "object",
+                    "properties": {
+                      "principal": {
+                        "type": "number"
+                      },
+                      "principal_prepayments": {
+                        "type": "number"
+                      },
+                      "losses": {
+                        "type": "number"
+                      },
+                      "interest": {
+                        "type": "number"
+                      },
+                      "recoveries": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "USD": {
+                    "type": "object",
+                    "properties": {
+                      "principal": {
+                        "type": "number"
+                      },
+                      "principal_prepayments": {
+                        "type": "number"
+                      },
+                      "losses": {
+                        "type": "number"
+                      },
+                      "interest": {
+                        "type": "number"
+                      },
+                      "recoveries": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "USD_cad_equivalent": {
+                    "type": "object",
+                    "properties": {
+                      "principal": {
+                        "type": "number"
+                      },
+                      "principal_prepayments": {
+                        "type": "number"
+                      },
+                      "losses": {
+                        "type": "number"
+                      },
+                      "interest": {
+                        "type": "number"
+                      },
+                      "recoveries": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "spot_rate": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "amount_by_currency": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "cad_closing": {
+                    "type": "number"
+                  },
+                  "usd_closing_raw": {
+                    "type": "number"
+                  },
+                  "usd_closing_cad_equivalent": {
+                    "type": "number"
+                  },
+                  "total_cad_equivalent": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "closing_contracts": {
+                "type": "number"
+              },
+              "opening_contracts": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "tranche_balance": {
+          "type": "object",
+          "properties": {
+            "opening": {
+              "type": "number"
+            },
+            "closing": {
+              "type": "number"
+            },
+            "change_abs": {
+              "type": "number"
+            },
+            "change_pct": {
+              "type": "number"
+            },
+            "top_movers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "leasing_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tranche": {
+                    "type": "integer"
+                  },
+                  "original_tranche_balance": {
+                    "type": "number"
+                  },
+                  "opening_tranche_balance": {
+                    "type": "number"
+                  },
+                  "original_tranche_yield": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "current_period_effective_tranche_yield": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "closing_tranche_balance": {
+                    "type": "number"
+                  },
+                  "funding_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rate_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "opening_tranche_balance_cad_equivalent": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "all_tranches": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tranche": {
+                    "type": "integer"
+                  },
+                  "opening": {
+                    "type": "number"
+                  },
+                  "closing": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "by_currency": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "cad_opening": {
+                  "type": "number"
+                },
+                "cad_closing": {
+                  "type": "number"
+                },
+                "usd_opening_cad_equivalent": {
+                  "type": "number"
+                },
+                "usd_closing_cad_equivalent": {
+                  "type": "number"
+                },
+                "usd_closing_raw": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            },
+            "principal": {
+              "type": "number"
+            },
+            "principal_prepayments": {
+              "type": "number"
+            },
+            "losses": {
+              "type": "number"
+            },
+            "interest": {
+              "type": "number"
+            },
+            "recoveries": {
+              "type": "number"
+            },
+            "activity_by_currency": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "CAD": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "number"
+                    },
+                    "principal_prepayments": {
+                      "type": "number"
+                    },
+                    "losses": {
+                      "type": "number"
+                    },
+                    "interest": {
+                      "type": "number"
+                    },
+                    "recoveries": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "USD": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "number"
+                    },
+                    "principal_prepayments": {
+                      "type": "number"
+                    },
+                    "losses": {
+                      "type": "number"
+                    },
+                    "interest": {
+                      "type": "number"
+                    },
+                    "recoveries": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "USD_cad_equivalent": {
+                  "type": "object",
+                  "properties": {
+                    "principal": {
+                      "type": "number"
+                    },
+                    "principal_prepayments": {
+                      "type": "number"
+                    },
+                    "losses": {
+                      "type": "number"
+                    },
+                    "interest": {
+                      "type": "number"
+                    },
+                    "recoveries": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "spot_rate": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            },
+            "charge_off": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "opening",
+            "closing",
+            "change_abs",
+            "change_pct",
+            "top_movers",
+            "all_tranches",
+            "principal",
+            "principal_prepayments",
+            "losses",
+            "interest",
+            "recoveries"
+          ]
+        },
+        "tranche_amount": {
+          "type": "object",
+          "properties": {
+            "opening": {
+              "type": "number"
+            },
+            "closing": {
+              "type": "number"
+            },
+            "by_currency": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "cad_closing": {
+                  "type": "number"
+                },
+                "usd_closing_raw": {
+                  "type": "number"
+                },
+                "usd_closing_cad_equivalent": {
+                  "type": "number"
+                },
+                "total_cad_equivalent": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "opening",
+            "closing"
+          ]
+        },
+        "contracts": {
+          "type": "object",
+          "properties": {
+            "opening": {
+              "type": "number"
+            },
+            "closing": {
+              "type": "number"
+            },
+            "change_abs": {
+              "type": "number"
+            },
+            "change_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "top_movers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tranche": {
+                    "type": "integer"
+                  },
+                  "opening_contracts": {
+                    "type": "number"
+                  },
+                  "change_contracts": {
+                    "type": "number"
+                  },
+                  "closing_contracts": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "opening",
+            "closing",
+            "change_abs",
+            "top_movers"
+          ]
+        },
+        "program": {
+          "type": "object",
+          "properties": {
+            "program_limit": {
+              "type": "number"
+            },
+            "program_amount": {
+              "type": "number"
+            },
+            "unused_facility": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "program_utilization_pct": {
+              "type": "number"
+            },
+            "maximum_program_limit": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "program_limit",
+            "program_amount",
+            "program_utilization_pct"
+          ]
+        },
+        "warehouse": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "opening_advances_outstanding": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "closing_advances_outstanding": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "maximum_warehouse_facility_limit": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "top10_obligors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "type": "integer"
+              },
+              "obligor_name": {
+                "type": "string"
+              },
+              "aggregate_contract_amount": {
+                "type": "number"
+              },
+              "obligor_concentration_pct": {
+                "type": "number"
+              },
+              "concentration_limit_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "concentration_limit_per_obligor": {
+                "type": "number"
+              },
+              "excess_concentration_amount": {
+                "type": "number"
+              },
+              "concentration_limit_desc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "aggregate_cad_contract_amount": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "aggregate_usd_contract_amount": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "total_enhancement": {
+          "type": "object",
+          "properties": {
+            "total_enhancement_amount": {
+              "type": "number"
+            },
+            "total_enhancement_pct": {
+              "type": "number"
+            },
+            "ending_cash_reserve_amount": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "total_enhancement_amount",
+            "total_enhancement_pct"
+          ]
+        },
+        "cnl_by_period": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "advance_range": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "original_finance_contract_npv": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "cumulative_net_losses": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "cnl_ratio_pct": {
+                "type": "number"
+              },
+              "cnl_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "cnl_limit_is_exception": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "cnl_within_limit": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "current_period_losses": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "annual_period": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tranche_balance_funded": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "losses_allocated": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "event_of_default_trigger_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "spread_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "original_finance_contract_nbv": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "gross_losses": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "actual_recoveries": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "estimated_recoveries": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "period_original_balance": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "period_cumulative_net_losses": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "tranches_originated": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "semi_annual_period": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "tranches": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cnl_ratio_reported_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "aging_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": "string"
+              },
+              "collection_period": {
+                "type": "string"
+              },
+              "tranche_rows": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "funding_date": {
+                      "type": "string"
+                    },
+                    "tranche": {
+                      "type": "integer"
+                    },
+                    "current": {
+                      "type": "number"
+                    },
+                    "days_31_60": {
+                      "type": "number"
+                    },
+                    "days_61_90": {
+                      "type": "number"
+                    },
+                    "deemed_defaults": {
+                      "type": "number"
+                    },
+                    "cumulative_net_losses": {
+                      "type": "number"
+                    },
+                    "closing_tranche_contract_balance": {
+                      "type": "number"
+                    },
+                    "net_book_value": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "current_0_30": {
+                "type": "number"
+              },
+              "days_31_60": {
+                "type": "number"
+              },
+              "days_61_90": {
+                "type": "number"
+              },
+              "written_off_bucket_label": {
+                "type": "string"
+              },
+              "written_off": {
+                "type": "number"
+              },
+              "cumulative_net_losses": {
+                "type": "number"
+              },
+              "closing_balance": {
+                "type": "number"
+              },
+              "bucket_sum": {
+                "type": "number"
+              },
+              "bucket_sum_with_writeoff": {
+                "type": "number"
+              },
+              "reconciles": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "ratio_test_detail": {
+          "type": "object",
+          "properties": {
+            "portfolio_delinquency_ratio": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "history": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string"
+                      },
+                      "base_amount": {
+                        "type": "number"
+                      },
+                      "numerator_amount": {
+                        "type": "number"
+                      },
+                      "ratio_pct": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "test_result_history": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "current_test_result": {
+                  "type": "number"
+                },
+                "lockup_trigger": {
+                  "type": "number"
+                },
+                "event_of_default_trigger": {
+                  "type": "number"
+                },
+                "lockup_event_triggered": {
+                  "type": "string"
+                },
+                "event_of_default_triggered": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "portfolio_deemed_default_ratio": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "history": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string"
+                      },
+                      "base_amount": {
+                        "type": "number"
+                      },
+                      "numerator_amount": {
+                        "type": "number"
+                      },
+                      "ratio_pct": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "test_result_history": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "current_test_result": {
+                  "type": "number"
+                },
+                "lockup_trigger": {
+                  "type": "number"
+                },
+                "event_of_default_trigger": {
+                  "type": "number"
+                },
+                "lockup_event_triggered": {
+                  "type": "string"
+                },
+                "event_of_default_triggered": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "portfolio_charge_off_ratio": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "history": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "period": {
+                        "type": "string"
+                      },
+                      "base_amount": {
+                        "type": "number"
+                      },
+                      "numerator_amount": {
+                        "type": "number"
+                      },
+                      "ratio_pct": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "test_result_history": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "current_test_result": {
+                  "type": "number"
+                },
+                "lockup_trigger": {
+                  "type": "number"
+                },
+                "event_of_default_trigger": {
+                  "type": "number"
+                },
+                "lockup_event_triggered": {
+                  "type": "string"
+                },
+                "event_of_default_triggered": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "restatements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "month": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              },
+              "as_reported": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source_period": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "balance_discontinuities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "period": {
+                "type": "string"
+              },
+              "prior_period": {
+                "type": "string"
+              },
+              "prior_closing": {
+                "type": "number"
+              },
+              "current_opening": {
+                "type": "number"
+              },
+              "gap": {
+                "type": "number"
+              },
+              "new_tranche_count": {
+                "type": "integer"
+              },
+              "new_tranche_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "explained_by_new_tranches": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "residual": {
+                "type": "number"
+              },
+              "fully_explained": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "covenant_summary": {
+          "type": "object",
+          "properties": {
+            "BREACH": {
+              "type": "integer"
+            },
+            "WATCH": {
+              "type": "integer"
+            },
+            "OK": {
+              "type": "integer"
+            },
+            "AVAILABLE": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "BREACH",
+            "WATCH",
+            "OK",
+            "AVAILABLE"
+          ]
+        },
+        "watch_buffer_pct": {
+          "type": "number"
+        },
+        "worst_status": {
+          "type": "string"
+        },
+        "covenants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string"
+              },
+              "legal_ref": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "current_value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "kind": {
+                "type": "string"
+              },
+              "utilization_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "trend": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "worst_vintage": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "financial_ratios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "value": {
+                "type": "number"
+              },
+              "vintage": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "prior_period": {
+          "type": "string"
+        },
+        "prior_covenants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string"
+              },
+              "legal_ref": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "current_value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "kind": {
+                "type": "string"
+              },
+              "utilization_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "trend": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "worst_vintage": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "prior_closing_tranche_balance": {
+          "type": "number"
+        },
+        "prior_closing_contracts": {
+          "type": "number"
+        },
+        "data_corrections": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "period": {
+                "type": "string"
+              },
+              "record": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              },
+              "old_value": {
+                "type": "number"
+              },
+              "new_value": {
+                "type": "number"
+              },
+              "applied": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "cnl_pool_totals": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "original_tranche_balance": {
+              "type": "number"
+            },
+            "cumulative_net_losses": {
+              "type": "number"
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "original_tranche_balance",
+            "cumulative_net_losses",
+            "source"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "aging_history",
+        "balance_discontinuities",
+        "cnl_by_period",
+        "collection_period",
+        "contracts",
+        "covenant_summary",
+        "covenants",
+        "deal_name",
+        "deal_slug",
+        "financial_ratios",
+        "period_history",
+        "prior_closing_contracts",
+        "prior_closing_tranche_balance",
+        "prior_covenants",
+        "prior_period",
+        "program",
+        "ratio_history",
+        "ratio_test_detail",
+        "restatements",
+        "settlement_date",
+        "source_file",
+        "source_pages",
+        "top10_obligors",
+        "total_enhancement",
+        "tranche_amount",
+        "tranche_balance",
+        "watch_buffer_pct",
+        "worst_status"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "description": "JSON pointer into deal (e.g. /tranche_balance/closing_tranche_balance) -> provenance",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "page",
+          "raw_text"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bbox": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "[x0,y0,x1,y1] in PDF points, if known"
+          },
+          "raw_text": {
+            "type": "string",
+            "description": "the cell text as it appears on the page, before parsing"
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pass": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    }
+  }
+}

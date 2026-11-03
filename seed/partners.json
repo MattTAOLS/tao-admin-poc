@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "investor",
+    "name": "Investor",
+    "kind": "investor",
+    "status": "active"
+  },
+  {
+    "slug": "manager",
+    "name": "Manager",
+    "kind": "manager",
+    "status": "active"
+  }
+]

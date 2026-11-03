@@ -1,0 +1,28 @@
+{
+  "id": "7f0b7c3e-7f1b-4a7a-9e3a-1a2b3c4d5e6f",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R05",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Opening 15792784.34 \u2212 principal 647926.71 \u2212 prepayments 113057.43 \u2212 defaults 12828.68 = 15018971.52, report says closing 15019971.52 (difference 1000.0)",
+  "fields": [
+    "/tranche_balance/opening",
+    "/tranche_balance/closing",
+    "/period_history"
+  ],
+  "our_value": 15018971.52,
+  "report_value": 15019971.52,
+  "difference": 1000.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 2,
+  "context": {
+    "opening": 15792784.34,
+    "principal": 647926.71,
+    "prepayments": 113057.43,
+    "losses": 12828.68
+  },
+  "status": "open",
+  "resolution": null,
+  "created_at": "2026-10-28T00:00:00Z"
+}

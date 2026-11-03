@@ -1,0 +1,25 @@
+/* Shell layout only. Components live in src/design/components (Design System agent). Tokens come from contracts/tokens.css. */
+.app { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; background: var(--cream); }
+.sidebar { background: var(--indigo); color: var(--text-on-indigo); display: flex; flex-direction: column; padding: 18px 14px; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 18px; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 500; font-size: var(--fs-small); color: var(--text-on-indigo); letter-spacing: .12em; text-transform: uppercase; }
+.navlabel { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #8980b8; padding: 10px 11px 6px; }
+.nav a { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--r-control); color: var(--text-on-indigo); font-size: var(--fs-body); font-weight: 500; text-decoration: none; transition: background var(--t-control) var(--ease), color var(--t-control) var(--ease); }
+.nav a:hover { background: var(--indigo-2); color: #fff; }
+.nav a.active { background: var(--purple); color: var(--text-on-purple); box-shadow: var(--sh-primary); }
+.sidebar .foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; }
+.main { min-width: 0; }
+.topbar { position: sticky; top: 0; z-index: 5; background: rgba(255,250,243,.82); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 18px var(--gutter); display: flex; align-items: flex-end; gap: 16px; min-height: var(--topbar-h); }
+.crumb { font-size: var(--fs-small); color: var(--muted); } .crumb b { color: var(--purple); font-weight: 600; }
+.content { padding: 22px var(--gutter) 48px; animation: page var(--t-page) var(--ease); }
+@keyframes page { from { opacity: 0; transform: translateX(8px) } to { opacity: 1; transform: none } }
+.card { background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-card); box-shadow: var(--sh-card); padding: 18px 20px; }
+.placeholder { border: 1px dashed var(--border); border-radius: var(--r-card); padding: 28px; color: var(--muted); background: var(--card); }
+.placeholder h2 { color: var(--indigo); margin-bottom: 6px; }
+.btn { font-family: var(--font); font-size: 13px; font-weight: 600; border-radius: var(--r-control); padding: 9px 15px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 7px; transition: transform var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease), background var(--t-control) var(--ease); }
+.btn-primary { background: var(--grad-primary); color: var(--text-on-purple); box-shadow: var(--sh-primary); } .btn-primary:hover { transform: translateY(-1px); }
+.btn-ghost { background: var(--card); color: var(--indigo); border-color: var(--border); } .btn-ghost:hover { background: var(--lav); }
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-chip); padding: 3px 10px; font-size: var(--fs-small); font-weight: 600; font-family: var(--data); }
+.pill i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: currentColor; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.warn { color: var(--warn); background: var(--warn-bg); } .pill.bad { color: var(--bad); background: var(--bad-bg); } .pill.blue { color: var(--blue); background: var(--blue-bg); } .pill.dpv { color: var(--dpv); background: var(--dpv-bg); }
+.roleswitch { width: 100%; background: var(--indigo-2); color: #fff; border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-control); padding: 8px 10px; font: 500 12.5px var(--font); }

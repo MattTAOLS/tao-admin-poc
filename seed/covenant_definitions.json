@@ -1,0 +1,305 @@
+[
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (c)",
+    "description": "Rolling Three Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.06
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.04
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (d)",
+    "description": "Rolling Twelve Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.04
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.0225
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (e)",
+    "description": "Delinquency Ratio",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (f)",
+    "description": "CNL Ratio, measured on annual origination",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (h)",
+    "description": "Interest Coverage Ratio",
+    "kind": "floor",
+    "threshold": 1.1,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2023-12-09",
+    "source": "as above (applies after first anniversary)"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (i)",
+    "description": "Leverage Ratio",
+    "kind": "ceiling",
+    "threshold": 10.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-moneda-capital-corp",
+    "legal_ref": "SLFA 9.1 (j)",
+    "description": "Minimum Total Equity",
+    "kind": "floor",
+    "threshold": 2500000.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (c)",
+    "description": "Rolling Three Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.06
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.04
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (d)",
+    "description": "Rolling Twelve Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.04
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.0225
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (e)",
+    "description": "Delinquency Ratio",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (f)",
+    "description": "CNL Ratio, measured on annual origination",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (h)",
+    "description": "Interest Coverage Ratio",
+    "kind": "floor",
+    "threshold": 1.1,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2023-12-09",
+    "source": "as above (applies after first anniversary)"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (i)",
+    "description": "Leverage Ratio",
+    "kind": "ceiling",
+    "threshold": 10.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (j)",
+    "description": "Minimum Total Equity",
+    "kind": "floor",
+    "threshold": 2500000.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (c)",
+    "description": "Rolling Three Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.06
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.04
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (d)",
+    "description": "Rolling Twelve Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": {
+      "on": "/tranche_balance/closing",
+      "bands": [
+        {
+          "lte": 10000000,
+          "threshold": 0.04
+        },
+        {
+          "gt": 10000000,
+          "threshold": 0.0225
+        }
+      ]
+    },
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (e)",
+    "description": "Delinquency Ratio",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (f)",
+    "description": "CNL Ratio, measured on annual origination",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (h)",
+    "description": "Interest Coverage Ratio",
+    "kind": "floor",
+    "threshold": 1.1,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2023-12-09",
+    "source": "as above (applies after first anniversary)"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (i)",
+    "description": "Leverage Ratio",
+    "kind": "ceiling",
+    "threshold": 10.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "SLFA 9.1 (j)",
+    "description": "Minimum Total Equity",
+    "kind": "floor",
+    "threshold": 2500000.0,
+    "threshold_rule": null,
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2022-12-09",
+    "source": "as above"
+  }
+]

@@ -1,0 +1,947 @@
+{
+ "deal_slug": "move-trust-tpine-leasing-capital-corporation",
+ "deal_name": "MOVE Trust - TPine Leasing Capital Corporation",
+ "terminology": null,
+ "source_pages": {
+  "tranche_balance": 2,
+  "tranche_amounts": 3,
+  "outstanding_contracts": 2,
+  "funding_costs": 5,
+  "enhancement": 9,
+  "top10_obligor": 11,
+  "aging_summary": 12,
+  "aggregate_performance": 13,
+  "cumulative_losses": 12,
+  "quantitative_tests": 15,
+  "financial_ratios": 13
+ },
+ "source_file": "TPine_-_202607_-_SETTREP.pdf",
+ "settlement_date": "August 24, 2026",
+ "collection_period": "July 2026",
+ "ratio_history": [
+  {
+   "month": "Dec-21",
+   "debt_equity_ratio": 5.59,
+   "total_equity": 161194619.0
+  },
+  {
+   "month": "Mar-22",
+   "debt_equity_ratio": 5.52,
+   "total_equity": 191297694.0
+  },
+  {
+   "month": "Jun-22",
+   "debt_equity_ratio": 5.35,
+   "total_equity": 236988425.0
+  },
+  {
+   "month": "Sep-22",
+   "debt_equity_ratio": 6.09,
+   "total_equity": 263832013.0
+  },
+  {
+   "month": "Dec-22",
+   "debt_equity_ratio": 9.61,
+   "total_equity": 229750233.0
+  },
+  {
+   "month": "Mar-23",
+   "debt_equity_ratio": 8.48,
+   "total_equity": 284278506.0
+  },
+  {
+   "month": "Jun-23",
+   "debt_equity_ratio": 8.52,
+   "total_equity": 300079352.0
+  },
+  {
+   "month": "Sep-23",
+   "debt_equity_ratio": 8.87,
+   "total_equity": 304176131.0
+  },
+  {
+   "month": "Jun-25",
+   "delinquency_ratio_pct": 0.0441,
+   "rolling_3month_loss_ratio_pct": -0.1873,
+   "rolling_12month_loss_ratio_pct": 0.3007
+  },
+  {
+   "month": "Jul-25",
+   "delinquency_ratio_pct": 0.0444,
+   "rolling_3month_loss_ratio_pct": -0.09910000000000001,
+   "rolling_12month_loss_ratio_pct": 0.2731
+  },
+  {
+   "month": "Aug-25",
+   "delinquency_ratio_pct": 0.050499999999999996,
+   "rolling_3month_loss_ratio_pct": -0.1461,
+   "rolling_12month_loss_ratio_pct": 0.20010000000000003
+  },
+  {
+   "month": "Sep-25",
+   "delinquency_ratio_pct": 0.0461,
+   "rolling_3month_loss_ratio_pct": -0.0795,
+   "rolling_12month_loss_ratio_pct": 0.14029999999999998
+  },
+  {
+   "month": "Oct-25",
+   "delinquency_ratio_pct": 0.0435,
+   "rolling_3month_loss_ratio_pct": -0.1501,
+   "rolling_12month_loss_ratio_pct": 0.0559
+  },
+  {
+   "month": "Nov-25",
+   "delinquency_ratio_pct": 0.0296,
+   "rolling_3month_loss_ratio_pct": -0.2688,
+   "rolling_12month_loss_ratio_pct": -0.022400000000000003
+  },
+  {
+   "month": "Dec-25",
+   "delinquency_ratio_pct": 0.0363,
+   "rolling_3month_loss_ratio_pct": -0.3796,
+   "rolling_12month_loss_ratio_pct": -0.08130000000000001
+  },
+  {
+   "month": "Jan-26",
+   "delinquency_ratio_pct": 0.0437,
+   "rolling_3month_loss_ratio_pct": -0.31629999999999997,
+   "rolling_12month_loss_ratio_pct": -0.11109999999999999
+  },
+  {
+   "month": "Feb-26",
+   "delinquency_ratio_pct": 0.0425,
+   "rolling_3month_loss_ratio_pct": -0.2,
+   "rolling_12month_loss_ratio_pct": -0.16829999999999998
+  },
+  {
+   "month": "Mar-26",
+   "delinquency_ratio_pct": 0.0356,
+   "rolling_3month_loss_ratio_pct": -0.9224,
+   "rolling_12month_loss_ratio_pct": -0.3922
+  },
+  {
+   "month": "Apr-26",
+   "delinquency_ratio_pct": 0.0323,
+   "rolling_3month_loss_ratio_pct": -1.1320999999999999,
+   "rolling_12month_loss_ratio_pct": -0.4244
+  },
+  {
+   "month": "May-26",
+   "delinquency_ratio_pct": 0.033,
+   "rolling_3month_loss_ratio_pct": -1.3068,
+   "rolling_12month_loss_ratio_pct": -0.4804
+  },
+  {
+   "month": "Jun-26",
+   "delinquency_ratio_pct": 0.0291,
+   "rolling_3month_loss_ratio_pct": -0.7890999999999999,
+   "rolling_12month_loss_ratio_pct": -0.5426
+  },
+  {
+   "month": "Jul-26",
+   "delinquency_ratio_pct": 0.0214,
+   "rolling_3month_loss_ratio_pct": -0.7264,
+   "rolling_12month_loss_ratio_pct": -0.5812
+  }
+ ],
+ "period_history": [
+  {
+   "period": "2026-04",
+   "collection_period": "April 2026",
+   "opening_balance": 22425604.2,
+   "closing_balance": 19913630.95,
+   "opening_amount": 89014210.49,
+   "closing_amount": 85676257.42,
+   "principal": 1130760.87,
+   "principal_prepayments": 1046937.12,
+   "losses": 334275.26,
+   "interest": 281146.29000000004,
+   "recoveries": 1576471.14,
+   "charge_off": null,
+   "by_currency": null,
+   "activity_by_currency": null,
+   "amount_by_currency": null,
+   "closing_contracts": 1905.0,
+   "opening_contracts": 1922.0
+  },
+  {
+   "period": "2026-05",
+   "collection_period": "May 2026",
+   "opening_balance": 19913630.95,
+   "closing_balance": 17930729.76,
+   "opening_amount": 85676257.42,
+   "closing_amount": 83016710.32,
+   "principal": 1114411.79,
+   "principal_prepayments": 292389.14,
+   "losses": 576100.26,
+   "interest": 165151.44999999998,
+   "recoveries": 1781460.09,
+   "charge_off": null,
+   "by_currency": null,
+   "activity_by_currency": null,
+   "amount_by_currency": null,
+   "closing_contracts": 1895.0,
+   "opening_contracts": 1905.0
+  },
+  {
+   "period": "2026-06",
+   "collection_period": "June 2026",
+   "opening_balance": 17930729.76,
+   "closing_balance": 16524560.32,
+   "opening_amount": 83016710.32,
+   "closing_amount": 80696979.03,
+   "principal": 1073901.84,
+   "principal_prepayments": 85367.33,
+   "losses": 246900.27,
+   "interest": 139060.93,
+   "recoveries": 1705724.84,
+   "charge_off": null,
+   "by_currency": null,
+   "activity_by_currency": null,
+   "amount_by_currency": null,
+   "closing_contracts": 1881.0,
+   "opening_contracts": 1895.0
+  },
+  {
+   "period": "2026-07",
+   "collection_period": "July 2026",
+   "opening_balance": 16524560.32,
+   "closing_balance": 15313943.52,
+   "opening_amount": 80696979.03,
+   "closing_amount": 79291305.28,
+   "principal": 910269.64,
+   "principal_prepayments": 88001.03,
+   "losses": 212346.08,
+   "interest": 125116.59,
+   "recoveries": 868689.99,
+   "charge_off": null,
+   "by_currency": null,
+   "activity_by_currency": null,
+   "amount_by_currency": null,
+   "closing_contracts": 1857.0,
+   "opening_contracts": 1881.0
+  }
+ ],
+ "tranche_balance": {
+  "opening": 16524560.32,
+  "closing": 15313943.52,
+  "change_abs": -1210616.8000000007,
+  "change_pct": -0.07326166485257507,
+  "top_movers": [
+   {
+    "leasing_date": "29-Aug-23",
+    "tranche": 20,
+    "original_tranche_balance": 34404255.28,
+    "opening_tranche_balance": 3760688.74,
+    "original_tranche_yield": 0.09849999999999999,
+    "current_period_effective_tranche_yield": 0.1045,
+    "closing_tranche_balance": 3474583.31
+   },
+   {
+    "leasing_date": "30-Jun-23",
+    "tranche": 19,
+    "original_tranche_balance": 24524050.99,
+    "opening_tranche_balance": 2825986.46,
+    "original_tranche_yield": 0.0934,
+    "current_period_effective_tranche_yield": 0.08460000000000001,
+    "closing_tranche_balance": 2639497.84
+   },
+   {
+    "leasing_date": "23-Feb-23",
+    "tranche": 17,
+    "original_tranche_balance": 40471027.02,
+    "opening_tranche_balance": 3247798.24,
+    "original_tranche_yield": 0.0877,
+    "current_period_effective_tranche_yield": 0.0842,
+    "closing_tranche_balance": 3102899.21
+   },
+   {
+    "leasing_date": "15-Dec-23",
+    "tranche": 21,
+    "original_tranche_balance": 18215939.26,
+    "opening_tranche_balance": 2093836.33,
+    "original_tranche_yield": 0.10619999999999999,
+    "current_period_effective_tranche_yield": 0.1054,
+    "closing_tranche_balance": 1983326.08
+   },
+   {
+    "leasing_date": "23-Nov-22",
+    "tranche": 15,
+    "original_tranche_balance": 28822275.11,
+    "opening_tranche_balance": 1591657.98,
+    "original_tranche_yield": 0.092,
+    "current_period_effective_tranche_yield": 0.0821,
+    "closing_tranche_balance": 1488996.32
+   },
+   {
+    "leasing_date": "29-Jul-22",
+    "tranche": 12,
+    "original_tranche_balance": 19174068.63,
+    "opening_tranche_balance": 1020812.55,
+    "original_tranche_yield": 0.0736,
+    "current_period_effective_tranche_yield": 0.0739,
+    "closing_tranche_balance": 919950.72
+   },
+   {
+    "leasing_date": "6-Jun-23",
+    "tranche": 18,
+    "original_tranche_balance": 10142763.28,
+    "opening_tranche_balance": 413836.19,
+    "original_tranche_yield": 0.0908,
+    "current_period_effective_tranche_yield": 0.0733,
+    "closing_tranche_balance": 342934.79
+   },
+   {
+    "leasing_date": "31-Aug-22",
+    "tranche": 13,
+    "original_tranche_balance": 10324000.3,
+    "opening_tranche_balance": 812802.69,
+    "original_tranche_yield": 0.0821,
+    "current_period_effective_tranche_yield": 0.0794,
+    "closing_tranche_balance": 754720.68
+   },
+   {
+    "leasing_date": "3-Nov-21",
+    "tranche": 9,
+    "original_tranche_balance": 8680747.87,
+    "opening_tranche_balance": 127999.9,
+    "original_tranche_yield": 0.0812,
+    "current_period_effective_tranche_yield": 0.1617,
+    "closing_tranche_balance": 89510.02
+   },
+   {
+    "leasing_date": "24-Sep-21",
+    "tranche": 8,
+    "original_tranche_balance": 10916529.69,
+    "opening_tranche_balance": 43909.85,
+    "original_tranche_yield": 0.0793,
+    "current_period_effective_tranche_yield": 0.0739,
+    "closing_tranche_balance": 21758.39
+   }
+  ],
+  "all_tranches": [
+   {
+    "tranche": 1,
+    "opening": 0.0,
+    "closing": 0.0
+   },
+   {
+    "tranche": 2,
+    "opening": 0.0,
+    "closing": 0.0
+   },
+   {
+    "tranche": 3,
+    "opening": 32422.43,
+    "closing": 22102.22
+   },
+   {
+    "tranche": 4,
+    "opening": 10771.73,
+    "closing": 7210.86
+   },
+   {
+    "tranche": 5,
+    "opening": 0.0,
+    "closing": 0.0
+   },
+   {
+    "tranche": 6,
+    "opening": 9.98,
+    "closing": 0.0
+   },
+   {
+    "tranche": 7,
+    "opening": 27370.54,
+    "closing": 8624.8
+   },
+   {
+    "tranche": 8,
+    "opening": 43909.85,
+    "closing": 21758.39
+   },
+   {
+    "tranche": 9,
+    "opening": 127999.9,
+    "closing": 89510.02
+   },
+   {
+    "tranche": 10,
+    "opening": 87014.54,
+    "closing": 70721.12
+   },
+   {
+    "tranche": 11,
+    "opening": 156759.65,
+    "closing": 141506.22
+   },
+   {
+    "tranche": 12,
+    "opening": 1020812.55,
+    "closing": 919950.72
+   },
+   {
+    "tranche": 13,
+    "opening": 812802.69,
+    "closing": 754720.68
+   },
+   {
+    "tranche": 14,
+    "opening": 134840.63,
+    "closing": 121104.48
+   },
+   {
+    "tranche": 15,
+    "opening": 1591657.98,
+    "closing": 1488996.32
+   },
+   {
+    "tranche": 16,
+    "opening": 136041.88,
+    "closing": 124496.46
+   },
+   {
+    "tranche": 17,
+    "opening": 3247798.24,
+    "closing": 3102899.21
+   },
+   {
+    "tranche": 18,
+    "opening": 413836.19,
+    "closing": 342934.79
+   },
+   {
+    "tranche": 19,
+    "opening": 2825986.46,
+    "closing": 2639497.84
+   },
+   {
+    "tranche": 20,
+    "opening": 3760688.74,
+    "closing": 3474583.31
+   },
+   {
+    "tranche": 21,
+    "opening": 2093836.33,
+    "closing": 1983326.08
+   }
+  ],
+  "by_currency": null,
+  "principal": 910269.64,
+  "principal_prepayments": 88001.03,
+  "losses": 212346.08,
+  "charge_off": null,
+  "interest": 125116.59,
+  "recoveries": 868689.99,
+  "activity_by_currency": null
+ },
+ "tranche_amount": {
+  "opening": 80696979.03,
+  "closing": 79291305.28,
+  "by_currency": null
+ },
+ "contracts": {
+  "opening": 1881.0,
+  "closing": 1857.0,
+  "change_abs": -24.0,
+  "change_pct": -0.012759170653907496,
+  "top_movers": [
+   {
+    "tranche": 9,
+    "opening_contracts": 38.0,
+    "change_contracts": -9.0,
+    "closing_contracts": 29.0
+   },
+   {
+    "tranche": 7,
+    "opening_contracts": 35.0,
+    "change_contracts": -5.0,
+    "closing_contracts": 30.0
+   },
+   {
+    "tranche": 8,
+    "opening_contracts": 68.0,
+    "change_contracts": -3.0,
+    "closing_contracts": 65.0
+   },
+   {
+    "tranche": 20,
+    "opening_contracts": 212.0,
+    "change_contracts": -3.0,
+    "closing_contracts": 209.0
+   },
+   {
+    "tranche": 19,
+    "opening_contracts": 225.0,
+    "change_contracts": -2.0,
+    "closing_contracts": 223.0
+   },
+   {
+    "tranche": 6,
+    "opening_contracts": 15.0,
+    "change_contracts": -1.0,
+    "closing_contracts": 14.0
+   },
+   {
+    "tranche": 13,
+    "opening_contracts": 66.0,
+    "change_contracts": -1.0,
+    "closing_contracts": 65.0
+   }
+  ]
+ },
+ "program": {
+  "program_limit": 200000000.0,
+  "program_amount": 79291305.28,
+  "unused_facility": 120708694.72,
+  "program_utilization_pct": 0.3964565264,
+  "maximum_program_limit": 200000000.0
+ },
+ "warehouse": {
+  "opening_advances_outstanding": 0.0,
+  "closing_advances_outstanding": 0.0,
+  "maximum_warehouse_facility_limit": 30000000.0
+ },
+ "top10_obligors": [
+  {
+   "rank": 1,
+   "obligor_name": "Obligor #1",
+   "aggregate_contract_amount": 844816.38,
+   "obligor_concentration_pct": 0.0552,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 44816.38
+  },
+  {
+   "rank": 2,
+   "obligor_name": "Obligor #2",
+   "aggregate_contract_amount": 782805.32,
+   "obligor_concentration_pct": 0.051100000000000007,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 3,
+   "obligor_name": "Obligor #3",
+   "aggregate_contract_amount": 619440.24,
+   "obligor_concentration_pct": 0.0404,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 4,
+   "obligor_name": "Obligor #4",
+   "aggregate_contract_amount": 409001.61,
+   "obligor_concentration_pct": 0.026699999999999998,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 5,
+   "obligor_name": "Obligor #5",
+   "aggregate_contract_amount": 407229.79,
+   "obligor_concentration_pct": 0.026600000000000002,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 6,
+   "obligor_name": "Obligor #6",
+   "aggregate_contract_amount": 366100.57,
+   "obligor_concentration_pct": 0.0239,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 7,
+   "obligor_name": "Obligor #7",
+   "aggregate_contract_amount": 345249.0,
+   "obligor_concentration_pct": 0.0225,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 8,
+   "obligor_name": "Obligor #8",
+   "aggregate_contract_amount": 325021.37,
+   "obligor_concentration_pct": 0.0212,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 9,
+   "obligor_name": "Obligor #9",
+   "aggregate_contract_amount": 324693.81,
+   "obligor_concentration_pct": 0.0212,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  },
+  {
+   "rank": 10,
+   "obligor_name": "Obligor #10",
+   "aggregate_contract_amount": 308342.46,
+   "obligor_concentration_pct": 0.020099999999999996,
+   "concentration_limit_desc": "max(3%, $800,000)",
+   "concentration_limit_per_obligor": 800000.0,
+   "excess_concentration_amount": 0.0
+  }
+ ],
+ "total_enhancement": {
+  "total_enhancement_amount": -63977259.97,
+  "total_enhancement_pct": -4.1777
+ },
+ "cnl_by_period": [
+  {
+   "annual_period": "Nov 2020 - Oct 2021",
+   "tranches_originated": "1-8",
+   "cnl_ratio_pct": 0.0609,
+   "tranche_balance_funded": 56217629.45,
+   "current_period_losses": 634.34,
+   "cumulative_net_losses": 3424465.3,
+   "event_of_default_trigger_pct": 0.0325,
+   "spread_pct": -0.0284,
+   "cnl_limit": 0.0325,
+   "cnl_limit_is_exception": false,
+   "cnl_within_limit": false
+  },
+  {
+   "annual_period": "Nov 2021 - Oct 2022",
+   "tranches_originated": "9-14",
+   "cnl_ratio_pct": 0.2301,
+   "tranche_balance_funded": 77412409.85,
+   "current_period_losses": 14942.35,
+   "cumulative_net_losses": 17815007.91,
+   "event_of_default_trigger_pct": 0.0325,
+   "spread_pct": -0.1976,
+   "cnl_limit": 0.0325,
+   "cnl_limit_is_exception": false,
+   "cnl_within_limit": false
+  },
+  {
+   "annual_period": "Nov 2022 - Oct 2023",
+   "tranches_originated": "15-20",
+   "cnl_ratio_pct": 0.3337,
+   "tranche_balance_funded": 147599216.0,
+   "current_period_losses": 84586.31,
+   "cumulative_net_losses": 49254644.38,
+   "event_of_default_trigger_pct": 0.0325,
+   "spread_pct": -0.3012,
+   "cnl_limit": 0.0325,
+   "cnl_limit_is_exception": false,
+   "cnl_within_limit": false
+  },
+  {
+   "annual_period": "Nov 2022 - Oct 2024",
+   "tranches_originated": "21-21",
+   "cnl_ratio_pct": 0.3566,
+   "tranche_balance_funded": 18215939.26,
+   "current_period_losses": 18383.92,
+   "cumulative_net_losses": 6496602.2,
+   "event_of_default_trigger_pct": 0.0325,
+   "spread_pct": -0.3241,
+   "cnl_limit": 0.0325,
+   "cnl_limit_is_exception": false,
+   "cnl_within_limit": false
+  }
+ ],
+ "aging_history": [
+  {
+   "period": "2026-07",
+   "collection_period": "July 2026",
+   "tranche_rows": null,
+   "current_0_30": 15043431.85,
+   "days_31_60": 270511.67,
+   "days_61_90": 0.0,
+   "written_off_bucket_label": "Over 60 Days",
+   "written_off": 212346.08,
+   "cumulative_net_losses": 76990719.79,
+   "closing_balance": 15313943.52,
+   "bucket_sum": 15313943.52,
+   "bucket_sum_with_writeoff": 15526289.6,
+   "reconciles": true
+  },
+  {
+   "period": "2026-06",
+   "collection_period": "June 2026",
+   "tranche_rows": null,
+   "current_0_30": 16216872.69,
+   "days_31_60": 307687.62,
+   "days_61_90": 0.0,
+   "written_off_bucket_label": "Over 60 Days",
+   "written_off": 246900.27,
+   "cumulative_net_losses": 77647063.7,
+   "closing_balance": 16524560.32,
+   "bucket_sum": 16524560.309999999,
+   "bucket_sum_with_writeoff": 16771460.579999998,
+   "reconciles": true
+  },
+  {
+   "period": "2026-05",
+   "collection_period": "May 2026",
+   "tranche_rows": null,
+   "current_0_30": 17317400.97,
+   "days_31_60": 613328.79,
+   "days_61_90": 0.0,
+   "written_off_bucket_label": "Over 60 Days",
+   "written_off": 576100.26,
+   "cumulative_net_losses": 79105888.27,
+   "closing_balance": 17930729.76,
+   "bucket_sum": 17930729.759999998,
+   "bucket_sum_with_writeoff": 18506830.02,
+   "reconciles": true
+  },
+  {
+   "period": "2026-04",
+   "collection_period": "April 2026",
+   "tranche_rows": null,
+   "current_0_30": 19030240.54,
+   "days_31_60": 883390.41,
+   "days_61_90": 0.0,
+   "written_off_bucket_label": "Over 60 Days",
+   "written_off": 334275.26,
+   "cumulative_net_losses": 80311248.1,
+   "closing_balance": 19913630.95,
+   "bucket_sum": 19913630.95,
+   "bucket_sum_with_writeoff": 20247906.21,
+   "reconciles": true
+  }
+ ],
+ "ratio_test_detail": {},
+ "restatements": [],
+ "balance_discontinuities": [],
+ "covenant_summary": {
+  "BREACH": 2,
+  "WATCH": 0,
+  "OK": 5,
+  "AVAILABLE": 0
+ },
+ "watch_buffer_pct": 0.1,
+ "worst_status": "BREACH",
+ "covenants": [
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (j)",
+   "description": "Has the Rolling Three Month Loss Ratio exceeded 4.50%?",
+   "current_value": -0.7264,
+   "threshold": 0.045,
+   "kind": "ceiling",
+   "utilization_pct": -16.1422,
+   "trend": "rising",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (k)",
+   "description": "Has the Rolling Twelve Month Loss Ratio exceeded 2.00%?",
+   "current_value": -0.5812,
+   "threshold": 0.02,
+   "kind": "ceiling",
+   "utilization_pct": -29.06,
+   "trend": "falling",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (l)",
+   "description": "Has the CNL Ratio at any time exceeded 3.25%?",
+   "current_value": 0.3566,
+   "threshold": 0.0325,
+   "kind": "ceiling",
+   "utilization_pct": 10.9723,
+   "trend": "n/a",
+   "status": "BREACH",
+   "note": null,
+   "worst_vintage": "Nov 2022 - Oct 2024"
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (m)",
+   "description": "Has the Delinquency Ratio exceeded 4.00%?",
+   "current_value": 0.0214,
+   "threshold": 0.04,
+   "kind": "ceiling",
+   "utilization_pct": 0.535,
+   "trend": "falling",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (v)",
+   "description": "Has the Tranche Balance, in respect of any Leasing, at any time been less than the Required Tranche Balance at such time?",
+   "current_value": -9875676.11,
+   "threshold": 0,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "BREACH",
+   "note": "Greatest tranche differential (closing minus required, for context): -9,965,355.40"
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (w)",
+   "description": "Has an Event of Default under, and as defined in, the Warehouse Facility Agreement occurred ?",
+   "current_value": null,
+   "threshold": null,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reported directly by the servicer/originator; no underlying data series available."
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.5",
+   "description": "Is the Program Amount outstanding at any time less than 10% of the of the highest ever Program Amount?",
+   "current_value": null,
+   "threshold": 0.1,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reported directly by the servicer/originator; no underlying data series available."
+  }
+ ],
+ "financial_ratios": [
+  {
+   "key": "delinquency_ratio",
+   "label": "Delinquency Ratio",
+   "format": "pct",
+   "group": "Portfolio Performance",
+   "value": 0.0214
+  },
+  {
+   "key": "rolling_3month_loss_ratio",
+   "label": "Rolling 3-Month Loss Ratio",
+   "format": "pct",
+   "group": "Portfolio Performance",
+   "value": -0.7264
+  },
+  {
+   "key": "rolling_12month_loss_ratio",
+   "label": "Rolling 12-Month Loss Ratio",
+   "format": "pct",
+   "group": "Portfolio Performance",
+   "value": -0.5812
+  },
+  {
+   "key": "cnl_ratio",
+   "label": "CNL Ratio (worst vintage)",
+   "format": "pct",
+   "group": "Cumulative Net Losses",
+   "value": 0.3566,
+   "vintage": "Nov 2022 - Oct 2024"
+  }
+ ],
+ "prior_period": "2026-06",
+ "prior_covenants": [
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (j)",
+   "description": "Has the Rolling Three Month Loss Ratio exceeded 4.50%?",
+   "current_value": -0.7890999999999999,
+   "threshold": 0.045,
+   "kind": "ceiling",
+   "utilization_pct": -17.5356,
+   "trend": "rising",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (k)",
+   "description": "Has the Rolling Twelve Month Loss Ratio exceeded 2.00%?",
+   "current_value": -0.5426,
+   "threshold": 0.02,
+   "kind": "ceiling",
+   "utilization_pct": -27.13,
+   "trend": "falling",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (l)",
+   "description": "Has the CNL Ratio at any time exceeded 3.25%?",
+   "current_value": 0.36,
+   "threshold": 0.0325,
+   "kind": "ceiling",
+   "utilization_pct": 11.0769,
+   "trend": "n/a",
+   "status": "BREACH",
+   "note": null,
+   "worst_vintage": "Nov 2022 - Oct 2024"
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (m)",
+   "description": "Has the Delinquency Ratio exceeded 4.00%?",
+   "current_value": 0.0291,
+   "threshold": 0.04,
+   "kind": "ceiling",
+   "utilization_pct": 0.7275,
+   "trend": "falling",
+   "status": "OK",
+   "note": null
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (v)",
+   "description": "Has the Tranche Balance, in respect of any Leasing, at any time been less than the Required Tranche Balance at such time?",
+   "current_value": -9965355.4,
+   "threshold": 0,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "BREACH",
+   "note": "Greatest tranche differential (closing minus required, for context): -9,965,355.40"
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.1 (w)",
+   "description": "Has an Event of Default under, and as defined in, the Warehouse Facility Agreement occurred ?",
+   "current_value": null,
+   "threshold": null,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reported directly by the servicer/originator; no underlying data series available."
+  },
+  {
+   "category": "Event of Termination",
+   "legal_ref": "MLA 7.5",
+   "description": "Is the Program Amount outstanding at any time less than 10% of the of the highest ever Program Amount?",
+   "current_value": null,
+   "threshold": 0.1,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reported directly by the servicer/originator; no underlying data series available."
+  }
+ ],
+ "prior_closing_tranche_balance": 16524560.32,
+ "prior_closing_contracts": 1881.0,
+ "data_corrections": [
+  {
+   "period": "2026-07",
+   "record": "period_history",
+   "field": "interest",
+   "old_value": 118546.94,
+   "new_value": 125116.59,
+   "applied": "2026-10-09",
+   "reason": "Interest now equals the income counted by the report effective-yield formula (h=(e+f)/a: interest collections + prepayment fees and penalties); previously Interest Collections only."
+  }
+ ]
+}

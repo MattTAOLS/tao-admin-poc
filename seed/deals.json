@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "move-trust-dynamic-capital",
+    "name": "Dynamic Capital",
+    "program_slug": "move-trust",
+    "servicer": "Dynamic Capital",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-essex-lease-financial-corp",
+    "name": "Essex Lease Financial Corp.",
+    "program_slug": "move-trust",
+    "servicer": "Essex Lease Financial Corp.",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-finloc-2000-inc",
+    "name": "Finloc 2000 Inc.",
+    "program_slug": "move-trust",
+    "servicer": "Finloc 2000 Inc.",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-meridian-onecap-lp",
+    "name": "Meridian OneCap LP",
+    "program_slug": "move-trust",
+    "servicer": "Meridian OneCap LP",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-tlfc-leases",
+    "name": "TLFC (Leases)",
+    "program_slug": "move-trust",
+    "servicer": "TLFC (Leases)",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-tlfc-loans",
+    "name": "TLFC (Loans)",
+    "program_slug": "move-trust",
+    "servicer": "TLFC (Loans)",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-tlfc-lp-leases",
+    "name": "TLFC LP (Leases)",
+    "program_slug": "move-trust",
+    "servicer": "TLFC LP (Leases)",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-tpine-leasing-capital-corporation",
+    "name": "TPine Leasing Capital Corporation",
+    "program_slug": "move-trust",
+    "servicer": "TPine Leasing Capital Corporation",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "move-trust-vcc-iv-lp",
+    "name": "VCC IV LP",
+    "program_slug": "move-trust",
+    "servicer": "VCC IV LP",
+    "template_id": "move-trust-settrep-v1"
+  },
+  {
+    "slug": "f-pil-2-0-moneda-capital-corp",
+    "name": "Moneda Capital Corp.",
+    "program_slug": "f-pil-2-0",
+    "servicer": "Moneda Capital Corp.",
+    "template_id": "fpil-2.0-settrep-v1"
+  },
+  {
+    "slug": "f-pil-2-0-stride-capital",
+    "name": "Stride Capital",
+    "program_slug": "f-pil-2-0",
+    "servicer": "Stride Capital",
+    "template_id": "fpil-2.0-settrep-v1"
+  },
+  {
+    "slug": "f-pil-2-0-xpedite-leasing",
+    "name": "Xpedite Leasing",
+    "program_slug": "f-pil-2-0",
+    "servicer": "Xpedite Leasing",
+    "template_id": "fpil-2.0-settrep-v1"
+  }
+]

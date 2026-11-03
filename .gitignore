@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+web/dist/
+web/.vite/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+.DS_Store
+Thumbs.db
+*.log
+/data/
+_scaffold.zip

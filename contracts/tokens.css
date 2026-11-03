@@ -1,0 +1,78 @@
+/* TAO Admin POC design tokens — the single source of colour, type, elevation and motion.
+   Taken from docs/design/redesign_mockup.html (TAO Admin · Operations redesign). Both shells import this
+   file; components reference tokens only, never raw values. Changes go through the Lead. */
+
+:root {
+  /* Canvas and surfaces (a light, warm UI; the indigo sidebar is the only dark surface) */
+  --cream: #fffaf3;          /* page canvas */
+  --canvas-deep: #faf9f5;    /* outside the app frame */
+  --card: #ffffff;           /* cards, tables, panels */
+  --indigo: #2a255f;         /* sidebar, app chrome, headline text */
+  --indigo-2: #352f6e;       /* sidebar hover / secondary chrome */
+  --purple: #743aee;         /* primary action, active nav item */
+  --purple-700: #5f29d6;     /* primary hover / gradient end */
+  --lav: #f2ecff;            /* selected rows, soft highlight */
+  --lav-2: #e7dcff;          /* stronger highlight, derived cells */
+
+  /* Text */
+  --text: #3f3a55;
+  --muted: #8b8597;
+  --text-on-indigo: #c8c1e6; /* nav text on the sidebar */
+  --text-on-purple: #ffffff;
+
+  /* Lines */
+  --border: #efe7da;         /* hairlines on cream */
+  --border-card: #f1ece3;    /* hairlines on cards */
+  --border-table: #f4efe6;   /* table row rules */
+
+  /* Status (dot + word, never colour alone) */
+  --ok: #1f9d6b;   --ok-bg: #e7f5ee;     /* OK, approved, published */
+  --warn: #bd7a18; --warn-bg: #fbf0da;   /* WATCH, needs review */
+  --bad: #d24b46;  --bad-bg: #fae4e2;    /* BREACH / triggered, block finding, rejected */
+  --blue: #2f5fd0; --blue-bg: #e9f0fe;   /* informational chip: reformatted, source, note */
+  --dpv: #6a37d8;  --dpv-bg: #efe7ff;    /* derived / computed value (our recomputation) */
+
+  /* Type */
+  --font: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;  /* headings, nav, labels */
+  --data: 'Inter', ui-sans-serif, system-ui, sans-serif;                                           /* tables, metrics, forms */
+  --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;                             /* ids, routes, raw text */
+  --fs-h1: 21px; --fs-h2: 16px; --fs-body: 13.5px; --fs-table: 12.5px; --fs-small: 11.5px; --fs-kpi: 28px;
+  --lh: 1.45;
+  --tabular: 'tnum' 1, 'lnum' 1;  /* font-feature-settings for every numeric cell */
+
+  /* Shape */
+  --r-card: 14px; --r-panel: 13px; --r-control: 10px; --r-chip: 999px; --r-cell: 3px;
+
+  /* Elevation (purple-tinted, deep and soft) */
+  --sh-frame: 0 1px 0 rgba(42,37,95,.04), 0 30px 60px -24px rgba(42,37,95,.30), 0 12px 24px -16px rgba(42,37,95,.20);
+  --sh-card: 0 1px 2px rgba(42,37,95,.04), 0 12px 24px -20px rgba(42,37,95,.25);
+  --sh-panel: 0 18px 40px -14px rgba(42,37,95,.35);
+  --sh-primary: 0 10px 22px -10px rgba(116,58,238,.9);
+  --sh-hair: 0 1px 2px rgba(42,37,95,.05);
+  --focus: 0 0 0 3px rgba(116,58,238,.16);
+
+  /* Gradient used on the primary button only */
+  --grad-primary: linear-gradient(150deg, var(--purple), var(--purple-700));
+
+  /* Motion (see motion.md) */
+  --t-control: 120ms; --t-panel: 160ms; --t-page: 180ms;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  /* Layout */
+  --sidebar-w: 236px; --topbar-h: 64px; --gutter: 28px; --gap: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-control: 0ms; --t-panel: 0ms; --t-page: 0ms; }
+}
+
+/* Base — the only element rules allowed in this file */
+html { color-scheme: light; }
+body { margin: 0; background: var(--canvas-deep); color: var(--text); font: var(--fs-body)/var(--lh) var(--font); }
+h1 { font-size: var(--fs-h1); font-weight: 700; color: var(--indigo); letter-spacing: -.4px; margin: 0; line-height: 1; }
+h2 { font-size: var(--fs-h2); font-weight: 700; color: var(--indigo); margin: 0; }
+table { width: 100%; border-collapse: collapse; font-family: var(--data); font-size: var(--fs-table); }
+th { padding: 8px 16px; text-align: left; border-bottom: 1px solid var(--border-table); white-space: nowrap; font-size: var(--fs-small); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td { padding: 9px 16px; border-bottom: 1px solid var(--border-table); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); }
+:focus-visible { outline: none; box-shadow: var(--focus); }

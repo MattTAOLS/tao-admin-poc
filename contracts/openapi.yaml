@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  title: TAO Admin POC API
+  version: 0.1.0
+  description: |
+    Day-0 contract for the SetRep intake POC. Every request carries `X-Role` and, for partner roles,
+    `X-Partner`. Intake routes (uploads, findings, reviews, master data, audit) are TAO-only; `/published/*`
+    is readable by every role but filtered to the caller's partner. Changes to this file go through the
+    Lead only. The UI agents build against a mock server generated from this file (`make mock`).
+servers:
+  - url: http://localhost:8000/api/v1
+
+components:
+  parameters:
+    XRole:
+      name: X-Role
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [tao_admin, tao_analyst, investor_admin, investor_viewer, manager_admin, manager_viewer]
+    XPartner:
+      name: X-Partner
+      in: header
+      required: false
+      description: Partner slug; required for investor_* and manager_* roles.
+      schema: { type: string }
+    UploadId:
+      name: upload_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Forbidden:
+      description: Role may not call this route, or partner does not own the resource.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Not found (also returned when a partner asks for another partner's resource).
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties: { code: { type: string }, message: { type: string } }
+    UploadStatus:
+      type: string
+      enum: [received, extracting, needs_review, approved, rejected, published, extraction_failed]
+    Upload:
+      type: object
+      required: [id, deal_slug, program_slug, partner_slug, collection_period, status, uploaded_by, uploaded_at, file_name]
+      properties:
+        id: { type: string, format: uuid }
+        deal_slug: { type: string }
+        program_slug: { type: string }
+        partner_slug: { type: string }
+        collection_period: { type: string, pattern: '^\d{4}-\d{2}$', description: 'YYYY-MM, = settlement month (see docs: period naming)' }
+        reporting_period: { type: [string, 'null'], pattern: '^\d{4}-\d{2}$' }
+        status: { $ref: '#/components/schemas/UploadStatus' }
+        file_name: { type: string }
+        page_count: { type: [integer, 'null'] }
+        uploaded_by: { type: string }
+        uploaded_at: { type: string, format: date-time }
+        finding_counts:
+          type: object
+          properties: { block: { type: integer }, review: { type: integer }, note: { type: integer } }
+        latest_extraction_id: { type: [string, 'null'], format: uuid }
+        published_at: { type: [string, 'null'], format: date-time }
+    Extraction:
+      description: See contracts/extraction.schema.json (meta, deal, sources) plus id.
+      type: object
+      required: [id, upload_id, meta, deal, sources]
+      properties:
+        id: { type: string, format: uuid }
+        upload_id: { type: string, format: uuid }
+        meta: { type: object }
+        deal: { type: object }
+        sources: { type: object }
+    Finding:
+      description: See contracts/finding.schema.json.
+      type: object
+    OverrideRequest:
+      type: object
+      required: [choice, reason]
+      properties:
+        choice: { type: string, enum: [use_ours, use_report, restatement, acknowledge] }
+        reason: { type: string, minLength: 3 }
+    ReextractRequest:
+      type: object
+      required: [pages]
+      properties:
+        pages: { type: array, items: { type: integer, minimum: 1 }, minItems: 1 }
+    RejectRequest:
+      type: object
+      required: [reason]
+      properties: { reason: { type: string, minLength: 3 } }
+    Program:
+      type: object
+      required: [slug, name, partner_slug, currency, limit]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        partner_slug: { type: string }
+        currency: { type: string, default: CAD }
+        limit: { type: number }
+        warehouse_limit: { type: [number, 'null'] }
+    Deal:
+      type: object
+      required: [slug, name, program_slug, servicer, template_id]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        program_slug: { type: string }
+        servicer: { type: string }
+        template_id: { type: string, description: 'extraction mapping, e.g. fpil-2.0-settrep-v1' }
+    CovenantDefinition:
+      type: object
+      required: [id, deal_slug, legal_ref, description, kind, effective_from]
+      properties:
+        id: { type: string, format: uuid }
+        deal_slug: { type: string }
+        legal_ref: { type: string, example: 'SLFA 9.1 (f)' }
+        description: { type: string }
+        kind: { type: string, enum: [ceiling, floor] }
+        threshold: { type: [number, 'null'], description: 'fraction (0.035 = 3.5%) or ratio; null when threshold_rule applies' }
+        threshold_rule:
+          type: [object, 'null']
+          description: 'Conditional thresholds, e.g. SLFA 9.1(c): 0.06 if portfolio NPV ≤ 10,000,000 else 0.04'
+          properties:
+            on: { type: string, description: 'JSON pointer into deal, e.g. /tranche_balance/closing' }
+            bands:
+              type: array
+              items:
+                type: object
+                required: [threshold]
+                properties: { lte: { type: number }, gt: { type: number }, threshold: { type: number } }
+        watch_buffer_pct: { type: number, default: 0.1 }
+        effective_from: { type: string, format: date }
+        source: { type: [string, 'null'], description: 'e.g. SLFA dated 2022-12-09; Amendment 2 2025-03-01' }
+    PublishedPortfolio:
+      type: object
+      description: Program-level aggregates, partner-filtered. Shape mirrors docs/dashboard-json/program-*.dashboard.json minus deals[], with a deals index.
+    PublishedProgram:
+      type: object
+      description: One program aggregate = docs/dashboard-json/program-<slug>.dashboard.json shape.
+    PublishedDeal:
+      type: object
+      description: One deal = the published extraction.deal (dashboard.json deal object) plus publication metadata.
+    AuditEntry:
+      type: object
+      required: [id, at, actor_role, action, upload_id]
+      properties:
+        id: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+        actor_role: { type: string }
+        actor_label: { type: string }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change] }
+        upload_id: { type: [string, 'null'], format: uuid }
+        finding_id: { type: [string, 'null'], format: uuid }
+        reason: { type: [string, 'null'] }
+        detail: { type: object }
+
+paths:
+  /uploads:
+    post:
+      summary: Create an upload and queue extraction (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [deal_slug, collection_period, file]
+              properties:
+                deal_slug: { type: string }
+                collection_period: { type: string, pattern: '^\d{4}-\d{2}$' }
+                file: { type: string, format: binary }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Period already published for this deal (R12 pre-check), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    get:
+      summary: List uploads (queue and history)
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/UploadStatus' } }
+        - { name: deal_slug, in: query, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Upload' } } } } }
+  /uploads/{upload_id}:
+    get:
+      summary: One upload with status and finding counts
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /uploads/{upload_id}/extraction:
+    get:
+      summary: Latest extraction (pass 2 if it ran, else pass 1)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: pass, in: query, schema: { type: integer, enum: [1, 2] } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Extraction' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /uploads/{upload_id}/findings:
+    get:
+      summary: Findings for the latest extraction
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Finding' } } } } }
+  /uploads/{upload_id}/findings/{finding_id}/override:
+    post:
+      summary: Resolve a finding with a reason; rules re-run; audit entry written (tao_admin only)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: finding_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OverrideRequest' } } } }
+      responses:
+        '200': { description: Updated findings after re-run, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Finding' } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /uploads/{upload_id}/reextract:
+    post:
+      summary: Queue a targeted second pass over named pages
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReextractRequest' } } } }
+      responses:
+        '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+  /uploads/{upload_id}/approve:
+    post:
+      summary: Approve; publishes and regenerates dashboards (tao_admin only; refused while block findings are open)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Open block findings, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /uploads/{upload_id}/reject:
+    post:
+      summary: Reject with a reason (tao_admin only)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RejectRequest' } } } }
+      responses:
+        '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+  /uploads/{upload_id}/pages/{n}.png:
+    get:
+      summary: Page image for the finding card (rendered at 110 dpi)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } } ]
+      responses:
+        '200': { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
+  /uploads/{upload_id}/file:
+    get:
+      summary: The original PDF (TAO only)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: PDF, content: { application/pdf: { schema: { type: string, format: binary } } } }
+
+  /master/programs:
+    get:
+      summary: Programs (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Program' } } } } } }
+    put:
+      summary: Upsert a program (tao_admin)
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Program' } } } }
+      responses: { '200': { description: OK } }
+  /master/deals:
+    get:
+      summary: Deals (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: program_slug, in: query, schema: { type: string } } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Deal' } } } } } }
+    put:
+      summary: Upsert a deal (tao_admin)
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
+      responses: { '200': { description: OK } }
+  /master/covenants:
+    get:
+      summary: Covenant definitions, versioned by effective_from (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: deal_slug, in: query, schema: { type: string } }, { name: as_of, in: query, schema: { type: string, format: date } } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CovenantDefinition' } } } } } }
+    put:
+      summary: Upsert a covenant definition (tao_admin); writes a master_change audit entry
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CovenantDefinition' } } } }
+      responses: { '200': { description: OK } }
+
+  /published/portfolio:
+    get:
+      summary: Portfolio executive summary, filtered to the caller's partner
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PublishedPortfolio' } } } } }
+  /published/programs/{program_slug}:
+    get:
+      summary: Program executive summary + dashboard data (partner-filtered)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { name: program_slug, in: path, required: true, schema: { type: string } }, { name: period, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PublishedProgram' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /published/programs/{program_slug}/deals/{deal_slug}:
+    get:
+      summary: Published deal page data (partner-filtered)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { name: program_slug, in: path, required: true, schema: { type: string } }, { name: deal_slug, in: path, required: true, schema: { type: string } }, { name: period, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PublishedDeal' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /published/regenerate:
+    post:
+      summary: Rebuild program roll-ups from published deals (tao_admin); writes a regenerate audit entry
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { program_slug: { type: string } } } } } }
+      responses: { '202': { description: Queued } }
+
+  /audit:
+    get:
+      summary: Audit log (tao_admin)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: upload_id, in: query, schema: { type: string, format: uuid } } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } } } } }
+
+  /health:
+    get:
+      summary: Liveness for compose and the contract check
+      responses: { '200': { description: OK } }

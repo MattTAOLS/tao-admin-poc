@@ -1,0 +1,299 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<style>
+  :root{
+    --cream:#fffaf3; --card:#ffffff; --indigo:#2a255f; --indigo-2:#352f6e;
+    --purple:#743aee; --purple-700:#5f29d6; --lav:#f2ecff; --lav-2:#e7dcff;
+    --text:#3f3a55; --muted:#8b8597; --border:#efe7da; --border-card:#f1ece3;
+    --ok:#1f9d6b; --ok-bg:#e7f5ee; --warn:#bd7a18; --warn-bg:#fbf0da;
+    --bad:#d24b46; --bad-bg:#fae4e2; --blue:#2f5fd0; --blue-bg:#e9f0fe;
+    --dpv:#6a37d8; --dpv-bg:#efe7ff;
+    --font:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+    --data:'Inter',ui-sans-serif,system-ui,sans-serif;
+    --mono:ui-monospace,'SFMono-Regular',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  .stage{
+    min-height:100%; padding:34px 24px;
+    background:
+      radial-gradient(1200px 500px at 78% -10%, #f0e8ff 0%, rgba(240,232,255,0) 60%),
+      radial-gradient(900px 500px at 0% 110%, #fdeede 0%, rgba(253,238,222,0) 55%),
+      #f7f1e8;
+    font-family:var(--font); color:var(--text);
+    display:flex; justify-content:center; align-items:flex-start;
+  }
+  .window{
+    width:100%; max-width:1080px; height:712px; background:var(--cream);
+    border-radius:18px; overflow:hidden; display:grid; grid-template-columns:236px 1fr;
+    box-shadow:0 1px 0 rgba(42,37,95,.04), 0 30px 60px -24px rgba(42,37,95,.30), 0 12px 24px -16px rgba(42,37,95,.20);
+    border:1px solid rgba(42,37,95,.06);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .side{background:var(--indigo); color:#fff; display:flex; flex-direction:column; padding:18px 14px;}
+  .brand{display:flex; align-items:center; gap:11px; padding:6px 8px 18px;}
+  .mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(150deg,var(--purple),#9a6bff);
+    display:grid;place-items:center;box-shadow:0 6px 16px -6px rgba(116,58,238,.8);flex:none}
+  .mark svg{width:18px;height:18px}
+  .brand b{font-weight:700;font-size:15px;letter-spacing:-.2px;display:block;line-height:1.1}
+  .brand span{font-size:11px;color:#b6aee0;letter-spacing:.04em;text-transform:uppercase}
+  .navlabel{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8980b8;padding:14px 10px 6px}
+  .nav{display:flex;flex-direction:column;gap:3px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;color:#c8c1e6;
+    font-size:13.5px;font-weight:500;text-decoration:none;transition:background .15s,color .15s}
+  .nav a svg{width:17px;height:17px;opacity:.9}
+  .nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav a.on{background:var(--purple);color:#fff;box-shadow:0 8px 18px -8px rgba(116,58,238,.9)}
+  .nav a.on svg{opacity:1}
+  .side .foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid rgba(255,255,255,.08)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--lav-2);color:var(--indigo);
+    display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+  .foot small{display:block;color:#a79fce;font-size:11px}
+  .foot b{font-size:12.5px;font-weight:600}
+
+  /* ---------- Main ---------- */
+  .main{overflow-y:auto;overflow-x:hidden}
+  .topbar{position:sticky;top:0;z-index:5;background:rgba(255,250,243,.82);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);padding:18px 28px;display:flex;align-items:flex-end;gap:16px}
+  .crumb{font-size:11.5px;color:var(--muted);letter-spacing:.02em;margin-bottom:5px}
+  .crumb b{color:var(--purple);font-weight:600}
+  h1{font-size:21px;font-weight:700;color:var(--indigo);letter-spacing:-.4px;margin:0;line-height:1}
+  .sub{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .pillstat{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--warn);margin-left:8px}
+  .acts{margin-left:auto;display:flex;gap:9px}
+  .btn{font-family:var(--font);font-size:13px;font-weight:600;border-radius:10px;padding:9px 15px;cursor:pointer;
+    border:1px solid transparent;transition:transform .12s,box-shadow .15s,background .15s;display:inline-flex;align-items:center;gap:7px}
+  .btn:active{transform:translateY(1px)}
+  .btn-ghost{background:#fff;border-color:var(--border-card);color:var(--indigo)}
+  .btn-ghost:hover{background:var(--lav);border-color:var(--lav-2)}
+  .btn-primary{background:var(--purple);color:#fff;box-shadow:0 10px 22px -10px rgba(116,58,238,.9)}
+  .btn-primary:hover{background:var(--purple-700)}
+  .body{padding:24px 28px 40px}
+  .row{display:grid;gap:16px}
+  .cards3{grid-template-columns:1.1fr 1fr 1fr}
+  .card{background:var(--card);border:1px solid var(--border-card);border-radius:14px;
+    box-shadow:0 1px 2px rgba(42,37,95,.04), 0 12px 24px -20px rgba(42,37,95,.25)}
+  .pad{padding:18px}
+  .score{display:flex;align-items:center;gap:16px}
+  .ring{width:74px;height:74px;border-radius:50%;flex:none;display:grid;place-items:center;
+    background:conic-gradient(var(--purple) calc(99% * 3.6deg * 1),#ece6f7 0);
+    -webkit-mask:none}
+  .ring::after{content:"";position:absolute}
+  .ring-wrap{position:relative;width:74px;height:74px;flex:none}
+  .ring-wrap .hole{position:absolute;inset:9px;background:#fff;border-radius:50%;display:grid;place-items:center}
+  .ring-wrap .hole b{font-size:19px;color:var(--indigo);font-weight:800;font-family:var(--data);font-variant-numeric:tabular-nums}
+  .klabel{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kbig{font-size:26px;font-weight:800;color:var(--indigo);font-family:var(--data);letter-spacing:-.5px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kfoot{font-size:12px;color:var(--muted);margin-top:3px}
+  .scoremsg{font-size:12.5px;color:var(--text);line-height:1.45}
+  .scoremsg b{color:var(--ok)}
+
+  /* select / dropdown */
+  .convert{display:flex;align-items:center;gap:12px;margin:22px 0 14px}
+  .convert .lab{font-size:12.5px;color:var(--muted);font-weight:600}
+  .select{position:relative;font-family:var(--font)}
+  .trigger{display:flex;align-items:center;gap:10px;min-width:288px;background:#fff;border:1px solid var(--border-card);
+    border-radius:11px;padding:10px 13px;cursor:pointer;font-size:13.5px;color:var(--indigo);font-weight:600;
+    box-shadow:0 1px 2px rgba(42,37,95,.05);transition:border-color .15s,box-shadow .15s}
+  .trigger:hover{border-color:var(--lav-2)}
+  .select.open .trigger{border-color:var(--purple);box-shadow:0 0 0 3px rgba(116,58,238,.16)}
+  .trigger .tdot{width:8px;height:8px;border-radius:50%;background:var(--purple);flex:none}
+  .trigger .chev{margin-left:auto;transition:transform .18s;color:var(--muted)}
+  .select.open .chev{transform:rotate(180deg)}
+  .menu{position:absolute;top:calc(100% + 8px);left:0;min-width:312px;background:#fff;border:1px solid var(--border-card);
+    border-radius:13px;padding:6px;box-shadow:0 18px 40px -14px rgba(42,37,95,.35);
+    opacity:0;transform:translateY(-6px) scale(.98);pointer-events:none;transition:opacity .16s,transform .16s;z-index:20}
+  .select.open .menu{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+  .opt{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:pointer;font-size:13px;color:var(--text)}
+  .opt:hover{background:var(--lav)}
+  .opt.sel{color:var(--indigo);font-weight:600}
+  .opt .check{margin-left:auto;color:var(--purple);opacity:0}
+  .opt.sel .check{opacity:1}
+  .opt small{display:block;color:var(--muted);font-weight:400;font-size:11.5px;margin-top:1px}
+
+  /* diff */
+  .diffhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-card)}
+  .diffhead h3{margin:0;font-size:14px;font-weight:700;color:var(--indigo)}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .pane{padding:0}
+  .pane+.pane{border-left:1px solid var(--border-card)}
+  .pane .ph{padding:10px 16px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    font-weight:700;background:#fcf9f4;border-bottom:1px solid var(--border-card)}
+  table{width:100%;border-collapse:collapse;font-family:var(--data);font-size:12px}
+  td,th{padding:8px 16px;text-align:left;border-bottom:1px solid #f4efe6;white-space:nowrap}
+  th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.k{color:var(--indigo);font-weight:600;font-family:var(--font)}
+  .num{font-variant-numeric:tabular-nums}
+  .cell-refmt{background:var(--blue-bg)}
+  .cell-dpv{background:var(--dpv-bg)}
+  .tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:999px}
+  .tag.refmt{background:var(--blue-bg);color:var(--blue)}
+  .tag.dpv{background:var(--dpv-bg);color:var(--dpv)}
+  .tag.map{background:#f1eee9;color:#7a7385}
+  .fieldrow{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid #f4efe6;font-size:12.5px}
+  .fieldrow:last-child{border-bottom:0}
+  .fieldrow .fk{font-weight:600;color:var(--indigo);min-width:150px}
+  .fieldrow .chg{color:var(--muted);font-family:var(--data)}
+  .fieldrow .chg b{color:var(--indigo);font-weight:600}
+  .fieldrow .strike{text-decoration:line-through;color:#bdb6c4;margin-right:6px}
+  .sech{font-size:13px;font-weight:700;color:var(--indigo);margin:26px 0 12px;letter-spacing:-.2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="stage">
+  <div class="window">
+    <!-- Sidebar -->
+    <aside class="side">
+      <div class="brand">
+        <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span>
+        <span><b>TAO Admin</b><span>Operations</span></span>
+      </div>
+      <div class="navlabel">Workspace</div>
+      <nav class="nav">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Reporting Pipeline</a>
+        <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H8"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h12"/></svg>Backup Servicing</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>Clients</a>
+      </nav>
+      <div class="foot">
+        <span class="avatar">TA</span>
+        <span><b style="color:#fff">TAO Admin</b><small>TAO Solutions Inc.</small></span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="crumb">Backup Servicing &nbsp;/&nbsp; <b>TD Bank — Apr 2026</b></div>
+          <h1>Conversion Review</h1>
+          <div class="sub">60 loans · matched to QuestBank standard <span class="pillstat">● Ready for review</span></div>
+        </div>
+        <div class="acts">
+          <button class="btn btn-ghost">View source book</button>
+          <button class="btn btn-primary">Deliver to QuestBank
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="body">
+        <!-- score row -->
+        <div class="row cards3">
+          <div class="card pad score">
+            <div class="ring-wrap">
+              <div class="ring"></div>
+              <div class="hole"><b>99%</b></div>
+            </div>
+            <div>
+              <div class="klabel">Conversion clean</div>
+              <p class="scoremsg" style="margin:6px 0 0">Required coverage <b style="color:var(--indigo)">100%</b> · valid values 99.7% · 60 loans. <br>1 field needs attention.</p>
+            </div>
+          </div>
+          <div class="card pad">
+            <div class="klabel">Records normalized</div>
+            <div class="kbig">60<span style="font-size:14px;color:var(--muted);font-weight:600"> / 60</span></div>
+            <div class="kfoot">Row-count tie-out · exact</div>
+          </div>
+          <div class="card pad">
+            <div class="klabel">Data-quality flags</div>
+            <div class="kbig" style="color:var(--warn)">4</div>
+            <div class="kfoot">2 critical · 2 warning</div>
+          </div>
+        </div>
+
+        <!-- convert + dropdown -->
+        <div class="convert">
+          <span class="lab">Convert to</span>
+          <div class="select" id="sel">
+            <div class="trigger" id="trig">
+              <span class="tdot"></span>
+              <span id="trigtext">QuestBank — Backup Servicing Data Standard</span>
+              <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="menu" id="menu">
+              <div class="opt sel" data-t="QuestBank — Backup Servicing Data Standard">
+                <div>QuestBank Data Standard<small>20 fields · default for this engagement</small></div>
+                <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>
+              </div>
+              <div class="opt" data-t="QuestBank — Standard v2 (draft)">
+                <div>QuestBank Standard v2<small>22 fields · uploaded 12 Jun, in review</small></div>
+                <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>
+              </div>
+              <div class="opt" data-t="Generic Servicer Export (CSV)">
+                <div>Generic Servicer Export<small>17 canonical fields · CSV</small></div>
+                <svg class="check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>
+              </div>
+            </div>
+          </div>
+          <span style="font-size:11.5px;color:var(--muted)">Click the dropdown ↑</span>
+        </div>
+
+        <!-- diff card -->
+        <div class="card" style="overflow:hidden">
+          <div class="diffhead">
+            <h3>Conversion diff &nbsp;·&nbsp; source ↔ converted</h3>
+            <div class="legend">
+              <span><i style="background:var(--blue)"></i>Reformatted</span>
+              <span><i style="background:var(--dpv)"></i>Derived (computed)</span>
+              <span><i style="background:#d7cfbf"></i>Mapped</span>
+            </div>
+          </div>
+          <div class="panes">
+            <div class="pane">
+              <div class="ph">Source — as uploaded by TD Bank</div>
+              <table>
+                <thead><tr><th>Account Number</th><th>Outstanding</th><th>Rate (%)</th><th>Maturity</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">TD-100000</td><td class="num">391,181.73</td><td class="num">4.19</td><td class="num">2040-12-04</td></tr>
+                  <tr><td class="num">TD-100001</td><td class="num">512,400.00</td><td class="num">5.05</td><td class="num">2038-06-01</td></tr>
+                  <tr><td class="num">TD-100002</td><td class="num">288,940.10</td><td class="num">3.89</td><td class="num">2044-02-15</td></tr>
+                  <tr><td class="num">TD-100003</td><td class="num">734,002.55</td><td class="num">6.10</td><td class="num">2035-09-30</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pane">
+              <div class="ph">Converted — QuestBank data standard</div>
+              <table>
+                <thead><tr><th>Current UPB</th><th>Note Rate</th><th>Maturity</th><th>Rem. Term</th></tr></thead>
+                <tbody>
+                  <tr><td class="num cell-refmt">$391,181.73</td><td class="num">4.190%</td><td class="num cell-refmt">12/04/2040</td><td class="num cell-dpv">176</td></tr>
+                  <tr><td class="num cell-refmt">$512,400.00</td><td class="num">5.050%</td><td class="num cell-refmt">06/01/2038</td><td class="num cell-dpv">146</td></tr>
+                  <tr><td class="num cell-refmt">$288,940.10</td><td class="num">3.890%</td><td class="num cell-refmt">02/15/2044</td><td class="num cell-dpv">213</td></tr>
+                  <tr><td class="num cell-refmt">$734,002.55</td><td class="num">6.100%</td><td class="num cell-refmt">09/30/2035</td><td class="num cell-dpv">112</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="sech">Field-by-field changes <span style="color:var(--muted);font-weight:500">(20)</span></div>
+        <div class="card">
+          <div class="fieldrow"><span class="fk">Current UPB <span style="color:var(--bad)">*</span></span><span class="tag refmt">reformatted</span><span class="chg">Outstanding Balance → <b>$391,181.73</b></span></div>
+          <div class="fieldrow"><span class="fk">Note Rate (%)</span><span class="tag refmt">reformatted</span><span class="chg"><span class="strike">4.19</span> → <b>4.190</b></span></div>
+          <div class="fieldrow"><span class="fk">Remaining Term</span><span class="tag dpv">derived</span><span class="chg">computed from maturity → <b>176 months</b></span></div>
+          <div class="fieldrow"><span class="fk">Total Payoff</span><span class="tag dpv">derived</span><span class="chg">balance + arrears + escrow → <b>$408,564.13</b></span></div>
+          <div class="fieldrow"><span class="fk">Servicer Loan ID</span><span class="tag map">mapped</span><span class="chg">Account Number → <b>TD-100000</b></span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var sel=document.getElementById('sel'),trig=document.getElementById('trig'),
+        menu=document.getElementById('menu'),txt=document.getElementById('trigtext');
+    trig.addEventListener('click',function(e){e.stopPropagation();sel.classList.toggle('open');});
+    menu.querySelectorAll('.opt').forEach(function(o){
+      o.addEventListener('click',function(){
+        menu.querySelectorAll('.opt').forEach(function(x){x.classList.remove('sel');});
+        o.classList.add('sel'); txt.textContent=o.getAttribute('data-t'); sel.classList.remove('open');
+      });
+    });
+    document.addEventListener('click',function(){sel.classList.remove('open');});
+  })();
+</script>
+
+</body></html>
