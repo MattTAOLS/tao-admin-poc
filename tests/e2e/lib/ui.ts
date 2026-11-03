@@ -58,3 +58,8 @@ export async function openReview(page: Page, uploadId: string) {
   await page.goto(`/admin/uploads/queue/${uploadId}`)
   await expect(page.getByRole('region', { name: 'Decision' })).toBeVisible()
 }
+
+/** An Audit log row by its Action cell (exact), so "Override" does not match an Approve row's "overrides_used". */
+export function auditRow(page: Page, log: ReturnType<Page['getByRole']>, action: string) {
+  return log.getByRole('row').filter({ has: page.getByRole('cell', { name: action, exact: true }) }).first()
+}

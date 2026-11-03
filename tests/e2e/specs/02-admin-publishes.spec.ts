@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { audit, mustFindUpload, tao } from '../lib/api'
 import { STEP1 } from '../lib/facts'
 import { record } from '../lib/measure'
-import { openAuditFor, pageTitle, shot, signInAs } from '../lib/ui'
+import { auditRow, openAuditFor, pageTitle, shot, signInAs } from '../lib/ui'
 
 /** Demo step 2. As TAO Admin: open Review report. Every extracted field is shown with its page crop; the finding cards
  * are empty for a clean report. Approve > Publish to partner. Status becomes published; the audit log has the entry. */
@@ -63,7 +63,7 @@ test('step 2: admin reviews the clean report and publishes it', async ({ page })
   await expect(page.getByRole('table', { name: 'Activity' })).toContainText('Publish')
   await shot(page, '02-published')
   const log = await openAuditFor(page, u.id)
-  await expect(log.getByRole('row').filter({ hasText: 'Publish' }).first()).toContainText('tao_admin')
-  await expect(log.getByRole('row').filter({ hasText: 'Approve' }).first()).toBeVisible()
+  await expect(auditRow(page, log, 'Publish')).toContainText('tao_admin')
+  await expect(auditRow(page, log, 'Approve')).toBeVisible()
   await shot(page, '02-audit-log')
 })
