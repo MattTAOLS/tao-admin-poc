@@ -11,7 +11,7 @@ export function UploadsTable({ uploads, deals, programs, loading, caption, empty
   const dealName = (slug: string) => deals.find(d => d.slug === slug)?.name ?? slug
   const programName = (slug: string) => programs.find(p => p.slug === slug)?.name ?? slug
   const columns: Column<Upload>[] = [
-    { key: 'deal', header: 'Deal', emphasis: true, render: u => dealName(u.deal_slug), sortValue: u => dealName(u.deal_slug) },
+    { key: 'deal', header: 'Deal', emphasis: true, render: u => <span style={{ whiteSpace: 'nowrap' }}>{dealName(u.deal_slug)}</span>, sortValue: u => dealName(u.deal_slug) },
     { key: 'program', header: 'Program', render: u => programName(u.program_slug), sortValue: u => programName(u.program_slug) },
     { key: 'collection_period', header: 'Collection period', render: u => formatPeriod(u.collection_period), sortValue: u => u.collection_period },
     { key: 'reporting_period', header: 'Reporting period', render: u => formatPeriod(u.reporting_period), sortValue: u => u.reporting_period },

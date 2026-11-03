@@ -59,7 +59,7 @@ describe('Upload report', () => {
     const groups = within(select).getAllByRole('group')
     expect(groups.map(g => g.getAttribute('label'))).toEqual(['F-PIL 2.0', 'MOVE Trust'])
     expect(within(groups[0]).getAllByRole('option').map(o => o.textContent)).toEqual(['Moneda Capital Corp.', 'Stride Capital'])
-    const drop = screen.getByRole('button', { name: 'Choose the settlement report PDF' })
+    const drop = screen.getByRole('button', { name: 'Drop the settlement report PDF here, or click to choose' })
     expect(drop.getAttribute('aria-disabled')).toBe('true')
     await userEvent.selectOptions(select, 'f-pil-2-0-moneda-capital-corp')
     expect(drop.getAttribute('aria-disabled')).toBe('true')

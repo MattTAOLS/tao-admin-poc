@@ -9,6 +9,7 @@ import { useResource } from './hooks'
 import { FindingCountsText, LoadError, TextLink, dealOptions, errorText, prevMonth, reviewHref, totalFindings } from './ui'
 
 export const POLL_MS = 2000
+const DROP_TEXT = 'Drop the settlement report PDF here, or click to choose'
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/
 const STEPS = ['received', 'extracting', 'needs_review'] as const
 const STEP_LABEL = { received: 'Received', extracting: 'Extracting', needs_review: 'Needs review' }
@@ -72,8 +73,7 @@ export default function UploadReportPage() {
       </Card>
       <Card title="2. Settlement report" subtitle={ready ? `${dealName(deal)} · ${formatPeriod(period)}` : 'Choose the deal and collection period first.'}>
         <div className="adm-stack">
-          <FileDrop accept=".pdf,application/pdf" disabled={!ready || busy} value={file} label="Choose the settlement report PDF"
-            hint="PDF only, one file." error={fileError}
+          <FileDrop accept=".pdf,application/pdf" disabled={!ready || busy} value={file} label={DROP_TEXT} title={DROP_TEXT} error={fileError}
             onFiles={fs => { setFile(fs[0]); setFileError(undefined); setSubmitError(undefined) }}
             onReject={reason => { setFile(null); setFileError(reason) }}
             onClear={() => setFile(null)} />
