@@ -134,6 +134,27 @@ Append an entry when a work package lands. Newest first.
   carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
   `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
   (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
+- 2026-11-03 — UI-Partner, wave 1: `web/src/portfolio/`. Portfolio Executive Summary (a card per program the caller
+  may see: balance with change, utilization, covenant counts, deals flagged; flagged-deals table; Go to deal picker
+  grouped by program), Program Executive Summary (tiles, escalations, a card per deal with OK / WATCH / BREACH and a
+  link, prev / next program, period picker), Program Dashboard (Portfolio Metrics tiles and a deal table; Covenant
+  Status & Review, one row per deal × covenant with status, value, threshold, utilization, trend; expand row →
+  covenant detail with last period; Expand all / Collapse all; Flagged only; watch threshold pop-up, display only;
+  Print / Save as PDF expands every row, prints, restores; print stylesheet), Deal page (Deal Metrics tiles,
+  roll-forward, facility and contracts, balance history, aging by period, losses and CNL by vintage, borrower and
+  portfolio ratios, covenant table with legal ref and description, ratio history as an inline SVG, one series,
+  latest 13 months; prev / next deal; period picker) and, in the TAO Admin shell only, an upload strip (status of the
+  period's upload, link to its review page, any newer upload). Data only from `/published/*` (plus `GET /uploads?deal_slug=`
+  for the admin strip, admin shell only); 404 shows "You don't have access". Every number on screen carries its path
+  in the published object (`data-field`). Tests: `cd web && npx vitest run src/portfolio` (55: the 12 deals and 2
+  programs rendered and every displayed number read back against the reference files within $1 / 0.01 pp; states,
+  access, navigation, dashboard controls, print, admin strip; tokens only). Over HTTP:
+  `PF_LIVE_API=http://localhost:18300 npx vitest run src/portfolio/__tests__/live.test.tsx` (16, against a stack
+  seeded with `--reference-publications`: all 12 deals and both programs equal the reference). Checked in a browser
+  on :5176 against that stack. Print: width checked by applying the print rules at A4's 186 mm content width
+  (no element overflows with all 98 MOVE Trust covenant rows expanded, about 14 pages); a real print to A4 / Letter
+  was not run. Stubbed: admin program / dashboard / deal pages ride on query parameters until the nested admin routes
+  exist; Reports, Report viewer and Data room are not built. Needs: see `docs/requests.md` › UI-Partner.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.

@@ -169,4 +169,35 @@ The Lead reads this at every merge.
 ## UI-Admin
 ## UI-Review
 ## UI-Partner
+- 2026-11-03 — to Lead / Design System (web/src/shell/pages.ts): the TAO Admin shell registers only `/admin/portfolio`,
+  so program, dashboard and deal pages cannot be reached by path there. Please add three admin entries, owner
+  `portfolio`, no nav: `/admin/portfolio/:programId` (Program Executive Summary, `load: () => import('@/portfolio/ProgramPage')`),
+  `/admin/portfolio/:programId/dashboard` (Program Dashboard, `@/portfolio/ProgramDashboardPage`),
+  `/admin/portfolio/:programId/deals/:dealId` (Deal page, `@/portfolio/DealRoute`). Until then the admin shell uses
+  query parameters on `/admin/portfolio` (`?program=…`, `&view=dashboard`, `&deal=…`, `&period=…`);
+  `web/src/portfolio/nav.ts` switches to the nested paths by itself once the deal route exists in ADMIN_PAGES.
+- 2026-11-03 — to Lead (contract, additive): the portfolio pages depend on these response fields the contract does
+  not list (Data & API already returns them): PublishedPortfolio `{partner, programs[]}` with each program's
+  `program.slug` and `program.name` (fallback when absent: slug = shared prefix of the deal slugs, name = shared
+  prefix of the deal names) and `deals[]` index `{deal_slug, deal_name, worst_status, covenant_summary,
+  closing_tranche_balance}`; PublishedProgram `program`, `available_periods`; PublishedDeal `published_period`,
+  `available_periods`, `upload_id`, `published_at`, `published_by` (period picker and the admin strip; without them
+  the picker hides and the strip shows "No upload on record").
+- 2026-11-03 — to Lead (seed/programs.json): the brief says manager owns MOVE Trust, but `seed/programs.json` gives both
+  programs to `investor`, so on a seeded stack `manager_viewer` sees an empty portfolio and 404 on both programs.
+  The UI handles either; the demo script needs one of them to be true. My tests use the brief's ownership.
+- 2026-11-03 — to Design System (optional): `.ds-kpi__value` is `nowrap` + ellipsis, so a nine-digit balance in a
+  180 px tile shows "$852,371,…". I give my KPI rows a 250 px minimum (`.pf-kpis`) instead of touching the tile;
+  numbers should probably never ellipsize (shrink or wrap instead). Also no `href` variant of Button: I render
+  router links with the `ds-btn ds-btn--ghost ds-btn--sm` classes (`LinkButton` in `web/src/portfolio/shared.tsx`).
+- 2026-11-03 — to Lead (Windows note for agent briefs): from Git Bash, `VITE_API_URL=/api/v1 npx vite` gets
+  MSYS path conversion and the client calls `C:/Program Files/Git/api/v1`. Prefix `MSYS_NO_PATHCONV=1`.
+- 2026-11-03 — to UI-Review: the deal page's admin strip links to `/admin/uploads/queue/<upload_id>` for the
+  published upload of the period shown (and for a newer non-rejected upload of the same deal). Tell me if the review route changes.
+- 2026-11-03 — to Lead (reference definitions, for the record): program utilization on screen is the published
+  `portfolio_totals.program_utilization_pct` (total drawn ÷ total limit). The reference renderer replaces it with
+  a term + warehouse figure over the max program limit when a program has a warehouse (F-PIL: 41.4% vs published
+  40.9%); I show the published number and do not recompute. The watch threshold control re-classifies statuses for
+  display only (reference recomputeStatus); at the published 10% it shows the published statuses, which the rule
+  reproduces on all 123 covenants.
 ## QA & Demo
