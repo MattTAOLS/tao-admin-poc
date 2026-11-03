@@ -112,7 +112,9 @@
 .ds-table tfoot td { font-weight: 700; color: var(--indigo); border-top: 1px solid var(--border-card); border-bottom: 0; background: color-mix(in srgb, var(--cream) 60%, var(--card)); }
 
 /* ---------- FindingCard ---------- */
-.ds-finding { background: var(--card); border: 1px solid var(--border-card); border-left: 3px solid var(--border-card); border-radius: var(--r-panel); box-shadow: var(--sh-card); animation: ds-panel-in var(--t-panel) var(--ease); display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.ds-finding { background: var(--card); border: 1px solid var(--border-card); border-left: 3px solid var(--border-card); border-radius: var(--r-panel); box-shadow: var(--sh-card); animation: ds-panel-in var(--t-panel) var(--ease); container-type: inline-size; container-name: finding; }
+/* The card is its own size container: the layout follows the card's width, not the window's. */
+.ds-finding__layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; }
 .ds-finding--block { border-left-color: var(--bad); }
 .ds-finding--review { border-left-color: var(--warn); }
 .ds-finding--note { border-left-color: var(--blue); }
@@ -124,9 +126,11 @@
 .ds-finding__layer { font-size: var(--fs-small); color: var(--muted); }
 .ds-finding__status { margin-left: auto; }
 .ds-finding__msg { margin: 8px 0 0; color: var(--text); font-size: 13px; }
-.ds-finding__values { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); justify-content: start; gap: 4px 22px; margin-top: 12px; font-family: var(--data); }
+/* Four label+value cells; they wrap to two columns (then one) instead of overlapping. */
+.ds-finding__values { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, max-content)); gap: 10px 24px; margin-top: 12px; font-family: var(--data); }
+.ds-finding__cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ds-finding__vlabel { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-.ds-finding__v { font-size: 14px; font-weight: 600; color: var(--indigo); font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); white-space: nowrap; }
+.ds-finding__v { font-size: 14px; font-weight: 600; color: var(--indigo); font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); overflow-wrap: anywhere; }
 .ds-finding__v--ours { color: var(--dpv); }
 .ds-finding__v--diff-bad { color: var(--bad); }
 .ds-finding__v--diff-ok { color: var(--ok); }
@@ -137,11 +141,18 @@
 .ds-finding__meta code { font-family: var(--mono); font-size: 11px; }
 .ds-finding__resolution { margin-top: 10px; padding: 8px 10px; border-radius: var(--r-control); background: var(--canvas-deep); font-size: 12px; }
 .ds-finding__actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-.ds-finding__crop { border-left: 1px solid var(--border-card); padding: 12px; width: 240px; display: flex; flex-direction: column; gap: 6px; background: color-mix(in srgb, var(--cream) 50%, var(--card)); border-radius: 0 var(--r-panel) var(--r-panel) 0; }
+.ds-finding__crop { border-left: 1px solid var(--border-card); padding: 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; background: color-mix(in srgb, var(--cream) 50%, var(--card)); border-radius: 0 var(--r-panel) var(--r-panel) 0; }
 .ds-finding__croplabel { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .ds-finding__crop img { width: 100%; border-radius: 8px; border: 1px solid var(--border-card); display: block; }
 .ds-finding__cropempty { flex: 1; min-height: 110px; border: 1px dashed var(--border); border-radius: 8px; display: grid; place-items: center; color: var(--muted); font-size: var(--fs-small); text-align: center; padding: 8px; }
-@media (max-width: 900px) { .ds-finding { grid-template-columns: 1fr; } .ds-finding__crop { width: auto; border-left: 0; border-top: 1px solid var(--border-card); border-radius: 0 0 var(--r-panel) var(--r-panel); } }
+/* Narrow card (window about 700–1000 px beside the review panel): crop moves under the values. */
+@container finding (max-width: 680px) {
+  .ds-finding__layout { grid-template-columns: minmax(0, 1fr); }
+  .ds-finding__crop { border-left: 0; border-top: 1px solid var(--border-card); border-radius: 0 0 var(--r-panel) var(--r-panel); }
+  .ds-finding__crop img, .ds-finding__crop .ds-finding__cropempty { max-width: 420px; }
+  .ds-finding__values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container finding (max-width: 300px) { .ds-finding__values { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- Field / controls ---------- */
 .ds-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
