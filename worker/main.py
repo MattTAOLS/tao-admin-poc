@@ -10,6 +10,7 @@ written as FILE_STORE/uploads/<id>/extraction-pass<n>.json, which pass 2 merges 
 Container: `python main.py` with cwd /app (./worker), so imports are `extract` and `validate`; rules sits at
 /app/rules. From the repo root the same modules are `worker.extract` / `worker.validate`.
 """
+import inspect
 import json
 import logging
 import os
@@ -17,8 +18,10 @@ from pathlib import Path
 
 try:                                   # in the container the worker folder is the working directory
     from extract import DEFAULT_TEMPLATE, extract, merge_patch
+    from extract.history import extend
 except ImportError:                    # from the repo root: python -m worker.main
     from worker.extract import DEFAULT_TEMPLATE, extract, merge_patch
+    from worker.extract.history import extend
 
 log = logging.getLogger("worker")
 QUEUE = "extract:jobs"
@@ -59,6 +62,22 @@ def _validate_api():
     return None
 
 
+def _accepts_extend(fn) -> bool:
+    try:
+        ps = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return "extend" in ps or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in ps.values())
+
+
+def _hand_off(handle_extraction, job: dict, extraction: dict):
+    """The adapter chains the extraction onto the deal's last published object with history.extend before it
+    validates (one month at a time). Older adapters without the `extend` keyword get the plain call."""
+    if _accepts_extend(handle_extraction):
+        return handle_extraction(job, extraction, extend=extend)
+    return handle_extraction(job, extraction)
+
+
 def handle(job: dict, api=None):
     """One job: mark extracting -> extract -> write extraction-pass<n>.json -> validate.handle_extraction.
     Any exception from extraction or the hand-off marks the upload failed (and is re-raised for the log).
@@ -79,7 +98,7 @@ def handle(job: dict, api=None):
                  extraction["meta"].get("unplaced"))
         if api is None:
             return extraction
-        result = api[1](job, extraction)
+        result = _hand_off(api[1], job, extraction)
         log.info("handed off %s: %s", upload_id, result)
         return result
     except Exception as exc:

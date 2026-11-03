@@ -9,6 +9,7 @@ import sys
 import pytest
 
 import worker.main as wm
+from worker.extract.history import extend as history_extend
 from worker.main import handle, run_job
 
 from .conftest import ROOT, SAMPLES, needs_samples
@@ -23,8 +24,9 @@ class FakeValidate:
     def mark_extracting(self, upload_id):
         self.events.append(("extracting", upload_id))
 
-    def handle_extraction(self, job, extraction):
+    def handle_extraction(self, job, extraction, extend=None):
         self.events.append(("handle", job["upload_id"], extraction["meta"]["pass"]))
+        self.extend = extend
         if self.fail_on_handoff:
             raise RuntimeError("db down")
         return {"extraction_id": "e-1", "status": "needs_review", "counts": {"block": 0}}
@@ -53,6 +55,7 @@ def test_success_path_then_pass2(store, monkeypatch):
     res = handle({"upload_id": UID, "pass": 1})
     assert res == {"extraction_id": "e-1", "status": "needs_review", "counts": {"block": 0}}
     assert fake.events == [("extracting", UID), ("handle", UID, 1)]
+    assert fake.extend is history_extend
     pass1 = json.loads((store / "extraction-pass1.json").read_text(encoding="utf-8"))
     assert pass1["meta"]["upload_id"] == UID
 
@@ -122,3 +125,48 @@ def test_container_imports_without_worker_prefix():
             if (s.startswith("from worker.") or s.startswith("import worker")) and p.name != "main.py":
                 offenders.append(f"{p.name}: {s}")
     assert offenders == []
+
+
+class OldAdapter:
+    """handle_extraction before the `extend` keyword existed."""
+    def __init__(self):
+        self.calls = []
+
+    def mark_extracting(self, upload_id):
+        pass
+
+    def handle_extraction(self, job, extraction, conn=None, enqueue=None):
+        self.calls.append(job["upload_id"])
+        return {"extraction_id": "e-2", "status": "needs_review", "counts": {}}
+
+    def mark_failed(self, upload_id, error):
+        raise AssertionError(error)
+
+
+@needs_samples
+def test_old_adapter_signature_gets_plain_call(store, monkeypatch):
+    shutil.copy(SAMPLES / "Stride Capital - 202608 - SETTREP.pdf", store / "source.pdf")
+    old = OldAdapter()
+    monkeypatch.setattr(wm, "_validate_api", lambda: (old.mark_extracting, old.handle_extraction, old.mark_failed))
+    assert handle({"upload_id": UID, "pass": 1})["extraction_id"] == "e-2"
+    assert old.calls == [UID]
+
+
+def test_accepts_extend_detection():
+    assert wm._accepts_extend(lambda job, ex, extend=None: None)
+    assert wm._accepts_extend(lambda job, ex, **kw: None)
+    assert not wm._accepts_extend(lambda job, ex, conn=None, enqueue=None: None)
+
+
+def test_blank_pdf_fails_with_plain_message(store, monkeypatch):
+    pypdf = pytest.importorskip("pypdf")
+    w = pypdf.PdfWriter()
+    w.add_blank_page(612, 792)
+    with open(store / "source.pdf", "wb") as fh:
+        w.write(fh)
+    fake = FakeValidate()
+    monkeypatch.setattr(wm, "_validate_api", lambda: fake.api)
+    with pytest.raises(ValueError):
+        handle({"upload_id": UID, "pass": 1})
+    assert fake.events[-1][0] == "failed"
+    assert fake.events[-1][2].startswith("page 1 has no text layer; cover block not found")
