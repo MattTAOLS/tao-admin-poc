@@ -21,7 +21,7 @@ The Lead reads this at every merge.
   by a partial unique index (one active upload per deal + period). 003: `covenant_definition.threshold numeric(12,6)` overflows
   on SLFA 9.1 (j) Minimum Total Equity = 2,500,000, so `make seed` failed on PostgreSQL; widened to numeric(20,6).
   Both only run on a fresh `pgdata` volume (`make down` first).
-- 2026-11-03 → Lead (contract, additive only, please fold into `contracts/openapi.yaml` or tell me to drop them):
+- ~~2026-11-03 → Lead (contract, additive only, please fold into `contracts/openapi.yaml` or tell me to drop them):
   (a) error responses the API returns that the contract does not list: 409 `bad_state` (approve/reject/reextract/override in
   the wrong upload status), 409 `not_open` (override of a resolved finding), 409 `upload_in_progress` (second active upload for
   deal + period), 409 `no_extraction`, 422 `invalid` / `unknown_deal` / `unknown_program` / `unknown_partner` / `not_a_pdf`;
@@ -30,17 +30,34 @@ The Lead reads this at every merge.
   (master record) and `available_periods`; PublishedDeal `published_period`, `available_periods`; PublishedPortfolio is
   `{partner, programs: [program aggregate minus deals + program + available_periods + deals: [{deal_slug, deal_name,
   collection_period, worst_status, covenant_summary, closing_tranche_balance}]]}`; regenerate returns `{queued, programs, publications}`.
-  (c) `PUT /master/covenants`: `id` is optional (omit = new definition/version); the contract schema marks it required.
+  (c) `PUT /master/covenants`: `id` is optional (omit = new definition/version); the contract schema marks it required.~~
+  RESOLVED by 4546513 (lead/wave3 folds all of it into openapi.yaml).
 - 2026-11-03 → Rules: on override the API re-runs `rules.run(extraction, ctx, phases=(1, 2))` with a Context it builds itself
   (shape in `api/app/review.py` docstring: prior = last published deal object before the period; master = {program, deal,
   covenants as of the period end}; published_periods; upload = Upload dict). Please confirm `worker/validate` builds the same
   shape and uses the same phases, or tell me yours and I will match it. Note `engine.finding()` sets `extraction_id` to
   `meta.upload_id`; the API overwrites it with the extraction row id, and the worker adapter must do the same.
-- 2026-11-03 → Extraction / worker glue: the API expects the worker to (1) set the upload to `extracting` when it takes a
+- ~~2026-11-03 → Extraction / worker glue: the API expects the worker to (1) set the upload to `extracting` when it takes a
   pass-1 job (the API already sets it for pass 2), (2) insert one `extraction` row per pass with `meta.reporting_period`,
   (3) insert findings with `extraction_id` = that row, (4) set the upload to `needs_review` or `extraction_failed` and fill
   `setrep_upload.reporting_period`. Roll-up ownership: the program aggregate lives in `api/app/rollup.py` (pure function,
-  pinned to both real program files) and is computed on read from `publication` rows, so no `worker/publish` is needed.
+  pinned to both real program files) and is computed on read from `publication` rows, so no `worker/publish` is needed.~~
+  RESOLVED by 75884f0 + main: worker/validate owns the writes (`mark_extracting`, `handle_extraction`, `mark_failed`).
+- 2026-11-03 (wave 3) → Lead (db): `db/migrations/005_finding_targets.sql` adds `finding.targets jsonb`. 004 put `targets`
+  in finding.schema.json but no column held it, so neither the worker nor the API could store it. Fresh `pgdata` needed.
+- 2026-11-03 (wave 3) → Rules: (1) ~~`worker/validate/adapter.py` must write `targets`~~ RESOLVED by 7d05e5b (the adapter
+  writes `targets` once 005 is applied; override re-runs now refresh `targets` from the rules). (2) STILL OPEN: the Lead's wave-3 seed patch adds `partner_slugs`
+  to seed/programs.json, and `rules/tests/test_rules.py::test_fixtures_are_reproducible` freezes the program record from
+  the seed in the r02-pass fixture, so it now fails ("rerun make_fixtures.py"). Please regenerate the fixtures.
+- 2026-11-03 (wave 3) → Lead (contract vs auth.py): the Error description lists 403 codes `forbidden`, `tao_only`,
+  `admin_only`; `api/app/auth.py` (role gates kept as they are) returns `bad_role` and `bad_partner` for an unknown role or a
+  wrong X-Partner. Either add those two codes to the contract or say so and I will map them. A missing X-Role is 422 `invalid`.
+- 2026-11-03 (wave 3b) → Lead (contract, Error description): two new 409 codes from `POST /uploads/{id}/approve`.
+  `conflicting_corrections`: resolved use_ours / use_report choices write different values to the same pointer; the body adds
+  `conflicts: [{pointer, values, finding_ids, rule_ids}]` (agreeing choices write once). `correction_inconsistent`: after the
+  corrections are applied, re-running the rules (phases 1, 2) on the corrected deal raises a block finding that no resolved
+  finding already covers (same rule_id + fields); the body adds `findings: [{rule_id, message, fields, our_value, report_value}]`.
+  Nothing is published in either case. Please add both codes (and the two extra body fields) to openapi.yaml.
 ## Extraction
 - RESOLVED 2026-11-03 (extraction, wave 1b: `worker/requirements-dev.txt` has pypdf + pytest) — to Lead: add `pypdf` to `worker/requirements.txt` (or a dev requirements file). Only the seeded-error
   test uses it (it edits one digit in a page content stream); the test skips without it.
@@ -165,6 +182,33 @@ The Lead reads this at every merge.
   overwrites meta.upload_id and meta.pass from the job. Runtime packages the adapter needs in the container:
   sqlalchemy, psycopg[binary] (DATABASE_URL is postgresql+psycopg), redis, pyyaml (rules.yaml). jsonschema is not
   imported at runtime (tests only). All four are already in worker/requirements.txt.
+
+- 2026-11-03 — to Data & API (wave 3, apply on approve) — what the rules give you:
+  (1) `targets` appears only on R05, R06, R07, R08, R09, R10 and R17 findings (table in docs/progress.md); our_value
+  and report_value are then numbers of the same field. When the finding was raised, every pointer resolved in that
+  extraction's deal and held report_value (to the cent for currency, exact otherwise). So use_report leaves the deal
+  unchanged, and use_ours writes our_value to every pointer.
+  (2) **Storage:** there is no `targets` column on `finding` yet (001–004). Please add a migration
+  (`alter table finding add column targets jsonb`) and the model column. `worker/validate.insert_findings` writes
+  `targets` as soon as the column exists and logs a warning until then.
+  **Breaks today:** `api/tests/test_review.py: worker_writes` builds `Finding(**f)` from `rules.run()` output, so on
+  agent/rules the API suite fails (1 failed, 10 errors: "'targets' is an invalid keyword argument for Finding").
+  The model column fixes it, or `f.pop("targets", None)` in the helper.
+  `review.rerun` copies VALUE_KEYS only; add `targets` there so a re-run refreshes them.
+  (3) **Derived fields are not recomputed** when a value is written; the rules only point at the copies of the
+  value itself:
+  - after R05: `tranche_balance.change_abs`/`change_pct`, and `program_utilization_pct`/`unused_facility` when
+    `program_amount` is among the targets;
+  - after R10/R17: covenant `status`/`utilization_pct`, `worst_status`, `covenant_summary`;
+  - after R07: aging `bucket_sum`/`reconciles`.
+  Running the rules once more on the corrected deal before publishing shows any knock-on inconsistency (e.g. R08
+  raises its ratio finding once a CNL changes; R18 flags a status the new value no longer supports).
+  (4) **Overlaps:** two findings can target the same pointer. Meridian's lock-up and EOD covenants on one metric
+  carry the same targets. R10 and R17 can both target an interest-coverage `financial_ratios` / covenant value with
+  different our_values. If a reviewer picks different values for the same pointer, I suggest refusing approve (409)
+  rather than last-write-wins.
+  (5) **Precision:** our_value is rounded to 2 dp for money and 6 dp for ratios (e.g. R17 CNL 0.032988 where the
+  report prints 0.0330). use_ours writes that precision.
 
 ## UI-Admin
 - 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:

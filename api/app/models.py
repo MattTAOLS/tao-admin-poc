@@ -45,6 +45,13 @@ class Program(Base):
     warehouse_limit: Mapped[float | None] = mapped_column(money(), nullable=True)
 
 
+class ProgramPartner(Base):
+    """004: the partners who see a program (program.partner_slug stays as the first one)."""
+    __tablename__ = "program_partner"
+    program_slug: Mapped[str] = mapped_column(Text, ForeignKey("program.slug", ondelete="CASCADE"), primary_key=True)
+    partner_slug: Mapped[str] = mapped_column(Text, ForeignKey("partner.slug"), primary_key=True)
+
+
 class Deal(Base):
     __tablename__ = "deal"
     slug: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -65,6 +72,7 @@ class CovenantDefinition(Base):
     threshold_rule: Mapped[dict | None] = mapped_column(Json, nullable=True)
     watch_buffer_pct: Mapped[float] = mapped_column(Numeric(6, 4, asdecimal=False), default=0.1)
     effective_from: Mapped[dt.date] = mapped_column(Date)
+    unit: Mapped[str | None] = mapped_column(Text, nullable=True)            # 004: fraction | ratio | currency
     source: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
@@ -109,6 +117,7 @@ class Finding(Base):
     severity: Mapped[str] = mapped_column(Text)
     message: Mapped[str] = mapped_column(Text)
     fields: Mapped[list | None] = mapped_column(Json, nullable=True)
+    targets: Mapped[list | None] = mapped_column(Json, nullable=True)        # 005: pointers use_ours / use_report write to
     our_value: Mapped[object | None] = mapped_column(Json, nullable=True)
     report_value: Mapped[object | None] = mapped_column(Json, nullable=True)
     difference: Mapped[float | None] = mapped_column(Numeric(asdecimal=False), nullable=True)

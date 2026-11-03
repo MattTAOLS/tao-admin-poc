@@ -30,5 +30,12 @@
     "computed": 15018971.52,
     "closing": 15019971.52
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/period_history/3/closing_balance",
+    "/tranche_balance/closing",
+    "/period_history/3/closing_amount",
+    "/tranche_amount/closing",
+    "/program/program_amount"
+  ]
 }

@@ -8,7 +8,8 @@ def test_programs_get_put(client):
     ps = client.get(f"{M}/programs", headers=ANALYST).json()
     assert {p["slug"] for p in ps} == {"move-trust", "f-pil-2-0"}
     fpil = next(p for p in ps if p["slug"] == "f-pil-2-0")
-    assert fpil == {"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slug": "investor", "currency": "CAD", "limit": 150000000.0, "warehouse_limit": 5000000.0}
+    assert fpil == {"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slug": "investor", "partner_slugs": ["investor", "manager"],
+                    "currency": "CAD", "limit": 150000000.0, "warehouse_limit": 5000000.0}
     body = dict(fpil, limit=175000000.0)
     assert client.put(f"{M}/programs", headers=ANALYST, json=body).status_code == 403
     r = client.put(f"{M}/programs", headers=TAO, json=body)
@@ -17,6 +18,37 @@ def test_programs_get_put(client):
     a = client.get("/api/v1/audit", headers=TAO).json()[0]
     assert a["action"] == "master_change" and a["upload_id"] is None and a["detail"]["entity"] == "program"
     assert a["detail"]["before"]["limit"] == 150000000.0 and a["detail"]["after"]["limit"] == 175000000.0
+
+
+def test_program_partner_slugs_put(client):
+    fpil = next(p for p in client.get(f"{M}/programs", headers=TAO).json() if p["slug"] == "f-pil-2-0")
+    r = client.put(f"{M}/programs", headers=TAO, json=dict(fpil, partner_slugs=["manager"], partner_slug=None))
+    assert r.status_code == 200 and r.json()["partner_slugs"] == ["manager"] and r.json()["partner_slug"] == "manager"
+    body = {k: v for k, v in fpil.items() if k != "partner_slugs"} | {"partner_slug": "investor"}       # partner_slug alone
+    assert client.put(f"{M}/programs", headers=TAO, json=body).json()["partner_slugs"] == ["investor"]
+    r = client.put(f"{M}/programs", headers=TAO, json=dict(fpil, partner_slugs=["investor", "manager"]))
+    assert r.json()["partner_slugs"] == ["investor", "manager"]
+    assert client.put(f"{M}/programs", headers=TAO, json=dict(fpil, partner_slugs=["investor", "nobody"])).status_code == 422
+    assert client.put(f"{M}/programs", headers=TAO, json=dict(fpil, partner_slugs=[], partner_slug=None)).status_code == 422
+    a = client.get("/api/v1/audit", headers=TAO, params={"action": "master_change"}).json()
+    assert len(a) == 3 and a[0]["detail"]["after"]["partner_slugs"] == ["investor", "manager"] and a[0]["detail"]["before"]["partner_slugs"] == ["investor"]
+
+
+def test_partners_route(client):
+    want = [{"slug": "investor", "name": "Investor", "kind": "investor", "status": "active"},
+            {"slug": "manager", "name": "Manager", "kind": "manager", "status": "active"}]
+    assert client.get(f"{M}/partners", headers=TAO).json() == want
+    assert client.get(f"{M}/partners", headers=ANALYST).json() == want
+
+
+def test_covenant_unit(client):
+    rows = client.get(f"{M}/covenants", headers=TAO).json()
+    assert {r["unit"] for r in rows} == {"fraction", "ratio", "currency"}
+    eq = next(r for r in rows if r["legal_ref"] == "SLFA 9.1 (j)")
+    assert eq["unit"] == "currency" and eq["threshold"] == 2500000.0
+    assert client.put(f"{M}/covenants", headers=TAO, json=dict(eq, unit="ratio")).json()["unit"] == "ratio"
+    assert client.put(f"{M}/covenants", headers=TAO, json=dict(eq, unit=None)).json()["unit"] is None
+    assert client.put(f"{M}/covenants", headers=TAO, json=dict(eq, unit="percent")).status_code == 422
 
 
 def test_deals_get_put(client):
@@ -64,8 +96,9 @@ def test_covenant_update_in_place_and_threshold_rule(client):
     assert client.put(f"{M}/covenants", headers=TAO, json=dict(c, kind="sideways")).status_code == 422
 
 
-@pytest.mark.parametrize("path", ["programs", "deals", "covenants"])
+@pytest.mark.parametrize("path", ["partners", "programs", "deals", "covenants"])
 @pytest.mark.parametrize("h", [INV, MGR])
 def test_partners_cannot_read_master(client, path, h):
     assert client.get(f"{M}/{path}", headers=h).status_code == 403
-    assert client.put(f"{M}/{path}", headers=h, json={}).status_code == 403
+    if path != "partners":
+        assert client.put(f"{M}/{path}", headers=h, json={}).status_code == 403

@@ -219,3 +219,16 @@ def test_extend_failure_stores_unchained_with_note(conn, caplog):
     meta = json.loads(conn.execute(text("select meta from extraction where id = :id"), {"id": out["extraction_id"]}).scalar())
     assert len(meta["notes"]) == 1 and "2026-07" in meta["notes"][0] and "KeyError" in meta["notes"][0]
     assert "history chaining failed" in caplog.text
+
+# ---------- override targets ----------
+def test_targets_stored_when_the_column_exists(conn, caplog):
+    uid = new_upload(conn, status="extracting")
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(moneda_with_r05_error()), conn=conn, enqueue=False)
+    assert "no targets column" in caplog.text                      # 001 schema: findings stored, targets skipped
+    conn.execute(text("alter table finding add column targets text"))
+    uid2 = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")
+    d = mf.load_deal(mf.STRIDE); d["period_history"][3]["principal"] += 1000
+    out2 = adapter.handle_extraction({"upload_id": uid2, "pass": 1}, doc(d), conn=conn, enqueue=False)
+    row = conn.execute(text("select targets, our_value, report_value from finding where extraction_id = :e and rule_id = 'R05'"), {"e": out2["extraction_id"]}).one()
+    assert json.loads(row.targets)[:2] == ["/period_history/3/closing_balance", "/tranche_balance/closing"]
+    assert conn.execute(text("select targets from finding where extraction_id = :e"), {"e": out["extraction_id"]}).scalar() is None

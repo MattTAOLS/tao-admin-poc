@@ -28,6 +28,10 @@
     "slug": "move-trust",
     "name": "MOVE Trust",
     "partner_slug": "investor",
+    "partner_slugs": [
+     "investor",
+     "manager"
+    ],
     "currency": "CAD",
     "limit": 1916709163.0,
     "warehouse_limit": null
