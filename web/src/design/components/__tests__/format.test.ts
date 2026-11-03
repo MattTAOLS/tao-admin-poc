@@ -30,7 +30,7 @@ describe('format', () => {
   })
   it('by finding unit', () => {
     expect(formatByUnit(1000.5, 'currency')).toBe('$1,000.50')
-    expect(formatByUnit(4.1, 'percent_points')).toBe('4.10%')
+    expect(formatByUnit(0.041, 'percent_points')).toBe('4.10%')
     expect(formatByUnit(3, 'count')).toBe('3')
     expect(formatByUnit(12, 'months')).toBe('12 mo')
     expect(formatByUnit(true, 'text')).toBe('Yes')
@@ -39,6 +39,7 @@ describe('format', () => {
     expect(formatDiffByUnit(-12, 'currency')).toBe('−$12.00')
     expect(formatDiffByUnit(12, 'currency')).toBe('+$12.00')
     expect(formatDiffByUnit(0, 'currency')).toBe('$0.00')
-    expect(formatDiffByUnit(0.25, 'percent_points')).toBe('+0.25 pp')
+    expect(formatDiffByUnit(0.0025, 'percent_points')).toBe('+0.25 pp')
+    expect(formatDiffByUnit(-0.005, 'percent_points')).toBe('−0.50 pp')
   })
 })

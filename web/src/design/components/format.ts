@@ -50,7 +50,8 @@ export function formatPeriod(p: string | null | undefined) {
   return i >= 0 && i < 12 ? `${MONTHS[i]} ${m[1]}` : p
 }
 
-/** finding.schema.json `unit`. */
+/** finding.schema.json `unit`. `percent_points` values are stored as fractions (rules.yaml: 0.0179 means 1.79%,
+ * tolerance 0.0001 means 0.01 pp), so they are multiplied by 100 for display. */
 export type ValueUnit = 'currency' | 'percent_points' | 'count' | 'ratio' | 'months' | 'text' | null | undefined
 /** Formats a finding value by its unit. Booleans read Yes / No, strings pass through. */
 export function formatByUnit(v: number | string | boolean | null | undefined, unit: ValueUnit) {
@@ -59,7 +60,7 @@ export function formatByUnit(v: number | string | boolean | null | undefined, un
   if (typeof v === 'string') return v
   switch (unit) {
     case 'currency': return formatCurrency(v)
-    case 'percent_points': return formatPercent(v, { points: true })
+    case 'percent_points': return formatPercent(v)
     case 'count': return formatNumber(v)
     case 'ratio': return formatNumber(v, 4)
     case 'months': return formatNumber(v, Number.isInteger(v) ? 0 : 1) + ' mo'
@@ -67,12 +68,12 @@ export function formatByUnit(v: number | string | boolean | null | undefined, un
   }
 }
 
-/** Signed difference by unit: currency → "+$12.50", percent_points → "+0.25 pp". */
+/** Signed difference by unit: currency → "+$12.50", percent_points (a fraction) -0.005 → "−0.50 pp". */
 export function formatDiffByUnit(v: number | null | undefined, unit: ValueUnit) {
   if (!isNum(v)) return DASH
   switch (unit) {
     case 'currency': { const s = formatSigned(v, 2); return s[0] === '+' || s[0] === '−' ? s[0] + '$' + s.slice(1) : '$' + s }
-    case 'percent_points': return formatSigned(v, 2) + ' pp'
+    case 'percent_points': return formatSigned(v * 100, 2) + ' pp'
     case 'count': return formatSigned(v, 0)
     case 'ratio': return formatSigned(v, 4)
     case 'months': return formatSigned(v, Number.isInteger(v) ? 0 : 1) + ' mo'
