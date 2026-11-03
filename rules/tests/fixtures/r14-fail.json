@@ -28,6 +28,10 @@
     "slug": "f-pil-2-0",
     "name": "F-PIL 2.0",
     "partner_slug": "investor",
+    "partner_slugs": [
+     "investor",
+     "manager"
+    ],
     "currency": "CAD",
     "limit": 150000000.0,
     "warehouse_limit": 5000000.0
@@ -59,6 +63,7 @@
        }
       ]
      },
+     "unit": "fraction",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
@@ -82,6 +87,7 @@
        }
       ]
      },
+     "unit": "fraction",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "as above"
@@ -93,6 +99,7 @@
      "kind": "ceiling",
      "threshold": 0.035,
      "threshold_rule": null,
+     "unit": "fraction",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "as above"
@@ -104,6 +111,7 @@
      "kind": "ceiling",
      "threshold": 0.035,
      "threshold_rule": null,
+     "unit": "fraction",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "as above"
@@ -115,6 +123,7 @@
      "kind": "floor",
      "threshold": 1.1,
      "threshold_rule": null,
+     "unit": "ratio",
      "watch_buffer_pct": 0.1,
      "effective_from": "2023-12-09",
      "source": "as above (applies after first anniversary)"
@@ -126,6 +135,7 @@
      "kind": "ceiling",
      "threshold": 10.0,
      "threshold_rule": null,
+     "unit": "ratio",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "as above"
@@ -137,6 +147,7 @@
      "kind": "floor",
      "threshold": 2500000.0,
      "threshold_rule": null,
+     "unit": "currency",
      "watch_buffer_pct": 0.1,
      "effective_from": "2022-12-09",
      "source": "as above"
