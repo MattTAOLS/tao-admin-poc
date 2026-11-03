@@ -71,14 +71,16 @@ export function FindingStatusPill({ status, ...rest }: { status: FindingStatus }
   return <StatusPill tone={s.tone} {...rest}>{s.label}</StatusPill>
 }
 
-/** Covenant status as the partner dashboards word it: OK / WATCH / BREACH. */
-export type CovenantStatus = 'ok' | 'watch' | 'breach'
+/** Covenant status as the dashboards word it (docs/dashboard-json/SCHEMA.md): OK | WATCH | BREACH | AVAILABLE.
+ * Accepts either case, so the published object's value can be passed straight through. */
+export type CovenantStatus = 'ok' | 'watch' | 'breach' | 'available'
 export const COVENANT_STATUS: Record<CovenantStatus, { tone: Tone; label: string }> = {
   ok: { tone: 'ok', label: 'OK' },
   watch: { tone: 'warn', label: 'WATCH' },
   breach: { tone: 'bad', label: 'BREACH' },
+  available: { tone: 'neutral', label: 'AVAILABLE' },
 }
-export function CovenantPill({ status, ...rest }: { status: CovenantStatus } & Omit<StatusPillProps, 'tone' | 'children'>) {
-  const s = COVENANT_STATUS[status]
+export function CovenantPill({ status, ...rest }: { status: CovenantStatus | Uppercase<CovenantStatus> | string } & Omit<StatusPillProps, 'tone' | 'children'>) {
+  const s = COVENANT_STATUS[String(status).toLowerCase() as CovenantStatus] ?? { tone: 'neutral' as Tone, label: String(status) }
   return <StatusPill tone={s.tone} {...rest}>{s.label}</StatusPill>
 }
