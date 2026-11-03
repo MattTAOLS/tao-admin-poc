@@ -12,6 +12,7 @@
     "report": "playwright show-report"
   },
   "devDependencies": {
-    "@playwright/test": "1.56.1"
+    "@playwright/test": "1.56.1",
+    "lighthouse": "13.5.0"
   }
 }
