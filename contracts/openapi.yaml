@@ -37,11 +37,36 @@ components:
     NotFound:
       description: Not found (also returned when a partner asks for another partner's resource).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Request is valid but the resource's state forbids it; `code` says why (see Error).
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Invalid:
+      description: Request does not match the contract or names an unknown record; `code` says which (see Error).
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
     Error:
       type: object
       required: [code, message]
-      properties: { code: { type: string }, message: { type: string } }
+      description: |
+        Every error is `{code, message}` at the top level (422 may add `errors[]` with field detail). Codes:
+        403 `forbidden`, `tao_only`, `admin_only`; 404 `not_found`;
+        409 `already_published` (period published for this deal, R12 pre-check), `upload_in_progress` (another active
+        upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
+        (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
+        `no_target` (use_ours / use_report on a finding without `targets`);
+        422 `invalid`, `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`.
+      properties:
+        code: { type: string }
+        message: { type: string }
+        errors: { type: array, items: { type: object } }
+    Partner:
+      type: object
+      required: [slug, name, kind, status]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [investor, manager] }
+        status: { type: string, default: active }
     UploadStatus:
       type: string
       enum: [received, extracting, needs_review, approved, rejected, published, extraction_failed]
@@ -52,7 +77,8 @@ components:
         id: { type: string, format: uuid }
         deal_slug: { type: string }
         program_slug: { type: string }
-        partner_slug: { type: string }
+        partner_slug: { type: string, description: "the program's first partner (kept for compatibility); see partner_slugs" }
+        partner_slugs: { type: array, items: { type: string }, description: 'every partner who sees this program' }
         collection_period: { type: string, pattern: '^\d{4}-\d{2}$', description: 'YYYY-MM, = settlement month (see docs: period naming)' }
         reporting_period: { type: [string, 'null'], pattern: '^\d{4}-\d{2}$' }
         status: { $ref: '#/components/schemas/UploadStatus' }
@@ -65,6 +91,7 @@ components:
           properties: { block: { type: integer }, review: { type: integer }, note: { type: integer } }
         latest_extraction_id: { type: [string, 'null'], format: uuid }
         published_at: { type: [string, 'null'], format: date-time }
+        reject_reason: { type: [string, 'null'] }
     Extraction:
       description: See contracts/extraction.schema.json (meta, deal, sources) plus id.
       type: object
@@ -72,7 +99,10 @@ components:
       properties:
         id: { type: string, format: uuid }
         upload_id: { type: string, format: uuid }
-        meta: { type: object }
+        pass: { type: integer, enum: [1, 2] }
+        confidence: { type: [number, 'null'] }
+        created_at: { type: string, format: date-time }
+        meta: { type: object, description: 'includes history.carried / history.extended_from when earlier months were chained from a publication' }
         deal: { type: object }
         sources: { type: object }
     Finding:
@@ -81,6 +111,13 @@ components:
     OverrideRequest:
       type: object
       required: [choice, reason]
+      description: |
+        use_ours / use_report: the finding must carry `targets` (else 409 `no_target`). On approve, the chosen value
+        (our_value or report_value) is written to every pointer in `targets` in the published deal, and one entry per
+        pointer is appended to deal.data_corrections {period, record, field, old_value, new_value, applied, reason,
+        rule_id, choice, finding_id}. When the chosen value equals what the extraction already holds (typically
+        use_report), nothing changes and no correction is written.
+        restatement / acknowledge: the decision is recorded; no value changes.
       properties:
         choice: { type: string, enum: [use_ours, use_report, restatement, acknowledge] }
         reason: { type: string, minLength: 3 }
@@ -99,7 +136,8 @@ components:
       properties:
         slug: { type: string }
         name: { type: string }
-        partner_slug: { type: string }
+        partner_slug: { type: string, description: 'first partner, kept for compatibility; on PUT without partner_slugs it sets partner_slugs = [partner_slug]' }
+        partner_slugs: { type: array, items: { type: string }, minItems: 1, description: 'every partner who sees this program (investor and manager may both)' }
         currency: { type: string, default: CAD }
         limit: { type: number }
         warehouse_limit: { type: [number, 'null'] }
@@ -114,14 +152,15 @@ components:
         template_id: { type: string, description: 'extraction mapping, e.g. fpil-2.0-settrep-v1' }
     CovenantDefinition:
       type: object
-      required: [id, deal_slug, legal_ref, description, kind, effective_from]
+      required: [deal_slug, legal_ref, description, kind, effective_from]
       properties:
-        id: { type: string, format: uuid }
+        id: { type: string, format: uuid, description: 'always returned; omit on PUT to create a new definition or version' }
         deal_slug: { type: string }
         legal_ref: { type: string, example: 'SLFA 9.1 (f)' }
         description: { type: string }
         kind: { type: string, enum: [ceiling, floor] }
-        threshold: { type: [number, 'null'], description: 'fraction (0.035 = 3.5%) or ratio; null when threshold_rule applies' }
+        threshold: { type: [number, 'null'], description: 'see unit; null when threshold_rule applies' }
+        unit: { type: [string, 'null'], enum: [fraction, ratio, currency, null], description: 'fraction: 0.035 = 3.5%; ratio: 1.10 = 1.10x; currency: an amount' }
         threshold_rule:
           type: [object, 'null']
           description: 'Conditional thresholds, e.g. SLFA 9.1(c): 0.06 if portfolio NPV ≤ 10,000,000 else 0.04'
@@ -136,15 +175,55 @@ components:
         watch_buffer_pct: { type: number, default: 0.1 }
         effective_from: { type: string, format: date }
         source: { type: [string, 'null'], description: 'e.g. SLFA dated 2022-12-09; Amendment 2 2025-03-01' }
+    DealIndexEntry:
+      type: object
+      required: [deal_slug, deal_name]
+      properties:
+        deal_slug: { type: string }
+        deal_name: { type: string }
+        collection_period: { type: string }
+        worst_status: { type: string, enum: [OK, WATCH, BREACH] }
+        covenant_summary: { type: object }
+        closing_tranche_balance: { type: [number, 'null'] }
     PublishedPortfolio:
       type: object
-      description: Program-level aggregates, partner-filtered. Shape mirrors docs/dashboard-json/program-*.dashboard.json minus deals[], with a deals index.
+      description: Program-level aggregates for every program the caller's partner sees.
+      required: [partner, programs]
+      properties:
+        partner: { type: [string, 'null'] }
+        programs:
+          type: array
+          items:
+            type: object
+            description: The program aggregate (program-*.dashboard.json shape) minus its deals[], plus the fields below.
+            additionalProperties: true
+            properties:
+              program: { $ref: '#/components/schemas/Program' }
+              available_periods: { type: array, items: { type: string } }
+              deals: { type: array, items: { $ref: '#/components/schemas/DealIndexEntry' } }
     PublishedProgram:
       type: object
-      description: One program aggregate = docs/dashboard-json/program-<slug>.dashboard.json shape.
+      description: One program aggregate = docs/dashboard-json/program-<slug>.dashboard.json shape, plus the fields below.
+      additionalProperties: true
+      properties:
+        program: { $ref: '#/components/schemas/Program' }
+        available_periods: { type: array, items: { type: string } }
     PublishedDeal:
       type: object
-      description: One deal = the published extraction.deal (dashboard.json deal object) plus publication metadata.
+      description: One deal = the published extraction.deal (dashboard.json deal object, data_corrections included) plus the publication fields below.
+      additionalProperties: true
+      properties:
+        published_period: { type: string }
+        available_periods: { type: array, items: { type: string } }
+        upload_id: { type: [string, 'null'], format: uuid }
+        published_at: { type: string, format: date-time }
+        published_by: { type: string }
+    RegenerateResult:
+      type: object
+      properties:
+        queued: { type: boolean }
+        programs: { type: array, items: { type: string } }
+        publications: { type: integer }
     AuditEntry:
       type: object
       required: [id, at, actor_role, action, upload_id]
@@ -178,13 +257,15 @@ paths:
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { description: Period already published for this deal (R12 pre-check), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`already_published` (R12 pre-check) or `upload_in_progress`' }
+        '422': { $ref: '#/components/responses/Invalid' }
     get:
       summary: List uploads (queue and history)
       parameters:
         - { $ref: '#/components/parameters/XRole' }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/UploadStatus' } }
         - { name: deal_slug, in: query, schema: { type: string } }
+        - { name: collection_period, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Upload' } } } } }
   /uploads/{upload_id}:
@@ -215,6 +296,7 @@ paths:
       responses:
         '200': { description: Updated findings after re-run, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Finding' } } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`not_open`, `bad_state` or `no_target`' }
   /uploads/{upload_id}/reextract:
     post:
       summary: Queue a targeted second pass over named pages
@@ -222,14 +304,15 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReextractRequest' } } } }
       responses:
         '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
   /uploads/{upload_id}/approve:
     post:
-      summary: Approve; publishes and regenerates dashboards (tao_admin only; refused while block findings are open)
+      summary: Approve; applies use_ours / use_report values (see OverrideRequest), publishes and regenerates dashboards (tao_admin only; refused while block findings are open)
       parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
       responses:
         '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { description: Open block findings, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings`, `bad_state` or `no_extraction`' }
   /uploads/{upload_id}/reject:
     post:
       summary: Reject with a reason (tao_admin only)
@@ -237,19 +320,27 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RejectRequest' } } } }
       responses:
         '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
   /uploads/{upload_id}/pages/{n}.png:
     get:
       summary: Page image for the finding card (rendered at 110 dpi)
       parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } } ]
       responses:
         '200': { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
   /uploads/{upload_id}/file:
     get:
       summary: The original PDF (TAO only)
       parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
       responses:
         '200': { description: PDF, content: { application/pdf: { schema: { type: string, format: binary } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
 
+  /master/partners:
+    get:
+      summary: Partners (TAO; tao_analyst read-only)
+      parameters: [ { $ref: '#/components/parameters/XRole' } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Partner' } } } } } }
   /master/programs:
     get:
       summary: Programs (TAO)
@@ -305,12 +396,15 @@ paths:
       summary: Rebuild program roll-ups from published deals (tao_admin); writes a regenerate audit entry
       parameters: [ { $ref: '#/components/parameters/XRole' } ]
       requestBody: { content: { application/json: { schema: { type: object, properties: { program_slug: { type: string } } } } } }
-      responses: { '202': { description: Queued } }
+      responses: { '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/RegenerateResult' } } } } }
 
   /audit:
     get:
       summary: Audit log (tao_admin)
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: upload_id, in: query, schema: { type: string, format: uuid } } ]
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { name: upload_id, in: query, schema: { type: string, format: uuid } }
+        - { name: action, in: query, schema: { type: string } }
       responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } } } } }
 
   /health:

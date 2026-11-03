@@ -2,6 +2,12 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
+  partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
+  Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
+  pointers to every copy of the value); approve writes the chosen value there and appends `data_corrections`; no
+  targets means 409 `no_target`. (3) the API's extra fields and error codes are now in openapi.yaml, plus
+  `GET /master/partners`, `CovenantDefinition.unit`, and `collection_period` / `action` query filters.
 - 2026-11-03 — Lead: UI-wave prep (branch lead/ui-prep). `web/vite.config.ts` reads VITE_PORT and VITE_API_PROXY, so a
   dev server can sit beside compose's :5173 and proxy /api to any API (set VITE_API_URL=/api/v1; no CORS change).
   `scripts/compose.agent.yml` gives each agent a private stack (API on ${API_PORT}, no host ports for Postgres/Redis).
