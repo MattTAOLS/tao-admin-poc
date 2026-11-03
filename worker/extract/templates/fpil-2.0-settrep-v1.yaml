@@ -60,11 +60,11 @@ sections:
     heading: 'SUMMARY OF FUNDED FINANCE CONTRACTS \((NPV|NET BOOK VALUE)\)'
     end: 'SUMMARY OF OUTSTANDING CONTRACTS'
     variants:
-      - name: per_advance_with_npv_adjustment
+      - name: per_advance_with_charge_off
         when_header_has: ["ADJUSTMENT"]
         advance_rows: {label: [advance_date, advance_no]}
-        columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, npv_adjustment, original_yield, effective_yield, closing]
-        total_row: {label: '^PORTFOLIO BALANCES$', columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, npv_adjustment, effective_yield, closing]}
+        columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, charge_off, original_yield, effective_yield, closing]
+        total_row: {label: '^PORTFOLIO BALANCES$', columns: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, charge_off, effective_yield, closing]}
       - name: per_advance
         when_header_has: ["ADVANCE #", "PRINCIPAL"]
         advance_rows: {label: [advance_date, advance_no]}
@@ -81,6 +81,11 @@ sections:
       /tranche_balance/losses: total.defaults
       /tranche_balance/interest: total.interest
       /tranche_balance/recoveries: total.recoveries
+      # roll-forward terms R05 reads from the current period_history row, positive amounts, only where printed:
+      # charge_off = column i "Original Advance NPV Adjustment" (k = b - c - d - e - i)
+      /period_history/0/charge_off: total.charge_off
+      /period_history/0/new_funded: total.new_funded
+      /period_history/0/ineligible_buyback: total.ineligible_buyback
 
   outstanding_contracts:
     source_page_key: outstanding_contracts

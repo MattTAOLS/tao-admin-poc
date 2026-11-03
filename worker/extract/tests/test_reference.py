@@ -101,3 +101,21 @@ def test_reported_answers_kept_for_r18():
     ex = _extractions("Moneda")[0]
     got = {c["legal_ref"]: c["reported_triggered"] for c in ex["deal"]["covenants"]}
     assert got["SLFA 9.1 (h)"] == "YES" and got["SLFA 9.1 (i)"] == "YES" and got["SLFA 9.1 (c)"] == "NO"
+
+
+@pytest.mark.parametrize("slug,prefix", DEALS.items())
+def test_r05_identity_with_all_rollforward_terms(slug, prefix):
+    """contracts/rules.yaml R05 (lead/wave1-seams): opening + new_funded - principal - prepayments - losses
+    - charge_off - ineligible_buyback = closing, within $1; absent terms count as 0. Checked here directly so it
+    holds before the Rules agent's checks.py update is merged."""
+    expected_terms = {"Moneda": {"charge_off"}, "Stride": {"new_funded", "ineligible_buyback"}, "Xpedite": set()}
+    for ex in _extractions(prefix):
+        row = ex["deal"]["period_history"][0]
+        assert {k for k in ("charge_off", "new_funded", "ineligible_buyback") if k in row} == expected_terms[prefix]
+        for k in ("charge_off", "new_funded", "ineligible_buyback"):
+            if k in row:
+                assert row[k] is not None and row[k] >= 0 and ex["sources"][f"/period_history/0/{k}"]["page"] == 2
+        computed = (row["opening_balance"] + (row.get("new_funded") or 0) - row["principal"]
+                    - row["principal_prepayments"] - row["losses"] - (row.get("charge_off") or 0)
+                    - (row.get("ineligible_buyback") or 0))
+        assert abs(computed - row["closing_balance"]) <= 1.0, (row["period"], computed, row["closing_balance"])

@@ -256,8 +256,9 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
                          ("principal_prepayments", "prepayments"), ("losses", "defaults"), ("interest", "interest"),
                          ("recoveries", "recoveries")]:
             rec.read(f"{ph}/{key}", ft.get(col))
-        # roll-forward terms dashboard.json has no key for; R05 needs them when non-zero (see docs/requests.md)
-        for key, col in (("new_funded", "new_funded"), ("npv_adjustment", "npv_adjustment"),
+        # extra roll-forward terms R05 reads (positive amounts, only where the layout prints them);
+        # charge_off is the page-2 NPV adjustment, column i
+        for key, col in (("new_funded", "new_funded"), ("charge_off", "charge_off"),
                          ("ineligible_buyback", "ineligible_buyback")):
             if col in ft:
                 rec.read(f"{ph}/{key}", ft[col])
