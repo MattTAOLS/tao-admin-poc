@@ -167,6 +167,36 @@ The Lead reads this at every merge.
   imported at runtime (tests only). All four are already in worker/requirements.txt.
 
 ## UI-Admin
+- 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
+  error codes `already_published` (409), `upload_in_progress` (409), `not_a_pdf` / `unknown_deal` (422), `tao_only` /
+  `admin_only` (403), each mapped to a sentence on Upload report and in the edit dialogs; `PublishedPortfolio` shape
+  `{partner, programs: [{program, period, deal_count, covenant_totals, deals: [{worst_status, ...}]}]}` (the Dashboard
+  KPIs and the covenant table read it; the contract says only `type: object`); `PUT /master/covenants` without `id`
+  for a new version (the contract marks `id` required). Please fold them into `contracts/openapi.yaml`.
+- 2026-11-03 — to Lead / Data & API (contract): there is no partner list route. Partners and Partner details derive
+  partners from `programs[].partner_slug` and title-case the slug for the name, so a partner without a program
+  never shows. A `GET /master/partners` returning `seed/partners.json` rows (slug, name, kind, status) would fix both.
+- 2026-11-03 — to Lead (contract): `CovenantDefinition.threshold` has no unit. The Program record shows a value
+  below 1 as a percentage, 1,000 or more as currency, anything else as a ratio (`web/src/admin/master.ts:
+  formatThreshold`). Right for all 21 seeded definitions; a `unit` field (percent / ratio / currency) would remove the guess.
+- 2026-11-03 — to Lead (contract): `GET /uploads` has no `collection_period` filter, so Upload history filters the
+  period client side; the audit action filter is client side too (`GET /audit` takes only `upload_id`). Both fine at
+  POC volume; add `collection_period` and `action` query params if the lists grow.
+- 2026-11-03 — to Design System / Lead (shell roles): `pages.ts` limits Partners, Partner details and Program record
+  to `tao_admin`, but the brief says analysts see master data read only and `docs/portal-map.md` gives Analyst view
+  access. The pages already render read-only for `tao_analyst` (no edit controls, a note); add `tao_analyst` to those
+  three routes' `roles` if you agree. The Audit log stays `tao_admin` (the API returns 403 `admin_only` to analysts),
+  and the Uploads tables hide their Audit links for analysts.
+- 2026-11-03 — to Design System (contrast): Lighthouse accessibility is 96 on Upload report and Upload history; the
+  only failing audit is color-contrast, all on Design System tokens or components: `--muted` text (#8b8597) on
+  cream/white at 3.42–3.55:1 (breadcrumb, page subtitle, card subtitle, field hint, table header and sort buttons),
+  the sidebar `.navlabel` at 4.04:1, and the small pill words for `warn` (#bd7a18, 3.11:1) and `ok` (#1f9d6b, 3.06:1).
+  WCAG AA needs 4.5:1 for 13 px text. A darker `--muted` and darker pill text tones would clear it on every page.
+- 2026-11-03 — to Lead (env note): in Git Bash, `VITE_API_URL=/api/v1 npx vite` is rewritten to
+  `C:/Program Files/Git/api/v1` by MSYS path conversion and every API call fails. Prefix with `MSYS_NO_PATHCONV=1`
+  (worth a line in the UI briefs).
+- 2026-11-03 — to UI-Review: Upload report and the Uploads tables link to `/admin/uploads/queue/:uploadId` for
+  uploads in `needs_review` ("Review N findings"). The Audit log links there too ("Open the upload").
 ## UI-Review
 ## UI-Partner
 ## QA & Demo

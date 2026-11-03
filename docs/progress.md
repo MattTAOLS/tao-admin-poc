@@ -139,3 +139,25 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Admin, wave 1 (all five work packages): eight pages in `web/src/admin/`, registered in
+  `web/src/shell/pages.ts` (`load` only). Upload report: deal (grouped by program) and collection period first, then
+  the PDF; after upload it shows the collection period as entered and the reporting period read from the report,
+  the status pill and steps moving received → extracting → needs review with 2 s polling (stops at needs review or
+  any other settled state), finding counts, an R04 note when the two dates are not one month apart, a review link,
+  and plain-language 409 / 422 / 403 errors. Uploads: four queue tiles (received, extracting, needs review, published
+  this month) and the ten latest uploads. Upload history: deal / period / status filters kept in the URL, status
+  pill, block / review / note counts, who / when, Review and Audit links. Dashboard: Programs, Deals, Flagged deals
+  (worst status BREACH or WATCH) from `/published/portfolio`, covenant totals by program, the queue tiles, latest
+  uploads; empty state when nothing is published. Partners → Partner details → Program / facility record: limits,
+  deals with template id, covenant definitions with single or banded thresholds, watch buffer, effective date,
+  version state (in force / superseded / scheduled) and source; `tao_admin` edits programs, deals and covenants
+  (edit in place or add a new version) through the PUT routes; other roles get a read-only view. Audit log: upload
+  filter (API) and action filter, expandable detail, deep link `?upload_id=` from Upload history. Every page has
+  loading, empty, error (with retry) and no-access (any 403) states. Run: `cd web && npx vitest run src/admin`
+  (53 tests, `api()` mocked); dev against a private stack: `MSYS_NO_PATHCONV=1 VITE_PORT=5174
+  VITE_API_PROXY=http://localhost:18100 VITE_API_URL=/api/v1 npx vite`. Verified: the upload journey against Prism
+  (static examples, so status stays `received`) and against the real stack as `tao_analyst` in the browser
+  (received → extracting → needs review in about 14 s, reporting period 2026-06 for a 2026-07 PDF filed as 2026-10,
+  R04 note shown, 4 block findings, polling stopped); PUT program / deal / covenant on the real API with the
+  dialogs' bodies, then the master_change entries in the Audit log. Lighthouse accessibility 96 on Upload report and
+  Upload history (only failure: Design System colour contrast). Needs: see `docs/requests.md` › UI-Admin.
