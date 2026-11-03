@@ -1,24 +1,31 @@
-"""Builds the rules Context from the database, runs rules.run(), returns findings for the worker / API to persist.
+"""worker/validate: every database read and write the worker makes, and the rules run in between.
 
-All SQL lives here; rules/ stays free of DB and HTTP. Tables are the ones in db/migrations/001_init.sql.
-The store takes a SQLAlchemy Connection (postgresql+psycopg in compose; SQLite in the tests), and only uses
-portable SQL, so JSON / numeric / date columns are normalised in Python.
+rules/ stays free of DB and HTTP; all SQL is here. Tables are db/migrations/001_init.sql (002 and 003 change only
+setrep_upload's uniqueness and covenant_definition.threshold's width, neither of which this module depends on).
+SQL is portable (PostgreSQL in compose, SQLite in the tests), so JSON / numeric / date columns are normalised in
+Python. Importable as `validate` (the container runs `python main.py` from /app) and as `worker.validate` (repo root).
 
-Typical worker flow for one upload:
-    store = SqlStore(conn)
-    findings = validate_extraction(store, extraction_id)          # pass 1
-    pages = retry_pages(findings)                                  # block findings whose rule says retry_pass_2
-    ... pass 2 on `pages` -> new extraction_id ...
-    findings2 = validate_extraction(store, extraction_id_2)
-    cleared = resolved_by_pass_2(findings, findings2)              # pass-1 findings pass 2 fixed
-    insert_findings(conn, findings2 + cleared)
+Worker entry points (worker/main.py calls these):
+    mark_extracting(upload_id)                 received -> extracting when a job is taken
+    handle_extraction(job, extraction)         store the extraction, run the rules, store findings, set the status,
+                                               queue the one automatic pass 2 when block findings ask for it
+    mark_failed(upload_id, error)              -> extraction_failed, logged and audited
+Each takes an optional SQLAlchemy Connection; without one it opens a transaction on DATABASE_URL and commits it.
+
+Context parity: build_context returns the same shape as api/app/review.py build_context (the override re-run), and
+both run phases (1, 2): prior = last published deal object before the upload's period; master = {program, deal,
+covenants in force at the period end}; published_periods = set of published periods; upload = the API's Upload dict.
 """
 from __future__ import annotations
-import datetime as dt, decimal, json, uuid
-from sqlalchemy import text
+import calendar, contextlib, datetime as dt, decimal, json, logging, os, uuid
+from sqlalchemy import create_engine, text
 from rules import run, load_rules
 from rules.engine import Context
 from rules.checks import period_key
+
+log = logging.getLogger("worker.validate")
+PHASES = (1, 2)
+QUEUE = "extract:jobs"   # same list as api/app/jobs.py
 
 def _plain(v):
     if isinstance(v, decimal.Decimal): return float(v)
@@ -36,43 +43,98 @@ def _row(r, json_cols=()):
         if c in d: d[c] = _json(d[c])
     return d
 
+def _dump(v): return None if v is None else json.dumps(v)
+
+def period_end(period: str) -> dt.date:
+    y, m = int(period[:4]), int(period[5:7])
+    return dt.date(y, m, calendar.monthrange(y, m)[1])
+
+# ---------- connection handling ----------
+_ENGINE = None
+
+def _engine():
+    global _ENGINE
+    if _ENGINE is None:
+        url = os.environ.get("DATABASE_URL")
+        if not url: raise RuntimeError("DATABASE_URL is not set and no connection was passed")
+        _ENGINE = create_engine(url, pool_pre_ping=True)
+    return _ENGINE
+
+@contextlib.contextmanager
+def _tx(conn=None):
+    """Use the caller's connection (caller commits) or open and commit one transaction on DATABASE_URL."""
+    if conn is not None:
+        yield conn
+    else:
+        with _engine().begin() as c:
+            yield c
+
+def redis_enqueue(job: dict, url: str | None = None) -> None:
+    """Default enqueue: RPUSH JSON onto `extract:jobs`, as api/app/jobs.py does."""
+    import redis
+    redis.Redis.from_url(url or os.environ.get("REDIS_URL", "redis://localhost:6379/0"), socket_connect_timeout=2).rpush(QUEUE, json.dumps(job))
+
+# ---------- reads ----------
 class SqlStore:
-    """Read-only queries the adapter needs, plus insert_findings for the worker."""
     def __init__(self, conn): self.conn = conn
     def _one(self, sql, json_cols=(), **kw): return _row(self.conn.execute(text(sql), kw).first(), json_cols)
     def _all(self, sql, json_cols=(), **kw): return [_row(r, json_cols) for r in self.conn.execute(text(sql), kw)]
 
     def extraction(self, extraction_id):
-        return self._one("select id, upload_id, pass, meta, deal, sources from extraction where id = :id", ("meta", "deal", "sources"), id=str(extraction_id))
+        return self._one("select id, upload_id, pass, meta, deal, sources, confidence, created_at from extraction where id = :id", ("meta", "deal", "sources"), id=str(extraction_id))
+    def latest_extraction(self, upload_id, pass_=None):
+        sql = "select id, upload_id, pass, meta, created_at from extraction where upload_id = :u" + (" and pass = :p" if pass_ else "") + " order by pass desc, created_at desc"
+        return self._one(sql, ("meta",), u=str(upload_id), p=pass_)
     def upload(self, upload_id):
-        return self._one("select id, deal_slug, collection_period, reporting_period, file_name, page_count, uploaded_by, status from setrep_upload where id = :id", id=str(upload_id))
+        return self._one("select id, deal_slug, collection_period, reporting_period, file_name, page_count, uploaded_by, uploaded_at, status, reject_reason from setrep_upload where id = :id", id=str(upload_id))
     def deal(self, slug):
         return self._one("select slug, name, program_slug, servicer, template_id from deal where slug = :slug", slug=slug)
     def program(self, slug):
         return self._one('select slug, name, partner_slug, currency, "limit", warehouse_limit from program where slug = :slug', slug=slug)
     def covenant_definitions(self, deal_slug):
-        return self._all("select legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug",
+        return self._all("select id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug",
                          ("threshold_rule",), slug=deal_slug)
     def publications(self, deal_slug):
-        return self._all("select collection_period, published_at, deal from publication where deal_slug = :slug order by collection_period", ("deal",), slug=deal_slug)
+        return self._all("select upload_id, collection_period, published_at, deal from publication where deal_slug = :slug order by collection_period", ("deal",), slug=deal_slug)
+    def findings(self, extraction_id):
+        return self._all("select id, extraction_id, rule_id, severity, fields, context, status from finding where extraction_id = :e", ("fields", "context"), e=str(extraction_id))
+    def open_counts(self, extraction_id):
+        out = {"block": 0, "review": 0, "note": 0}
+        for r in self.conn.execute(text("select severity, count(*) as n from finding where extraction_id = :e and status = 'open' group by severity"), {"e": str(extraction_id)}):
+            out[r.severity] = r.n
+        return out
 
-def build_context(store, upload: dict, deal_obj: dict) -> Context:
-    """prior = the latest publication for this deal before the upload's period; master = program, deal and covenant
-    definitions (rules.checks picks the definition effective for the period); published_periods = every period
-    already published with its timestamp; upload = what the analyst selected."""
+def covenants_as_of(defs: list[dict], as_of: dt.date | None) -> list[dict]:
+    """The definition in force for each legal_ref: latest effective_from <= as_of (api/app/views.covenants_as_of)."""
+    rows = sorted((d for d in defs if not as_of or str(d["effective_from"])[:10] <= as_of.isoformat()), key=lambda d: (d["legal_ref"], str(d["effective_from"])))
+    current = {}
+    for r in rows: current[(r["deal_slug"], r["legal_ref"])] = {**r, "effective_from": str(r["effective_from"])[:10]}
+    return list(current.values())
+
+def upload_dict(store: SqlStore, u: dict) -> dict:
+    """Same keys as api/app/views.upload_dict."""
+    deal = store.deal(u["deal_slug"]); program = store.program(deal["program_slug"]) if deal else None
+    ex = store.latest_extraction(u["id"])
+    pub = next((p for p in store.publications(u["deal_slug"]) if str(p.get("upload_id")) == str(u["id"])), None)
+    return {"id": u["id"], "deal_slug": u["deal_slug"], "program_slug": deal["program_slug"] if deal else None,
+            "partner_slug": program["partner_slug"] if program else None, "collection_period": u["collection_period"],
+            "reporting_period": u.get("reporting_period") or ((ex or {}).get("meta") or {}).get("reporting_period"), "status": u["status"],
+            "file_name": u.get("file_name"), "page_count": u.get("page_count"), "uploaded_by": u.get("uploaded_by"), "uploaded_at": u.get("uploaded_at"),
+            "finding_counts": store.open_counts(ex["id"]) if ex else {"block": 0, "review": 0, "note": 0},
+            "latest_extraction_id": ex["id"] if ex else None, "published_at": pub["published_at"] if pub else None, "reject_reason": u.get("reject_reason")}
+
+def build_context(store: SqlStore, upload: dict, deal_obj: dict | None = None) -> Context:
     slug = upload["deal_slug"]
-    period = period_key(upload.get("collection_period")) or period_key(deal_obj.get("collection_period"))
-    deal_row = store.deal(slug) or {"slug": slug}
-    program = store.program(deal_row["program_slug"]) if deal_row.get("program_slug") else None
+    period = period_key(upload.get("collection_period")) or period_key((deal_obj or {}).get("collection_period"))
+    deal_row = store.deal(slug)
+    program = store.program(deal_row["program_slug"]) if deal_row else None
     pubs = store.publications(slug)
-    earlier = [p for p in pubs if period and period_key(p["collection_period"]) and period_key(p["collection_period"]) < period]
-    prior = earlier[-1]["deal"] if earlier else None
-    master = {"program": program or {}, "deal": deal_row, "covenant_definitions": store.covenant_definitions(slug)}
-    return Context(prior=prior, master=master, published_periods={period_key(p["collection_period"]): p["published_at"] for p in pubs},
-                   upload={"deal_slug": slug, "deal_name": deal_row.get("name"), "collection_period": upload.get("collection_period"),
-                           "reporting_period": upload.get("reporting_period"), "upload_id": upload.get("id")})
+    prior = next((p["deal"] for p in reversed(pubs) if period and period_key(p["collection_period"]) and period_key(p["collection_period"]) < period), None)
+    master = {"program": program, "deal": deal_row,
+              "covenants": covenants_as_of(store.covenant_definitions(slug), period_end(period) if period else None)}
+    return Context(prior=prior, master=master, published_periods={p["collection_period"] for p in pubs}, upload=upload_dict(store, upload))
 
-def validate_extraction(store, extraction_id, phases=(1, 2), rules_doc: dict | None = None) -> list[dict]:
+def validate_extraction(store, extraction_id, phases=PHASES, rules_doc: dict | None = None) -> list[dict]:
     """Run the rules over one stored extraction. Findings carry this extraction's id and are not yet persisted."""
     ex = store.extraction(extraction_id)
     if ex is None: raise LookupError(f"extraction {extraction_id} not found")
@@ -89,12 +151,12 @@ def retry_pages(findings: list[dict], rules_doc: dict | None = None) -> list[int
     retry = {r["id"] for r in (rules_doc or load_rules())["rules"] if r.get("on_failure") == "retry_pass_2_then_review"}
     return sorted({f["source_page"] for f in findings if f["severity"] == "block" and f["rule_id"] in retry and f.get("source_page")})
 
-def _key(f): return (f["rule_id"], tuple(f.get("fields") or []), f.get("context", {}).get("vintage"), f.get("context", {}).get("legal_ref"))
+def _key(f): return (f["rule_id"], tuple(f.get("fields") or []), (f.get("context") or {}).get("vintage"), (f.get("context") or {}).get("legal_ref"))
 
 def resolved_by_pass_2(pass1: list[dict], pass2: list[dict]) -> list[dict]:
-    """Pass-1 findings with no counterpart in pass 2, marked resolved_by_pass_2 (kept for the audit trail)."""
+    """Open pass-1 findings with no counterpart in pass 2, marked resolved_by_pass_2."""
     still = {_key(f) for f in pass2}
-    return [{**f, "status": "resolved_by_pass_2"} for f in pass1 if _key(f) not in still]
+    return [{**f, "status": "resolved_by_pass_2"} for f in pass1 if f.get("status", "open") == "open" and _key(f) not in still]
 
 def counts(findings: list[dict]) -> dict:
     """finding_counts for the upload summary: open findings by severity."""
@@ -103,13 +165,69 @@ def counts(findings: list[dict]) -> dict:
         if f.get("status", "open") == "open": out[f["severity"]] += 1
     return out
 
+# ---------- writes ----------
 FINDING_COLUMNS = ("id", "extraction_id", "rule_id", "layer", "severity", "message", "fields", "our_value", "report_value", "difference", "tolerance", "unit", "source_page", "context", "status", "resolution", "created_at")
 _JSON_COLUMNS = {"fields", "our_value", "report_value", "context", "resolution"}
 
 def insert_findings(conn, findings: list[dict]) -> int:
-    """Insert findings into the finding table (JSON columns serialised; Postgres casts text to jsonb on insert)."""
+    """Insert findings (JSON columns serialised; PostgreSQL casts the text to jsonb; None stays SQL NULL)."""
     if not findings: return 0
     cols = ", ".join(FINDING_COLUMNS); params = ", ".join(f":{c}" for c in FINDING_COLUMNS)
-    rows = [{c: (json.dumps(f.get(c)) if c in _JSON_COLUMNS and f.get(c) is not None else f.get(c)) for c in FINDING_COLUMNS} for f in findings]
+    rows = [{c: (_dump(f.get(c)) if c in _JSON_COLUMNS else f.get(c)) for c in FINDING_COLUMNS} for f in findings]
     conn.execute(text(f"insert into finding ({cols}) values ({params})"), rows)
     return len(rows)
+
+def _set_status(c, upload_id, status, from_statuses):
+    names = ", ".join(f":f{i}" for i in range(len(from_statuses)))
+    return c.execute(text(f"update setrep_upload set status = :s where id = :id and status in ({names})"),
+                     {"s": status, "id": str(upload_id), **{f"f{i}": v for i, v in enumerate(from_statuses)}}).rowcount
+
+def mark_extracting(upload_id, conn=None) -> bool:
+    """received -> extracting. An upload already extracting (pass 2 queued by the API) is left alone. True if changed."""
+    with _tx(conn) as c:
+        return _set_status(c, upload_id, "extracting", ("received",)) == 1
+
+def mark_failed(upload_id, error: str, conn=None) -> None:
+    """-> extraction_failed (from received / extracting), log the error, write an audit row.
+    The audit row uses action 'extract' with actor_role 'system': the contract's AuditEntry.action enum has no
+    'extraction_failed', and 'extract' + reason is what the API itself writes when it cannot queue a job."""
+    log.error("extraction failed for upload %s: %s", upload_id, error)
+    with _tx(conn) as c:
+        _set_status(c, upload_id, "extraction_failed", ("received", "extracting"))
+        c.execute(text("insert into review_action (id, upload_id, actor_role, actor_label, action, reason, detail) values (:id, :u, 'system', 'worker', 'extract', :r, :d)"),
+                  {"id": str(uuid.uuid4()), "u": str(upload_id), "r": (error or "")[:1000], "d": json.dumps({"status": "extraction_failed"})})
+
+def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None) -> dict:
+    """Store one extraction for job["pass"], validate it, store its findings and move the upload on.
+    Pass 1: block findings that ask for a retry queue {"upload_id", "pass": 2, "pages"} (status stays extracting);
+    otherwise, or if the queue is unavailable (enqueue=False or it raises), needs_review.
+    Pass 2: open pass-1 findings pass 2 no longer produces become resolved_by_pass_2; needs_review.
+    Returns {"extraction_id", "status", "counts"}."""
+    upload_id, pass_ = str(job["upload_id"]), int(job.get("pass", 1))
+    meta = {**(extraction.get("meta") or {}), "upload_id": upload_id, "pass": pass_}
+    eid = str(uuid.uuid4())
+    with _tx(conn) as c:
+        store = SqlStore(c)
+        prev = store.latest_extraction(upload_id, 1) if pass_ == 2 else None
+        c.execute(text("insert into extraction (id, upload_id, pass, meta, deal, sources, confidence) values (:id, :u, :p, :m, :d, :s, :conf)"),
+                  {"id": eid, "u": upload_id, "p": pass_, "m": json.dumps(meta), "d": json.dumps(extraction["deal"]), "s": json.dumps(extraction.get("sources") or {}),
+                   "conf": meta.get("confidence")})
+        if meta.get("reporting_period"):
+            c.execute(text("update setrep_upload set reporting_period = :r where id = :id"), {"r": meta["reporting_period"], "id": upload_id})
+        findings = validate_extraction(store, eid)
+        insert_findings(c, findings)
+        pages = retry_pages(findings) if pass_ == 1 else []
+        if pass_ == 2 and prev:
+            cleared = resolved_by_pass_2(store.findings(prev["id"]), findings)
+            for f in cleared:
+                c.execute(text("update finding set status = 'resolved_by_pass_2' where id = :id and status = 'open'"), {"id": str(f["id"])})
+        status = "extracting" if pages and enqueue is not False else "needs_review"
+        _set_status(c, upload_id, status, ("received", "extracting"))
+    if status == "extracting":
+        try:
+            (enqueue or redis_enqueue)({"upload_id": upload_id, "pass": 2, "pages": pages})
+        except Exception as e:   # queue down: the reviewer still gets the pass-1 findings
+            log.error("pass-2 enqueue failed for %s: %s", upload_id, e)
+            with _tx(conn) as c: _set_status(c, upload_id, "needs_review", ("extracting",))
+            status = "needs_review"
+    return {"extraction_id": eid, "status": status, "counts": counts(findings)}
