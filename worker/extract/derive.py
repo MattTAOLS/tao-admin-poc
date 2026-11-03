@@ -247,10 +247,11 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
         rec.read("/total_enhancement/total_enhancement_pct", None)
 
     # ---------------- period_history: the current period's row
-    if period and (ft or not partial):
+    if (period and (ft or not partial)) or (partial and ft):
         ph = "/period_history/0"
-        rec.derived(f"{ph}/period", period, "collection period (cover)", [cov["collection_start"]])
-        rec.derived(f"{ph}/collection_period", coll_label, "collection period (cover)", [cov["collection_start"]])
+        if period:
+            rec.derived(f"{ph}/period", period, "collection period (cover)", [cov["collection_start"]])
+            rec.derived(f"{ph}/collection_period", coll_label, "collection period (cover)", [cov["collection_start"]])
         for key, col in [("opening_balance", "opening"), ("closing_balance", "closing"), ("principal", "principal"),
                          ("principal_prepayments", "prepayments"), ("losses", "defaults"), ("interest", "interest"),
                          ("recoveries", "recoveries")]:
@@ -266,10 +267,11 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
 
     # ---------------- aging_history: the current period's row
     ag = p.aging
-    if ag and period:
+    if ag and (period or partial):
         base = "/aging_history/0"
-        rec.derived(f"{base}/period", period, "collection period (cover)", [cov["collection_start"]])
-        rec.derived(f"{base}/collection_period", coll_label, "collection period (cover)", [cov["collection_start"]])
+        if period:
+            rec.derived(f"{base}/period", period, "collection period (cover)", [cov["collection_start"]])
+            rec.derived(f"{base}/collection_period", coll_label, "collection period (cover)", [cov["collection_start"]])
         for key, col in [("current_0_30", "current_0_30"), ("days_31_60", "days_31_60"), ("days_61_90", "days_61_90")]:
             rec.read(f"{base}/{key}", ag.get(col))
         rec.const(f"{base}/written_off_bucket_label", der["written_off_bucket_label"], "derived.written_off_bucket_label")

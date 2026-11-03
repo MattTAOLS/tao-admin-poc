@@ -14,7 +14,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -549,7 +549,7 @@ class ModelFallback:
             return []
         prompt = self.build_prompt(fields, pages)
         rec = {"model": self.model or None, "prompt_chars": len(prompt), "fields": [f"{s}.{f}" for s, f in fields],
-               "pages": sorted(pages), "at": datetime.utcnow().isoformat() + "Z", "status": "skipped"}
+               "pages": sorted(pages), "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "status": "skipped"}
         self.calls.append(rec)
         if not self.enabled:
             log.info("model fallback skipped (no model configured): %s", rec)
