@@ -5,7 +5,7 @@ from sqlalchemy import String, Text, Integer, Numeric, Date, DateTime, ForeignKe
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-Json = JSON().with_variant(JSONB(), "postgresql")
+Json = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 Id = Uuid(as_uuid=False)
 ACTIVE_UPLOAD = "status not in ('rejected', 'extraction_failed')"
 
@@ -60,7 +60,7 @@ class CovenantDefinition(Base):
     legal_ref: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text)
     kind: Mapped[str] = mapped_column(Text)
-    threshold: Mapped[float | None] = mapped_column(Numeric(12, 6, asdecimal=False), nullable=True)
+    threshold: Mapped[float | None] = mapped_column(Numeric(20, 6, asdecimal=False), nullable=True)   # 003
     threshold_rule: Mapped[dict | None] = mapped_column(Json, nullable=True)
     watch_buffer_pct: Mapped[float] = mapped_column(Numeric(6, 4, asdecimal=False), default=0.1)
     effective_from: Mapped[dt.date] = mapped_column(Date)

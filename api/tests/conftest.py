@@ -5,7 +5,10 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TMP = pathlib.Path(tempfile.mkdtemp(prefix="tao-api-tests-"))
-os.environ["DATABASE_URL"] = f"sqlite:///{(TMP / 'test.sqlite').as_posix()}"
+# TEST_DATABASE_URL=postgresql+psycopg://... runs the suite against PostgreSQL built from db/migrations/*.sql
+# (the schema compose uses). The database's public schema is dropped and rebuilt, so point it at a throwaway.
+PG = os.environ.get("TEST_DATABASE_URL")
+os.environ["DATABASE_URL"] = PG or f"sqlite:///{(TMP / 'test.sqlite').as_posix()}"
 os.environ["FILE_STORE"] = str(TMP / "store")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -14,7 +17,14 @@ from app import db, seed, jobs            # noqa: E402
 from app.main import app                  # noqa: E402
 from app.models import Base               # noqa: E402
 
-db.create_all()
+if PG:
+    from sqlalchemy import text
+    with db.engine().begin() as conn:
+        conn.execute(text("drop schema public cascade; create schema public"))
+        for f in sorted((ROOT / "db" / "migrations").glob("*.sql")):
+            conn.exec_driver_sql(f.read_text(encoding="utf-8"))
+else:
+    db.create_all()
 
 TAO = {"X-Role": "tao_admin"}
 ANALYST = {"X-Role": "tao_analyst"}
