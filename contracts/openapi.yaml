@@ -49,16 +49,39 @@ components:
       required: [code, message]
       description: |
         Every error is `{code, message}` at the top level (422 may add `errors[]` with field detail). Codes:
-        403 `forbidden`, `tao_only`, `admin_only`; 404 `not_found`;
+        403 `forbidden`, `bad_role` (unknown X-Role), `bad_partner` (X-Partner missing or not the caller's), `tao_only`,
+        `admin_only`; 404 `not_found`;
         409 `already_published` (period published for this deal, R12 pre-check), `upload_in_progress` (another active
         upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
         (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
-        `no_target` (use_ours / use_report on a finding without `targets`);
-        422 `invalid`, `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`.
+        `no_target` (use_ours / use_report on a finding without `targets`),
+        `conflicting_corrections` (approve: resolved choices write different values to the same pointer; body adds
+        `conflicts`), `correction_inconsistent` (approve: re-running the rules on the corrected deal raises a block
+        finding no resolved finding covers; body adds `findings`; nothing is published);
+        422 `invalid` (also a missing X-Role), `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`.
       properties:
         code: { type: string }
         message: { type: string }
         errors: { type: array, items: { type: object } }
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              pointer: { type: string }
+              values: { type: array, items: { type: number } }
+              finding_ids: { type: array, items: { type: string } }
+              rule_ids: { type: array, items: { type: string } }
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_id: { type: string }
+              message: { type: string }
+              fields: { type: array, items: { type: string } }
+              our_value: {}
+              report_value: {}
     Partner:
       type: object
       required: [slug, name, kind, status]
@@ -312,7 +335,7 @@ paths:
       responses:
         '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings`, `bad_state` or `no_extraction`' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings`, `conflicting_corrections`, `correction_inconsistent`, `bad_state` or `no_extraction`' }
   /uploads/{upload_id}/reject:
     post:
       summary: Reject with a reason (tao_admin only)
