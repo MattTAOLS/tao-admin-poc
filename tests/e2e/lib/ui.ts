@@ -45,3 +45,16 @@ export async function shot(page: Page, name: string) {
 
 /** Money as the app prints it to the cent (en-CA style with thousands separators). */
 export const cents = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** The Audit log page filtered to one upload (TAO Admin only). */
+export async function openAuditFor(page: Page, uploadId: string) {
+  await page.goto(`/admin/settings/users/audit?upload_id=${uploadId}`)
+  await expect(pageTitle(page)).toHaveText('Audit log')
+  return page.getByRole('table', { name: 'Audit log' })
+}
+
+/** Review report page for an upload. */
+export async function openReview(page: Page, uploadId: string) {
+  await page.goto(`/admin/uploads/queue/${uploadId}`)
+  await expect(page.getByRole('region', { name: 'Decision' })).toBeVisible()
+}
