@@ -2,6 +2,33 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: wave 1b schema parity. Merged lead/wave1-seams. `api/app/models.py` now matches migration 001
+  for raw-SQL writers (worker/validate): the five timestamp columns have `server_default=now()` as well as the Python
+  default, and ids are stored on SQLite as the dashed 36-character text PostgreSQL prints (was 32-char hex, so raw
+  updates by the API's id matched 0 rows). New `tests/test_schema_parity.py` inserts an extraction with raw SQL (dashed
+  upload id, no created_at) and reads it back through the API; it fails on the old models. 111 passed on SQLite and on
+  PostgreSQL 16 built from db/migrations. Existing SQLite files built by the old models must be deleted and re-seeded.
+- 2026-11-03 — Data & API: wave 1 deliverables 1–7. All 23 operations in `contracts/openapi.yaml` are real and backed by
+  the database (SQLAlchemy models over 001 + new migrations 002/003). Seed: `python -m app.seed` loads seed/*.json
+  idempotently; `--reference-publications` also publishes the 12 real deal objects for the partner portals. Uploads store
+  the PDF under `FILE_STORE/uploads/<id>/source.pdf`, count pages with pypdfium2, push `{"upload_id","pass":1}` to
+  `extract:jobs`, refuse a published period (R12, 409). Override resolves the finding, writes `override`/`restate` to the
+  audit, re-runs `rules.run()` and merges findings (ids and resolutions survive). Approve refuses while a block finding is
+  open, writes the publication and approve/publish/regenerate audit entries. Page images render at 110 dpi and are cached.
+  Program roll-up (`api/app/rollup.py`) reproduces both real program files total for total and is computed on read.
+  Partner scoping is `partner_filter` + `visible_programs` in `api/app/main.py`; another partner's program or deal is a 404.
+  Run: from `api/`, `python -m pytest -q` (110 tests, SQLite); `TEST_DATABASE_URL=postgresql+pg8000://...` runs the same
+  suite on PostgreSQL built from `db/migrations` (110 passed against postgres:16-alpine). Stubbed: regenerate only bumps
+  `rollup_version` and audits (roll-ups are never stale); `actor_label` is the role until real sign-in. Needs: compose mount
+  for the demo seed, contract fold-in of extra fields/errors, worker status/row conventions (all in `docs/requests.md`).
+- 2026-11-03 — Lead: wave-1 seam decisions (branch lead/wave1-seams). Roll-forward terms: `charge_off` is the one
+  name for the page-2 NPV adjustment (column i), already in the reference data; `new_funded` (+) and
+  `ineligible_buyback` (−) are new optional period_history fields, all positive amounts. R05 is now opening +
+  new_funded − principal − prepayments − losses − charge_off − ineligible_buyback. `covenants[].reported_triggered`
+  (YES/NO) is in the schema and R18 uses it. rules.yaml also takes Rules' R03 range, R09 fn and R18 floor band.
+  Compose: worker runs `python main.py` from /app (imports `extract`, `validate`, `rules`); api mounts
+  docs/dashboard-json for the demo seed. Worker hand-off: worker/validate owns every database write
+  (`mark_extracting`, `handle_extraction`, `mark_failed`); worker/main.py calls them.
 - 2026-11-03 — Design System: wave 1 delivered on `agent/design`.
   Built: `web/src/design/components` (import everything from `@/design/components`): Button (primary / ghost /
   danger, sm, icon, loading), StatusPill plus UploadStatusPill / SeverityPill / FindingStatusPill / CovenantPill with
@@ -51,14 +78,6 @@ Append an entry when a work package lands. Newest first.
   `python -m worker.extract.compare <pdf> <reference.dashboard.json>`. Stubbed: OCR fallback (pages without
   text are listed in `meta.pages_without_text`), MOVE Trust template, the validate hand-off. Needs: see
   docs/requests.md › Extraction (pypdf, compose worker path, R05 extra terms, reference quirks).
-- 2026-11-03 — Lead: wave-1 seam decisions (branch lead/wave1-seams). Roll-forward terms: `charge_off` is the one
-  name for the page-2 NPV adjustment (column i), already in the reference data; `new_funded` (+) and
-  `ineligible_buyback` (−) are new optional period_history fields, all positive amounts. R05 is now opening +
-  new_funded − principal − prepayments − losses − charge_off − ineligible_buyback. `covenants[].reported_triggered`
-  (YES/NO) is in the schema and R18 uses it. rules.yaml also takes Rules' R03 range, R09 fn and R18 floor band.
-  Compose: worker runs `python main.py` from /app (imports `extract`, `validate`, `rules`); api mounts
-  docs/dashboard-json for the demo seed. Worker hand-off: worker/validate owns every database write
-  (`mark_extracting`, `handle_extraction`, `mark_failed`); worker/main.py calls them.
 - 2026-11-03 — Rules, wave 1b (seams): merged lead/wave1-seams. R09 resolves from rules.yaml (FN_FALLBACK gone).
   R05 adds `new_funded` (+) and `ineligible_buyback` (−) beside `charge_off`, named in context and message when
   non-zero; R18 checks `covenants[].reported_triggered` (YES ⇔ BREACH). New fixtures r05-new-funded,
@@ -84,19 +103,6 @@ Append an entry when a work package lands. Newest first.
   printed ratio history (no EBITDA / interest captured); R17 skips "(Definitions)" trigger tests; R15 lacks a
   deal-level facility limit; R18 cannot check page-14 YES / NO. Needs: see `docs/requests.md` › Rules (R09 `fn`,
   R05 / R18 / R03 wording, Stride/Xpedite covenant seed, deal facility limit, worker mount path, `make check` line).
-- 2026-11-03 — Data & API: wave 1 deliverables 1–7. All 23 operations in `contracts/openapi.yaml` are real and backed by
-  the database (SQLAlchemy models over 001 + new migrations 002/003). Seed: `python -m app.seed` loads seed/*.json
-  idempotently; `--reference-publications` also publishes the 12 real deal objects for the partner portals. Uploads store
-  the PDF under `FILE_STORE/uploads/<id>/source.pdf`, count pages with pypdfium2, push `{"upload_id","pass":1}` to
-  `extract:jobs`, refuse a published period (R12, 409). Override resolves the finding, writes `override`/`restate` to the
-  audit, re-runs `rules.run()` and merges findings (ids and resolutions survive). Approve refuses while a block finding is
-  open, writes the publication and approve/publish/regenerate audit entries. Page images render at 110 dpi and are cached.
-  Program roll-up (`api/app/rollup.py`) reproduces both real program files total for total and is computed on read.
-  Partner scoping is `partner_filter` + `visible_programs` in `api/app/main.py`; another partner's program or deal is a 404.
-  Run: from `api/`, `python -m pytest -q` (110 tests, SQLite); `TEST_DATABASE_URL=postgresql+pg8000://...` runs the same
-  suite on PostgreSQL built from `db/migrations` (110 passed against postgres:16-alpine). Stubbed: regenerate only bumps
-  `rollup_version` and audits (roll-ups are never stale); `actor_label` is the role until real sign-in. Needs: compose mount
-  for the demo seed, contract fold-in of extra fields/errors, worker status/row conventions (all in `docs/requests.md`).
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
