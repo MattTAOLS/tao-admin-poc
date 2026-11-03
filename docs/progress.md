@@ -2,6 +2,15 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Extraction: wave 1b seams (merged lead/wave1-seams). The page-2 NPV adjustment is emitted as
+  `period_history[].charge_off`; `new_funded` and `ineligible_buyback` stay, positive amounts, only where the
+  layout prints them (Moneda: charge_off; Stride: new_funded, ineligible_buyback; Xpedite: none). All 12
+  extractions validate and close the new R05 identity within $1 (tested directly until Rules' checks.py lands).
+  `worker/main.py handle()` calls validate's mark_extracting / handle_extraction / mark_failed, keeps writing
+  `extraction-pass<n>.json`, and falls back to disk-only without the adapter; tests cover success, pass 2,
+  extraction failure and hand-off failure with fakes, plus a `python main.py`-style import from worker/.
+  Requirements: `worker/requirements.txt` (runtime) and `worker/requirements-dev.txt` (pytest, pypdf).
+  Run: `pip install -r worker/requirements-dev.txt && python -m pytest -q worker/extract/tests`.
 - 2026-11-03 — Extraction: wave 1 deliverables 1–6 on `agent/extraction`. `extract(pdf, template_id, pages=None)`
   in `worker/extract/` reads the text layer with pdfplumber (repairs Excel's phantom spaces inside numbers,
   detects negative signs by geometry, aligns blank cells by column edges), parses sections by heading through
