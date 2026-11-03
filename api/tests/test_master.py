@@ -1,0 +1,71 @@
+import pytest
+from conftest import TAO, ANALYST, INV, MGR
+
+M = "/api/v1/master"
+
+
+def test_programs_get_put(client):
+    ps = client.get(f"{M}/programs", headers=ANALYST).json()
+    assert {p["slug"] for p in ps} == {"move-trust", "f-pil-2-0"}
+    fpil = next(p for p in ps if p["slug"] == "f-pil-2-0")
+    assert fpil == {"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slug": "investor", "currency": "CAD", "limit": 150000000.0, "warehouse_limit": 5000000.0}
+    body = dict(fpil, limit=175000000.0)
+    assert client.put(f"{M}/programs", headers=ANALYST, json=body).status_code == 403
+    r = client.put(f"{M}/programs", headers=TAO, json=body)
+    assert r.status_code == 200 and r.json()["limit"] == 175000000.0
+    assert client.put(f"{M}/programs", headers=TAO, json=dict(body, partner_slug="nobody")).status_code == 422
+    a = client.get("/api/v1/audit", headers=TAO).json()[0]
+    assert a["action"] == "master_change" and a["upload_id"] is None and a["detail"]["entity"] == "program"
+    assert a["detail"]["before"]["limit"] == 150000000.0 and a["detail"]["after"]["limit"] == 175000000.0
+
+
+def test_deals_get_put(client):
+    assert len(client.get(f"{M}/deals", headers=TAO).json()) == 12
+    fpil = client.get(f"{M}/deals", headers=TAO, params={"program_slug": "f-pil-2-0"}).json()
+    assert [d["slug"] for d in fpil] == ["f-pil-2-0-moneda-capital-corp", "f-pil-2-0-stride-capital", "f-pil-2-0-xpedite-leasing"]
+    new = {"slug": "f-pil-2-0-test-servicer", "name": "Test Servicer", "program_slug": "f-pil-2-0", "servicer": "Test Servicer", "template_id": "fpil-2.0-settrep-v1"}
+    assert client.put(f"{M}/deals", headers=ANALYST, json=new).status_code == 403
+    assert client.put(f"{M}/deals", headers=TAO, json=dict(new, program_slug="nope")).status_code == 422
+    assert client.put(f"{M}/deals", headers=TAO, json=new).json() == new
+    assert len(client.get(f"{M}/deals", headers=TAO).json()) == 13
+    assert client.get("/api/v1/audit", headers=TAO).json()[0]["detail"]["before"] is None
+
+
+def test_covenants_as_of_versioning(client):
+    deal = "f-pil-2-0-moneda-capital-corp"
+    all_ = client.get(f"{M}/covenants", headers=TAO, params={"deal_slug": deal}).json()
+    e = next(c for c in all_ if c["legal_ref"] == "SLFA 9.1 (e)")
+    assert e["threshold"] == 0.035 and e["effective_from"] == "2022-12-09"
+    amended = {k: v for k, v in e.items() if k != "id"} | {"threshold": 0.0325, "effective_from": "2025-03-01", "source": "Amendment 2 2025-03-01"}
+    assert client.put(f"{M}/covenants", headers=ANALYST, json=amended).status_code == 403
+    r = client.put(f"{M}/covenants", headers=TAO, json=amended)
+    assert r.status_code == 200 and r.json()["id"] != e["id"]
+    def in_force(as_of):
+        rows = client.get(f"{M}/covenants", headers=TAO, params={"deal_slug": deal, "as_of": as_of}).json()
+        assert len({c["legal_ref"] for c in rows}) == len(rows)
+        return next(c for c in rows if c["legal_ref"] == "SLFA 9.1 (e)")["threshold"]
+    assert in_force("2024-12-31") == 0.035
+    assert in_force("2025-03-01") == 0.0325
+    assert in_force("2026-08-31") == 0.0325
+    assert client.get(f"{M}/covenants", headers=TAO, params={"deal_slug": deal, "as_of": "2020-01-01"}).json() == []
+    assert len(client.get(f"{M}/covenants", headers=TAO, params={"deal_slug": deal}).json()) == len(all_) + 1
+    assert client.get(f"{M}/covenants", headers=TAO, params={"as_of": "not-a-date"}).status_code == 422
+    a = client.get("/api/v1/audit", headers=TAO).json()[0]
+    assert a["action"] == "master_change" and a["detail"]["entity"] == "covenant_definition"
+
+
+def test_covenant_update_in_place_and_threshold_rule(client):
+    c = next(x for x in client.get(f"{M}/covenants", headers=TAO).json() if x["legal_ref"] == "SLFA 9.1 (c)")
+    assert c["threshold_rule"]["on"] == "/tranche_balance/closing"
+    r = client.put(f"{M}/covenants", headers=TAO, json=dict(c, description="Rolling 3-month loss ratio"))
+    assert r.status_code == 200 and r.json()["id"] == c["id"] and r.json()["threshold_rule"] == c["threshold_rule"]
+    bad = {k: v for k, v in c.items() if k != "id"} | {"threshold_rule": None, "threshold": None}
+    assert client.put(f"{M}/covenants", headers=TAO, json=bad).status_code == 422
+    assert client.put(f"{M}/covenants", headers=TAO, json=dict(c, kind="sideways")).status_code == 422
+
+
+@pytest.mark.parametrize("path", ["programs", "deals", "covenants"])
+@pytest.mark.parametrize("h", [INV, MGR])
+def test_partners_cannot_read_master(client, path, h):
+    assert client.get(f"{M}/{path}", headers=h).status_code == 403
+    assert client.put(f"{M}/{path}", headers=h, json={}).status_code == 403
