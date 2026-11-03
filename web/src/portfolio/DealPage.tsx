@@ -65,7 +65,7 @@ export function DealView({ d }: { d: Deal }) {
     <>
       <section aria-labelledby="pf-dm" className="pf-stack">
         <h2 id="pf-dm" className="pf-section">Deal Metrics</h2>
-        <KpiRow>
+        <KpiRow className="pf-kpis">
           <KpiTile label={t.balance} value={<Num v={tb.closing} kind="money" field="tranche_balance.closing" />}
             delta={{ direction: dirOf(tb.change_abs), label: 'Change vs last period', value: <><Num v={tb.change_abs} kind="signed-money" field="tranche_balance.change_abs" /> (<Num v={tb.change_pct} kind="pct" field="tranche_balance.change_pct" />)</> }} context="vs last period" />
           <KpiTile label="Outstanding contracts" value={<Num v={ct.closing} kind="count" field="contracts.closing" />}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, CovenantPill, DataTable, Dialog, Field, Select, formatPeriod, icons, type Column } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { CovenantDetail, Trend } from './Covenants'
@@ -8,7 +8,7 @@ import { commonDealNamePrefix, covKind, displayStatus, shortName, stableKey, ter
 import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
 import { PeriodPicker } from './ProgramSummary'
-import { LinkButton, LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
+import { LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
 import type { Covenant, Deal, ProgramAggregate } from './types'
 
 /** Program Dashboard: Portfolio Metrics, Covenant Status & Review, watch threshold, print. */
@@ -80,7 +80,7 @@ export function ProgramDashboardView({ p }: { p: ProgramAggregate }) {
 
   type MRow = { d: Deal; di: number }
   const mcols: Column<MRow>[] = [
-    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <LinkButton to={L.deal(slug, r.d.deal_slug)} ariaLabel={`Open deal ${r.d.deal_name}`}>{shortName(r.d.deal_name, prefix)}</LinkButton> },
+    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <Link className="pf-link" to={L.deal(slug, r.d.deal_slug)} aria-label={`Open deal ${r.d.deal_name}`}>{shortName(r.d.deal_name, prefix)}</Link> },
     { key: 'status', header: 'Status', render: r => <CovenantPill status={atPublished ? r.d.worst_status : worstOf(r.d.covenants.map(c => ({ category: c.category, status: displayStatus(c, buffer, r.d.watch_buffer_pct) })))} size="sm" /> },
     { key: 'bal', header: t.balance, numeric: true, sortValue: r => r.d.tranche_balance.closing, render: r => <Num v={r.d.tranche_balance.closing} kind="money" field={`deals.${r.di}.tranche_balance.closing`} /> },
     { key: 'chg', header: 'Change', numeric: true, render: r => <><Num v={r.d.tranche_balance.change_abs} kind="signed-money" field={`deals.${r.di}.tranche_balance.change_abs`} /> <span className="pf-muted">(<Num v={r.d.tranche_balance.change_pct} kind="pct" field={`deals.${r.di}.tranche_balance.change_pct`} />)</span></> },

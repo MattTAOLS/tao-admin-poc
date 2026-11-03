@@ -59,7 +59,7 @@ export function RatioChart({ history }: { history: RatioHistoryRow[] }) {
           </g>
         ))}
         {pts.map(p => (p.i % 2 === 0 || p.i === rows.length - 1) && (
-          <text key={p.month} x={x(p.i)} y={H - 8} textAnchor="middle" className="pf-chart__axis">{p.month}</text>
+          <text key={p.month} x={x(p.i)} y={H - 8} textAnchor={p.i === rows.length - 1 ? "end" : p.i === 0 ? "start" : "middle"} className="pf-chart__axis">{p.month}</text>
         ))}
         {segs.map((d, i) => <path key={i} d={d} className="pf-chart__line" />)}
         {pts.map(p => p.v !== null && <circle key={p.month} cx={x(p.i)} cy={y(p.v)} r={2.5} className="pf-chart__dot"><title>{`${p.month}: ${fmtNum(p.v, kind)}`}</title></circle>)}
