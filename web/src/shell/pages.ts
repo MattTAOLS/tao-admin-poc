@@ -22,7 +22,7 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/partners', title: 'Partners', nav: 'main', roles: ['tao_admin'], built: true, owner: 'admin' },
   { path: '/admin/partners/:partnerId', title: 'Partner details', roles: ['tao_admin'], built: true, owner: 'admin' },
   { path: '/admin/partners/:partnerId/programs/:programId', title: 'Program / facility record', roles: ['tao_admin'], built: true, owner: 'admin', purpose: 'Limits, covenant definitions with threshold rules, amendment dates' },
-  { path: '/admin/portfolio', title: 'Portfolio Executive Summary', nav: 'main', built: true, owner: 'portfolio' },
+  { path: '/admin/portfolio', title: 'Portfolio Executive Summary', nav: 'main', built: true, owner: 'portfolio', load: () => import('@/portfolio/PortfolioPage') },
   { path: '/admin/notifications', title: 'Notifications', nav: 'main', owner: 'shell' },
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', owner: 'shell' },
@@ -34,10 +34,10 @@ export const ADMIN_PAGES: Page[] = [
 ]
 export const PARTNER_PAGES: Page[] = [
   { path: '', title: 'Home', nav: 'main', built: true, owner: 'portfolio', purpose: 'Redirects to Portfolio Executive Summary (home page in the map)' },
-  { path: '/portfolio', title: 'Portfolio Executive Summary', nav: 'main', built: true, owner: 'portfolio' },
-  { path: '/portfolio/:programId', title: 'Program Executive Summary', built: true, owner: 'portfolio' },
-  { path: '/portfolio/:programId/dashboard', title: 'Program Dashboard', built: true, owner: 'portfolio', purpose: 'Portfolio Metrics + Covenant Status & Review, watch threshold, print' },
-  { path: '/portfolio/:programId/deals/:dealId', title: 'Deal page', built: true, owner: 'portfolio', purpose: 'Deal Metrics + covenant detail, prev/next deal' },
+  { path: '/portfolio', title: 'Portfolio Executive Summary', nav: 'main', built: true, owner: 'portfolio', load: () => import('@/portfolio/PortfolioPage') },
+  { path: '/portfolio/:programId', title: 'Program Executive Summary', built: true, owner: 'portfolio', load: () => import('@/portfolio/ProgramPage') },
+  { path: '/portfolio/:programId/dashboard', title: 'Program Dashboard', built: true, owner: 'portfolio', purpose: 'Portfolio Metrics + Covenant Status & Review, watch threshold, print', load: () => import('@/portfolio/ProgramDashboardPage') },
+  { path: '/portfolio/:programId/deals/:dealId', title: 'Deal page', built: true, owner: 'portfolio', purpose: 'Deal Metrics + covenant detail, prev/next deal', load: () => import('@/portfolio/DealRoute') },
   { path: '/reports', title: 'Reports', nav: 'main', owner: 'portfolio' },
   { path: '/reports/:reportId', title: 'Report viewer', owner: 'portfolio' },
   { path: '/data-room', title: 'Data room', nav: 'main', owner: 'portfolio' },

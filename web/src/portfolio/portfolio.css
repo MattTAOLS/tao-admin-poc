@@ -1,0 +1,70 @@
+/* Portfolio pages (UI-Partner). Layout only, tokens only; components keep their Design System look. */
+.pf-stack { display: flex; flex-direction: column; gap: var(--gap); }
+.pf-toolbar { display: flex; align-items: flex-end; gap: var(--gap); flex-wrap: wrap; }
+.pf-toolbar:empty { display: none; }
+.pf-toolbar .ds-field { min-width: 220px; margin: 0; }
+.pf-spacer { flex: 1; }
+.pf-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pf-section { font-size: var(--fs-h2); margin: 4px 0 0; }
+.pf-num { font-family: var(--data); font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); white-space: nowrap; }
+.pf-kpiword { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pf-muted { color: var(--muted); }
+.pf-small { font-size: var(--fs-small); }
+.pf-strong { font-weight: 700; color: var(--indigo); }
+.pf-nowrap { white-space: nowrap; }
+.pf-clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-trend { white-space: nowrap; color: var(--text); }
+.pf-list { margin: 0; padding-left: 18px; }
+.pf-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text); cursor: pointer; }
+.pf-check input { accent-color: var(--purple); }
+
+.pf-dealgrid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.pf-grid2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.pf-cardfoot { margin-top: 12px; display: flex; justify-content: flex-end; }
+
+.pf-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-family: var(--data); font-size: var(--fs-table); }
+.pf-dl dt { color: var(--muted); }
+.pf-dl dd { margin: 0; text-align: right; }
+.pf-dl--num dd { font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); }
+.pf-dl--wide { grid-template-columns: max-content 1fr; }
+.pf-dl--wide dd { text-align: left; }
+
+.pf-covdetail { display: flex; flex-direction: column; gap: 10px; }
+.pf-covdesc { margin: 0; color: var(--indigo); font-weight: 600; }
+
+.pf-strip { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--border-card);
+  border-radius: var(--r-panel); background: var(--lav); font-size: var(--fs-small); }
+.pf-strip__label { font-weight: 700; color: var(--indigo); text-transform: uppercase; letter-spacing: .05em; }
+.pf-strip__link { color: var(--purple); font-weight: 600; text-decoration: none; }
+.pf-strip__link:hover { text-decoration: underline; }
+.pf-strip__newer { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+
+.pf-chart__svg { width: 100%; max-width: 720px; height: auto; display: block; }
+.pf-chart__grid { stroke: var(--border-table); stroke-width: 1; }
+.pf-chart__axis { fill: var(--muted); font-family: var(--data); font-size: 10px; }
+.pf-chart__line { fill: none; stroke: var(--purple); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.pf-chart__dot { fill: var(--card); stroke: var(--purple); stroke-width: 1.5; }
+
+/* Print / Save as PDF (Program Dashboard): fits A4 (210 mm) and Letter (8.5 in) portrait. The page margin leaves
+   186 mm of width on A4, the narrower of the two; tables wrap their headers and shrink type to stay inside it. */
+@media print {
+  @page { margin: 12mm; }
+  .pf-noprint { display: none !important; }
+  .pf-dash { gap: 10px; }
+  .pf-dash .ds-kpi-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pf-dash .ds-kpi { padding: 8px 10px; box-shadow: none; break-inside: avoid; }
+  .pf-dash .ds-kpi__value { font-size: 18px; }
+  .pf-dash .ds-card { box-shadow: none; break-inside: auto; }
+  .pf-dash .ds-table-wrap { overflow: visible; max-height: none !important; }
+  .pf-dash .ds-table { font-size: 8.5px; table-layout: auto; width: 100%; }
+  .pf-dash .ds-table th, .pf-dash .ds-table td { padding: 3px 5px; }
+  .pf-dash .ds-table th { white-space: normal; position: static; font-size: 7.5px; }
+  .pf-dash .ds-table tr { break-inside: avoid; }
+  .pf-dash .ds-table thead { display: table-header-group; }
+  .pf-dash .ds-table__expcell, .pf-dash .ds-table__exp { display: none; }
+  .pf-dash .ds-table__detailinner { animation: none; padding: 6px 8px; }
+  .pf-dash .pf-clip { max-width: 60mm; white-space: normal; }
+  .pf-dash .pf-dl { font-size: 8.5px; gap: 2px 10px; }
+  .pf-dash .ds-btn { border: 0; padding: 0; background: none; box-shadow: none; font-size: inherit; color: var(--indigo); }
+  .pf-pagebreak { break-before: page; }
+}
