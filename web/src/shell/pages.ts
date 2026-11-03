@@ -27,7 +27,7 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', owner: 'shell' },
   { path: '/admin/settings/users', title: 'User management', nav: 'account', roles: ['tao_admin'], owner: 'admin' },
-  { path: '/admin/settings/users/audit', title: 'Audit log', roles: ['tao_admin'], built: true, owner: 'admin' },
+  { path: '/admin/settings/users/audit', title: 'Audit log', roles: ['tao_admin'], built: true, owner: 'admin', load: () => import('@/admin/AuditLogPage') },
   { path: '/admin/settings/users/roles', title: 'Roles & permissions', roles: ['tao_admin'], owner: 'admin' },
   { path: '/admin/settings/profile', title: 'Profile', nav: 'account', owner: 'shell' },
   { path: '/admin/settings/system', title: 'System settings', nav: 'account', roles: ['tao_admin'], owner: 'shell' },
