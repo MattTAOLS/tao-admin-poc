@@ -134,11 +134,49 @@ Append an entry when a work package lands. Newest first.
   carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
   `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
   (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
-- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
-  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
-  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
-  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
-  deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Partner, wave 1: `web/src/portfolio/`. Portfolio Executive Summary (a card per program the caller
+  may see: balance with change, utilization, covenant counts, deals flagged; flagged-deals table; Go to deal picker
+  grouped by program), Program Executive Summary (tiles, escalations, a card per deal with OK / WATCH / BREACH and a
+  link, prev / next program, period picker), Program Dashboard (Portfolio Metrics tiles and a deal table; Covenant
+  Status & Review, one row per deal × covenant with status, value, threshold, utilization, trend; expand row →
+  covenant detail with last period; Expand all / Collapse all; Flagged only; watch threshold pop-up, display only;
+  Print / Save as PDF expands every row, prints, restores; print stylesheet), Deal page (Deal Metrics tiles,
+  roll-forward, facility and contracts, balance history, aging by period, losses and CNL by vintage, borrower and
+  portfolio ratios, covenant table with legal ref and description, ratio history as an inline SVG, one series,
+  latest 13 months; prev / next deal; period picker) and, in the TAO Admin shell only, an upload strip (status of the
+  period's upload, link to its review page, any newer upload). Data only from `/published/*` (plus `GET /uploads?deal_slug=`
+  for the admin strip, admin shell only); 404 shows "You don't have access". Every number on screen carries its path
+  in the published object (`data-field`). Tests: `cd web && npx vitest run src/portfolio` (55: the 12 deals and 2
+  programs rendered and every displayed number read back against the reference files within $1 / 0.01 pp; states,
+  access, navigation, dashboard controls, print, admin strip; tokens only). Over HTTP:
+  `PF_LIVE_API=http://localhost:18300 npx vitest run src/portfolio/__tests__/live.test.tsx` (16, against a stack
+  seeded with `--reference-publications`: all 12 deals and both programs equal the reference). Checked in a browser
+  on :5176 against that stack. Print: width checked by applying the print rules at A4's 186 mm content width
+  (no element overflows with all 98 MOVE Trust covenant rows expanded, about 14 pages); a real print to A4 / Letter
+  was not run. Stubbed: admin program / dashboard / deal pages ride on query parameters until the nested admin routes
+  exist; Reports, Report viewer and Data room are not built. Needs: see `docs/requests.md` › UI-Partner.
+- 2026-11-03 — UI-Review, wave 1 (deliverables 1–3) on `agent/ui-review`. Registered in `web/src/shell/pages.ts` (load
+  fields only). Approval queue (`/admin/uploads/queue`): needs_review (+ approved) uploads oldest first, deal and program
+  names from master data, finding counts as severity pills, row or link opens the review. Review report
+  (`/admin/uploads/queue/:uploadId`): header facts (deal, collection period with settlement date, reporting period,
+  uploader, extraction pass and re-read pages, confidence, open/resolved counts); findings grouped block → review → note as
+  FindingCards with the rule title from `contracts/rules.yaml`, the page image fetched with the role headers, centred on the
+  report-value cell and outlining every cell the rule read (bboxes from `sources`), click for a page viewer with
+  Fit/100/150/200 % and previous/next page; per-card Use ours / Use report / Accept as restatement / Acknowledge for
+  `tao_admin`, each requiring a reason, then the findings refresh from the override response. Extracted values panel:
+  balances, month-by-month roll-forward, contracts, aging, CNL by vintage, covenants, financial ratios and ratio history,
+  each value or row with a page link (opens the viewer on that cell with its raw text) or "from published Jul 2026" for
+  carried months. Activity table from `/audit` (admin only). Sticky footer: Re-extract pages… (pages with open findings
+  preselected, then 2 s polling until the pass settles), Reject… (reason), Publish to partner… (disabled with the reason
+  while a block is open; shows the API's 409 if it refuses). Analysts see everything read-only; partner roles get "no
+  access" and no intake request. Reports library (`/admin/reports`): published uploads by program, deal and period with
+  filters, Partner view and Review record links, Regenerate dashboard pop-up (all programs or one).
+  Verified against the private stack (tao-ui-review, :18200 via Vite on :5175): the walkthrough ran in a browser and again
+  over HTTP — R05 block on page 2 (−$100.00) with its crop, override use_ours with a reason, finding overridden and
+  publish enabled, approve → published, `/audit` has the override with ours 15,020,071.52 and report 15,019,971.52; analyst
+  403 on override/approve, approve 409 while blocked. Run: `cd web && npx vitest run src/review` (45 tests; fixtures are
+  recorded real API responses). Needs: see docs/requests.md › UI-Review (percent_points formatting, narrow FindingCard,
+  admin deal route for Partner view, override-vs-published question, MSYS path note).
 - 2026-11-03 — UI-Admin, wave 1 (all five work packages): eight pages in `web/src/admin/`, registered in
   `web/src/shell/pages.ts` (`load` only). Upload report: deal (grouped by program) and collection period first, then
   the PDF; after upload it shows the collection period as entered and the reporting period read from the report,
@@ -161,3 +199,8 @@ Append an entry when a work package lands. Newest first.
   R04 note shown, 4 block findings, polling stopped); PUT program / deal / covenant on the real API with the
   dialogs' bodies, then the master_change entries in the Audit log. Lighthouse accessibility 96 on Upload report and
   Upload history (only failure: Design System colour contrast). Needs: see `docs/requests.md` › UI-Admin.
+- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
+  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
+  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
+  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
+  deals do not (see rules tests); two aging conventions exist.

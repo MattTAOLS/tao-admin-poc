@@ -1,0 +1,41 @@
+[
+ {
+  "id": "0dbac560-99d8-4a27-b9e4-ed5776d6f88f",
+  "extraction_id": "cc660e15-2592-48ab-88bd-43777271031f",
+  "rule_id": "R05",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Opening 15792784.34 − principal 646826.71 − prepayments 113057.43 − defaults 12828.68 = 15020071.52, report says closing 15019971.52 (difference -100.0)",
+  "fields": [
+   "/tranche_balance/opening",
+   "/tranche_balance/closing",
+   "/period_history",
+   "/tranche_balance/top_movers"
+  ],
+  "our_value": 15020071.52,
+  "report_value": 15019971.52,
+  "difference": -100.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 2,
+  "context": {
+   "opening": 15792784.34,
+   "new_funded": 0.0,
+   "principal": 646826.71,
+   "prepayments": 113057.43,
+   "losses": 12828.68,
+   "charge_off": 0.0,
+   "ineligible_buyback": 0.0,
+   "computed": 15020071.52,
+   "closing": 15019971.52
+  },
+  "status": "overridden",
+  "resolution": {
+   "by": "tao_admin",
+   "at": "2026-11-03T20:55:49.257954+00:00",
+   "choice": "use_ours",
+   "reason": "Page 2 closing misprinted by 100.00; opening minus movements closes to our figure"
+  },
+  "created_at": "2026-11-03T20:54:44.783305+00:00"
+ }
+]

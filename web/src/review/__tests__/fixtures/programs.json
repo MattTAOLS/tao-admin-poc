@@ -1,0 +1,18 @@
+[
+ {
+  "slug": "f-pil-2-0",
+  "name": "F-PIL 2.0",
+  "partner_slug": "investor",
+  "currency": "CAD",
+  "limit": 150000000.0,
+  "warehouse_limit": 5000000.0
+ },
+ {
+  "slug": "move-trust",
+  "name": "MOVE Trust",
+  "partner_slug": "investor",
+  "currency": "CAD",
+  "limit": 1916709163.0,
+  "warehouse_limit": null
+ }
+]
