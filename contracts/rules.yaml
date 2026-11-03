@@ -49,7 +49,9 @@ rules:
     phase: 1
     severity: block
     title: Values in plausible ranges
-    description: Ratios between 0 and 1 (stored as fractions), no negative balances or contract counts, utilization 0..1.5.
+    description: >
+      Percentage ratios between −1 and 1 (stored as fractions; loss and CNL ratios go negative when recoveries
+      exceed losses), multiples between −100 and 100, no negative balances or contract counts, utilization 0..1.5.
     fields: [/financial_ratios, /tranche_balance, /contracts, /program/program_utilization_pct]
     fn: plausible_ranges
     on_failure: retry_pass_2_then_review
@@ -77,11 +79,13 @@ rules:
     title: Tranche balance roll-forward
     description: >
       Page 2 prints k = b − c − d − e − i per advance. On the Portfolio Balances row:
-      opening − scheduled principal − prepayments − defaults − NPV adjustment = closing. The deal object
-      carries the period totals in period_history (current period row): principal, principal_prepayments,
-      losses (defaults). Check the total, then each top_movers row where both opening and closing are present.
+      opening + new funded − scheduled principal − prepayments − defaults − NPV adjustment − ineligible buyback
+      = closing. The deal object carries the period totals in period_history (current period row): principal,
+      principal_prepayments, losses (defaults), and, where the layout prints them, charge_off (the NPV
+      adjustment, column i), new_funded and ineligible_buyback, all as positive amounts; an absent or null term
+      counts as 0. Check the total, then each top_movers row where both opening and closing are present.
     fields: [/tranche_balance/opening, /tranche_balance/closing, /period_history, /tranche_balance/top_movers]
-    expr: "near(period.opening_balance - period.principal - period.principal_prepayments - period.losses, period.closing_balance, tol.currency)"
+    expr: "near(period.opening_balance + (period.new_funded or 0) - period.principal - period.principal_prepayments - period.losses - (period.charge_off or 0) - (period.ineligible_buyback or 0), period.closing_balance, tol.currency)"
     fn: tranche_rollforward
     tolerance: { unit: currency }
     on_failure: retry_pass_2_then_review
@@ -140,6 +144,7 @@ rules:
     title: Facility utilization recomputes
     fields: [/program/program_limit, /program/program_amount, /program/unused_facility, /program/program_utilization_pct]
     expr: "near(program.program_limit - program.program_amount, program.unused_facility, tol.currency) and near(program.program_amount / program.program_limit, program.program_utilization_pct, tol.percent_points)"
+    fn: utilization_recomputes
     tolerance: { unit: currency }
     on_failure: review
     source_page_hint: 4
@@ -262,8 +267,9 @@ rules:
     title: Covenant status matches our derivation
     description: >
       status = BREACH if value breaches threshold per kind (ceiling: value > threshold; floor: value < threshold);
-      WATCH if within watch_buffer_pct of the threshold (|threshold − value| ≤ watch_buffer_pct × threshold);
-      else OK. Must equal covenants[].status, and the report's YES/NO on page 14 must agree with BREACH/not.
+      WATCH if utilization ≥ 1 − watch_buffer_pct, where utilization = value ÷ threshold (ceiling) or
+      threshold ÷ value (floor); else OK. Must equal covenants[].status, and the report's own YES/NO
+      (covenants[].reported_triggered, when present) must agree with BREACH/not.
     fields: [/covenants, /watch_buffer_pct, /worst_status, /covenant_summary]
     fn: covenant_status_matches
     on_failure: review
