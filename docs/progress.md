@@ -2,6 +2,30 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Design System: wave 3 fixes on `agent/design` (merged main e20ce7d and lead/wave3 72c66e8).
+  (1) `percent_points` findings are fractions: formatByUnit / formatDiffByUnit multiply by 100, so Stride R14 reads
+  ours 4.00%, report 3.50%, difference −0.50 pp, tolerance ±0.00%; context fractions follow, context amounts in a
+  percent_points finding (R10 enhancement_amount, base) stay plain numbers. (2) FindingCard is a size container: under
+  680 px the values go to two columns and the page crop moves below them; the values never overlap. (3) Contrast, WCAG
+  AA (4.5:1), hues kept and darkened (ratios are the worst case over the listed surfaces):
+
+  | Token | Surfaces | Old | Old ratio | New | New ratio |
+  | --- | --- | --- | --- | --- | --- |
+  | `--muted` | cream, card, canvas-deep, lav | #8b8597 | 3.09:1 lav, 3.43:1 cream, 3.56:1 card | #6e687a | 4.64:1 lav, 5.15:1 cream, 5.35:1 card |
+  | `--ok` (pill word) | ok-bg, cream, card | #1f9d6b | 3.07:1 (ok-bg) | #187b54 | 4.67:1 (ok-bg) |
+  | `--warn` (pill word) | warn-bg, cream, card | #bd7a18 | 3.12:1 (warn-bg) | #976113 | 4.60:1 (warn-bg) |
+  | `--bad` (pill word) | bad-bg, cream, card | #d24b46 | 3.57:1 (bad-bg) | #be332e | 4.66:1 (bad-bg) |
+  | `.navlabel` → new `--text-on-indigo-muted` | indigo, indigo-2 | color-mix = #8c86b3 | 4.04:1 (indigo) | #a49fc3 | 5.45:1 indigo, 4.67:1 indigo-2 |
+  | `--blue`, `--dpv` (unchanged) | own -bg, cream, card | #2f5fd0, #6a37d8 | 5.00:1, 5.57:1 | same | same |
+
+  New token `--line-on-indigo` (sidebar hairline, decorative). A test recomputes every pair from tokens.css.
+  (4) KpiTile values never ellipsize: font size follows the tile width (clamp 16 px to --fs-kpi, container units),
+  then wraps. (5) pages.ts: admin routes `/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId` (owner
+  portfolio, no nav); `tao_analyst` on Partners, Partner details, Program record. (6) `apiBlob(path)`, `roleHeaders()`
+  and `API_BASE` in shell/api.ts; `Button as="link" to` (router) and `as="a" href`, disabled renders an aria-disabled span.
+  Tests: web 303 passed, 16 skipped, 2 failed — both are UI tests that pin the pre-registration fallback (see
+  docs/requests.md, To UI-Partner / To UI-Review). api 112 passed, 1 failed (`/master/partners` parity, pre-existing).
+  Not checked in a browser by me; layout fixes rely on container queries (supported in current Chrome, Edge, Firefox, Safari).
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
