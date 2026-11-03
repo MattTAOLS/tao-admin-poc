@@ -28,5 +28,8 @@
     "actual_recoveries": 2252563.34,
     "estimated_recoveries": 591744.43
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/cnl_by_period/0/cumulative_net_losses"
+  ]
 }

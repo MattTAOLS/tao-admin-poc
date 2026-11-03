@@ -23,5 +23,8 @@
     "base": 7112902.11,
     "base_name": "tranche amount"
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/total_enhancement/total_enhancement_pct"
+  ]
 }

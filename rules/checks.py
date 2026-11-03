@@ -61,6 +61,24 @@ def parse_date(s) -> dt.date | None:
 def _current_row(d):
     return next((p for p in d.get("period_history", []) if p.get("collection_period") == d.get("collection_period")), None)
 
+def _current_index(d):
+    """Index of the current period's row in period_history (3 in a chained 4-month object, 0 in a single upload)."""
+    return next((i for i, p in enumerate(d.get("period_history", [])) if p.get("collection_period") == d.get("collection_period")), None)
+
+# ---------- targets: where "use ours" / "use report" writes ----------
+# A finding carries `targets` only when our_value and report_value are two candidate values of the same field and the
+# reviewer's choice should replace it. Targets are the field plus every other copy of the same number in the deal
+# (the same figure printed in several blocks); approve writes the chosen value to each. See docs/progress.md.
+COPY_TOL = {"currency": 0.005, "count": 0.0, "ratio": EPS, "percent_points": EPS}   # "same number": to the cent, else exact
+
+def _targets(d, primary, candidates, value, unit="currency"):
+    """`primary` pointers always; each candidate only where the deal holds the same number as `value` there."""
+    out, t = list(primary), COPY_TOL[unit]
+    for ptr in candidates:
+        v = _get(d, ptr)
+        if ptr not in out and _num(v) and _num(value) and abs(v - value) <= t + EPS: out.append(ptr)
+    return out
+
 # ---------- R01 ----------
 NUMERIC = {"/tranche_balance/opening", "/tranche_balance/closing", "/contracts/opening", "/contracts/closing", "/program/program_limit", "/program/program_amount"}
 
@@ -161,12 +179,14 @@ def tranche_rollforward(rule, ex, ctx, tol):
             kw["message"] = ("Opening {opening}" + (" + new funded {new_funded}" if nf else "") + " − principal {principal} − prepayments {prepayments} − defaults {losses}"
                              + (" − NPV adjustment {charge_off}" if co else "") + (" − ineligible buyback {ineligible_buyback}" if ib else "")
                              + " = {computed}, report says closing {closing} (difference {difference})")
-        out.append(finding(rule, _uid(ex), our_value=round(computed, 2), report_value=period["closing_balance"], difference=round(period["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency", context=c, **kw))
+        i = _current_index(d)
+        tg = _targets(d, [f"/period_history/{i}/closing_balance"], ["/tranche_balance/closing", f"/period_history/{i}/closing_amount", "/tranche_amount/closing", "/program/program_amount"], period["closing_balance"])
+        out.append(finding(rule, _uid(ex), our_value=round(computed, 2), report_value=period["closing_balance"], difference=round(period["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency", context=c, targets=tg, **kw))
     tb = d.get("tranche_balance") or {}
     for side in ("opening", "closing"):
         if _num(tb.get(side)) and not near(tb[side], period[f"{side}_balance"], tol["currency"]):
             out.append(finding(rule, _uid(ex), our_value=period[f"{side}_balance"], report_value=tb[side], difference=_r(tb[side] - period[f"{side}_balance"]), tolerance=tol["currency"], unit="currency",
-                               fields=[f"/tranche_balance/{side}", "/period_history"], context={"side": side},
+                               fields=[f"/tranche_balance/{side}", "/period_history"], context={"side": side}, targets=[f"/tranche_balance/{side}"],
                                message="Page 2 {side} balance {report_value} differs from the {side} balance on this period's roll-forward row {our_value} (difference {difference})"))
     return out
 
@@ -178,14 +198,17 @@ def contracts_rollforward(rule, ex, ctx, tol):
     d = ex["deal"]; c = d.get("contracts") or {}; out = []
     o, cl, ch = c.get("opening"), c.get("closing"), c.get("change_abs")
     if _num(o) and _num(cl) and _num(ch) and not near(o + ch, cl, tol["count"]):
+        i = _current_index(d)
+        tg = _targets(d, ["/contracts/closing"], [f"/period_history/{i}/closing_contracts"] if i is not None else [], cl, "count")
         out.append(finding(rule, _uid(ex), our_value=o + ch, report_value=cl, difference=cl - (o + ch), tolerance=tol["count"], unit="count",
-                           context={"opening": o, "change": -ch, "computed": o + ch, "closing": cl}))
-    for m in c.get("top_movers") or []:
+                           context={"opening": o, "change": -ch, "computed": o + ch, "closing": cl}, targets=tg))
+    for j, m in enumerate(c.get("top_movers") or []):
         mo, mc, mcl = m.get("opening_contracts"), m.get("change_contracts"), m.get("closing_contracts")
         if not (_num(mo) and _num(mc) and _num(mcl)): continue
         if not (near(mo - mc, mcl, tol["count"]) or near(mo + mc, mcl, tol["count"])):
             out.append(finding(rule, _uid(ex), our_value=mo - abs(mc), report_value=mcl, difference=mcl - (mo - abs(mc)), tolerance=tol["count"], unit="count",
                                fields=["/contracts/top_movers"], context={"tranche": m.get("tranche"), "opening": mo, "change": abs(mc), "computed": mo - abs(mc), "closing": mcl},
+                               targets=[f"/contracts/top_movers/{j}/closing_contracts"],
                                message="Tranche {tranche}: opening contracts {opening} − change {change} = {computed}, report says {closing}"))
     movers = [m for m in c.get("top_movers") or [] if _num(m.get("change_contracts"))]
     if movers and _num(o) and _num(cl):
@@ -210,7 +233,8 @@ def aging_buckets_sum(rule, ex, ctx, tol):
     label = f"current + 31-60 + 61-90 + {a['written_off_bucket_label']}" if with_wo else "current + 31-60 + 61-90"
     return [finding(rule, _uid(ex), our_value=round(computed, 2), report_value=a["closing_balance"], difference=round(a["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency",
                     context={"computed": round(computed, 2), "closing_balance": a["closing_balance"], "tranche_closing": d["tranche_balance"]["closing"], "bucket_label": label,
-                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a["written_off"]})]
+                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a["written_off"]},
+                    targets=["/aging_history/0/closing_balance"])]
 
 # ---------- R08 / R17 shared: CNL per vintage ----------
 _CNL_PAIRS = [("cumulative_net_losses", "original_finance_contract_npv"), ("cumulative_net_losses", "original_finance_contract_nbv"),
@@ -245,18 +269,19 @@ def losses_tie_out(rule, ex, ctx, tol):
             ctx_row.update(recoveries=_r(ar + er), computed=_r(computed), actual_recoveries=ar, estimated_recoveries=er)
             if not near(computed, cnl, tol["currency"]):
                 out.append(finding(rule, _uid(ex), our_value=_r(computed), report_value=cnl, difference=_r(cnl - computed), tolerance=tol["currency"], unit="currency",
-                                   fields=[f"/cnl_by_period/{i}"], context=dict(ctx_row)))
+                                   fields=[f"/cnl_by_period/{i}"], context=dict(ctx_row), targets=[f"/cnl_by_period/{i}/cumulative_net_losses"]))
                 continue
         if ratio is not None and _num(reported_ratio) and not near(ratio, reported_ratio, tol["percent_points"]):
             out.append(finding(rule, _uid(ex), our_value=_r(ratio, 6), report_value=reported_ratio, difference=_r(reported_ratio - ratio, 6), tolerance=tol["percent_points"], unit="percent_points",
                                fields=[f"/cnl_by_period/{i}"], context=dict(ctx_row),
+                               targets=[f"/cnl_by_period/{i}/" + ("cnl_ratio_reported_pct" if _num(r.get("cnl_ratio_reported_pct")) else "cnl_ratio_pct")],
                                message="{vintage}: CNL {cnl} ÷ original balance {base} = {ratio_ours}, report says {ratio_report}"))
     aging = (d.get("aging_history") or [None])[0] or {}
     if rows and all(_num(r.get("gross_losses")) and _num(r.get("cumulative_net_losses")) for r in rows) and _num(aging.get("cumulative_net_losses")):
         total = sum(r["cumulative_net_losses"] for r in rows)
         if not near(total, aging["cumulative_net_losses"], tol["currency"]):
             out.append(finding(rule, _uid(ex), our_value=_r(total), report_value=aging["cumulative_net_losses"], difference=_r(aging["cumulative_net_losses"] - total), tolerance=tol["currency"], unit="currency",
-                               fields=["/cnl_by_period", "/aging_history/0/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows)},
+                               fields=["/cnl_by_period", "/aging_history/0/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows)}, targets=["/aging_history/0/cumulative_net_losses"],
                                message="Vintage CNL total {vintage_total} does not equal the page-11 cumulative net losses {aging_cnl} (difference {difference})"))
     return out
 
@@ -269,10 +294,10 @@ def utilization_recomputes(rule, ex, ctx, tol):
     out = []
     if _num(unused) and not near(lim - amt, unused, tol["currency"]):
         out.append(finding(rule, _uid(ex), our_value=_r(lim - amt), report_value=unused, difference=_r(unused - (lim - amt)), tolerance=tol["currency"], unit="currency",
-                           fields=["/program/program_limit", "/program/program_amount", "/program/unused_facility"], context=c))
+                           fields=["/program/program_limit", "/program/program_amount", "/program/unused_facility"], context=c, targets=["/program/unused_facility"]))
     if _num(util) and not near(amt / lim, util, tol["percent_points"]):
         out.append(finding(rule, _uid(ex), our_value=_r(amt / lim, 6), report_value=util, difference=_r(util - amt / lim, 6), tolerance=tol["percent_points"], unit="percent_points",
-                           fields=["/program/program_limit", "/program/program_amount", "/program/program_utilization_pct"], context=c))
+                           fields=["/program/program_limit", "/program/program_amount", "/program/program_utilization_pct"], context=c, targets=["/program/program_utilization_pct"]))
     return out
 
 # ---------- R10 ----------
@@ -298,14 +323,17 @@ def enhancement_and_coverage(rule, ex, ctx, tol):
     if cands and _num(pct) and not any(near(v, pct, tol["percent_points"]) for _, _, v in cands):
         n, b, v = min(cands, key=lambda c: abs(c[2] - pct))
         out.append(finding(rule, _uid(ex), our_value=_r(v, 6), report_value=pct, difference=_r(pct - v, 6), tolerance=tol["percent_points"], unit="percent_points",
-                           fields=["/total_enhancement", "/tranche_balance/closing"], context={"metric": "Enhancement %", "enhancement_amount": amt, "base": b, "base_name": n}))
+                           fields=["/total_enhancement", "/tranche_balance/closing"], context={"metric": "Enhancement %", "enhancement_amount": amt, "base": b, "base_name": n},
+                           targets=["/total_enhancement/total_enhancement_pct"]))
     for key, label, unit in (("interest_coverage_ratio", "Interest coverage ratio", "ratio"), ("debt_equity_ratio", "Leverage ratio", "ratio"), ("total_equity", "Total equity", "currency")):
         fr = _fr(d, key); hist, month = _latest_history(d, key)
         if not fr or not _num(fr.get("value")) or hist is None: continue
         t = tol["currency"] if unit == "currency" else tol["ratio"]
         if not near(hist, fr["value"], t):
+            k = d["financial_ratios"].index(fr)
+            tg = _targets(d, [f"/financial_ratios/{k}/value"], _covenant_copies(d, key), fr["value"], unit)
             out.append(finding(rule, _uid(ex), our_value=hist, report_value=fr["value"], difference=_r(fr["value"] - hist, 4), tolerance=t, unit=unit,
-                               fields=["/financial_ratios", "/ratio_history"], context={"metric": label, "history_month": month}))
+                               fields=["/financial_ratios", "/ratio_history"], context={"metric": label, "history_month": month}, targets=tg))
     return out
 
 # ---------- R11 ----------
@@ -476,6 +504,12 @@ METRICS = [  # (regex on the covenant description, metric key, ratio_history fie
 ]
 _RTD = {"delinquency_ratio": "portfolio_delinquency_ratio", "deemed_default_ratio": "portfolio_deemed_default_ratio", "charge_off_ratio": "portfolio_charge_off_ratio"}
 
+def _covenant_copies(d, key):
+    """current_value pointers of every ceiling / floor covenant measuring metric `key` (same-number copies are picked
+    by _targets). "(Definitions)" trigger tests are excluded: they measure on another basis (see covenants_recompute)."""
+    return [f"/covenants/{i}/current_value" for i, c in enumerate(d.get("covenants") or [])
+            if c.get("kind") in ("ceiling", "floor") and "definitions" not in (c.get("legal_ref") or "").lower() and (covenant_metric(c) or (None,))[0] == key]
+
 def covenant_metric(c):
     desc = (c.get("description") or "").lower()
     for rx, key, hist, fr, unit in METRICS:
@@ -522,8 +556,10 @@ def covenants_recompute(rule, ex, ctx, tol):
         if ours is None: continue
         t = tol[unit]
         if not near(ours, c["current_value"], t):
+            frs = [f"/financial_ratios/{k}/value" for k, r in enumerate(d.get("financial_ratios") or []) if r.get("key") == frk]
+            tg = _targets(d, [f"/covenants/{i}/current_value"], _covenant_copies(d, key) + frs, c["current_value"], unit)
             out.append(finding(rule, _uid(ex), our_value=_r(ours, 6), report_value=c["current_value"], difference=_r(c["current_value"] - ours, 6), tolerance=t, unit=unit,
-                               fields=[f"/covenants/{i}/current_value"], context={"legal_ref": c.get("legal_ref"), "metric": key, "basis": basis, "description": c.get("description")}))
+                               fields=[f"/covenants/{i}/current_value"], context={"legal_ref": c.get("legal_ref"), "metric": key, "basis": basis, "description": c.get("description")}, targets=tg))
     return out
 
 # ---------- R18 ----------

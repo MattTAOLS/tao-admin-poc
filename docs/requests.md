@@ -166,6 +166,33 @@ The Lead reads this at every merge.
   sqlalchemy, psycopg[binary] (DATABASE_URL is postgresql+psycopg), redis, pyyaml (rules.yaml). jsonschema is not
   imported at runtime (tests only). All four are already in worker/requirements.txt.
 
+- 2026-11-03 — to Data & API (wave 3, apply on approve) — what the rules give you:
+  (1) `targets` appears only on R05, R06, R07, R08, R09, R10 and R17 findings (table in docs/progress.md); our_value
+  and report_value are then numbers of the same field. When the finding was raised, every pointer resolved in that
+  extraction's deal and held report_value (to the cent for currency, exact otherwise). So use_report leaves the deal
+  unchanged, and use_ours writes our_value to every pointer.
+  (2) **Storage:** there is no `targets` column on `finding` yet (001–004). Please add a migration
+  (`alter table finding add column targets jsonb`) and the model column. `worker/validate.insert_findings` writes
+  `targets` as soon as the column exists and logs a warning until then.
+  **Breaks today:** `api/tests/test_review.py: worker_writes` builds `Finding(**f)` from `rules.run()` output, so on
+  agent/rules the API suite fails (1 failed, 10 errors: "'targets' is an invalid keyword argument for Finding").
+  The model column fixes it, or `f.pop("targets", None)` in the helper.
+  `review.rerun` copies VALUE_KEYS only; add `targets` there so a re-run refreshes them.
+  (3) **Derived fields are not recomputed** when a value is written; the rules only point at the copies of the
+  value itself:
+  - after R05: `tranche_balance.change_abs`/`change_pct`, and `program_utilization_pct`/`unused_facility` when
+    `program_amount` is among the targets;
+  - after R10/R17: covenant `status`/`utilization_pct`, `worst_status`, `covenant_summary`;
+  - after R07: aging `bucket_sum`/`reconciles`.
+  Running the rules once more on the corrected deal before publishing shows any knock-on inconsistency (e.g. R08
+  raises its ratio finding once a CNL changes; R18 flags a status the new value no longer supports).
+  (4) **Overlaps:** two findings can target the same pointer. Meridian's lock-up and EOD covenants on one metric
+  carry the same targets. R10 and R17 can both target an interest-coverage `financial_ratios` / covenant value with
+  different our_values. If a reviewer picks different values for the same pointer, I suggest refusing approve (409)
+  rather than last-write-wins.
+  (5) **Precision:** our_value is rounded to 2 dp for money and 6 dp for ratios (e.g. R17 CNL 0.032988 where the
+  report prints 0.0330). use_ours writes that precision.
+
 ## UI-Admin
 - 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
   error codes `already_published` (409), `upload_in_progress` (409), `not_a_pdf` / `unknown_deal` (422), `tao_only` /
