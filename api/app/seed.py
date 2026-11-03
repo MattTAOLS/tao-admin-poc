@@ -18,15 +18,18 @@ MONTHS = {m: i for i, m in enumerate(["january", "february", "march", "april", "
                                       "september", "october", "november", "december"], 1)}
 
 
-def _first_dir(*cands):
+def _first_dir(*cands, has: str):
+    """First candidate that holds the expected content (`has` is a glob). An empty folder is skipped: compose leaves
+    empty mount points such as api/seed behind in the checkout. Falls back to the last candidate."""
     for c in cands:
-        if c.is_dir():
+        if c.is_dir() and any(c.glob(has)):
             return c
     return cands[-1]
 
 
-SEED = _first_dir(HERE.parents[1] / "seed", HERE.parents[2] / "seed")                 # /app/seed in compose
-REFERENCE = _first_dir(HERE.parents[1] / "docs" / "dashboard-json", HERE.parents[2] / "docs" / "dashboard-json")
+SEED = _first_dir(HERE.parents[1] / "seed", HERE.parents[2] / "seed", has="partners.json")                 # /app/seed in compose
+REFERENCE = _first_dir(HERE.parents[1] / "docs" / "dashboard-json", HERE.parents[2] / "docs" / "dashboard-json",
+                       has="*.dashboard.json")
 
 
 def covenant_id(row: dict) -> str:

@@ -2,6 +2,10 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: seed paths require content. `app/seed.py` picks the first seed folder that holds
+  partners.json and the first reference folder with a *.dashboard.json, so an empty compose mount point (api/seed) no
+  longer shadows the real one. Decoy tests in tests/test_seed.py; 113 API tests pass.
+
 - 2026-11-03 — Data & API: wave 1b schema parity. Merged lead/wave1-seams. `api/app/models.py` now matches migration 001
   for raw-SQL writers (worker/validate): the five timestamp columns have `server_default=now()` as well as the Python
   default, and ids are stored on SQLite as the dashed 36-character text PostgreSQL prints (was 32-char hex, so raw

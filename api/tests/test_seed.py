@@ -32,3 +32,21 @@ def test_reference_publications_are_idempotent():
 
 def test_period_of():
     assert seed.period_of("August 2026") == "2026-08" and seed.period_of("July 2026") == "2026-07"
+
+
+def test_seed_dir_skips_empty_decoy(tmp_path):
+    decoy, real = tmp_path / "api" / "seed", tmp_path / "seed"
+    decoy.mkdir(parents=True); real.mkdir()
+    (real / "partners.json").write_text("[]")
+    assert seed._first_dir(decoy, real, has="partners.json") == real
+    (decoy / "partners.json").write_text("[]")
+    assert seed._first_dir(decoy, real, has="partners.json") == decoy        # populated first candidate still wins
+    assert seed._first_dir(tmp_path / "nope", tmp_path / "also-nope", has="partners.json") == tmp_path / "also-nope"
+
+
+def test_reference_dir_skips_empty_decoy(tmp_path):
+    decoy, real = tmp_path / "api" / "docs" / "dashboard-json", tmp_path / "docs" / "dashboard-json"
+    decoy.mkdir(parents=True); real.mkdir(parents=True)
+    (real / "x.dashboard.json").write_text("{}")
+    assert seed._first_dir(decoy, real, has="*.dashboard.json") == real
+    assert seed.SEED.joinpath("partners.json").exists() and any(seed.REFERENCE.glob("*.dashboard.json"))
