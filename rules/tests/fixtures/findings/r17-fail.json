@@ -1,0 +1,26 @@
+{
+  "id": "871db966-fe13-52b0-b39a-8aa3963215f0",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R17",
+  "layer": "covenant",
+  "severity": "review",
+  "message": "SLFA 9.1 (e) delinquency_ratio: computed 0.0179 vs report 0.0197",
+  "fields": [
+    "/covenants/2/current_value"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 0.0179,
+  "report_value": 0.0197,
+  "difference": 0.0018,
+  "tolerance": 0.0001,
+  "unit": "percent_points",
+  "source_page": 14,
+  "context": {
+    "legal_ref": "SLFA 9.1 (e)",
+    "metric": "delinquency_ratio",
+    "basis": "ratio history Jul-26",
+    "description": "Has the Delinquency Ratio exceeded 3.50%?"
+  },
+  "resolution": null
+}

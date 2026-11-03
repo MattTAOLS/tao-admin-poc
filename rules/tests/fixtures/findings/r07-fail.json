@@ -1,0 +1,31 @@
+{
+  "id": "aac220cd-dfe7-5597-b350-87641869d1cb",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R07",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Aging buckets (current + 31-60 + 61-90) sum to 15020971.52; page 11 closing balance is 15019971.52; page 2 closing is 15019971.52",
+  "fields": [
+    "/aging_history/0",
+    "/tranche_balance/closing"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 15020971.52,
+  "report_value": 15019971.52,
+  "difference": -1000.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 11,
+  "context": {
+    "computed": 15020971.52,
+    "closing_balance": 15019971.52,
+    "tranche_closing": 15019971.52,
+    "bucket_label": "current + 31-60 + 61-90",
+    "current_0_30": 14781278.24,
+    "days_31_60": 103234.99,
+    "days_61_90": 136458.29,
+    "written_off": 12828.67
+  },
+  "resolution": null
+}

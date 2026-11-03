@@ -1,0 +1,26 @@
+{
+  "id": "37433049-0174-5a65-a339-c21dc2f1082e",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R13",
+  "layer": "cross_period",
+  "severity": "block",
+  "message": "Report is for F-PIL 2.0 - Moneda Capital Corp. / f-pil-2-0-moneda-capital-corp but was uploaded against f-pil-2-0-stride-capital",
+  "fields": [
+    "/deal_name",
+    "/deal_slug",
+    "meta:/upload_id"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "f-pil-2-0-stride-capital",
+  "report_value": "f-pil-2-0-moneda-capital-corp",
+  "difference": null,
+  "tolerance": null,
+  "unit": "text",
+  "source_page": null,
+  "context": {
+    "report_deal": "F-PIL 2.0 - Moneda Capital Corp. / f-pil-2-0-moneda-capital-corp",
+    "selected_deal": "f-pil-2-0-stride-capital"
+  },
+  "resolution": null
+}

@@ -1,0 +1,30 @@
+{
+  "id": "c196d983-427c-52cb-8e2b-d0b963728c5b",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R09",
+  "layer": "arithmetic",
+  "severity": "review",
+  "message": "Limit 50000000.0 − drawn 15019971.52 = 34980028.48, report says unused 34908028.48; utilization computed 0.300399 vs 0.3003994304",
+  "fields": [
+    "/program/program_limit",
+    "/program/program_amount",
+    "/program/unused_facility"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 34980028.48,
+  "report_value": 34908028.48,
+  "difference": -72000.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 4,
+  "context": {
+    "limit": 50000000.0,
+    "drawn": 15019971.52,
+    "computed_unused": 34980028.48,
+    "unused": 34908028.48,
+    "computed_util": 0.300399,
+    "util": 0.3003994304
+  },
+  "resolution": null
+}

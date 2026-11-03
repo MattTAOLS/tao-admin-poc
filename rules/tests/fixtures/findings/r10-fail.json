@@ -1,0 +1,27 @@
+{
+  "id": "fcd138ea-c632-5d2c-86d7-3cc8d2601eb4",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R10",
+  "layer": "arithmetic",
+  "severity": "review",
+  "message": "Enhancement %: computed 0.134574 vs report 0.1728",
+  "fields": [
+    "/total_enhancement",
+    "/tranche_balance/closing"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 0.134574,
+  "report_value": 0.1728,
+  "difference": 0.038226,
+  "tolerance": 0.0001,
+  "unit": "percent_points",
+  "source_page": 13,
+  "context": {
+    "metric": "Enhancement %",
+    "enhancement_amount": 957208.59,
+    "base": 7112902.11,
+    "base_name": "tranche amount"
+  },
+  "resolution": null
+}

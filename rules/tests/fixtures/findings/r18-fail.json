@@ -1,0 +1,28 @@
+{
+  "id": "793fdaa7-2fb7-5e13-bbe6-724eccb6d835",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R18",
+  "layer": "covenant",
+  "severity": "review",
+  "message": "SLFA 9.1 (f): value 0.033 vs threshold 0.035 (ceiling) → WATCH; report says OK",
+  "fields": [
+    "/covenants/3"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "WATCH",
+  "report_value": "OK",
+  "difference": null,
+  "tolerance": null,
+  "unit": "text",
+  "source_page": 14,
+  "context": {
+    "legal_ref": "SLFA 9.1 (f)",
+    "value": 0.033,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "watch_buffer_pct": 0.1,
+    "description": "Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%?"
+  },
+  "resolution": null
+}

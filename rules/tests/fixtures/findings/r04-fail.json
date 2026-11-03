@@ -1,0 +1,24 @@
+{
+  "id": "5795aa7b-bed3-590b-b246-fbfd7069bea4",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R04",
+  "layer": "structural",
+  "severity": "block",
+  "message": "Settlement date 2026-10-07 is not in the collection month 2026-08 or the month after",
+  "fields": [
+    "/settlement_date",
+    "/collection_period"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "2026-08",
+  "report_value": "2026-10",
+  "difference": null,
+  "tolerance": null,
+  "unit": "months",
+  "source_page": null,
+  "context": {
+    "detail": "Settlement date 2026-10-07 is not in the collection month 2026-08 or the month after"
+  },
+  "resolution": null
+}

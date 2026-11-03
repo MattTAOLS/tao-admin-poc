@@ -1,0 +1,24 @@
+{
+  "id": "fd3faf43-ba47-5956-a612-45de649756e7",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R02",
+  "layer": "structural",
+  "severity": "block",
+  "message": "Report currency USD does not match facility currency CAD",
+  "fields": [
+    "/terminology",
+    "master:/program/currency"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": "CAD",
+  "report_value": "USD",
+  "difference": null,
+  "tolerance": null,
+  "unit": "text",
+  "source_page": null,
+  "context": {
+    "program": "move-trust"
+  },
+  "resolution": null
+}

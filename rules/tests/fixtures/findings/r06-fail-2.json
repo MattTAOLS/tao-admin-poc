@@ -1,0 +1,28 @@
+{
+  "id": "1aa01739-240e-5a97-8905-e9c6d5f052bc",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R06",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Top movers show 10.0 contracts paid out or written off, more than the deal's net decrease 9.0 (opening 665.0, closing 656.0)",
+  "fields": [
+    "/contracts/top_movers",
+    "/contracts/opening",
+    "/contracts/closing"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 9.0,
+  "report_value": 10.0,
+  "difference": 1.0,
+  "tolerance": 0,
+  "unit": "count",
+  "source_page": 2,
+  "context": {
+    "opening": 665.0,
+    "closing": 656.0,
+    "net_decrease": 9.0,
+    "movers_decrease": 10.0
+  },
+  "resolution": null
+}

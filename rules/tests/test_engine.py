@@ -14,10 +14,11 @@ def test_rules_load(): assert len(load_rules()["rules"]) == 22
 # The MOVE Trust SetRep template evidently has roll-forward columns (adjustments / additional advances) that
 # dashboard.json does not carry; the pipeline already flags Finloc with an unexplained opening gap. The Extraction
 # agent must add those columns to the MOVE Trust mapping; until then these are expected R05 failures, not bugs.
+# Meridian OneCap was on this list at day 0 (-598,714.81); it closes to the cent once R05 subtracts its charge_off
+# (the page-2 NPV adjustment column), in all four months of its period_history.
 KNOWN_ROLLFORWARD_GAPS = {
     "move-trust-finloc-2000-inc.dashboard.json": -4163.85,
     "move-trust-tlfc-lp-leases.dashboard.json": 2782.68,
-    "move-trust-meridian-onecap-lp.dashboard.json": -598714.81,
 }
 
 def test_reference_deals_pass_implemented_rules():

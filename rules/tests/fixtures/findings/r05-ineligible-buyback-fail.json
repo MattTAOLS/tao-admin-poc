@@ -1,0 +1,34 @@
+{
+  "id": "3b9370ad-c49d-5b5a-873c-91b1bcf990b4",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R05",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Opening 15792784.34 − principal 646926.71 − prepayments 113057.43 − defaults 12828.68 − ineligible buyback 1000.0 = 15018971.52, report says closing 15019971.52 (difference 1000.0)",
+  "fields": [
+    "/tranche_balance/opening",
+    "/tranche_balance/closing",
+    "/period_history",
+    "/tranche_balance/top_movers"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 15018971.52,
+  "report_value": 15019971.52,
+  "difference": 1000.0,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 2,
+  "context": {
+    "opening": 15792784.34,
+    "new_funded": 0.0,
+    "principal": 646926.71,
+    "prepayments": 113057.43,
+    "losses": 12828.68,
+    "charge_off": 0.0,
+    "ineligible_buyback": 1000.0,
+    "computed": 15018971.52,
+    "closing": 15019971.52
+  },
+  "resolution": null
+}
