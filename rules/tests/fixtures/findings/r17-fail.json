@@ -22,5 +22,8 @@
     "basis": "ratio history Jul-26",
     "description": "Has the Delinquency Ratio exceeded 3.50%?"
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/covenants/2/current_value"
+  ]
 }

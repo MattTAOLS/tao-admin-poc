@@ -183,3 +183,60 @@ def test_chained_history_adds_no_findings():
         chained, single = kept(full), kept(mf.single_month(full))
         assert chained <= single, (full["deal_slug"], chained - single)
         assert not [m for r, m in chained if r == "R11" and "Restatement" in m], full["deal_slug"]
+
+# ---------- override targets ----------
+TARGET_RULES = {"R05", "R06", "R07", "R08", "R09", "R10", "R17"}
+
+def assert_targets_resolve(deal, findings, where):
+    for f in findings:
+        if "targets" not in f: continue
+        assert f["rule_id"] in TARGET_RULES, (where, f["rule_id"])
+        assert f["targets"] and len(set(f["targets"])) == len(f["targets"]), (where, f["targets"])
+        for ptr in f["targets"]:
+            v = checks._get(deal, ptr)
+            assert v is not None, (where, f["rule_id"], ptr, "does not resolve")
+            t = 0.005 if f["unit"] == "currency" else 1e-9
+            assert abs(v - f["report_value"]) <= t, (where, f["rule_id"], ptr, v, f["report_value"])
+            assert type(f["our_value"]) in (int, float), (where, f["rule_id"])
+
+def test_every_fixture_target_resolves_to_report_value():
+    n = 0
+    for name in mf.NAMES:
+        for case in ("pass", "fail"):
+            fx = load(FIX / f"{name}-{case}.json"); fs = mf.evaluate(fx)
+            assert_targets_resolve(fx["deal"], fs, f"{name}-{case}"); n += sum("targets" in f for f in fs)
+    assert n == 9   # R05 x3 (base, new-funded, buyback), R06, R07, R08, R09, R10, R17
+
+def test_targets_resolve_in_single_and_chained_objects():
+    """Seed the same errors in each reference deal as uploaded (one month) and as chained (four months): the current
+    row's index differs (0 vs 3) and every target must still point at the value the report states."""
+    for f in sorted(glob.glob(str(ROOT / "docs/dashboard-json/[fm]*.dashboard.json"))):
+        full = load(f)
+        for label, deal in (("chained", copy.deepcopy(full)), ("single", mf.single_month(full))):
+            i = checks._current_index(deal)
+            assert i == (len(full["period_history"]) - 1 if label == "chained" else 0)
+            deal["period_history"][i]["principal"] += 1000.0
+            deal["contracts"]["closing"] += 1
+            deal["program"]["unused_facility"] = (deal["program"]["unused_facility"] or 0) + 500.0
+            fs = run({"meta": mf.META, "deal": deal, "sources": {}}, Context(), phases=(1, 2))
+            assert_targets_resolve(deal, fs, (full["deal_slug"], label))
+            r05 = next(x for x in fs if x["rule_id"] == "R05" and x["targets"][0].endswith("closing_balance"))
+            assert r05["targets"][0] == f"/period_history/{i}/closing_balance" and "/tranche_balance/closing" in r05["targets"]
+            assert any(x["rule_id"] == "R06" and x.get("targets") == ["/contracts/closing"] for x in fs)
+
+def test_applying_our_value_clears_the_finding():
+    """What approve does with use_ours: write our_value to every target. Re-running the rule must no longer raise a
+    finding on those targets (it may raise a different one, e.g. R08's ratio once the CNL changes)."""
+    for name in mf.NAMES:
+        fx = load(FIX / f"{name}-fail.json")
+        for f in mf.evaluate(fx):
+            if "targets" not in f: continue
+            fixed = copy.deepcopy(fx)
+            for ptr in f["targets"]: mf.set_ptr(fixed["deal"], ptr, f["our_value"])
+            again = [g for g in mf.evaluate(fixed) if g.get("targets") == f["targets"]]
+            assert not again, (name, f["message"], [g["message"] for g in again])
+
+def test_no_targets_on_master_period_status_or_text_findings():
+    for p in sorted(glob.glob(str(FIX / "findings/*.json"))):
+        f = load(p)
+        if f["rule_id"] not in TARGET_RULES: assert "targets" not in f, p

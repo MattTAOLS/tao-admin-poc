@@ -24,5 +24,8 @@
     "computed": 655.0,
     "closing": 656.0
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/contracts/closing"
+  ]
 }

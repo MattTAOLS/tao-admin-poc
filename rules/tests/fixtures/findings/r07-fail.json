@@ -27,5 +27,8 @@
     "days_61_90": 136458.29,
     "written_off": 12828.67
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/aging_history/0/closing_balance"
+  ]
 }

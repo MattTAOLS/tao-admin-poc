@@ -18,7 +18,7 @@ covenants in force at the period end}; published_periods = set of published peri
 """
 from __future__ import annotations
 import calendar, contextlib, copy, datetime as dt, decimal, json, logging, os, uuid
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from rules import run, load_rules
 from rules.engine import Context
 from rules.checks import period_key
@@ -172,13 +172,24 @@ def counts(findings: list[dict]) -> dict:
 
 # ---------- writes ----------
 FINDING_COLUMNS = ("id", "extraction_id", "rule_id", "layer", "severity", "message", "fields", "our_value", "report_value", "difference", "tolerance", "unit", "source_page", "context", "status", "resolution", "created_at")
-_JSON_COLUMNS = {"fields", "our_value", "report_value", "context", "resolution"}
+_JSON_COLUMNS = {"fields", "our_value", "report_value", "context", "resolution", "targets"}
+
+def _finding_columns(conn) -> tuple:
+    """FINDING_COLUMNS plus `targets` when the finding table has that column (finding.schema.json wave 3; the
+    column arrives with a migration, so the worker keeps working on a database that does not have it yet)."""
+    try: names = {c["name"] for c in inspect(conn).get_columns("finding")}
+    except Exception: names = set()
+    return FINDING_COLUMNS + (("targets",) if "targets" in names else ())
 
 def insert_findings(conn, findings: list[dict]) -> int:
-    """Insert findings (JSON columns serialised; PostgreSQL casts the text to jsonb; None stays SQL NULL)."""
+    """Insert findings (JSON columns serialised; PostgreSQL casts the text to jsonb; None stays SQL NULL).
+    `targets` is written when the table has the column; a finding without targets stores NULL there."""
     if not findings: return 0
-    cols = ", ".join(FINDING_COLUMNS); params = ", ".join(f":{c}" for c in FINDING_COLUMNS)
-    rows = [{c: (_dump(f.get(c)) if c in _JSON_COLUMNS else f.get(c)) for c in FINDING_COLUMNS} for f in findings]
+    columns = _finding_columns(conn)
+    if "targets" not in columns and any(f.get("targets") for f in findings):
+        log.warning("finding table has no targets column; override targets not stored (needs the finding.targets migration)")
+    cols = ", ".join(columns); params = ", ".join(f":{c}" for c in columns)
+    rows = [{c: (_dump(f.get(c)) if c in _JSON_COLUMNS else f.get(c)) for c in columns} for f in findings]
     conn.execute(text(f"insert into finding ({cols}) values ({params})"), rows)
     return len(rows)
 

@@ -2,6 +2,14 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: wave 3b. Merged agent/rules (7d05e5b, findings carry `targets`). Override re-runs refresh
+  `targets`. Approve plans every resolved use_ours / use_report write first: different values for one pointer → 409
+  `conflicting_corrections`; equal values are written once. After writing, if anything changed, the rules re-run on the
+  corrected deal and any block finding no resolved finding covers → 409 `correction_inconsistent`; derived fields are not
+  hand-computed. Seeded demo: use_ours writes 15,020,071.52 to all five R05 targets, the R05 identity holds on the
+  published deal (opening − components = 15,020,071.52) and approve succeeds; use_report changes nothing. Also normalised
+  my files back to LF (earlier edits had written CRLF). 125 API tests pass on SQLite and PostgreSQL.
+
 - 2026-11-03 — Data & API: wave 3. Merged main (e20ce7d) and lead/wave3. Multi-partner programs: `ProgramPartner` model over
   004; Program and Upload return `partner_slugs` (partner_slug = the first); `visible_programs` reads program_partner, so the
   manager now sees MOVE Trust and F-PIL and a partner not listed gets 404. `PUT /master/programs` takes `partner_slugs` (or
@@ -11,6 +19,38 @@ Append an entry when a work package lands. Newest first.
   changed pointer, listed in the approve audit detail. Migration 005 adds `finding.targets`. Seed loads `partner_slugs` and
   `unit` idempotently. 122 tests pass on SQLite and on PostgreSQL 16 built from db/migrations 001-005. Waiting on Rules:
   adapter must write `targets`, and the r02 fixture needs regenerating after the seed patch (see requests.md).
+- 2026-11-03 — Rules, wave 3 (override targets): findings carry `targets` (finding.schema.json) where use ours /
+  use report should change the published value. Each target is the field plus every other copy of the same number
+  in the deal (to the cent for money, exact for counts and ratios); the current period row is found by
+  collection_period, so pointers are right in single-month and chained objects. Tests: every target in every
+  fixture, and in all 12 reference deals as single-month and chained objects with seeded errors, resolves to
+  report_value; writing our_value to the targets makes the finding go away. `insert_findings` writes `targets` when
+  the finding table has the column (it does not yet: see requests.md). Run: `cd rules && python -m pytest -q` (80),
+  `cd worker/validate && python -m pytest -q` (17).
+
+  | Rule | Finding | targets | Why |
+  | --- | --- | --- | --- |
+  | R01 | field missing | none | nothing to choose between |
+  | R02 | currency vs facility | none | text, master data |
+  | R03 | value out of range | none | no our_value to write |
+  | R04 | periods | none | months, other period |
+  | R05 | roll-forward | current `period_history[i].closing_balance` + copies: `tranche_balance.closing`, `period_history[i].closing_amount`, `tranche_amount.closing`, `program.program_amount` | our_value = computed closing (Lead decision) |
+  | R05 | page-2 vs roll-forward row | `tranche_balance.opening` or `.closing` | our_value = the row's figure for the same field |
+  | R06 | contracts roll-forward | `contracts.closing` + `period_history[i].closing_contracts` when equal | our_value = opening + change |
+  | R06 | top-mover row | `contracts.top_movers[j].closing_contracts` | same, per tranche |
+  | R06 | movers exceed net decrease | none | aggregate, no single field |
+  | R07 | aging buckets | `aging_history[0].closing_balance` | our_value = bucket sum |
+  | R08 | vintage gross − recoveries | `cnl_by_period[i].cumulative_net_losses` | our_value = computed CNL |
+  | R08 | vintage ratio | `cnl_by_period[i].cnl_ratio_reported_pct` if stored, else `.cnl_ratio_pct` | the field report_value came from |
+  | R08 | vintage total vs page 11 | `aging_history[0].cumulative_net_losses` | our_value = vintage sum |
+  | R09 | unused / utilization | `program.unused_facility` / `program.program_utilization_pct` | recomputed from limit and drawn |
+  | R10 | enhancement % | `total_enhancement.total_enhancement_pct` | recomputed |
+  | R10 | coverage / leverage / equity | `financial_ratios[k].value` + same-number covenant `current_value`s | our_value = the ratio-history row |
+  | R11 | opening vs prior, restatements | none | other period; restatement is accept / reject |
+  | R12, R13 | published period, wrong deal | none | not a value |
+  | R14, R15 | thresholds, limits | none | master data |
+  | R17 | covenant recompute | `covenants[i].current_value` + same-number copies (other covenants on the metric, `financial_ratios`) | our_value = recomputed |
+  | R18, R19 | status, YES/NO, summary, status change | none | statuses / text |
 
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE

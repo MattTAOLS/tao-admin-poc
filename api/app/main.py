@@ -224,7 +224,19 @@ def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depe
         raise err(409, "open_block_findings", f"{len(blocks)} block finding(s) still open: {', '.join(sorted({b.rule_id for b in blocks}))}")
     resolved = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.resolution.is_not(None)).order_by(Finding.created_at)).all()
     overrides = [f.id for f in resolved]
-    published_deal, corrections = review.apply_overrides(ex.deal, resolved, u.collection_period)
+    try:
+        published_deal, corrections = review.apply_overrides(ex.deal, resolved, u.collection_period)
+    except review.CorrectionConflict as e:
+        raise HTTPException(409, {"code": "conflicting_corrections", "message": "resolved findings write different values to the "
+                                  "same field: " + "; ".join(f"{x['pointer']} ({'/'.join(x['rule_ids'])})" for x in e.conflicts),
+                                  "conflicts": e.conflicts})
+    if any(x.get("applied") is not False for x in corrections):
+        stored = s.scalars(select(Finding).where(Finding.extraction_id == ex.id)).all()
+        knock_on = review.new_blocks_after_corrections(s, u, ex, published_deal, stored)
+        if knock_on:
+            raise HTTPException(409, {"code": "correction_inconsistent", "message": "the corrected deal raises "
+                                      f"{len(knock_on)} new block finding(s): {', '.join(sorted({k['rule_id'] for k in knock_on}))}; "
+                                      "use report or re-extract instead", "findings": knock_on})
     u.status = "approved"
     views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides,
                                                           "corrections": corrections})

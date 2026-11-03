@@ -26,5 +26,8 @@
     "computed_util": 0.300399,
     "util": 0.3003994304
   },
-  "resolution": null
+  "resolution": null,
+  "targets": [
+    "/program/unused_facility"
+  ]
 }

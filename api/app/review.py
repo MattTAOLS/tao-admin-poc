@@ -67,8 +67,6 @@ def rerun(s: Session, u: SetrepUpload, ex: Extraction) -> list[Finding]:
         elif match.status == "closed":
             match.status, match.resolution = "open", None
         for k in VALUE_KEYS:
-            if k == "targets" and not nf.get("targets"):
-                continue                              # keep stored targets when the re-run names none
             setattr(match, k, nf.get(k))
         seen.add(match.id)
     for f in stored:
@@ -109,31 +107,62 @@ def _walk(doc, pointer: str):
     return None
 
 
+class CorrectionConflict(Exception):
+    """Two resolved findings write different values to the same pointer."""
+    def __init__(self, conflicts: list[dict]):
+        super().__init__(f"{len(conflicts)} pointer(s) get different values")
+        self.conflicts = conflicts
+
+
 def apply_overrides(deal: dict, findings: list[Finding], period: str) -> tuple[dict, list[dict]]:
     """Copy of `deal` with each use_ours / use_report choice written to every pointer in the finding's targets, plus one
-    deal.data_corrections entry per pointer whose value changed. Nothing else is re-derived. Returns (deal, corrections).
-    A pointer that does not resolve is left alone and reported in corrections with applied = False."""
+    deal.data_corrections entry per pointer whose value changed. Nothing else is re-derived here (approve re-runs the
+    rules on the result). Values are written exactly as the finding holds them (our_value is already rounded).
+    Two findings choosing the same value for a pointer write it once (the first finding is credited); different values
+    raise CorrectionConflict. A pointer that does not resolve is left alone and reported with applied = False."""
     out = copy.deepcopy(deal)
-    corrections, today = [], dt.date.today().isoformat()
+    plan: dict[str, tuple[object, Finding, str]] = {}
+    conflicts, corrections, today = [], [], dt.date.today().isoformat()
     for f in findings:
         res = f.resolution or {}
         if f.status != "overridden" or res.get("choice") not in VALUE_CHOICES or not f.targets:
             continue
         value = f.our_value if res["choice"] == "use_ours" else f.report_value
         for ptr in f.targets:
-            loc = _walk(out, ptr)
-            if loc is None:
-                corrections.append({"pointer": ptr, "finding_id": f.id, "rule_id": f.rule_id, "applied": False, "why": "pointer not found"})
+            if ptr in plan:
+                if plan[ptr][0] != value:
+                    conflicts.append({"pointer": ptr, "values": [plan[ptr][0], value], "finding_ids": [plan[ptr][1].id, f.id],
+                                      "rule_ids": [plan[ptr][1].rule_id, f.rule_id]})
                 continue
-            box, key = loc
-            old = box[key]
-            if old == value:
-                continue
-            box[key] = value
-            toks = [_unescape(t) for t in ptr.split("/")[1:]]
-            corrections.append({"period": period, "record": toks[0], "field": "/".join(toks[1:]), "old_value": old, "new_value": value,
-                                "applied": today, "reason": res.get("reason"), "rule_id": f.rule_id, "choice": res["choice"], "finding_id": f.id})
+            plan[ptr] = (value, f, res["choice"])
+    if conflicts:
+        raise CorrectionConflict(conflicts)
+    for ptr, (value, f, choice) in plan.items():
+        loc = _walk(out, ptr)
+        if loc is None:
+            corrections.append({"pointer": ptr, "finding_id": f.id, "rule_id": f.rule_id, "applied": False, "why": "pointer not found"})
+            continue
+        box, key = loc
+        old = box[key]
+        if old == value:
+            continue
+        box[key] = value
+        toks = [_unescape(t) for t in ptr.split("/")[1:]]
+        corrections.append({"period": period, "record": toks[0], "field": "/".join(toks[1:]), "old_value": old, "new_value": value,
+                            "applied": today, "reason": (f.resolution or {}).get("reason"), "rule_id": f.rule_id, "choice": choice,
+                            "finding_id": f.id})
     applied = [c for c in corrections if c.get("applied") is not False]
     if applied:
         out["data_corrections"] = list(out.get("data_corrections") or []) + applied
     return out, corrections
+
+
+def new_blocks_after_corrections(s: Session, u: SetrepUpload, ex: Extraction, corrected: dict, stored: list[Finding]) -> list[dict]:
+    """Re-run the rules (phases 1, 2) on the corrected deal. A block finding is new unless a stored finding with the same
+    rule_id and fields was already resolved by the reviewer (e.g. R05 after use_report re-fires by design)."""
+    rules, _ = _rules()
+    resolved = {(f.rule_id, tuple(f.fields or [])) for f in stored if f.status != "open"}
+    produced = rules.run({"meta": ex.meta, "deal": corrected, "sources": ex.sources}, build_context(s, u), phases=PHASES)
+    return [{"rule_id": f["rule_id"], "message": f["message"], "fields": f.get("fields") or [], "our_value": f.get("our_value"),
+             "report_value": f.get("report_value")}
+            for f in produced if f["severity"] == "block" and (f["rule_id"], tuple(f.get("fields") or [])) not in resolved]
