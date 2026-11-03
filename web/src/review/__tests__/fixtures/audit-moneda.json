@@ -1,0 +1,17 @@
+[
+ {
+  "id": "4440a6f3-a164-4f47-bac5-5d0441920048",
+  "at": "2026-11-03T20:10:36.707247+00:00",
+  "actor_role": "tao_admin",
+  "actor_label": "tao_admin",
+  "action": "upload",
+  "upload_id": "8b60170e-ebab-40d4-9e5a-003e65f45f7a",
+  "finding_id": null,
+  "reason": null,
+  "detail": {
+   "file_name": "Moneda-202608 -SETTREP.pdf",
+   "page_count": 16,
+   "collection_period": "2026-08"
+  }
+ }
+]

@@ -1,0 +1,6180 @@
+{
+ "id": "9e0169f5-f669-4120-932b-17365f3d436b",
+ "upload_id": "8b60170e-ebab-40d4-9e5a-003e65f45f7a",
+ "pass": 2,
+ "meta": {
+  "pass": 2,
+  "notes": [],
+  "engine": {
+   "ocr": null,
+   "model": "claude-opus-5-5",
+   "text_layer": "pdfplumber 0.11.4"
+  },
+  "history": {
+   "carried": [
+    "/period_history/0",
+    "/period_history/1",
+    "/period_history/2",
+    "/aging_history/1",
+    "/aging_history/2",
+    "/aging_history/3",
+    "/prior_covenants",
+    "/prior_closing_tranche_balance",
+    "/prior_closing_contracts"
+   ],
+   "periods": [
+    "2026-05",
+    "2026-06",
+    "2026-07",
+    "2026-08"
+   ],
+   "extended_from": "published 2026-07"
+  },
+  "unplaced": [],
+  "upload_id": "8b60170e-ebab-40d4-9e5a-003e65f45f7a",
+  "confidence": 1.0,
+  "page_count": 16,
+  "model_calls": [],
+  "template_id": "fpil-2.0-settrep-v1",
+  "extracted_at": "2026-11-03T20:10:44Z",
+  "pages_reread": [
+   2
+  ],
+  "reporting_period": "2026-07",
+  "pages_without_text": []
+ },
+ "deal": {
+  "program": {
+   "program_limit": 50000000.0,
+   "program_amount": 15019971.52,
+   "unused_facility": 34980028.48,
+   "maximum_program_limit": 50000000.0,
+   "program_utilization_pct": 0.3003994304
+  },
+  "contracts": {
+   "closing": 212.0,
+   "opening": 217.0,
+   "change_abs": -5.0,
+   "change_pct": -0.02304147465437788,
+   "top_movers": [
+    {
+     "tranche": 2,
+     "change_contracts": 1.0,
+     "closing_contracts": 4.0,
+     "opening_contracts": 5.0
+    },
+    {
+     "tranche": 5,
+     "change_contracts": 1.0,
+     "closing_contracts": 18.0,
+     "opening_contracts": 19.0
+    },
+    {
+     "tranche": 7,
+     "change_contracts": 1.0,
+     "closing_contracts": 11.0,
+     "opening_contracts": 12.0
+    },
+    {
+     "tranche": 17,
+     "change_contracts": 1.0,
+     "closing_contracts": 9.0,
+     "opening_contracts": 10.0
+    },
+    {
+     "tranche": 20,
+     "change_contracts": 1.0,
+     "closing_contracts": 16.0,
+     "opening_contracts": 17.0
+    }
+   ]
+  },
+  "covenants": [
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (c)",
+    "threshold": 0.04,
+    "description": "Has the Rolling Three Month Loss Ratio at any time exceeded:",
+    "current_value": -0.002,
+    "utilization_pct": -0.05,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (d)",
+    "threshold": 0.0225,
+    "description": "Has the Rolling Twelve Month Loss Ratio at any time exceeded:",
+    "current_value": 0.0045000000000000005,
+    "utilization_pct": 0.2,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (e)",
+    "threshold": 0.035,
+    "description": "Has the Delinquency Ratio exceeded 3.50%?",
+    "current_value": 0.0179,
+    "utilization_pct": 0.5114,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "n/a",
+    "status": "WATCH",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (f)",
+    "threshold": 0.035,
+    "description": "Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%?",
+    "current_value": 0.033,
+    "worst_vintage": "Dec-22 ‒ Nov-23",
+    "utilization_pct": 0.9429,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "binary",
+    "note": "Reported directly by the servicer/originator; no underlying data series available.",
+    "trend": "n/a",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (g)",
+    "threshold": null,
+    "description": "Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses?",
+    "current_value": null,
+    "utilization_pct": null,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "floor",
+    "note": null,
+    "trend": "rising",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (h)",
+    "threshold": 1.1,
+    "description": "Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1?",
+    "current_value": 1.27,
+    "utilization_pct": 0.8661,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "flat",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (i)",
+    "threshold": 10.0,
+    "description": "Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1?",
+    "current_value": 7.57,
+    "utilization_pct": 0.757,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "floor",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (j)",
+    "threshold": 2500000.0,
+    "description": "Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000",
+    "current_value": 6755120.0,
+    "utilization_pct": 0.3701,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "binary",
+    "note": "Reported directly by the servicer/originator; no underlying data series available.",
+    "trend": "n/a",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 3.5",
+    "threshold": 0.1,
+    "description": "From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit?",
+    "current_value": null,
+    "utilization_pct": null,
+    "reported_triggered": "NO"
+   }
+  ],
+  "deal_name": "F-PIL 2.0 - Moneda Capital Corp.",
+  "deal_slug": "f-pil-2-0-moneda-capital-corp",
+  "warehouse": {
+   "closing_advances_outstanding": 0.0,
+   "opening_advances_outstanding": 0.0,
+   "maximum_warehouse_facility_limit": 5000000.0
+  },
+  "source_file": "source.pdf",
+  "terminology": {
+   "unit_label": "Advance",
+   "amount_label": "Principal Balance",
+   "balance_label": "Finance Contract Balance"
+  },
+  "prior_period": "2026-07",
+  "restatements": [],
+  "source_pages": {
+   "enhancement": 9,
+   "aging_summary": 11,
+   "funding_costs": 5,
+   "top10_obligor": null,
+   "tranche_amounts": 4,
+   "tranche_balance": 2,
+   "financial_ratios": 12,
+   "cumulative_losses": 11,
+   "quantitative_tests": 14,
+   "aggregate_performance": 12,
+   "outstanding_contracts": 2
+  },
+  "worst_status": "WATCH",
+  "aging_history": [
+   {
+    "period": "2026-08",
+    "bucket_sum": 15019971.52,
+    "days_31_60": 102234.99,
+    "days_61_90": 136458.29,
+    "reconciles": true,
+    "written_off": 12828.67,
+    "current_0_30": 14781278.24,
+    "closing_balance": 15019971.52,
+    "collection_period": "August 2026",
+    "cumulative_net_losses": 808176.63,
+    "bucket_sum_with_writeoff": 15032800.19,
+    "written_off_bucket_label": "91+ Days / Other Defaults"
+   },
+   {
+    "period": "2026-07",
+    "bucket_sum": 15792784.34,
+    "days_31_60": 94032.19,
+    "days_61_90": 175415.7,
+    "reconciles": true,
+    "written_off": 0.0,
+    "current_0_30": 15523336.45,
+    "closing_balance": 15792784.34,
+    "collection_period": "July 2026",
+    "cumulative_net_losses": 820047.41,
+    "bucket_sum_with_writeoff": 15792784.34,
+    "written_off_bucket_label": "91+ Days / Other Defaults"
+   },
+   {
+    "period": "2026-06",
+    "bucket_sum": 16512861.770000001,
+    "days_31_60": 198695.91,
+    "days_61_90": 184781.9,
+    "reconciles": true,
+    "written_off": 0.0,
+    "current_0_30": 16129383.96,
+    "closing_balance": 16512861.77,
+    "collection_period": "June 2026",
+    "cumulative_net_losses": 817529.34,
+    "bucket_sum_with_writeoff": 16512861.770000001,
+    "written_off_bucket_label": "91+ Days / Other Defaults"
+   },
+   {
+    "period": "2026-05",
+    "bucket_sum": 17189151.97,
+    "days_31_60": 103630.65,
+    "days_61_90": 194092.96,
+    "reconciles": true,
+    "written_off": 0.0,
+    "current_0_30": 16891428.36,
+    "closing_balance": 17189151.97,
+    "collection_period": "May 2026",
+    "cumulative_net_losses": 816229.34,
+    "bucket_sum_with_writeoff": 17189151.97,
+    "written_off_bucket_label": "91+ Days / Other Defaults"
+   }
+  ],
+  "cnl_by_period": [
+   {
+    "period": "Dec-22 ‒ Nov-23",
+    "cnl_limit": 0.035,
+    "gross_losses": 3643882.18,
+    "advance_range": "1-10",
+    "cnl_ratio_pct": 0.033,
+    "cnl_within_limit": true,
+    "actual_recoveries": 2252653.34,
+    "estimated_recoveries": 591744.43,
+    "cumulative_net_losses": 799484.41,
+    "cnl_limit_is_exception": false,
+    "original_finance_contract_npv": 24235432.02
+   },
+   {
+    "period": "Dec-23 ‒ Nov-24",
+    "cnl_limit": 0.035,
+    "gross_losses": 299565.69,
+    "advance_range": "11-20",
+    "cnl_ratio_pct": 0.0004,
+    "cnl_within_limit": true,
+    "actual_recoveries": 261873.47,
+    "estimated_recoveries": 29000.0,
+    "cumulative_net_losses": 8692.23,
+    "cnl_limit_is_exception": false,
+    "original_finance_contract_npv": 20765342.63
+   },
+   {
+    "period": "Dec-24 ‒ Dec-25",
+    "cnl_limit": 0.035,
+    "gross_losses": 0.0,
+    "advance_range": "21 - 21",
+    "cnl_ratio_pct": 0.0,
+    "cnl_within_limit": true,
+    "actual_recoveries": 0.0,
+    "estimated_recoveries": 0.0,
+    "cumulative_net_losses": 0.0,
+    "cnl_limit_is_exception": false,
+    "original_finance_contract_npv": 2093778.37
+   }
+  ],
+  "ratio_history": [
+   {
+    "month": "Jul-25",
+    "total_equity": 7319533.0,
+    "debt_equity_ratio": 8.67,
+    "delinquency_ratio_pct": 0.022000000000000002,
+    "interest_coverage_ratio": 1.11,
+    "monthly_delinquency_ratio_pct": 0.0202,
+    "rolling_3month_loss_ratio_pct": 0.0021,
+    "rolling_12month_loss_ratio_pct": 0.0109
+   },
+   {
+    "month": "Aug-25",
+    "total_equity": 7329454.0,
+    "debt_equity_ratio": 8.48,
+    "delinquency_ratio_pct": 0.018000000000000002,
+    "interest_coverage_ratio": 1.16,
+    "monthly_delinquency_ratio_pct": 0.0126,
+    "rolling_3month_loss_ratio_pct": 0.0028000000000000004,
+    "rolling_12month_loss_ratio_pct": 0.0106
+   },
+   {
+    "month": "Sep-25",
+    "total_equity": 7200002.0,
+    "debt_equity_ratio": 8.46,
+    "delinquency_ratio_pct": 0.022000000000000002,
+    "interest_coverage_ratio": 1.17,
+    "monthly_delinquency_ratio_pct": 0.0332,
+    "rolling_3month_loss_ratio_pct": 0.0062,
+    "rolling_12month_loss_ratio_pct": 0.0087
+   },
+   {
+    "month": "Oct-25",
+    "total_equity": 7156525.0,
+    "debt_equity_ratio": 8.25,
+    "delinquency_ratio_pct": 0.0281,
+    "interest_coverage_ratio": 1.15,
+    "monthly_delinquency_ratio_pct": 0.0383,
+    "rolling_3month_loss_ratio_pct": 0.0059,
+    "rolling_12month_loss_ratio_pct": 0.004699999999999999
+   },
+   {
+    "month": "Nov-25",
+    "total_equity": 7170670.0,
+    "debt_equity_ratio": 8.04,
+    "delinquency_ratio_pct": 0.0344,
+    "interest_coverage_ratio": 1.12,
+    "monthly_delinquency_ratio_pct": 0.0316,
+    "rolling_3month_loss_ratio_pct": 0.0051,
+    "rolling_12month_loss_ratio_pct": 0.005
+   },
+   {
+    "month": "Dec-25",
+    "total_equity": 6909854.0,
+    "debt_equity_ratio": 8.18,
+    "delinquency_ratio_pct": 0.0313,
+    "interest_coverage_ratio": 1.14,
+    "monthly_delinquency_ratio_pct": 0.0239,
+    "rolling_3month_loss_ratio_pct": 0.0046,
+    "rolling_12month_loss_ratio_pct": 0.0058
+   },
+   {
+    "month": "Jan-26",
+    "total_equity": 6996579.0,
+    "debt_equity_ratio": 7.95,
+    "delinquency_ratio_pct": 0.0275,
+    "interest_coverage_ratio": 1.15,
+    "monthly_delinquency_ratio_pct": 0.0269,
+    "rolling_3month_loss_ratio_pct": 0.0072,
+    "rolling_12month_loss_ratio_pct": 0.006500000000000001
+   },
+   {
+    "month": "Feb-26",
+    "total_equity": 6716567.0,
+    "debt_equity_ratio": 8.08,
+    "delinquency_ratio_pct": 0.0217,
+    "interest_coverage_ratio": 1.14,
+    "monthly_delinquency_ratio_pct": 0.0143,
+    "rolling_3month_loss_ratio_pct": 0.0062,
+    "rolling_12month_loss_ratio_pct": 0.006500000000000001
+   },
+   {
+    "month": "Mar-26",
+    "total_equity": 6820984.0,
+    "debt_equity_ratio": 7.89,
+    "delinquency_ratio_pct": 0.0192,
+    "interest_coverage_ratio": 1.12,
+    "monthly_delinquency_ratio_pct": 0.0165,
+    "rolling_3month_loss_ratio_pct": 0.0046,
+    "rolling_12month_loss_ratio_pct": 0.0068000000000000005
+   },
+   {
+    "month": "Apr-26",
+    "total_equity": 6443671.0,
+    "debt_equity_ratio": 8.13,
+    "delinquency_ratio_pct": 0.015600000000000001,
+    "interest_coverage_ratio": 1.11,
+    "monthly_delinquency_ratio_pct": 0.0161,
+    "rolling_3month_loss_ratio_pct": 0.0070999999999999995,
+    "rolling_12month_loss_ratio_pct": 0.005600000000000001
+   },
+   {
+    "month": "May-26",
+    "total_equity": 6516467.0,
+    "debt_equity_ratio": 7.93,
+    "delinquency_ratio_pct": 0.0183,
+    "interest_coverage_ratio": 1.19,
+    "monthly_delinquency_ratio_pct": 0.0223,
+    "rolling_3month_loss_ratio_pct": 0.0074,
+    "rolling_12month_loss_ratio_pct": 0.0054
+   },
+   {
+    "month": "Jun-26",
+    "total_equity": 6839888.0,
+    "debt_equity_ratio": 7.53,
+    "delinquency_ratio_pct": 0.0182,
+    "interest_coverage_ratio": 1.23,
+    "monthly_delinquency_ratio_pct": 0.0163,
+    "rolling_3month_loss_ratio_pct": 0.0062,
+    "rolling_12month_loss_ratio_pct": 0.0054
+   },
+   {
+    "month": "Jul-26",
+    "total_equity": 6755120.0,
+    "debt_equity_ratio": 7.57,
+    "delinquency_ratio_pct": 0.0179,
+    "interest_coverage_ratio": 1.27,
+    "monthly_delinquency_ratio_pct": 0.0151,
+    "rolling_3month_loss_ratio_pct": -0.002,
+    "rolling_12month_loss_ratio_pct": 0.0045000000000000005
+   }
+  ],
+  "period_history": [
+   {
+    "losses": 0.0,
+    "period": "2026-05",
+    "interest": 99028.01,
+    "principal": 666792.33,
+    "charge_off": 0.0,
+    "recoveries": 52884.07,
+    "by_currency": null,
+    "closing_amount": 17189151.97,
+    "opening_amount": 18529091.37,
+    "closing_balance": 17189151.97,
+    "opening_balance": 18529091.37,
+    "closing_contracts": 229.0,
+    "collection_period": "May 2026",
+    "opening_contracts": 236.0,
+    "amount_by_currency": null,
+    "activity_by_currency": null,
+    "principal_prepayments": 673147.07
+   },
+   {
+    "losses": 0.0,
+    "period": "2026-06",
+    "interest": 95209.55,
+    "principal": 663262.11,
+    "charge_off": 0.0,
+    "recoveries": 136504.7,
+    "by_currency": null,
+    "closing_amount": 16512861.77,
+    "opening_amount": 17189151.97,
+    "closing_balance": 16512861.77,
+    "opening_balance": 17189151.97,
+    "closing_contracts": 223.0,
+    "collection_period": "June 2026",
+    "opening_contracts": 229.0,
+    "amount_by_currency": null,
+    "activity_by_currency": null,
+    "principal_prepayments": 13028.09
+   },
+   {
+    "losses": 0.0,
+    "period": "2026-07",
+    "interest": 91131.3,
+    "principal": 657606.31,
+    "charge_off": 0.0,
+    "recoveries": 277950.0,
+    "by_currency": null,
+    "closing_amount": 15792784.34,
+    "opening_amount": 16512861.77,
+    "closing_balance": 15792784.34,
+    "opening_balance": 16512861.77,
+    "closing_contracts": 217.0,
+    "collection_period": "July 2026",
+    "opening_contracts": 223.0,
+    "amount_by_currency": null,
+    "activity_by_currency": null,
+    "principal_prepayments": 62471.12
+   },
+   {
+    "losses": 12828.68,
+    "period": "2026-08",
+    "interest": 86704.51,
+    "principal": 646826.71,
+    "charge_off": 0.0,
+    "recoveries": 64170.0,
+    "by_currency": null,
+    "closing_amount": 15019971.52,
+    "opening_amount": 15792784.34,
+    "closing_balance": 15019971.52,
+    "opening_balance": 15792784.34,
+    "closing_contracts": 212.0,
+    "collection_period": "August 2026",
+    "opening_contracts": 217.0,
+    "amount_by_currency": null,
+    "activity_by_currency": null,
+    "principal_prepayments": 113057.43
+   }
+  ],
+  "top10_obligors": [],
+  "tranche_amount": {
+   "closing": 15019971.52,
+   "opening": 15792784.34,
+   "by_currency": null
+  },
+  "prior_covenants": [
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (c)",
+    "threshold": 0.04,
+    "description": "Has the Rolling Three Month Loss Ratio at any time exceeded:",
+    "current_value": 0.0062,
+    "utilization_pct": 0.155,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "flat",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (d)",
+    "threshold": 0.0225,
+    "description": "Has the Rolling Twelve Month Loss Ratio at any time exceeded:",
+    "current_value": 0.0054,
+    "utilization_pct": 0.24,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "flat",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (e)",
+    "threshold": 0.035,
+    "description": "Has the Delinquency Ratio exceeded 3.50%?",
+    "current_value": 0.0182,
+    "utilization_pct": 0.52,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "n/a",
+    "status": "WATCH",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (f)",
+    "threshold": 0.035,
+    "description": "Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%?",
+    "current_value": 0.033,
+    "worst_vintage": "Dec-22 ‒ Nov-23",
+    "utilization_pct": 0.9429,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "binary",
+    "note": "Reported directly by the servicer/originator; no underlying data series available.",
+    "trend": "n/a",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (g)",
+    "threshold": null,
+    "description": "Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses?",
+    "current_value": null,
+    "utilization_pct": null,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "floor",
+    "note": null,
+    "trend": "rising",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (h)",
+    "threshold": 1.1,
+    "description": "Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1?",
+    "current_value": 1.23,
+    "utilization_pct": 0.8943,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "ceiling",
+    "note": null,
+    "trend": "falling",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (i)",
+    "threshold": 10.0,
+    "description": "Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1?",
+    "current_value": 7.53,
+    "utilization_pct": 0.753,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "floor",
+    "note": null,
+    "trend": "rising",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 9.1 (j)",
+    "threshold": 2500000.0,
+    "description": "Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000",
+    "current_value": 6839888.0,
+    "utilization_pct": 0.3655,
+    "reported_triggered": "NO"
+   },
+   {
+    "kind": "binary",
+    "note": "Reported directly by the servicer/originator; no underlying data series available.",
+    "trend": "n/a",
+    "status": "OK",
+    "category": "Event of Termination",
+    "legal_ref": "SLFA 3.5",
+    "threshold": 0.1,
+    "description": "From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit?",
+    "current_value": null,
+    "utilization_pct": null,
+    "reported_triggered": "NO"
+   }
+  ],
+  "settlement_date": "August 7, 2026",
+  "tranche_balance": {
+   "losses": 12828.68,
+   "closing": 15019971.52,
+   "opening": 15792784.34,
+   "interest": 86704.51,
+   "principal": 646826.71,
+   "change_abs": -772812.8200000003,
+   "change_pct": -0.0489345515877538,
+   "recoveries": 64170.0,
+   "top_movers": [
+    {
+     "tranche": 7,
+     "leasing_date": "26-Jul-23",
+     "original_tranche_yield": 0.07339999999999999,
+     "closing_tranche_balance": 775181.12,
+     "opening_tranche_balance": 877146.13,
+     "original_tranche_balance": 3272831.07,
+     "current_period_effective_tranche_yield": 0.0677
+    },
+    {
+     "tranche": 5,
+     "leasing_date": "6-Jun-23",
+     "original_tranche_yield": 0.0693,
+     "closing_tranche_balance": 512284.75,
+     "opening_tranche_balance": 591866.58,
+     "original_tranche_balance": 3409531.64,
+     "current_period_effective_tranche_yield": 0.064
+    },
+    {
+     "tranche": 16,
+     "leasing_date": "27-Jun-24",
+     "original_tranche_yield": 0.0679,
+     "closing_tranche_balance": 1412769.69,
+     "opening_tranche_balance": 1464847.32,
+     "original_tranche_balance": 2873380.14,
+     "current_period_effective_tranche_yield": 0.0679
+    },
+    {
+     "tranche": 20,
+     "leasing_date": "30-Oct-24",
+     "original_tranche_yield": 0.061500000000000006,
+     "closing_tranche_balance": 1197671.55,
+     "opening_tranche_balance": 1249522.35,
+     "original_tranche_balance": 2530071.28,
+     "current_period_effective_tranche_yield": 0.061500000000000006
+    },
+    {
+     "tranche": 8,
+     "leasing_date": "28-Aug-23",
+     "original_tranche_yield": 0.0754,
+     "closing_tranche_balance": 1060082.63,
+     "opening_tranche_balance": 1106727.15,
+     "original_tranche_balance": 3034058.12,
+     "current_period_effective_tranche_yield": 0.0754
+    },
+    {
+     "tranche": 13,
+     "leasing_date": "28-Feb-24",
+     "original_tranche_yield": 0.0693,
+     "closing_tranche_balance": 1101000.55,
+     "opening_tranche_balance": 1147301.6,
+     "original_tranche_balance": 2522539.51,
+     "current_period_effective_tranche_yield": 0.0693
+    },
+    {
+     "tranche": 4,
+     "leasing_date": "28-Apr-23",
+     "original_tranche_yield": 0.06269999999999999,
+     "closing_tranche_balance": 654674.37,
+     "opening_tranche_balance": 700527.32,
+     "original_tranche_balance": 3159681.22,
+     "current_period_effective_tranche_yield": 0.06269999999999999
+    },
+    {
+     "tranche": 15,
+     "leasing_date": "29-Apr-24",
+     "original_tranche_yield": 0.07200000000000001,
+     "closing_tranche_balance": 1161913.31,
+     "opening_tranche_balance": 1205889.46,
+     "original_tranche_balance": 2904928.2,
+     "current_period_effective_tranche_yield": 0.07200000000000001
+    },
+    {
+     "tranche": 17,
+     "leasing_date": "30-Jul-24",
+     "original_tranche_yield": 0.0649,
+     "closing_tranche_balance": 700855.85,
+     "opening_tranche_balance": 740613.75,
+     "original_tranche_balance": 1443257.98,
+     "current_period_effective_tranche_yield": 0.0638
+    },
+    {
+     "tranche": 19,
+     "leasing_date": "27-Sep-24",
+     "original_tranche_yield": 0.0579,
+     "closing_tranche_balance": 1080336.76,
+     "opening_tranche_balance": 1115946.61,
+     "original_tranche_balance": 2035726.99,
+     "current_period_effective_tranche_yield": 0.0579
+    }
+   ],
+   "by_currency": null,
+   "all_tranches": [
+    {
+     "closing": 131814.89,
+     "opening": 139375.6,
+     "tranche": 1
+    },
+    {
+     "closing": 214631.71,
+     "opening": 227325.65,
+     "tranche": 2
+    },
+    {
+     "closing": 179974.57,
+     "opening": 191282.24,
+     "tranche": 3
+    },
+    {
+     "closing": 654674.37,
+     "opening": 700527.32,
+     "tranche": 4
+    },
+    {
+     "closing": 512284.75,
+     "opening": 591866.58,
+     "tranche": 5
+    },
+    {
+     "closing": 351697.37,
+     "opening": 371826.93,
+     "tranche": 6
+    },
+    {
+     "closing": 775181.12,
+     "opening": 877146.13,
+     "tranche": 7
+    },
+    {
+     "closing": 1060082.63,
+     "opening": 1106727.15,
+     "tranche": 8
+    },
+    {
+     "closing": 164261.19,
+     "opening": 175999.02,
+     "tranche": 9
+    },
+    {
+     "closing": 239573.49,
+     "opening": 263579.2,
+     "tranche": 10
+    },
+    {
+     "closing": 487476.86,
+     "opening": 517102.98,
+     "tranche": 11
+    },
+    {
+     "closing": 662192.52,
+     "opening": 688538.33,
+     "tranche": 12
+    },
+    {
+     "closing": 1101000.55,
+     "opening": 1147301.6,
+     "tranche": 13
+    },
+    {
+     "closing": 987648.77,
+     "opening": 1019342.64,
+     "tranche": 14
+    },
+    {
+     "closing": 1161913.31,
+     "opening": 1205889.46,
+     "tranche": 15
+    },
+    {
+     "closing": 1412769.69,
+     "opening": 1464847.32,
+     "tranche": 16
+    },
+    {
+     "closing": 700855.85,
+     "opening": 740613.75,
+     "tranche": 17
+    },
+    {
+     "closing": 889389.77,
+     "opening": 912230.12,
+     "tranche": 18
+    },
+    {
+     "closing": 1080336.76,
+     "opening": 1115946.61,
+     "tranche": 19
+    },
+    {
+     "closing": 1197671.55,
+     "opening": 1249522.35,
+     "tranche": 20
+    },
+    {
+     "closing": 1054539.81,
+     "opening": 1085793.36,
+     "tranche": 21
+    }
+   ],
+   "activity_by_currency": null,
+   "principal_prepayments": 113057.43
+  },
+  "covenant_summary": {
+   "OK": 8,
+   "WATCH": 1,
+   "BREACH": 0,
+   "AVAILABLE": 0
+  },
+  "financial_ratios": [
+   {
+    "key": "delinquency_ratio",
+    "group": "Portfolio Performance",
+    "label": "Delinquency Ratio",
+    "value": 0.0179,
+    "format": "pct"
+   },
+   {
+    "key": "rolling_3month_loss_ratio",
+    "group": "Portfolio Performance",
+    "label": "Rolling 3-Month Loss Ratio",
+    "value": -0.002,
+    "format": "pct"
+   },
+   {
+    "key": "rolling_12month_loss_ratio",
+    "group": "Portfolio Performance",
+    "label": "Rolling 12-Month Loss Ratio",
+    "value": 0.0045000000000000005,
+    "format": "pct"
+   },
+   {
+    "key": "cnl_ratio",
+    "group": "Cumulative Net Losses",
+    "label": "CNL Ratio (worst vintage)",
+    "value": 0.033,
+    "format": "pct",
+    "vintage": "Dec-22 ‒ Nov-23"
+   },
+   {
+    "key": "interest_coverage_ratio",
+    "group": "Borrower Data and Financial Ratios",
+    "label": "Interest Coverage Ratio",
+    "value": 1.27,
+    "format": "ratio"
+   },
+   {
+    "key": "debt_equity_ratio",
+    "group": "Borrower Data and Financial Ratios",
+    "label": "Leverage Ratio",
+    "value": 7.57,
+    "format": "ratio"
+   },
+   {
+    "key": "total_equity",
+    "group": "Borrower Data and Financial Ratios",
+    "label": "Total Equity",
+    "value": 6755120.0,
+    "format": "dollar"
+   }
+  ],
+  "watch_buffer_pct": 0.1,
+  "collection_period": "August 2026",
+  "ratio_test_detail": {},
+  "total_enhancement": {
+   "total_enhancement_pct": 0.0,
+   "total_enhancement_amount": 0.0
+  },
+  "balance_discontinuities": [],
+  "prior_closing_contracts": 217.0,
+  "prior_closing_tranche_balance": 15792784.34
+ },
+ "sources": {
+  "/deal_name": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: program name + cover title (fpil-2.0-settrep-v1) from [Moneda Capital Corp. Settlement Report]",
+   "confidence": 1.0
+  },
+  "/deal_slug": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: slug(deal_name) from [Moneda Capital Corp. Settlement Report]",
+   "confidence": 1.0
+  },
+  "/source_file": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: uploaded file name, spaces -> _",
+   "confidence": 1.0
+  },
+  "/prior_period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: collection period - 1 month from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/worst_status": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: most severe covenant status from [-0.20%]",
+   "confidence": 1.0
+  },
+  "/settlement_date": {
+   "bbox": [
+    678.77,
+    172.82,
+    836.95,
+    184.82
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "Settlement Date August 7, 2026",
+   "confidence": 1.0
+  },
+  "/covenants/0/kind": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/0/note": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/kind": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/note": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/kind": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/note": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/kind": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/note": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/kind": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/note": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/kind": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/note": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/kind": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/note": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/kind": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/note": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/kind": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: kind per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/note": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: note per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/watch_buffer_pct": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: derived.watch_buffer_pct",
+   "confidence": 1.0
+  },
+  "/collection_period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: month of Collection Period Start Date (cover) from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/contracts/closing": {
+   "bbox": [
+    825.46,
+    981.81,
+    840.75,
+    991.81
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "212",
+   "confidence": 1.0
+  },
+  "/contracts/opening": {
+   "bbox": [
+    672.99,
+    981.81,
+    688.28,
+    991.81
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "217",
+   "confidence": 1.0
+  },
+  "/covenants/0/trend": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/trend": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/trend": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/trend": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/trend": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/trend": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/trend": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/trend": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/trend": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: trend per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/0/status": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/status": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/status": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/status": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/status": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/status": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/status": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/status": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/status": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: status per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/covenant_summary/OK": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: count of covenants with status OK from [-0.20%]",
+   "confidence": 1.0
+  },
+  "/contracts/change_abs": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: closing - opening from [212, 217]",
+   "confidence": 1.0
+  },
+  "/contracts/change_pct": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: (closing - opening) / opening from [212, 217]",
+   "confidence": 1.0
+  },
+  "/covenants/0/category": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/category": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/category": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/category": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/category": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/category": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/category": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/category": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/category": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: category per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/0/legal_ref": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/0/threshold": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/legal_ref": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/threshold": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/legal_ref": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/threshold": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/legal_ref": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/threshold": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/legal_ref": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/threshold": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/legal_ref": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/threshold": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/legal_ref": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/threshold": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/legal_ref": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/threshold": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/legal_ref": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: legal_ref per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/threshold": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: threshold per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/program/program_limit": {
+   "bbox": [
+    756.95,
+    701.31,
+    814.52,
+    711.31
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "50,000,000.00",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/month": {
+   "bbox": [
+    451.79,
+    508.02,
+    475.69,
+    518.02
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Jul-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/month": {
+   "bbox": [
+    446.93,
+    493.45,
+    475.68,
+    503.45
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Aug-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/month": {
+   "bbox": [
+    447.79,
+    478.88,
+    475.69,
+    488.88
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Sep-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/month": {
+   "bbox": [
+    448.07,
+    464.31,
+    475.67,
+    474.31
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Oct-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/month": {
+   "bbox": [
+    446.07,
+    449.74,
+    475.66,
+    459.74
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Nov-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/month": {
+   "bbox": [
+    446.93,
+    435.16,
+    475.68,
+    445.16
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Dec-25",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/month": {
+   "bbox": [
+    449.21,
+    420.59,
+    475.67,
+    430.59
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Jan-26",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/month": {
+   "bbox": [
+    447.79,
+    406.0,
+    475.69,
+    416.0
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Feb-26",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/month": {
+   "bbox": [
+    445.5,
+    391.43,
+    475.68,
+    401.43
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Mar-26",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/month": {
+   "bbox": [
+    448.07,
+    376.85,
+    475.68,
+    386.85
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Apr-26",
+   "confidence": 1.0
+  },
+  "/aging_history/0/period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: collection period (cover) from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/period": {
+   "bbox": [
+    524.93,
+    633.19,
+    553.68,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Dec-22 ‒ Nov-23",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/period": {
+   "bbox": [
+    524.93,
+    645.76,
+    553.68,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Dec-23 ‒ Nov-24",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/period": {
+   "bbox": [
+    525.21,
+    658.33,
+    553.96,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Dec-24 ‒ Dec-25",
+   "confidence": 1.0
+  },
+  "/covenant_summary/WATCH": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: count of covenants with status WATCH from [-0.20%]",
+   "confidence": 1.0
+  },
+  "/financial_ratios/0/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.delinquency_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/1/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_3month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/2/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_12month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.cnl_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/4/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.interest_coverage_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/5/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.debt_equity_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/6/key": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.total_equity",
+   "confidence": 1.0
+  },
+  "/program/program_amount": {
+   "bbox": [
+    756.95,
+    713.81,
+    814.52,
+    723.81
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/month": {
+   "bbox": [
+    444.36,
+    362.28,
+    475.67,
+    372.28
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "May-26",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/month": {
+   "bbox": [
+    448.93,
+    347.71,
+    475.68,
+    357.71
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Jun-26",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/month": {
+   "bbox": [
+    451.79,
+    333.14,
+    475.69,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Jul-26",
+   "confidence": 1.0
+  },
+  "/terminology/unit_label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: terminology.unit_label",
+   "confidence": 1.0
+  },
+  "/tranche_amount/closing": {
+   "bbox": [
+    756.95,
+    713.81,
+    814.52,
+    723.81
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/tranche_amount/opening": {
+   "bbox": [
+    604.26,
+    576.29,
+    661.99,
+    586.29
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "15,792,784.34",
+   "confidence": 1.0
+  },
+  "/tranche_balance/losses": {
+   "bbox": [
+    673.88,
+    582.84,
+    714.43,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "12,828.68",
+   "confidence": 1.0
+  },
+  "/covenant_summary/BREACH": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: count of covenants with status BREACH from [-0.20%]",
+   "confidence": 1.0
+  },
+  "/covenants/0/description": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/description": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/description": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/description": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/description": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/description": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/description": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/description": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/description": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: description per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/period_history/3/losses": {
+   "bbox": [
+    673.88,
+    582.84,
+    714.43,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "12,828.68",
+   "confidence": 1.0
+  },
+  "/period_history/3/period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: collection period (cover) from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/program/unused_facility": {
+   "bbox": [
+    756.95,
+    726.31,
+    814.52,
+    736.31
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "34,980,028.48",
+   "confidence": 1.0
+  },
+  "/tranche_balance/closing": {
+   "bbox": [
+    1206.42,
+    582.84,
+    1264.71,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/tranche_balance/opening": {
+   "bbox": [
+    427.41,
+    582.84,
+    485.7,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15,792,784.34",
+   "confidence": 1.0
+  },
+  "/financial_ratios/0/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.delinquency_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/0/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.delinquency_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/0/value": {
+   "bbox": [
+    1183.62,
+    333.14,
+    1208.72,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.79%",
+   "confidence": 1.0
+  },
+  "/financial_ratios/1/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_3month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/1/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_3month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/1/value": {
+   "bbox": [
+    1391.07,
+    333.14,
+    1419.3,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-0.20%",
+   "confidence": 1.0
+  },
+  "/financial_ratios/2/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_12month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/2/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_12month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/2/value": {
+   "bbox": [
+    1477.36,
+    333.14,
+    1502.46,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.45%",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.cnl_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.cnl_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/value": {
+   "bbox": [
+    1293.9,
+    633.19,
+    1319.0,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.30%",
+   "confidence": 1.0
+  },
+  "/financial_ratios/4/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.interest_coverage_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/4/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.interest_coverage_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/4/value": {
+   "bbox": [
+    961.86,
+    536.88,
+    979.75,
+    546.88
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.27",
+   "confidence": 1.0
+  },
+  "/financial_ratios/5/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.debt_equity_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/5/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.debt_equity_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/5/value": {
+   "bbox": [
+    1119.31,
+    304.57,
+    1137.2,
+    314.57
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.57",
+   "confidence": 1.0
+  },
+  "/financial_ratios/6/group": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.total_equity",
+   "confidence": 1.0
+  },
+  "/financial_ratios/6/label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.total_equity",
+   "confidence": 1.0
+  },
+  "/financial_ratios/6/value": {
+   "bbox": [
+    989.86,
+    303.43,
+    1030.93,
+    313.43
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,755,120",
+   "confidence": 1.0
+  },
+  "/source_pages/enhancement": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/terminology/amount_label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: terminology.amount_label",
+   "confidence": 1.0
+  },
+  "/tranche_balance/interest": {
+   "bbox": [
+    750.12,
+    582.84,
+    790.67,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "86,704.51",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/cnl_limit": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: CNL covenant limit for this vintage (page with quantitative tests) from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/cnl_limit": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: CNL covenant limit for this vintage (page with quantitative tests) from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/cnl_limit": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: CNL covenant limit for this vintage (page with quantitative tests) from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/0/current_value": {
+   "bbox": [
+    1391.07,
+    333.14,
+    1419.3,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-0.20%",
+   "confidence": 1.0
+  },
+  "/covenants/1/current_value": {
+   "bbox": [
+    1477.36,
+    333.14,
+    1502.46,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.45%",
+   "confidence": 1.0
+  },
+  "/covenants/2/current_value": {
+   "bbox": [
+    1183.62,
+    333.14,
+    1208.72,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.79%",
+   "confidence": 1.0
+  },
+  "/covenants/3/current_value": {
+   "bbox": [
+    1293.9,
+    633.19,
+    1319.0,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.30%",
+   "confidence": 1.0
+  },
+  "/covenants/3/worst_vintage": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: worst_vintage per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/current_value": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: current_value per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/current_value": {
+   "bbox": [
+    961.86,
+    536.88,
+    979.75,
+    546.88
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.27",
+   "confidence": 1.0
+  },
+  "/covenants/6/current_value": {
+   "bbox": [
+    1119.31,
+    304.57,
+    1137.2,
+    314.57
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.57",
+   "confidence": 1.0
+  },
+  "/covenants/7/current_value": {
+   "bbox": [
+    989.86,
+    303.43,
+    1030.93,
+    313.43
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,755,120",
+   "confidence": 1.0
+  },
+  "/covenants/8/current_value": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: current_value per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/financial_ratios/0/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.delinquency_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/1/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_3month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/2/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.rolling_12month_loss_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.cnl_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/4/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.interest_coverage_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/5/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.debt_equity_ratio",
+   "confidence": 1.0
+  },
+  "/financial_ratios/6/format": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: financial_ratios.total_equity",
+   "confidence": 1.0
+  },
+  "/period_history/3/interest": {
+   "bbox": [
+    750.12,
+    582.84,
+    790.67,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "86,704.51",
+   "confidence": 1.0
+  },
+  "/terminology/balance_label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: terminology.balance_label",
+   "confidence": 1.0
+  },
+  "/tranche_balance/principal": {
+   "bbox": [
+    516.3,
+    582.84,
+    561.95,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "646,826.71",
+   "confidence": 1.0
+  },
+  "/aging_history/0/bucket_sum": {
+   "bbox": null,
+   "page": 11,
+   "pass": 1,
+   "raw_text": "derived: 0-30 + 31-60 + 61-90 from [14,781,278.24, 102,234.99, 136,458.29]",
+   "confidence": 1.0
+  },
+  "/aging_history/0/days_31_60": {
+   "bbox": [
+    754.4,
+    307.43,
+    800.64,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "102,234.99",
+   "confidence": 1.0
+  },
+  "/aging_history/0/days_61_90": {
+   "bbox": [
+    854.4,
+    307.43,
+    900.64,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "136,458.29",
+   "confidence": 1.0
+  },
+  "/aging_history/0/reconciles": {
+   "bbox": null,
+   "page": 11,
+   "pass": 1,
+   "raw_text": "derived: bucket sum (with or without 91+) within 1.0 of closing from [14,781,278.24, 102,234.99, 136,458.29, 15,019,971.52]",
+   "confidence": 1.0
+  },
+  "/covenant_summary/AVAILABLE": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: count of covenants with status AVAILABLE from [-0.20%]",
+   "confidence": 1.0
+  },
+  "/financial_ratios/3/vintage": {
+   "bbox": [
+    524.93,
+    633.19,
+    553.68,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "Dec-22 ‒ Nov-23",
+   "confidence": 1.0
+  },
+  "/period_history/3/principal": {
+   "bbox": [
+    516.3,
+    582.84,
+    561.95,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "646,826.71",
+   "confidence": 1.0
+  },
+  "/source_pages/aging_summary": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/source_pages/funding_costs": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/source_pages/top10_obligor": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/tranche_amount/by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/tranche_balance/change_abs": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: closing - opening from [15,019,971.52, 15,792,784.34]",
+   "confidence": 1.0
+  },
+  "/tranche_balance/change_pct": {
+   "bbox": null,
+   "page": 2,
+   "pass": 2,
+   "raw_text": "derived: (closing - opening) / opening from [15,019,971.52, 15,792,784.34]",
+   "confidence": 1.0
+  },
+  "/tranche_balance/recoveries": {
+   "bbox": [
+    902.59,
+    582.84,
+    943.14,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "64,170.00",
+   "confidence": 1.0
+  },
+  "/aging_history/0/written_off": {
+   "bbox": [
+    989.0,
+    307.43,
+    1029.97,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "12,828.67",
+   "confidence": 1.0
+  },
+  "/covenants/0/utilization_pct": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/utilization_pct": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/utilization_pct": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/utilization_pct": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/utilization_pct": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/utilization_pct": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/utilization_pct": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/utilization_pct": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/utilization_pct": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: utilization_pct per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/period_history/3/charge_off": {
+   "bbox": [
+    1006.15,
+    582.84,
+    1009.21,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/period_history/3/recoveries": {
+   "bbox": [
+    902.59,
+    582.84,
+    943.14,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "64,170.00",
+   "confidence": 1.0
+  },
+  "/tranche_balance/by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/aging_history/0/current_0_30": {
+   "bbox": [
+    642.38,
+    307.43,
+    701.47,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "14,781,278.24",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/gross_losses": {
+   "bbox": [
+    846.69,
+    633.19,
+    900.64,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3,643,882.18",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/gross_losses": {
+   "bbox": [
+    854.4,
+    645.76,
+    900.64,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "299,565.69",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/gross_losses": {
+   "bbox": [
+    887.29,
+    658.33,
+    890.35,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/period_history/3/by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/total_equity": {
+   "bbox": [
+    989.0,
+    476.88,
+    1030.07,
+    486.88
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7,319,533",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/total_equity": {
+   "bbox": [
+    989.0,
+    462.31,
+    1030.07,
+    472.31
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7,329,454",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/total_equity": {
+   "bbox": [
+    989.0,
+    447.74,
+    1030.07,
+    457.74
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7,200,002",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/total_equity": {
+   "bbox": [
+    989.0,
+    433.16,
+    1030.07,
+    443.16
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7,156,525",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/total_equity": {
+   "bbox": [
+    989.0,
+    418.59,
+    1030.07,
+    428.59
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7,170,670",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/total_equity": {
+   "bbox": [
+    989.0,
+    404.0,
+    1030.07,
+    414.0
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,909,854",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/total_equity": {
+   "bbox": [
+    989.0,
+    389.43,
+    1030.07,
+    399.43
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,996,579",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/total_equity": {
+   "bbox": [
+    989.0,
+    374.85,
+    1030.07,
+    384.85
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,716,567",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/total_equity": {
+   "bbox": [
+    989.0,
+    360.28,
+    1030.07,
+    370.28
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,820,984",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/total_equity": {
+   "bbox": [
+    989.0,
+    345.71,
+    1030.07,
+    355.71
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,443,671",
+   "confidence": 1.0
+  },
+  "/source_pages/tranche_amounts": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/source_pages/tranche_balance": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/advance_range": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1-10",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/cnl_ratio_pct": {
+   "bbox": [
+    1293.9,
+    633.19,
+    1319.0,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.30%",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/advance_range": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "11-20",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/cnl_ratio_pct": {
+   "bbox": [
+    1293.9,
+    645.76,
+    1319.0,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.04%",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/advance_range": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "21 - 21",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/cnl_ratio_pct": {
+   "bbox": [
+    1293.9,
+    658.33,
+    1319.0,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.00%",
+   "confidence": 1.0
+  },
+  "/program/maximum_program_limit": {
+   "bbox": [
+    756.95,
+    663.81,
+    814.52,
+    673.81
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "50,000,000.00",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/total_equity": {
+   "bbox": [
+    989.0,
+    331.14,
+    1030.07,
+    341.14
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,516,467",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/total_equity": {
+   "bbox": [
+    989.86,
+    318.0,
+    1030.93,
+    328.0
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,839,888",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/total_equity": {
+   "bbox": [
+    989.86,
+    303.43,
+    1030.93,
+    313.43
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "6,755,120",
+   "confidence": 1.0
+  },
+  "/source_pages/financial_ratios": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/0/tranche": {
+   "bbox": [
+    602.99,
+    725.09,
+    608.06,
+    735.09
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/1/tranche": {
+   "bbox": [
+    602.99,
+    761.76,
+    608.06,
+    771.76
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/2/tranche": {
+   "bbox": [
+    602.99,
+    786.2,
+    608.06,
+    796.2
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/3/tranche": {
+   "bbox": [
+    600.32,
+    908.45,
+    610.5,
+    918.45
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "17",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/4/tranche": {
+   "bbox": [
+    600.32,
+    945.14,
+    610.5,
+    955.14
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "20",
+   "confidence": 1.0
+  },
+  "/covenants/0/reported_triggered": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [-0.20%, SLFA 9.1(c) Has the Rolling Three Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/1/reported_triggered": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [0.45%, SLFA 9.1(d) Has the Rolling Twelve Month Loss Ratio at any time exceeded: NO]",
+   "confidence": 1.0
+  },
+  "/covenants/2/reported_triggered": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [1.79%, SLFA 9.1(e) Has the Delinquency Ratio exceeded 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/3/reported_triggered": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/4/reported_triggered": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [SLFA 9.1 (g) Up to the first anniversary of the SLFA, has the Borrower failed at any time to maintain aggregate cash and cash equivalents in an amount equal to at least six months average operating expenses? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/5/reported_triggered": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [1.27, SLFA 9.1 (h) Following the first anniversary of the SLFA, has the borrower failed to maintain an Interest Coverage Ratio of at least 1.1:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/6/reported_triggered": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [7.57, SLFA 9.1(i) Has the Borrower failed at any time to maintain a Leverage Ratio of less than or equal to 10:1? NO]",
+   "confidence": 1.0
+  },
+  "/covenants/7/reported_triggered": {
+   "bbox": null,
+   "page": 13,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [6,755,120, SLFA 9.1(j) Has the Borrower failed at any time to maintain minimum Total Equity equal to or greater than $2,500,000 NO]",
+   "confidence": 1.0
+  },
+  "/covenants/8/reported_triggered": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: reported_triggered per covenant rules (fpil-2.0-settrep-v1) from [SLFA 3.5 From and after the Commitment Expiry Date, is the Outstanding Loan Balance less than or equal to 10% of the Term Facility Limit? NO]",
+   "confidence": 1.0
+  },
+  "/source_pages/cumulative_losses": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/aging_history/0/closing_balance": {
+   "bbox": [
+    1185.33,
+    307.43,
+    1244.42,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/period_history/3/closing_amount": {
+   "bbox": [
+    756.95,
+    713.81,
+    814.52,
+    723.81
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/period_history/3/opening_amount": {
+   "bbox": [
+    604.26,
+    576.29,
+    661.99,
+    586.29
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "15,792,784.34",
+   "confidence": 1.0
+  },
+  "/program/program_utilization_pct": {
+   "bbox": null,
+   "page": 4,
+   "pass": 1,
+   "raw_text": "derived: closing principal / term facility limit from [15,019,971.52, 50,000,000.00]",
+   "confidence": 1.0
+  },
+  "/source_pages/quantitative_tests": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/cnl_within_limit": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: cnl_ratio_pct <= cnl_limit from [3.30%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/cnl_within_limit": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: cnl_ratio_pct <= cnl_limit from [0.04%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/cnl_within_limit": {
+   "bbox": null,
+   "page": 12,
+   "pass": 1,
+   "raw_text": "derived: cnl_ratio_pct <= cnl_limit from [0.00%, SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/period_history/3/closing_balance": {
+   "bbox": [
+    1206.42,
+    582.84,
+    1264.71,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15,019,971.52",
+   "confidence": 1.0
+  },
+  "/period_history/3/opening_balance": {
+   "bbox": [
+    427.41,
+    582.84,
+    485.7,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15,792,784.34",
+   "confidence": 1.0
+  },
+  "/aging_history/0/collection_period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: collection period (cover) from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/actual_recoveries": {
+   "bbox": [
+    976.14,
+    633.19,
+    1030.09,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2,252,653.34",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/actual_recoveries": {
+   "bbox": [
+    983.86,
+    645.76,
+    1030.1,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "261,873.47",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/actual_recoveries": {
+   "bbox": [
+    1016.71,
+    658.33,
+    1019.77,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    476.88,
+    1137.2,
+    486.88
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.67",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    462.31,
+    1137.2,
+    472.31
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.48",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    447.74,
+    1137.2,
+    457.74
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.46",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    433.16,
+    1137.2,
+    443.16
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.25",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    418.59,
+    1137.2,
+    428.59
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.04",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    404.0,
+    1137.2,
+    414.0
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.18",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    389.43,
+    1137.2,
+    399.43
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.95",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    374.85,
+    1137.2,
+    384.85
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.08",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    360.28,
+    1137.2,
+    370.28
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.89",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    345.71,
+    1137.2,
+    355.71
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "8.13",
+   "confidence": 1.0
+  },
+  "/period_history/3/closing_contracts": {
+   "bbox": [
+    825.46,
+    981.81,
+    840.75,
+    991.81
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "212",
+   "confidence": 1.0
+  },
+  "/period_history/3/collection_period": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "derived: collection period (cover) from [Relevant Dates: Collection Period Start Date: August 1, 2026]",
+   "confidence": 1.0
+  },
+  "/period_history/3/opening_contracts": {
+   "bbox": [
+    672.99,
+    981.81,
+    688.28,
+    991.81
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "217",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    331.14,
+    1137.2,
+    341.14
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.93",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    316.57,
+    1137.2,
+    326.57
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.53",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/debt_equity_ratio": {
+   "bbox": [
+    1119.31,
+    304.57,
+    1137.2,
+    314.57
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "7.57",
+   "confidence": 1.0
+  },
+  "/source_pages/aggregate_performance": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/source_pages/outstanding_contracts": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: page where the section heading was found",
+   "confidence": 1.0
+  },
+  "/period_history/3/amount_by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/estimated_recoveries": {
+   "bbox": [
+    1091.02,
+    633.19,
+    1137.26,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "591,744.43",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/estimated_recoveries": {
+   "bbox": [
+    1096.17,
+    645.76,
+    1137.14,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "29,000.00",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/estimated_recoveries": {
+   "bbox": [
+    1123.88,
+    658.33,
+    1126.94,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/tranche_balance/activity_by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/tranche": {
+   "bbox": [
+    311.16,
+    387.24,
+    316.23,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/tranche": {
+   "bbox": [
+    311.16,
+    362.79,
+    316.23,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/tranche": {
+   "bbox": [
+    308.72,
+    497.26,
+    318.9,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "16",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/tranche": {
+   "bbox": [
+    308.72,
+    546.18,
+    318.9,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "20",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/tranche": {
+   "bbox": [
+    311.16,
+    399.46,
+    316.23,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "8",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/tranche": {
+   "bbox": [
+    308.72,
+    460.6,
+    318.9,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "13",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/tranche": {
+   "bbox": [
+    311.16,
+    350.57,
+    316.23,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "4",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/tranche": {
+   "bbox": [
+    308.72,
+    485.04,
+    318.9,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/tranche": {
+   "bbox": [
+    308.72,
+    509.48,
+    318.9,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "17",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/tranche": {
+   "bbox": [
+    308.72,
+    533.93,
+    318.9,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "19",
+   "confidence": 1.0
+  },
+  "/aging_history/0/cumulative_net_losses": {
+   "bbox": [
+    1091.02,
+    307.43,
+    1137.26,
+    317.43
+   ],
+   "page": 11,
+   "pass": 1,
+   "raw_text": "808,176.63",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/cumulative_net_losses": {
+   "bbox": [
+    1198.19,
+    633.19,
+    1244.43,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "799,484.41",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/cumulative_net_losses": {
+   "bbox": [
+    1208.48,
+    645.76,
+    1244.32,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "8,692.23",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/cumulative_net_losses": {
+   "bbox": [
+    1231.05,
+    658.33,
+    1234.11,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/period_history/3/activity_by_currency": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: single-currency facility",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    508.02,
+    1208.72,
+    518.02
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.20%",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    493.45,
+    1208.72,
+    503.45
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.80%",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    478.88,
+    1208.72,
+    488.88
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.20%",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    464.31,
+    1208.72,
+    474.31
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.81%",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    449.74,
+    1208.72,
+    459.74
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.44%",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    435.16,
+    1208.72,
+    445.16
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.13%",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    420.59,
+    1208.72,
+    430.59
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.75%",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    406.0,
+    1208.72,
+    416.0
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.17%",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    391.43,
+    1208.72,
+    401.43
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.92%",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    376.85,
+    1208.72,
+    386.85
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.56%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/principal_prepayments": {
+   "bbox": [
+    592.54,
+    582.84,
+    638.19,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "113,057.43",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/cnl_limit_is_exception": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: vintage named as an exception in the covenant text from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/cnl_limit_is_exception": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: vintage named as an exception in the covenant text from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/cnl_limit_is_exception": {
+   "bbox": null,
+   "page": 14,
+   "pass": 1,
+   "raw_text": "derived: vintage named as an exception in the covenant text from [SLFA 9.1(f) Has the Borrower failed at any time to maintain a CNL Ratio, measured on annual origination, of less than or equal to 3.50%? NO]",
+   "confidence": 1.0
+  },
+  "/period_history/3/principal_prepayments": {
+   "bbox": [
+    592.54,
+    582.84,
+    638.19,
+    592.84
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "113,057.43",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    362.28,
+    1208.72,
+    372.28
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.83%",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    347.71,
+    1208.72,
+    357.71
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.82%",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/delinquency_ratio_pct": {
+   "bbox": [
+    1183.62,
+    333.14,
+    1208.72,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.79%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/0/closing": {
+   "bbox": [
+    1219.09,
+    313.9,
+    1264.74,
+    323.9
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "131,814.89",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/0/opening": {
+   "bbox": [
+    440.07,
+    313.9,
+    485.72,
+    323.9
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "139,375.60",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/0/tranche": {
+   "bbox": [
+    311.16,
+    313.9,
+    316.23,
+    323.9
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/1/closing": {
+   "bbox": [
+    1219.09,
+    326.13,
+    1264.74,
+    336.13
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "214,631.71",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/1/opening": {
+   "bbox": [
+    440.07,
+    326.13,
+    485.72,
+    336.13
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "227,325.65",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/1/tranche": {
+   "bbox": [
+    311.16,
+    326.13,
+    316.23,
+    336.13
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/2/closing": {
+   "bbox": [
+    1219.09,
+    338.35,
+    1264.74,
+    348.35
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "179,974.57",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/2/opening": {
+   "bbox": [
+    440.07,
+    338.35,
+    485.72,
+    348.35
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "191,282.24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/2/tranche": {
+   "bbox": [
+    311.16,
+    338.35,
+    316.23,
+    348.35
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "3",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/3/closing": {
+   "bbox": [
+    1219.09,
+    350.57,
+    1264.74,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "654,674.37",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/3/opening": {
+   "bbox": [
+    440.07,
+    350.57,
+    485.72,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "700,527.32",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/3/tranche": {
+   "bbox": [
+    311.16,
+    350.57,
+    316.23,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "4",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/4/closing": {
+   "bbox": [
+    1219.09,
+    362.79,
+    1264.74,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "512,284.75",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/4/opening": {
+   "bbox": [
+    440.07,
+    362.79,
+    485.72,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "591,866.58",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/4/tranche": {
+   "bbox": [
+    311.16,
+    362.79,
+    316.23,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/5/closing": {
+   "bbox": [
+    1219.09,
+    375.02,
+    1264.74,
+    385.02
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "351,697.37",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/5/opening": {
+   "bbox": [
+    440.07,
+    375.02,
+    485.72,
+    385.02
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "371,826.93",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/5/tranche": {
+   "bbox": [
+    311.16,
+    375.02,
+    316.23,
+    385.02
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/6/closing": {
+   "bbox": [
+    1219.09,
+    387.24,
+    1264.74,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "775,181.12",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/6/opening": {
+   "bbox": [
+    440.07,
+    387.24,
+    485.72,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "877,146.13",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/6/tranche": {
+   "bbox": [
+    311.16,
+    387.24,
+    316.23,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/7/closing": {
+   "bbox": [
+    1211.53,
+    399.46,
+    1264.72,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,060,082.63",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/7/opening": {
+   "bbox": [
+    432.52,
+    399.46,
+    485.71,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,106,727.15",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/7/tranche": {
+   "bbox": [
+    311.16,
+    399.46,
+    316.23,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "8",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/8/closing": {
+   "bbox": [
+    1219.09,
+    411.68,
+    1264.74,
+    421.68
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "164,261.19",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/8/opening": {
+   "bbox": [
+    440.07,
+    411.68,
+    485.72,
+    421.68
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "175,999.02",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/8/tranche": {
+   "bbox": [
+    311.16,
+    411.68,
+    316.23,
+    421.68
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "9",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/9/closing": {
+   "bbox": [
+    1219.09,
+    423.93,
+    1264.74,
+    433.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "239,573.49",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/9/opening": {
+   "bbox": [
+    440.07,
+    423.93,
+    485.72,
+    433.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "263,579.20",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/9/tranche": {
+   "bbox": [
+    308.72,
+    423.93,
+    318.9,
+    433.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "10",
+   "confidence": 1.0
+  },
+  "/warehouse/closing_advances_outstanding": {
+   "bbox": [
+    1030.22,
+    372.96,
+    1033.3,
+    383.01
+   ],
+   "page": 3,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/warehouse/opening_advances_outstanding": {
+   "bbox": [
+    378.23,
+    372.96,
+    381.31,
+    383.01
+   ],
+   "page": 3,
+   "pass": 1,
+   "raw_text": "-",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/0/change_contracts": {
+   "bbox": [
+    785.68,
+    725.09,
+    790.75,
+    735.09
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/1/change_contracts": {
+   "bbox": [
+    785.68,
+    761.76,
+    790.75,
+    771.76
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/2/change_contracts": {
+   "bbox": [
+    785.68,
+    786.2,
+    790.75,
+    796.2
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/3/change_contracts": {
+   "bbox": [
+    785.68,
+    908.45,
+    790.75,
+    918.45
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/4/change_contracts": {
+   "bbox": [
+    785.68,
+    945.14,
+    790.75,
+    955.14
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    711.78,
+    979.75,
+    721.78
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.11",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    697.21,
+    979.75,
+    707.21
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.16",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    682.64,
+    979.75,
+    692.64
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.17",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    668.07,
+    979.75,
+    678.07
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.15",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    653.47,
+    979.75,
+    663.47
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.12",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    638.9,
+    979.75,
+    648.9
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.14",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    624.33,
+    979.75,
+    634.33
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.15",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    609.76,
+    979.75,
+    619.76
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.14",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    595.19,
+    979.75,
+    605.19
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.12",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    580.62,
+    979.75,
+    590.62
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.11",
+   "confidence": 1.0
+  },
+  "/total_enhancement/total_enhancement_pct": {
+   "bbox": null,
+   "page": 9,
+   "pass": 1,
+   "raw_text": "derived: actual unfunded amount / closing principal balance from [Total 15,019,971.52 15,019,971.52, 15,019,971.52]",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/10/closing": {
+   "bbox": [
+    1219.09,
+    436.15,
+    1264.74,
+    446.15
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "487,476.86",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/10/opening": {
+   "bbox": [
+    440.07,
+    436.15,
+    485.72,
+    446.15
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "517,102.98",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/10/tranche": {
+   "bbox": [
+    308.72,
+    436.15,
+    318.9,
+    446.15
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "11",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/11/closing": {
+   "bbox": [
+    1219.09,
+    448.37,
+    1264.74,
+    458.37
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "662,192.52",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/11/opening": {
+   "bbox": [
+    440.07,
+    448.37,
+    485.72,
+    458.37
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "688,538.33",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/11/tranche": {
+   "bbox": [
+    308.72,
+    448.37,
+    318.9,
+    458.37
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "12",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/12/closing": {
+   "bbox": [
+    1211.53,
+    460.6,
+    1264.72,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,101,000.55",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/12/opening": {
+   "bbox": [
+    432.52,
+    460.6,
+    485.71,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,147,301.60",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/12/tranche": {
+   "bbox": [
+    308.72,
+    460.6,
+    318.9,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "13",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/13/closing": {
+   "bbox": [
+    1219.09,
+    472.82,
+    1264.74,
+    482.82
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "987,648.77",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/13/opening": {
+   "bbox": [
+    432.52,
+    472.82,
+    485.71,
+    482.82
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,019,342.64",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/13/tranche": {
+   "bbox": [
+    308.72,
+    472.82,
+    318.9,
+    482.82
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "14",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/14/closing": {
+   "bbox": [
+    1211.53,
+    485.04,
+    1264.72,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,161,913.31",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/14/opening": {
+   "bbox": [
+    432.52,
+    485.04,
+    485.71,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,205,889.46",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/14/tranche": {
+   "bbox": [
+    308.72,
+    485.04,
+    318.9,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "15",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/15/closing": {
+   "bbox": [
+    1211.53,
+    497.26,
+    1264.72,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,412,769.69",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/15/opening": {
+   "bbox": [
+    432.52,
+    497.26,
+    485.71,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,464,847.32",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/15/tranche": {
+   "bbox": [
+    308.72,
+    497.26,
+    318.9,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "16",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/16/closing": {
+   "bbox": [
+    1219.09,
+    509.48,
+    1264.74,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "700,855.85",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/16/opening": {
+   "bbox": [
+    440.07,
+    509.48,
+    485.72,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "740,613.75",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/16/tranche": {
+   "bbox": [
+    308.72,
+    509.48,
+    318.9,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "17",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/17/closing": {
+   "bbox": [
+    1219.09,
+    521.71,
+    1264.74,
+    531.71
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "889,389.77",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/17/opening": {
+   "bbox": [
+    440.07,
+    521.71,
+    485.72,
+    531.71
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "912,230.12",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/17/tranche": {
+   "bbox": [
+    308.72,
+    521.71,
+    318.9,
+    531.71
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "18",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/18/closing": {
+   "bbox": [
+    1211.53,
+    533.93,
+    1264.72,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,080,336.76",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/18/opening": {
+   "bbox": [
+    432.52,
+    533.93,
+    485.71,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,115,946.61",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/18/tranche": {
+   "bbox": [
+    308.72,
+    533.93,
+    318.9,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "19",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/19/closing": {
+   "bbox": [
+    1211.53,
+    546.18,
+    1264.72,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,197,671.55",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/19/opening": {
+   "bbox": [
+    432.52,
+    546.18,
+    485.71,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,249,522.35",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/19/tranche": {
+   "bbox": [
+    308.72,
+    546.18,
+    318.9,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "20",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/20/closing": {
+   "bbox": [
+    1211.53,
+    558.4,
+    1264.72,
+    568.4
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,054,539.81",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/20/opening": {
+   "bbox": [
+    432.52,
+    558.4,
+    485.71,
+    568.4
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,085,793.36",
+   "confidence": 1.0
+  },
+  "/tranche_balance/all_tranches/20/tranche": {
+   "bbox": [
+    308.72,
+    558.4,
+    318.9,
+    568.4
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "21",
+   "confidence": 1.0
+  },
+  "/aging_history/0/bucket_sum_with_writeoff": {
+   "bbox": null,
+   "page": 11,
+   "pass": 1,
+   "raw_text": "derived: bucket_sum + 91+/defaults from [14,781,278.24, 102,234.99, 136,458.29, 12,828.67]",
+   "confidence": 1.0
+  },
+  "/aging_history/0/written_off_bucket_label": {
+   "bbox": null,
+   "page": 1,
+   "pass": 1,
+   "raw_text": "template: derived.written_off_bucket_label",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/0/closing_contracts": {
+   "bbox": [
+    831.68,
+    725.09,
+    836.75,
+    735.09
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "4",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/0/opening_contracts": {
+   "bbox": [
+    679.21,
+    725.09,
+    684.28,
+    735.09
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/1/closing_contracts": {
+   "bbox": [
+    829.01,
+    761.76,
+    839.19,
+    771.76
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "18",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/1/opening_contracts": {
+   "bbox": [
+    676.54,
+    761.76,
+    686.72,
+    771.76
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "19",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/2/closing_contracts": {
+   "bbox": [
+    829.01,
+    786.2,
+    839.19,
+    796.2
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "11",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/2/opening_contracts": {
+   "bbox": [
+    676.54,
+    786.2,
+    686.72,
+    796.2
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "12",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/3/closing_contracts": {
+   "bbox": [
+    831.68,
+    908.45,
+    836.75,
+    918.45
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "9",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/3/opening_contracts": {
+   "bbox": [
+    676.54,
+    908.45,
+    686.72,
+    918.45
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "10",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/4/closing_contracts": {
+   "bbox": [
+    829.01,
+    945.14,
+    839.19,
+    955.14
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "16",
+   "confidence": 1.0
+  },
+  "/contracts/top_movers/4/opening_contracts": {
+   "bbox": [
+    676.54,
+    945.14,
+    686.72,
+    955.14
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "17",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    566.04,
+    979.75,
+    576.04
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.19",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    551.47,
+    979.75,
+    561.47
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.23",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/interest_coverage_ratio": {
+   "bbox": [
+    961.86,
+    536.88,
+    979.75,
+    546.88
+   ],
+   "page": 13,
+   "pass": 1,
+   "raw_text": "1.27",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/leasing_date": {
+   "bbox": [
+    230.47,
+    387.24,
+    267.69,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "26-Jul-23",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/leasing_date": {
+   "bbox": [
+    231.36,
+    362.79,
+    266.58,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6-Jun-23",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/leasing_date": {
+   "bbox": [
+    228.91,
+    497.26,
+    269.23,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "27-Jun-24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/leasing_date": {
+   "bbox": [
+    228.69,
+    546.18,
+    269.49,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "30-Oct-24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/leasing_date": {
+   "bbox": [
+    227.8,
+    399.46,
+    270.14,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "28-Aug-23",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/leasing_date": {
+   "bbox": [
+    228.25,
+    460.6,
+    269.69,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "28-Feb-24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/leasing_date": {
+   "bbox": [
+    228.47,
+    350.57,
+    269.69,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "28-Apr-23",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/leasing_date": {
+   "bbox": [
+    228.47,
+    485.04,
+    269.69,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "29-Apr-24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/leasing_date": {
+   "bbox": [
+    230.47,
+    509.48,
+    267.69,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "30-Jul-24",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/leasing_date": {
+   "bbox": [
+    228.25,
+    533.93,
+    269.69,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "27-Sep-24",
+   "confidence": 1.0
+  },
+  "/total_enhancement/total_enhancement_amount": {
+   "bbox": [
+    406.57,
+    946.21,
+    960.48,
+    956.28
+   ],
+   "page": 9,
+   "pass": 1,
+   "raw_text": "Total 15,019,971.52 15,019,971.52",
+   "confidence": 1.0
+  },
+  "/warehouse/maximum_warehouse_facility_limit": {
+   "bbox": [
+    761.95,
+    676.31,
+    814.52,
+    686.31
+   ],
+   "page": 4,
+   "pass": 1,
+   "raw_text": "5,000,000.00",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/0/original_finance_contract_npv": {
+   "bbox": [
+    741.55,
+    633.19,
+    800.64,
+    643.19
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "24,235,432.02",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/1/original_finance_contract_npv": {
+   "bbox": [
+    741.55,
+    645.76,
+    800.64,
+    655.76
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "20,765,342.63",
+   "confidence": 1.0
+  },
+  "/cnl_by_period/2/original_finance_contract_npv": {
+   "bbox": [
+    746.69,
+    658.33,
+    800.64,
+    668.33
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2,093,778.37",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    508.02,
+    1319.0,
+    518.02
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.02%",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    508.02,
+    1417.89,
+    518.02
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.21%",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    493.45,
+    1319.0,
+    503.45
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.26%",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    493.45,
+    1417.89,
+    503.45
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.28%",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    478.88,
+    1319.0,
+    488.88
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.32%",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    478.88,
+    1417.89,
+    488.88
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.62%",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    464.31,
+    1319.0,
+    474.31
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.83%",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    464.31,
+    1417.89,
+    474.31
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.59%",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    449.74,
+    1319.0,
+    459.74
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "3.16%",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    449.74,
+    1417.89,
+    459.74
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.51%",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    435.16,
+    1319.0,
+    445.16
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.39%",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    435.16,
+    1417.89,
+    445.16
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.46%",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    420.59,
+    1319.0,
+    430.59
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.69%",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    420.59,
+    1417.89,
+    430.59
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.72%",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    406.0,
+    1319.0,
+    416.0
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.43%",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    406.0,
+    1417.89,
+    416.0
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.62%",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    391.43,
+    1319.0,
+    401.43
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.65%",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    391.43,
+    1417.89,
+    401.43
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.46%",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    376.85,
+    1319.0,
+    386.85
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.61%",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    376.85,
+    1417.89,
+    386.85
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.71%",
+   "confidence": 1.0
+  },
+  "/ratio_history/0/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    508.02,
+    1502.46,
+    518.02
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.09%",
+   "confidence": 1.0
+  },
+  "/ratio_history/1/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    493.45,
+    1502.46,
+    503.45
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.06%",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    362.28,
+    1319.0,
+    372.28
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "2.23%",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    362.28,
+    1417.89,
+    372.28
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.74%",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    347.71,
+    1319.0,
+    357.71
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.63%",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1392.79,
+    347.71,
+    1417.89,
+    357.71
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.62%",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/monthly_delinquency_ratio_pct": {
+   "bbox": [
+    1293.9,
+    333.14,
+    1319.0,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "1.51%",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/rolling_3month_loss_ratio_pct": {
+   "bbox": [
+    1391.07,
+    333.14,
+    1419.3,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "-0.20%",
+   "confidence": 1.0
+  },
+  "/ratio_history/2/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    478.88,
+    1502.46,
+    488.88
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.87%",
+   "confidence": 1.0
+  },
+  "/ratio_history/3/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    464.31,
+    1502.46,
+    474.31
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.47%",
+   "confidence": 1.0
+  },
+  "/ratio_history/4/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    449.74,
+    1502.46,
+    459.74
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.50%",
+   "confidence": 1.0
+  },
+  "/ratio_history/5/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    435.16,
+    1502.46,
+    445.16
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.58%",
+   "confidence": 1.0
+  },
+  "/ratio_history/6/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    420.59,
+    1502.46,
+    430.59
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.65%",
+   "confidence": 1.0
+  },
+  "/ratio_history/7/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    406.0,
+    1502.46,
+    416.0
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.65%",
+   "confidence": 1.0
+  },
+  "/ratio_history/8/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    391.43,
+    1502.46,
+    401.43
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.68%",
+   "confidence": 1.0
+  },
+  "/ratio_history/9/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    376.85,
+    1502.46,
+    386.85
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.56%",
+   "confidence": 1.0
+  },
+  "/ratio_history/10/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    362.28,
+    1502.46,
+    372.28
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.54%",
+   "confidence": 1.0
+  },
+  "/ratio_history/11/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    347.71,
+    1502.46,
+    357.71
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.54%",
+   "confidence": 1.0
+  },
+  "/ratio_history/12/rolling_12month_loss_ratio_pct": {
+   "bbox": [
+    1477.36,
+    333.14,
+    1502.46,
+    343.14
+   ],
+   "page": 12,
+   "pass": 1,
+   "raw_text": "0.45%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    387.24,
+    1075.29,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7.34%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    362.79,
+    1075.29,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.93%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    497.26,
+    1075.29,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.79%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    546.18,
+    1075.29,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.15%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    399.46,
+    1075.29,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7.54%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    460.6,
+    1075.29,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.93%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    350.57,
+    1075.29,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.27%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    485.04,
+    1075.29,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7.20%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    509.48,
+    1075.29,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.49%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/original_tranche_yield": {
+   "bbox": [
+    1050.4,
+    533.93,
+    1075.29,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5.79%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/closing_tranche_balance": {
+   "bbox": [
+    1219.09,
+    387.24,
+    1264.74,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "775,181.12",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/opening_tranche_balance": {
+   "bbox": [
+    440.07,
+    387.24,
+    485.72,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "877,146.13",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/closing_tranche_balance": {
+   "bbox": [
+    1219.09,
+    362.79,
+    1264.74,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "512,284.75",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/opening_tranche_balance": {
+   "bbox": [
+    440.07,
+    362.79,
+    485.72,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "591,866.58",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    497.26,
+    1264.72,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,412,769.69",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    497.26,
+    485.71,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,464,847.32",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    546.18,
+    1264.72,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,197,671.55",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    546.18,
+    485.71,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,249,522.35",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    399.46,
+    1264.72,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,060,082.63",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    399.46,
+    485.71,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,106,727.15",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    460.6,
+    1264.72,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,101,000.55",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    460.6,
+    485.71,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,147,301.60",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/closing_tranche_balance": {
+   "bbox": [
+    1219.09,
+    350.57,
+    1264.74,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "654,674.37",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/opening_tranche_balance": {
+   "bbox": [
+    440.07,
+    350.57,
+    485.72,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "700,527.32",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    485.04,
+    1264.72,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,161,913.31",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    485.04,
+    485.71,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,205,889.46",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/closing_tranche_balance": {
+   "bbox": [
+    1219.09,
+    509.48,
+    1264.74,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "700,855.85",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/opening_tranche_balance": {
+   "bbox": [
+    440.07,
+    509.48,
+    485.72,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "740,613.75",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/closing_tranche_balance": {
+   "bbox": [
+    1211.53,
+    533.93,
+    1264.72,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,080,336.76",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/opening_tranche_balance": {
+   "bbox": [
+    432.52,
+    533.93,
+    485.71,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,115,946.61",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    387.24,
+    409.46,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "3,272,831.07",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    362.79,
+    409.46,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "3,409,531.64",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    497.26,
+    409.46,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2,873,380.14",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    546.18,
+    409.46,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2,530,071.28",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    399.46,
+    409.46,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "3,034,058.12",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    460.6,
+    409.46,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2,522,539.51",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    350.57,
+    409.46,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "3,159,681.22",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    485.04,
+    409.46,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2,904,928.20",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    509.48,
+    409.46,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "1,443,257.98",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/original_tranche_balance": {
+   "bbox": [
+    356.27,
+    533.93,
+    409.46,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "2,035,726.99",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/0/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    387.24,
+    1151.51,
+    397.24
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.77%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/1/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    362.79,
+    1151.51,
+    372.79
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.40%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/2/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    497.26,
+    1151.51,
+    507.26
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.79%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/3/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    546.18,
+    1151.51,
+    556.18
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.15%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/4/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    399.46,
+    1151.51,
+    409.46
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7.54%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/5/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    460.6,
+    1151.51,
+    470.6
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.93%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/6/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    350.57,
+    1151.51,
+    360.57
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.27%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/7/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    485.04,
+    1151.51,
+    495.04
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "7.20%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/8/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    509.48,
+    1151.51,
+    519.48
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "6.38%",
+   "confidence": 1.0
+  },
+  "/tranche_balance/top_movers/9/current_period_effective_tranche_yield": {
+   "bbox": [
+    1126.62,
+    533.93,
+    1151.51,
+    543.93
+   ],
+   "page": 2,
+   "pass": 2,
+   "raw_text": "5.79%",
+   "confidence": 1.0
+  }
+ },
+ "confidence": 1.0,
+ "created_at": "2026-11-03T20:10:45.029888+00:00"
+}

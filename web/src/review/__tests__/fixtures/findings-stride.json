@@ -1,0 +1,72 @@
+[
+ {
+  "id": "c87503ef-42b2-4f3a-abe6-efa659dadf4e",
+  "extraction_id": "5c7ef341-3431-4eb2-80c8-46a7b3d8e076",
+  "rule_id": "R14",
+  "layer": "cross_source",
+  "severity": "review",
+  "message": "SLFA 9.1 (d): report threshold 0.035, master record says 0.04 (effective 2022-12-09)",
+  "fields": [
+   "/covenants/0/threshold",
+   "master:/covenant_definitions"
+  ],
+  "our_value": 0.04,
+  "report_value": 0.035,
+  "difference": -0.005,
+  "tolerance": 0.0,
+  "unit": "percent_points",
+  "source_page": 14,
+  "context": {
+   "legal_ref": "SLFA 9.1 (d)",
+   "description": "Has the Rolling Three Month Loss Ratio exceeded 3.50%?",
+   "master_source": "as above",
+   "effective_from": "2022-12-09",
+   "threshold_rule": {
+    "on": "/tranche_balance/closing",
+    "bands": [
+     {
+      "lte": 10000000,
+      "threshold": 0.04
+     },
+     {
+      "gt": 10000000,
+      "threshold": 0.0225
+     }
+    ]
+   },
+   "master_description": "Rolling Twelve Month Loss Ratio"
+  },
+  "status": "open",
+  "resolution": null,
+  "created_at": "2026-11-03T20:10:50.112251+00:00"
+ },
+ {
+  "id": "742ce3b9-bb09-4055-92a0-7d2631e8ac2b",
+  "extraction_id": "5c7ef341-3431-4eb2-80c8-46a7b3d8e076",
+  "rule_id": "R14",
+  "layer": "cross_source",
+  "severity": "review",
+  "message": "SLFA 9.1 (e): report threshold 0.025, master record says 0.035 (effective 2022-12-09)",
+  "fields": [
+   "/covenants/1/threshold",
+   "master:/covenant_definitions"
+  ],
+  "our_value": 0.035,
+  "report_value": 0.025,
+  "difference": -0.01,
+  "tolerance": 0.0,
+  "unit": "percent_points",
+  "source_page": 14,
+  "context": {
+   "legal_ref": "SLFA 9.1 (e)",
+   "description": "Has the Rolling Twelve Month Loss Ratio exceeded 2.50%?",
+   "master_source": "as above",
+   "effective_from": "2022-12-09",
+   "threshold_rule": null,
+   "master_description": "Delinquency Ratio"
+  },
+  "status": "open",
+  "resolution": null,
+  "created_at": "2026-11-03T20:10:50.112298+00:00"
+ }
+]
