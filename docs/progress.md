@@ -2,6 +2,16 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Extraction: wave 1c history. `worker/extract/history.py: extend(prior_deal, extraction)` chains one
+  upload onto the deal's last published object (an earlier extend/chain result or a seeded reference object):
+  period_history oldest first, aging_history newest first, ratio_history gaps, restatements, balance
+  discontinuities, prior_covenants (with the prior CNL value) and prior closings. Pure; extend(None, ex) is ex;
+  a prior that is not before the extraction's period raises ValueError. May→Jun→Jul→Aug month by month equals
+  chain() and the reference object for all 3 F-PIL deals. Carried months get no `sources` entries (the schema
+  requires a page); meta.history says "published <period>" and lists the carried pointers. worker/main.py passes
+  `extend=history.extend` to handle_extraction when its signature accepts it (inspect), else the plain call. A PDF
+  with no text on page 1 now fails with "page 1 has no text layer; cover block not found" (ExtractionError)
+  instead of an IndexError. Tests: 62 in worker/extract/tests.
 - 2026-11-03 — Data & API: seed paths require content. `app/seed.py` picks the first seed folder that holds
   partners.json and the first reference folder with a *.dashboard.json, so an empty compose mount point (api/seed) no
   longer shadows the real one. Decoy tests in tests/test_seed.py; 113 API tests pass.
