@@ -1,0 +1,101 @@
+import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { Button, KpiTile, StatePanel, formatNumber, type SelectOption } from '@/design/components'
+import type { ApiError, Deal, FindingCounts, Program, Upload } from './data'
+import './admin.css'
+
+/** Error panel for a failed load. 403 is the no-access state (the API, not the UI, is the boundary). */
+export function LoadError({ error, onRetry }: { error: ApiError; onRetry?: () => void }) {
+  if (error.status === 403) return <StatePanel kind="no-access" message="Your role can’t open this data. Switch role in the sidebar to see it." />
+  if (error.status === 404) return <StatePanel kind="not-found" title="Not found" message={error.message || 'This record does not exist.'} />
+  return (
+    <StatePanel kind="error" message={error.message ? `The request failed: ${error.message}` : undefined}
+      actions={onRetry ? <Button onClick={onRetry}>Try again</Button> : undefined} />
+  )
+}
+
+/** Human-readable error for an action (upload, save). */
+export function errorText(e: ApiError): string {
+  switch (e.code) {
+    case 'already_published': return 'This deal and collection period are already published. Reject or regenerate instead of uploading again.'
+    case 'upload_in_progress': return 'An upload for this deal and collection period is already in progress. Find it in Upload history.'
+    case 'not_a_pdf': return 'The file is not a readable PDF.'
+    case 'unknown_deal': return 'The API does not know this deal. Refresh the page and pick it again.'
+    case 'tao_only': case 'admin_only': return 'Your role can’t do this. Switch to TAO Admin in the sidebar.'
+  }
+  if (e.status === 403) return 'Your role can’t do this. Switch to TAO Admin in the sidebar.'
+  return e.message || 'The request failed. Try again in a moment.'
+}
+
+const DT = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+/** ISO timestamp → "Nov 3, 2026, 15:08" in the viewer's zone. */
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : DT.format(d)
+}
+export const isoMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+/** The month before "YYYY-MM". */
+export function prevMonth(p: string) {
+  const [y, m] = p.split('-').map(Number)
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+}
+
+/** Deals grouped by program name, for <Select options>. */
+export function dealOptions(deals: Deal[], programs: Program[]): { group: string; options: SelectOption[] }[] {
+  const byProgram = new Map<string, Deal[]>()
+  for (const d of deals) byProgram.set(d.program_slug, [...(byProgram.get(d.program_slug) ?? []), d])
+  const name = (slug: string) => programs.find(p => p.slug === slug)?.name ?? slug
+  return [...byProgram.entries()]
+    .sort((a, b) => name(a[0]).localeCompare(name(b[0])))
+    .map(([slug, ds]) => ({ group: name(slug), options: ds.slice().sort((a, b) => a.name.localeCompare(b.name)).map(d => ({ value: d.slug, label: d.name })) }))
+}
+
+export const totalFindings = (c?: FindingCounts) => (c?.block ?? 0) + (c?.review ?? 0) + (c?.note ?? 0)
+
+/** "2 block · 1 review · 0 note" with numbers; words carry the meaning, not colour. */
+export function FindingCountsText({ counts }: { counts?: FindingCounts }) {
+  if (!counts) return <span className="adm-muted">—</span>
+  return (
+    <span className="adm-counts">
+      <span>{formatNumber(counts.block ?? 0)} block</span>
+      <span>{formatNumber(counts.review ?? 0)} review</span>
+      <span>{formatNumber(counts.note ?? 0)} note</span>
+    </span>
+  )
+}
+
+export const reviewHref = (id: string) => `/admin/uploads/queue/${id}`
+export const auditHref = (uploadId: string) => `/admin/settings/users/audit?upload_id=${encodeURIComponent(uploadId)}`
+
+export function TextLink({ to, children, label }: { to: string; children: ReactNode; label?: string }) {
+  return <Link className="adm-link" to={to} aria-label={label} onClick={e => e.stopPropagation()}>{children}</Link>
+}
+
+export type QueueCounts = { received: number; extracting: number; needs_review: number; published_this_month: number }
+export function queueCounts(uploads: Upload[], now = new Date()): QueueCounts {
+  const month = isoMonth(now)
+  const c: QueueCounts = { received: 0, extracting: 0, needs_review: 0, published_this_month: 0 }
+  for (const u of uploads) {
+    if (u.status === 'received') c.received++
+    else if (u.status === 'extracting') c.extracting++
+    else if (u.status === 'needs_review') c.needs_review++
+    if (u.status === 'published' && u.published_at && isoMonth(new Date(u.published_at)) === month) c.published_this_month++
+  }
+  return c
+}
+
+/** The four queue tiles shared by Dashboard and Uploads. */
+export function QueueTiles({ uploads, loading }: { uploads?: Upload[]; loading?: boolean }) {
+  const c = uploads ? queueCounts(uploads) : undefined
+  const v = (n?: number) => (n === undefined ? undefined : formatNumber(n))
+  return (
+    <>
+      <KpiTile label="Received" value={v(c?.received)} context="waiting for the worker" loading={loading} />
+      <KpiTile label="Extracting" value={v(c?.extracting)} context="being read now" loading={loading} />
+      <KpiTile label="Needs review" value={v(c?.needs_review)} tone={c && c.needs_review > 0 ? 'warn' : undefined}
+        context={c && c.needs_review > 0 ? 'waiting for a TAO reviewer' : 'nothing waiting'} loading={loading} />
+      <KpiTile label="Published this month" value={v(c?.published_this_month)} context={new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric' }).format(new Date())} loading={loading} />
+    </>
+  )
+}
