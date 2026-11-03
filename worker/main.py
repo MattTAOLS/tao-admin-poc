@@ -2,9 +2,13 @@
 Flow: load PDF -> extract/ (text layer, OCR fallback later) -> validate/ (rules package) -> write extraction +
 findings -> set upload status.
 
-The Extraction agent owns the extract step (`run_job`). Persistence and validation belong to the adapter in
-worker/validate/ (Rules agent) and the API: if `validate.handle_extraction(job, extraction)` exists it is called;
-until then the extraction is written as JSON next to the upload so the hand-off can be inspected.
+The Extraction agent owns the extract step (`run_job`). Every database write belongs to the adapter in
+worker/validate/ (Rules agent): mark_extracting(upload_id), handle_extraction(job, extraction) (extraction row,
+rules, findings, pass-2 queueing, needs_review) and mark_failed(upload_id, error). The extraction is also
+written as FILE_STORE/uploads/<id>/extraction-pass<n>.json, which pass 2 merges onto.
+
+Container: `python main.py` with cwd /app (./worker), so imports are `extract` and `validate`; rules sits at
+/app/rules. From the repo root the same modules are `worker.extract` / `worker.validate`.
 """
 import json
 import logging
@@ -42,23 +46,50 @@ def run_job(job: dict, file_store: str | None = None, base: dict | None = None) 
     return extract(str(pdf), template_id, upload_id=upload_id)
 
 
-def handle(job: dict):
-    extraction = run_job(job)
-    folder = upload_dir(job["upload_id"])
-    out = folder / f"extraction-pass{extraction['meta']['pass']}.json"
-    out.write_text(json.dumps(extraction, indent=1), encoding="utf-8")
-    log.info("extracted %s pass %s -> %s (unplaced: %s)", job["upload_id"], extraction["meta"]["pass"], out,
-             extraction["meta"].get("unplaced"))
-    try:
+def _validate_api():
+    """(mark_extracting, handle_extraction, mark_failed) from worker/validate (Rules agent), or None when the
+    adapter is not importable yet. In the container the module is `validate` (cwd /app); from the repo root it
+    is `worker.validate`."""
+    for mod in ("validate", "worker.validate"):
         try:
-            from validate import handle_extraction
-        except ImportError:
-            from worker.validate import handle_extraction
-    except ImportError:
-        log.info("validate.handle_extraction not available yet; extraction left at %s", out)
-        return extraction
-    handle_extraction(job, extraction)
-    return extraction
+            m = __import__(mod, fromlist=["handle_extraction"])
+            return m.mark_extracting, m.handle_extraction, m.mark_failed
+        except (ImportError, AttributeError):
+            continue
+    return None
+
+
+def handle(job: dict, api=None):
+    """One job: mark extracting -> extract -> write extraction-pass<n>.json -> validate.handle_extraction.
+    Any exception from extraction or the hand-off marks the upload failed (and is re-raised for the log).
+    Returns handle_extraction's result, or the extraction itself when the adapter is not available."""
+    upload_id = job["upload_id"]
+    api = api if api is not None else _validate_api()
+    if api is None:
+        log.warning("validate adapter not importable; extracting %s without database hand-off", upload_id)
+    else:
+        api[0](upload_id)
+    try:
+        extraction = run_job(job)
+        folder = upload_dir(upload_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        out = folder / f"extraction-pass{extraction['meta']['pass']}.json"
+        out.write_text(json.dumps(extraction, indent=1), encoding="utf-8")   # pass 2 reads pass 1 from here
+        log.info("extracted %s pass %s -> %s (unplaced: %s)", upload_id, extraction["meta"]["pass"], out,
+                 extraction["meta"].get("unplaced"))
+        if api is None:
+            return extraction
+        result = api[1](job, extraction)
+        log.info("handed off %s: %s", upload_id, result)
+        return result
+    except Exception as exc:
+        log.exception("job failed: %s", job)
+        if api is not None:
+            try:
+                api[2](upload_id, str(exc))
+            except Exception:
+                log.exception("mark_failed failed for %s", upload_id)
+        raise
 
 
 if __name__ == "__main__":
@@ -73,4 +104,4 @@ if __name__ == "__main__":
             try:
                 handle(job)
             except Exception:
-                log.exception("job failed: %s", job)
+                pass    # already logged and marked failed in handle()
