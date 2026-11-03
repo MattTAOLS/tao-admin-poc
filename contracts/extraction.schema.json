@@ -306,7 +306,8 @@
                 "type": [
                   "number",
                   "null"
-                ]
+                ],
+                "description": "Page 2 column i, NPV adjustment / charge-off (−), as a positive amount"
               },
               "by_currency": {
                 "type": [
@@ -433,6 +434,20 @@
               },
               "opening_contracts": {
                 "type": "number"
+              },
+              "new_funded": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Page 2 new funded contracts in the period (+), as a positive amount; only where the layout prints it"
+              },
+              "ineligible_buyback": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Page 2 ineligible buyback in the period (−), as a positive amount; only where the layout prints it"
               }
             },
             "additionalProperties": true
@@ -1440,6 +1455,18 @@
                   "string",
                   "null"
                 ]
+              },
+              "reported_triggered": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "YES",
+                  "NO",
+                  null
+                ],
+                "description": "The report's own YES/NO on the quantitative-tests page (page 14 on Moneda)"
               }
             },
             "additionalProperties": true
