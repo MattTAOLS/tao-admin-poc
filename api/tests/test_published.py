@@ -125,3 +125,62 @@ def test_audit_route(client):
     one = a[0]["upload_id"]
     assert [x["upload_id"] for x in client.get("/api/v1/audit", headers=TAO, params={"upload_id": one}).json()] == [one]
     assert client.get("/api/v1/audit", headers=TAO, params={"upload_id": "x"}).status_code == 422
+
+
+# ---- a program's month lists every deal: a deal still waiting for approval shows its last published month ----
+MONEDA, STRIDE, XPEDITE = "f-pil-2-0-moneda-capital-corp", "f-pil-2-0-stride-capital", "f-pil-2-0-xpedite-leasing"
+
+
+def moneda_july_only():
+    """One deliberate change to the real objects: Moneda's publication is its July report (Aug not yet approved)."""
+    from sqlalchemy import select
+    from app.models import Publication
+    with db.session() as s:
+        pub = s.scalar(select(Publication).where(Publication.deal_slug == MONEDA))
+        pub.collection_period = "2026-07"
+        pub.deal = {**pub.deal, "collection_period": "July 2026"}
+        s.commit()
+
+
+def test_all_current_has_no_deals_behind(client):
+    r = client.get(f"{P}/programs/f-pil-2-0", headers=INV).json()
+    assert r["period"] == "2026-08" and r["deals_behind"] == []
+    fpil = next(p for p in client.get(f"{P}/portfolio", headers=INV).json()["programs"] if p["program"]["slug"] == "f-pil-2-0")
+    assert fpil["deals_behind"] == []
+
+
+def test_deal_behind_stays_in_the_latest_month(client):
+    moneda_july_only()
+    r = client.get(f"{P}/programs/f-pil-2-0", headers=INV).json()
+    assert r["period"] == "2026-08" and r["deal_count"] == 3
+    assert {d["deal_slug"] for d in r["deals"]} == {MONEDA, STRIDE, XPEDITE}
+    assert r["deals_behind"] == [{"deal_slug": MONEDA, "deal_name": "F-PIL 2.0 - Moneda Capital Corp.", "as_of": "2026-07"}]
+    assert next(d for d in r["deals"] if d["deal_slug"] == MONEDA)["collection_period"] == "July 2026"
+    assert r["covenant_totals"] == {"BREACH": 0, "WATCH": 3, "OK": 22, "AVAILABLE": 0}   # same objects, so the same totals
+    assert r["available_periods"] == ["2026-08", "2026-07"]
+    fpil = next(p for p in client.get(f"{P}/portfolio", headers=INV).json()["programs"] if p["program"]["slug"] == "f-pil-2-0")
+    assert fpil["period"] == "2026-08" and fpil["deal_count"] == 3 and fpil["deals_behind"] == r["deals_behind"]
+    assert {d["deal_slug"]: d["collection_period"] for d in fpil["deals"]}[MONEDA] == "July 2026"
+
+
+def test_requested_earlier_month_leaves_out_deals_with_nothing_then(client):
+    moneda_july_only()
+    r = client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-07"}).json()
+    assert r["period"] == "2026-07" and r["deal_count"] == 1 and [d["deal_slug"] for d in r["deals"]] == [MONEDA]
+    assert r["deals_behind"] == []
+    assert client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-06"}).status_code == 404
+
+
+def test_later_requested_month_marks_every_deal_behind(client):
+    r = client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-09"}).json()
+    assert r["deal_count"] == 3 and sorted(b["deal_slug"] for b in r["deals_behind"]) == [MONEDA, STRIDE, XPEDITE]
+    assert {b["as_of"] for b in r["deals_behind"]} == {"2026-08"}
+
+
+def test_deals_behind_respects_partner_filter(client):
+    moneda_july_only(); only("investor")
+    for h in (MGR, MGR_ADMIN):
+        assert client.get(f"{P}/programs/f-pil-2-0", headers=h).status_code == 404
+        assert client.get(f"{P}/programs/f-pil-2-0", headers=h, params={"period": "2026-07"}).status_code == 404
+        assert "f-pil-2-0" not in {p["program"]["slug"] for p in client.get(f"{P}/portfolio", headers=h).json()["programs"]}
+    assert client.get(f"{P}/programs/f-pil-2-0", headers=INV).json()["deals_behind"][0]["deal_slug"] == MONEDA

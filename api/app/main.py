@@ -464,19 +464,27 @@ def _program_aggregate(s: Session, program: Program, period: str | None) -> dict
     if not pubs:
         return None
     period = period or max(p.collection_period for p in pubs)
-    deals = [p.deal for p in pubs if p.collection_period == period]
-    if not deals:
+    # A program's month lists every deal: each deal contributes its latest publication at or before `period`,
+    # so a deal whose next report is still waiting for approval shows its last published month (deals_behind).
+    latest: dict[str, Publication] = {}
+    for p in pubs:
+        if p.collection_period <= period and (p.deal_slug not in latest or p.collection_period > latest[p.deal_slug].collection_period):
+            latest[p.deal_slug] = p
+    if not latest:
         return None
-    agg = rollup.build_program(period, deals)
+    chosen = [latest[k] for k in sorted(latest)]
+    behind = [{"deal_slug": p.deal_slug, "deal_name": p.deal.get("deal_name"), "as_of": p.collection_period}
+              for p in chosen if p.collection_period < period]
+    agg = rollup.build_program(period, [p.deal for p in chosen])
     periods = sorted({p.collection_period for p in pubs}, reverse=True)
-    return {"program": views.program_dict(s, program), "available_periods": periods, **agg}
+    return {"program": views.program_dict(s, program), "available_periods": periods, "deals_behind": behind, **agg}
 
 
 @app.get(API + "/published/portfolio")
 def published_portfolio(partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     out = []
     for p in visible_programs(s, partner):
-        agg = _program_aggregate(s, p, None)
+        agg = _program_aggregate(s, p, None)              # carries deals_behind; each index row keeps its own collection_period
         if agg is None:
             continue
         deals_index = [{"deal_slug": d.get("deal_slug"), "deal_name": d.get("deal_name"), "collection_period": d.get("collection_period"),

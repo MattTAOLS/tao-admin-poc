@@ -497,6 +497,16 @@ Append an entry when a work package lands. Newest first.
   one amount (the old gap: +2,782.68 / −4,163.85). A sign-lost read is tested separately (twice the amount). The R11
   Finloc tests hold: by_currency is unchanged and July's −47,609.31 is still revaluation. Tests: rules 123,
   worker/validate 19, api 135, check_contracts green.
+- 2026-11-04 — Data & API: latest-month program view (merged main 9ce35c8 and lead/latest-month cb12a95). For month P
+  (requested, or the newest collection_period across the program's publications) each deal contributes its latest
+  publication with collection_period <= P; deals with nothing at or before P are left out. `deals_behind`
+  ({deal_slug, deal_name, as_of}) lists the deals contributing an earlier month, on /published/programs/{slug} and on
+  each /published/portfolio program entry; [] when all are current. available_periods, the deal endpoint and
+  rollup.build_program are unchanged. A month later than every publication (e.g. ?period=2026-09) now returns 200
+  with every deal behind instead of 404. Also `failure_reason` on the Upload dict: read from the audit row that
+  failed the upload (worker/validate mark_failed reason, or 'queue unavailable'); null unless extraction_failed. No
+  migration, no worker change. Needs from Lead: `failure_reason` on the Upload schema in contracts/openapi.yaml.
+  Tests: api 141, check_contracts green.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
