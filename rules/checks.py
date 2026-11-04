@@ -7,7 +7,7 @@ Conventions:
 - `context` carries the terms of each identity so the FindingCard can show the arithmetic. It never carries the
   keys our_value / report_value / difference (those are top-level finding fields).
 """
-import calendar, datetime as dt, re
+import calendar, datetime as dt, math, re
 from .engine import finding, load_rules, settings_of
 
 EPS = 1e-9
@@ -70,6 +70,13 @@ def _current_row(d):
 def _current_index(d):
     """Index of the current period's row in period_history (3 in a chained 4-month object, 0 in a single upload)."""
     return next((i for i, p in enumerate(d.get("period_history", [])) if p.get("collection_period") == d.get("collection_period")), None)
+
+def missing_terms(rule, ex, where, missing, fields, source_page=None):
+    """A block finding for an arithmetic check whose required terms are null or not numbers: names them and asks for
+    pass 2 / review instead of raising. The rule's own severity is kept (block for every arithmetic rule)."""
+    return finding(rule, _uid(ex), unit=None, fields=fields, context={"missing": ", ".join(missing), "where": where, "missing_fields": list(missing)},
+                   **({"source_page": source_page} if source_page else {}),
+                   message="Cannot check: {missing} missing or not a number on {where}. Re-read the page (pass 2) or enter the values in review.")
 
 # ---------- targets: where "use ours" / "use report" writes ----------
 # A finding carries `targets` only when our_value and report_value are two candidate values of the same field and the
@@ -143,7 +150,7 @@ def plausible_ranges(rule, ex, ctx, tol):
         if _num(v) and v < 0: bad(ptr, v, ">= 0", "currency")
     for ptr in ("/contracts/opening", "/contracts/closing"):
         v = _get(d, ptr)
-        if _num(v) and (v < 0 or v != int(v)): bad(ptr, v, "whole number >= 0", "count")
+        if _num(v) and (not math.isfinite(v) or v < 0 or v != int(v)): bad(ptr, v, "whole number >= 0", "count")
     v = _get(d, "/program/program_utilization_pct")
     if _num(v) and not (0 <= v <= 1.5): bad("/program/program_utilization_pct", v, "0 to 1.5", "percent_points")
     return out
@@ -201,6 +208,10 @@ def tranche_rollforward(rule, ex, ctx, tol):
     balance_adjustment (signed, Meridian's "Tranche Contract Balance Adjustment")."""
     d = ex["deal"]; period = _current_row(d)
     if not period: return []
+    i = _current_index(d)
+    need = [k for k in ("opening_balance", "principal", "principal_prepayments", "losses", "closing_balance") if not _num(period.get(k))]
+    if need:
+        return [missing_terms(rule, ex, f"the {d.get('collection_period')} roll-forward row (/period_history/{i})", need, [f"/period_history/{i}/{k}" for k in need])]
     out = []
     opt = lambda k: period[k] if _num(period.get(k)) else 0.0
     nf, co, ib = opt("new_funded"), opt("charge_off"), opt("ineligible_buyback")
@@ -215,7 +226,6 @@ def tranche_rollforward(rule, ex, ctx, tol):
                              + (" − NPV adjustment {charge_off}" if co else "") + (" − ineligible buyback {ineligible_buyback}" if ib else "")
                              + (" + upward adjustment {adjustment_increase}" if up else "") + (" + balance adjustment {balance_adjustment}" if ba else "")
                              + " = {computed}, report says closing {closing} (difference {difference})")
-        i = _current_index(d)
         tg = _targets(d, [f"/period_history/{i}/closing_balance"], ["/tranche_balance/closing", f"/period_history/{i}/closing_amount", "/tranche_amount/closing", "/program/program_amount"], period["closing_balance"])
         out.append(finding(rule, _uid(ex), our_value=round(computed, 2), report_value=period["closing_balance"], difference=round(period["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency", context=c, targets=tg, **kw))
     tb = d.get("tranche_balance") or {}
@@ -261,15 +271,19 @@ def aging_buckets_sum(rule, ex, ctx, tol):
     deals include the written-off / 91+ bucket in the closing balance. Either must tie to the aging closing balance.
     The aging closing vs page-2 tranche closing comparison is recorded in context (Meridian OneCap differs by its
     deemed defaults) and left to R17/R18, not blocked here."""
-    d = ex["deal"]; a = d["aging_history"][0]
-    sum3 = a["current_0_30"] + a["days_31_60"] + a["days_61_90"]; sum4 = sum3 + a["written_off"]
+    d = ex["deal"]; a = (d.get("aging_history") or [None])[0]
+    if not isinstance(a, dict): return []   # no aging table extracted: R01 owns presence
+    need = [k for k in ("current_0_30", "days_31_60", "days_61_90", "closing_balance") if not _num(a.get(k))]
+    if need: return [missing_terms(rule, ex, "the current aging row (/aging_history/0)", need, [f"/aging_history/0/{k}" for k in need])]
+    sum3 = a["current_0_30"] + a["days_31_60"] + a["days_61_90"]
+    sum4 = sum3 + a["written_off"] if _num(a.get("written_off")) else None
     if near(sum3, a["closing_balance"], tol["currency"]) or near(sum4, a["closing_balance"], tol["currency"]): return []
-    with_wo = abs(sum4 - a["closing_balance"]) < abs(sum3 - a["closing_balance"])
+    with_wo = sum4 is not None and abs(sum4 - a["closing_balance"]) < abs(sum3 - a["closing_balance"])
     computed = sum4 if with_wo else sum3
-    label = f"current + 31-60 + 61-90 + {a['written_off_bucket_label']}" if with_wo else "current + 31-60 + 61-90"
+    label = f"current + 31-60 + 61-90 + {a.get('written_off_bucket_label') or 'written off'}" if with_wo else "current + 31-60 + 61-90"
     return [finding(rule, _uid(ex), our_value=round(computed, 2), report_value=a["closing_balance"], difference=round(a["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency",
-                    context={"computed": round(computed, 2), "closing_balance": a["closing_balance"], "tranche_closing": d["tranche_balance"]["closing"], "bucket_label": label,
-                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a["written_off"]},
+                    context={"computed": round(computed, 2), "closing_balance": a["closing_balance"], "tranche_closing": _get(d, "/tranche_balance/closing"), "bucket_label": label,
+                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a.get("written_off")},
                     targets=["/aging_history/0/closing_balance"])]
 
 # ---------- R08 / R17 shared: CNL per vintage ----------

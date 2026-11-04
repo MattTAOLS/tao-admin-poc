@@ -39,6 +39,15 @@ def finding(rule: dict, extraction_id: str, **kw) -> dict:
     except (KeyError, IndexError, ValueError): pass
     return f
 
+def check_failed(rule: dict, extraction: dict, error: Exception) -> dict:
+    """Finding for a check that raised on this extraction (a field shape it did not expect). Never weaker than review:
+    the reviewer sees the rule was not evaluated, rather than the upload failing or the rule passing silently."""
+    uid = ((extraction or {}).get("meta") or {}).get("upload_id")
+    sev = rule.get("severity") if rule.get("severity") in ("block", "review") else "review"
+    detail = f"{type(error).__name__}: {error}"[:300]
+    return finding({**rule, "severity": sev}, uid, context={"error": detail, "title": rule.get("title", rule["id"])},
+                   message="{title} could not be checked on this extraction (" + detail.replace("{", "(").replace("}", ")") + "). Re-read the report (pass 2) or check it by hand in review.")
+
 def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = None, only: set | None = None) -> list[dict]:
     """Evaluate every enabled rule in the given phases (or just the rule ids in `only`).
     A rule function returns a list of findings (possibly empty)."""
@@ -51,5 +60,7 @@ def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = No
         elif rule.get("phase", 1) not in phases: continue
         fn = getattr(checks, rule.get("fn") or "", None)
         if fn is None: continue   # not implemented: skipped so the pipeline runs (R16, R20-R22 in the POC)
-        out.extend(fn({**rule, "settings": settings}, extraction, ctx, tol))
+        try: out.extend(fn({**rule, "settings": settings}, extraction, ctx, tol))
+        except Exception as e:   # a check must never take the upload down: surface it to the reviewer instead
+            out.append(check_failed(rule, extraction, e))
     return out

@@ -393,3 +393,47 @@ def test_r12_plain_duplicate_keeps_its_message_and_set_form_works():
     g = run({"meta": mf.META, "deal": d, "sources": {}}, Context(published_periods={"2026-08", "2026-09"}, upload={"replaces_upload_id": "x"}), only={"R12"})[0]
     assert g["message"] == ("Corrected re-issue: replaces the 2026-08 report published earlier. "
                             "Later published months (2026-09) still carry the earlier figures for 2026-08.")
+
+# ---------- robustness: null terms give findings, never exceptions ----------
+def _full_run(d, meta=None):
+    has_prior = any(r["collection_period"] != d["collection_period"] for r in d["period_history"])
+    ctx = Context(master=mf.master_for(d["deal_slug"]), upload=mf.upload_for(d), prior=mf.prior_from_history(d) if has_prior else None)
+    return run({"meta": meta or mf.META, "deal": d, "sources": {}}, ctx, phases=(1, 2))
+
+def test_null_rollforward_terms_block_with_the_field_names_not_an_exception():
+    """The worker used to mark such an upload extraction_failed (TypeError in R05); now the reviewer sees why."""
+    d = mf.load_deal(mf.MONEDA); cur = d["period_history"][3]
+    cur.update(opening_balance=None, closing_balance=None, principal=None)
+    d["aging_history"][0]["days_31_60"] = None
+    fs = _full_run(d)
+    for f in fs: jsonschema.validate({**f, "extraction_id": "00000000-0000-4000-8000-000000000000"}, FINDING_SCHEMA)
+    r05 = [f for f in fs if f["rule_id"] == "R05"]
+    assert len(r05) == 1 and r05[0]["severity"] == "block"
+    assert r05[0]["context"]["missing_fields"] == ["opening_balance", "principal", "closing_balance"]
+    assert r05[0]["fields"] == ["/period_history/3/opening_balance", "/period_history/3/principal", "/period_history/3/closing_balance"]
+    assert "opening_balance, principal, closing_balance missing or not a number" in r05[0]["message"] and "pass 2" in r05[0]["message"]
+    r07 = [f for f in fs if f["rule_id"] == "R07"]
+    assert len(r07) == 1 and r07[0]["severity"] == "block" and r07[0]["context"]["missing_fields"] == ["days_31_60"]
+    assert not any("error" in (f.get("context") or {}) for f in fs), "a check raised; guard it instead of relying on the engine net"
+
+@pytest.mark.parametrize("slug", [p.name for p in sorted((ROOT / "docs/dashboard-json").glob("[fm]*.dashboard.json"))])
+def test_every_check_survives_nulled_numbers(slug):
+    """Null every number on the current roll-forward row, the current aging row, tranche_balance, contracts and
+    program of each reference deal (single upload and chained): every rule runs, none raises."""
+    base = mf.load_deal(slug)
+    for d in (copy.deepcopy(base), mf.single_month(base)):
+        i = checks._current_index(d)
+        targets = [d["period_history"][i], (d.get("aging_history") or [{}])[0], d.get("tranche_balance") or {}, d.get("contracts") or {}, d.get("program") or {}]
+        for obj in targets:
+            for k, v in list(obj.items()):
+                if checks._num(v): obj[k] = None
+        fs = _full_run(d)
+        assert not any("error" in (f.get("context") or {}) for f in fs), [(f["rule_id"], f["context"]["error"]) for f in fs if "error" in (f.get("context") or {})]
+        assert any(f["rule_id"] == "R05" and f["context"].get("missing_fields") for f in fs)
+
+def test_engine_turns_a_raising_check_into_a_finding(monkeypatch):
+    def boom(rule, ex, ctx, tol): raise TypeError("unsupported operand type(s) for -: 'NoneType' and 'float'")
+    monkeypatch.setattr(checks, "tranche_rollforward", boom)
+    fs = run({"meta": mf.META, "deal": mf.load_deal(mf.MONEDA), "sources": {}}, Context(), only={"R05", "R19"})
+    assert len(fs) == 1 and fs[0]["rule_id"] == "R05" and fs[0]["severity"] == "block" and "TypeError" in fs[0]["message"]
+    jsonschema.validate({**fs[0], "extraction_id": "00000000-0000-4000-8000-000000000000"}, FINDING_SCHEMA)
