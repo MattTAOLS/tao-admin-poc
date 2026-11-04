@@ -24,7 +24,7 @@ test('step 3: investor and manager viewers see the published deal; the numbers m
   await expect(pageTitle(page)).toContainText(PROGRAM_NAME)
   await shot(page, '03-program-summary')
   await page.getByRole('link', { name: /^Open deal .*Xpedite Leasing/ }).click()
-  await expect(page).toHaveURL(new RegExp(`/investor/portfolio/${PROGRAM}/deals/${slug}(\?period=${STEP1.period})?$`))
+  await expect(page).toHaveURL(new RegExp(`/investor/portfolio/${PROGRAM}/deals/${slug}(\\?period=${STEP1.period})?$`))
   await expect(pageTitle(page)).toContainText('Xpedite Leasing')
   await expect(page.getByText(`Collection period ${referenceDeal(STEP1.deal).collection_period}`)).toBeVisible()
   await expect(page.locator('[data-field="tranche_balance.closing"]').first()).toBeVisible()
@@ -51,7 +51,7 @@ test('step 3: investor and manager viewers see the published deal; the numbers m
   const mcard = page.locator('.ds-card', { hasText: PROGRAM_NAME }).filter({ has: page.getByRole('link', { name: 'Executive summary' }) }).first()
   await mcard.getByRole('link', { name: 'Executive summary' }).click()
   await page.getByRole('link', { name: /^Open deal .*Xpedite Leasing/ }).click()
-  await expect(page).toHaveURL(new RegExp(`/manager/portfolio/${PROGRAM}/deals/${slug}(\?period=${STEP1.period})?$`))
+  await expect(page).toHaveURL(new RegExp(`/manager/portfolio/${PROGRAM}/deals/${slug}(\\?period=${STEP1.period})?$`))
   await expect(page.locator('[data-field="tranche_balance.closing"]').first()).toBeVisible()
   await shot(page, '03-manager-deal-page')
   const asManager = (await new Api('manager_viewer').get(`/published/programs/${PROGRAM}/deals/${slug}`)).body
