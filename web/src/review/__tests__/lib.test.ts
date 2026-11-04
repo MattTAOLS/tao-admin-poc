@@ -70,3 +70,19 @@ describe('tokens only in web/src/review', () => {
     })
   }
 })
+
+describe('corrections preview', async () => {
+  const { pointerLabel, writesFor, plannedCorrections } = await import('../lib/corrections')
+  const r05 = findingsFx[0] as unknown as import('../lib/types').Finding
+  it('labels pointers readably', () => {
+    expect(pointerLabel(ex.deal, '/period_history/3/closing_balance')).toBe('Roll-forward Aug 2026 · closing balance')
+    expect(pointerLabel(ex.deal, '/covenants/0/threshold')).toBe('Covenant SLFA 9.1 (c) · threshold')
+    expect(pointerLabel(ex.deal, '/program/program_utilization_pct')).toBe('Facility · program utilization %')
+  })
+  it('previews the writes of use ours and use report', () => {
+    expect(writesFor(ex, r05, 'use_ours').filter(w => w.changed)).toHaveLength(5)
+    expect(writesFor(ex, r05, 'use_report').filter(w => w.changed)).toHaveLength(0)
+    expect(writesFor(ex, { ...r05, targets: undefined }, 'use_ours')).toEqual([])
+    expect(plannedCorrections(ex, [{ ...r05, status: 'acknowledge' as never }])).toEqual([])
+  })
+})

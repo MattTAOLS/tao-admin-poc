@@ -93,3 +93,13 @@
 .rv-pages input { accent-color: var(--purple); }
 .rv-scroll { overflow-x: auto; max-width: 100%; }
 .rv-scroll .ds-table th { top: 0; }
+.rv-choice--off { opacity: .55; cursor: not-allowed; }
+.rv-choice--off:hover { background: transparent; }
+.rv-hint { margin: 0; color: var(--muted); font-size: var(--fs-small); }
+.rv-effect { margin: 0; padding: 8px 10px; border-radius: var(--r-control); background: var(--dpv-bg); color: var(--text); font-size: var(--fs-table); }
+.rv-effect b { color: var(--dpv); }
+.rv-corrections { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.rv-goto { margin-left: 8px; vertical-align: middle; }
+.rv-pending { font-size: var(--fs-small); color: var(--text); background: var(--dpv-bg); border-radius: var(--r-control); padding: 6px 10px; flex-basis: 100%; }
+.rv-pending b { color: var(--dpv); }
+.rv-flash { box-shadow: var(--focus); }

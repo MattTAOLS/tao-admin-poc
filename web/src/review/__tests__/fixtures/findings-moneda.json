@@ -1,7 +1,7 @@
 [
  {
-  "id": "988e3a80-47b4-4019-883f-606f610a6a37",
-  "extraction_id": "9e0169f5-f669-4120-932b-17365f3d436b",
+  "id": "e317d786-e792-4631-aae0-f6de84d95355",
+  "extraction_id": "2055b06a-7675-4b45-9950-9f3b8c73d58e",
   "rule_id": "R05",
   "layer": "arithmetic",
   "severity": "block",
@@ -11,6 +11,13 @@
    "/tranche_balance/closing",
    "/period_history",
    "/tranche_balance/top_movers"
+  ],
+  "targets": [
+   "/period_history/3/closing_balance",
+   "/tranche_balance/closing",
+   "/period_history/3/closing_amount",
+   "/tranche_amount/closing",
+   "/program/program_amount"
   ],
   "our_value": 15020071.52,
   "report_value": 15019971.52,
@@ -31,6 +38,6 @@
   },
   "status": "open",
   "resolution": null,
-  "created_at": "2026-11-03T20:10:45.168965+00:00"
+  "created_at": "2026-11-04T00:07:12.347908+00:00"
  }
 ]

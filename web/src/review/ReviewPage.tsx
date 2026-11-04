@@ -13,7 +13,8 @@ import { formatDateTime, pct, text } from './lib/format'
 import type { Finding, OverrideChoice, Upload } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
-import { CHOICES, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog } from './components/Dialogs'
+import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, WriteEffect } from './components/Dialogs'
+import { hasTargets, isValueChoice } from './lib/corrections'
 import { Activity } from './components/Activity'
 import { FindingCountPills } from './QueuePage'
 import './review.css'
@@ -106,10 +107,32 @@ function Review({ uploadId }: { uploadId: string }) {
   }
   const openCrop = (f: Finding) => () => setViewer({ page: f.source_page!, boxes: findingBoxes(ex, f.fields, f.source_page), tone: 'finding', caption: `${f.rule_id} · ${ruleTitle(f.rule_id)}` })
 
-  const cardActions = (f: Finding) => admin && reviewable && f.status === 'open'
-    ? <>{CHOICES.map(c => <Button key={c.id} size="sm" onClick={() => setOverride({ finding: f, choice: c.id })}
-        aria-label={`${c.label} for ${f.rule_id}`}>{c.label}</Button>)}</>
-    : undefined
+  // Open findings: the four choices (use ours / use report disabled when the finding has no targets).
+  // Resolved use ours / use report: what publishing writes (or wrote).
+  const cardActions = (f: Finding) => {
+    const choice = f.resolution?.choice
+    if (f.status === 'overridden' && isValueChoice(choice) && hasTargets(f)) {
+      return <p className="rv-pending" data-testid="pending-correction"><b>{u.status === 'published' ? 'Published.' : 'Pending on publish.'}</b>{' '}
+        <WriteEffect ex={ex} finding={f} choice={choice} done={u.status === 'published'} /></p>
+    }
+    if (!(admin && reviewable && f.status === 'open')) return undefined
+    const noTarget = !hasTargets(f)
+    return <>{CHOICES.map(c => {
+      const off = noTarget && isValueChoice(c.id)
+      return <Button key={c.id} size="sm" disabled={off} title={off ? NO_TARGET_REASON : undefined} onClick={() => setOverride({ finding: f, choice: c.id })}
+        aria-label={`${c.label} for ${f.rule_id}`}>{c.label}</Button>
+    })}{noTarget && <span className="rv-hint">{NO_TARGET_REASON}</span>}</>
+  }
+  const goToFinding = (id: string) => {
+    setDialog(null)
+    requestAnimationFrame(() => {
+      const card = document.getElementById(`finding-${id}-title`)?.closest('article') as HTMLElement | null
+      if (!card) return
+      card.setAttribute('tabindex', '-1')
+      if (typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'center' })
+      card.focus()
+    })
+  }
 
   const suggestedPages = [...new Set(list.filter(f => f.status === 'open' && f.source_page != null).map(f => f.source_page!))].sort((a, b) => a - b)
 
@@ -166,9 +189,9 @@ function Review({ uploadId }: { uploadId: string }) {
 
       <PageViewer uploadId={uploadId} target={viewer} pageCount={u.page_count} onClose={() => setViewer(null)} />
       {admin && <>
-        <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
+        <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnerLabel(u.partner_slug)} findings={list} onClose={() => setDialog(null)} onDone={onDecision('published')} />
+        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnerLabel(u.partner_slug)} findings={list} ex={ex} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
       </>}
     </div>

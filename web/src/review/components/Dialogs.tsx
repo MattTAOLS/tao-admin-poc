@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Dialog, Field, Textarea, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
 import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
-import type { Finding, OverrideChoice, Upload } from '../lib/types'
+import type { ApiError, Extraction, Finding, OverrideChoice, Upload } from '../lib/types'
+import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
 
 export const CHOICES: { id: OverrideChoice; label: string; help: string }[] = [
-  { id: 'use_ours', label: 'Use ours', help: 'Keep our computed value; the report figure is wrong.' },
-  { id: 'use_report', label: 'Use report', help: 'Keep the value the report states.' },
+  { id: 'use_ours', label: 'Use ours', help: 'Our value is right; publishing writes it over the report figure.' },
+  { id: 'use_report', label: 'Use report', help: 'The report figure is right; publishing keeps it.' },
   { id: 'restatement', label: 'Accept as restatement', help: 'The servicer revised an earlier month on purpose.' },
   { id: 'acknowledge', label: 'Acknowledge', help: 'Noted; no value changes.' },
 ]
 const MIN_REASON = 3
+export const NO_TARGET_REASON = 'This rule names no single value to change, so only Accept as restatement or Acknowledge apply.'
 
 /** Reason field shared by the override and reject dialogs: required, at least three characters (OverrideRequest /
  * RejectRequest minLength). */
@@ -22,8 +24,21 @@ function useReason(open: boolean) {
   return { reason, setReason, ok, touched, setTouched, error: touched && !ok ? `Give a reason of at least ${MIN_REASON} characters. It goes in the audit log.` : undefined }
 }
 
-export function OverrideDialog({ uploadId, finding, initialChoice, onClose, onDone }: {
-  uploadId: string; finding: Finding | null; initialChoice: OverrideChoice; onClose: () => void
+/** What a value choice does on publish, in one sentence: "Writes $15,020,071.52 to 5 fields: …". */
+export function WriteEffect({ ex, finding, choice, done }: { ex?: Extraction; finding: Finding; choice: OverrideChoice; done?: boolean }) {
+  const writes = writesFor(ex, finding, choice)
+  if (writes.length === 0) return null
+  const value = formatByUnit(writes[0].value as number, finding.unit)
+  const changed = writes.filter(w => w.changed)
+  if (changed.length === 0) {
+    return <>{done ? 'Published unchanged' : 'Nothing changes on publish'}: the extraction already holds {value} in {writes.length === 1 ? 'that field' : `all ${writes.length} fields`}.</>
+  }
+  const n = changed.length
+  return <>{done ? 'Wrote' : 'Writes'} {value} to {n} field{n === 1 ? '' : 's'}: {listLabels(changed.map(w => w.label), 6)}.</>
+}
+
+export function OverrideDialog({ uploadId, finding, ex, initialChoice, onClose, onDone }: {
+  uploadId: string; finding: Finding | null; ex?: Extraction; initialChoice: OverrideChoice; onClose: () => void
   onDone: (findings: Finding[], choice: OverrideChoice) => void
 }) {
   const open = !!finding
@@ -31,7 +46,10 @@ export function OverrideDialog({ uploadId, finding, initialChoice, onClose, onDo
   const r = useReason(open)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string>()
-  useEffect(() => { if (open) { setChoice(initialChoice); setErr(undefined) } }, [open, initialChoice])
+  const valueOk = !!finding && hasTargets(finding)
+  useEffect(() => {
+    if (open) { setChoice(isValueChoice(initialChoice) && !valueOk ? 'acknowledge' : initialChoice); setErr(undefined) }
+  }, [open, initialChoice, valueOk])
   if (!finding) return null
   const submit = async () => {
     r.setTouched(true)
@@ -56,13 +74,25 @@ export function OverrideDialog({ uploadId, finding, initialChoice, onClose, onDo
         )}
         <fieldset className="rv-choices">
           <legend className="ds-field__label">Resolution</legend>
-          {CHOICES.map(c => (
-            <label key={c.id} className="rv-choice">
-              <input type="radio" name="override-choice" value={c.id} checked={choice === c.id} onChange={() => setChoice(c.id)} />
-              <span><b>{c.label}</b><small>{c.help}</small></span>
-            </label>
-          ))}
+          {CHOICES.map(c => {
+            const off = isValueChoice(c.id) && !valueOk
+            return (
+              <label key={c.id} className={'rv-choice' + (off ? ' rv-choice--off' : '')}>
+                <input type="radio" name="override-choice" value={c.id} checked={choice === c.id} disabled={off} onChange={() => setChoice(c.id)}
+                  aria-describedby={off ? 'rv-no-target' : undefined} />
+                <span><b>{c.label}</b><small>{c.help}</small></span>
+              </label>
+            )
+          })}
+          {!valueOk && <p id="rv-no-target" className="rv-hint">{NO_TARGET_REASON}</p>}
         </fieldset>
+        {isValueChoice(choice) && valueOk && (
+          <p className="rv-effect" data-testid="write-effect"><b>On publish.</b> <WriteEffect ex={ex} finding={finding} choice={choice} /></p>
+        )}
+        {CLOSING_RULES.has(finding.rule_id) && valueOk && (
+          <p className="rv-hint">This rule corrects the closing balance. If a component (principal, prepayments, defaults) is what
+            was misread, the report&rsquo;s closing is right: choose Use report, which changes nothing.</p>
+        )}
         <Field label="Reason" required error={r.error} hint="Who confirmed it, or what you checked on the page.">
           <Textarea rows={3} value={r.reason} onChange={e => r.setReason(e.target.value)} onBlur={() => r.setTouched(true)} />
         </Field>
@@ -99,23 +129,32 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
   )
 }
 
-export function PublishDialog({ upload, open, title, partner, findings, onClose, onDone }: {
-  upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; onClose: () => void; onDone: (u: Upload) => void
+export function PublishDialog({ upload, open, title, partner, findings, ex, onClose, onDone, onGoTo }: {
+  upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; ex?: Extraction
+  onClose: () => void; onDone: (u: Upload) => void; onGoTo: (findingId: string) => void
 }) {
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string>()
+  const [err, setErr] = useState<ApiError>()
   useEffect(() => { if (open) setErr(undefined) }, [open])
   const resolved = findings.filter(f => f.status !== 'open').length
   const openReview = findings.filter(f => f.status === 'open' && f.severity === 'review').length
   const openNotes = findings.filter(f => f.status === 'open' && f.severity === 'note').length
+  const writes = plannedCorrections(ex, findings)
+  const changes = writes.filter(w => w.changed)
+  const unchanged = [...new Set(writes.map(w => w.finding.id))].filter(id => !changes.some(c => c.finding.id === id))
+  const byId = (id: string) => findings.find(f => f.id === id)
   const submit = async () => {
     setBusy(true); setErr(undefined)
     try { onDone(await reviewApi.approve(upload.id)) }
-    catch (e) { setErr(errorText(e)) }
+    catch (e) { setErr(e as ApiError) }
     finally { setBusy(false) }
   }
+  const goTo = (id: string) => {
+    const f = byId(id)
+    return f ? <Button key={id} size="sm" onClick={() => onGoTo(id)}>Go to {f.rule_id}</Button> : null
+  }
   return (
-    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner"
+    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size={changes.length > 0 || err ? 'lg' : 'md'}
       description={`${title} goes to ${partner}. Partner portals show it straight away and the program roll-up regenerates.`}
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Approve and publish</Button></>}>
       <ul className="rv-summary">
@@ -124,9 +163,67 @@ export function PublishDialog({ upload, open, title, partner, findings, onClose,
         {openReview > 0 && <li>{openReview} review finding{openReview === 1 ? '' : 's'} still open: publishing accepts {openReview === 1 ? 'it' : 'them'} as shown</li>}
         {openNotes > 0 && <li>{openNotes} note{openNotes === 1 ? '' : 's'} (information only)</li>}
       </ul>
-      {err && <div className="rv-dialog-error" role="alert">{err}</div>}
+      {changes.length > 0 ? (
+        <div className="rv-corrections">
+          <h3 className="rv-section__title">Corrections publishing writes</h3>
+          <div className="rv-scroll">
+            <table className="ds-table ds-table--compact" aria-label="Corrections publishing writes">
+              <thead><tr><th scope="col">Field</th><th scope="col" className="ds-num">Extracted</th><th scope="col" className="ds-num">Published</th><th scope="col">From</th></tr></thead>
+              <tbody>
+                {changes.map(w => (
+                  <tr key={w.finding.id + w.pointer}>
+                    <td>{w.label}</td>
+                    <td className="ds-num">{formatByUnit(w.old as number, w.finding.unit)}</td>
+                    <td className="ds-num"><b>{formatByUnit(w.value as number, w.finding.unit)}</b></td>
+                    <td>{w.finding.rule_id} · {CHOICES.find(c => c.id === w.choice)?.label}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="rv-hint">Recorded in the deal&rsquo;s data corrections. The rules re-run on the corrected deal before anything is published.</p>
+        </div>
+      ) : (
+        <p className="rv-hint">No values change: the published deal is the extraction as shown.</p>
+      )}
+      {unchanged.length > 0 && <p className="rv-hint">{unchanged.map(id => byId(id)?.rule_id).join(', ')}: the chosen value is already the extracted one, so nothing is written.</p>}
+      {err && <PublishError err={err} findings={findings} ex={ex} goTo={goTo} />}
     </Dialog>
   )
+}
+
+/** A refused approve, with the detail the API sends for the two correction errors and links to the cards involved. */
+function PublishError({ err, findings, ex, goTo }: { err: ApiError; findings: Finding[]; ex?: Extraction; goTo: (id: string) => ReactNode }) {
+  const unitOf = (id: string) => findings.find(f => f.id === id)?.unit
+  if (err.code === 'conflicting_corrections' && err.conflicts?.length) {
+    return (
+      <div className="rv-dialog-error" role="alert">
+        <p>{errorText(err)}</p>
+        <ul className="rv-summary">
+          {err.conflicts.map(c => (
+            <li key={c.pointer}>
+              <b>{pointerLabel(ex?.deal, c.pointer)}</b>:{' '}
+              {c.values.map((v, i) => <span key={i}>{i > 0 && ' vs '}{formatByUnit(v as number, unitOf(c.finding_ids[i]))} ({c.rule_ids[i]})</span>)}
+              <span className="rv-pills rv-goto">{c.finding_ids.map(goTo)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+  if (err.code === 'correction_inconsistent' && err.findings?.length) {
+    const sources = [...new Set(plannedCorrections(ex, findings).filter(w => w.changed).map(w => w.finding.id))]
+    return (
+      <div className="rv-dialog-error" role="alert">
+        <p>{errorText(err)}</p>
+        <ul className="rv-summary">
+          {err.findings.map((k, i) => <li key={i}><b>{k.rule_id} {ruleTitle(k.rule_id)}</b>: {k.message}</li>)}
+        </ul>
+        {sources.length > 0 && <p>Corrections involved: <span className="rv-pills rv-goto">{sources.map(goTo)}</span></p>}
+      </div>
+    )
+  }
+  return <div className="rv-dialog-error" role="alert">{errorText(err)}</div>
 }
 
 export function ReextractDialog({ upload, open, suggested, onClose, onDone }: {

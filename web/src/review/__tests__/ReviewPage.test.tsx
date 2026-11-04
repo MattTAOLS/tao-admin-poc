@@ -10,6 +10,7 @@ import findingsFx from './fixtures/findings-moneda.json'
 import extractionFx from './fixtures/extraction-moneda.json'
 import auditFx from './fixtures/audit-moneda.json'
 import overrideFx from './fixtures/override-moneda.json'
+import strideFx from './fixtures/findings-stride.json'
 import deals from './fixtures/deals.json'
 import programs from './fixtures/programs.json'
 
@@ -17,10 +18,11 @@ const ID = uploadFx.id
 const PATH = `/admin/uploads/queue/${ID}`
 const R05 = findingsFx[0]
 
-/** The real override response recorded from the review stack (R05 overridden with use_ours and a reason). Its ids
- * come from a later reload of the stack, so the finding id is aligned with the recorded findings. */
+/** R05 after an override: the recorded R05 (with its five targets) plus the resolution block of a real override
+ * response recorded from the review stack; `choice` picks use_ours or use_report. */
 const REASON = overrideFx[0].resolution.reason
-const overridden = () => [{ ...clone(overrideFx[0]), id: R05.id, extraction_id: R05.extraction_id }]
+const overridden = (choice = 'use_ours') => [{ ...clone(R05), status: 'overridden', resolution: { ...clone(overrideFx[0].resolution), choice } }]
+const FIVE = 'Roll-forward Aug 2026 · closing balance, Tranche balance · closing, Roll-forward Aug 2026 · closing amount, Tranche amount · closing, Facility · program amount'
 
 type State = { upload: Upload; findings: unknown[]; audit: unknown[] }
 function stack(state: State, extra: Parameters<typeof mockApi>[0] = []) {
@@ -74,6 +76,12 @@ describe('Review report', () => {
     await userEvent.click(within(card()).getByRole('button', { name: 'Use ours for R05' }))
     const dlg = await screen.findByRole('dialog')
     expect(within(dlg).getByRole('radio', { name: /Use ours/ })).toHaveProperty('checked', true)
+    // What publishing will do, with the five targets as readable labels, and the R05 hint about components
+    expect(within(dlg).getByTestId('write-effect').textContent).toBe(`On publish. Writes $15,020,071.52 to 5 fields: ${FIVE}.`)
+    expect(within(dlg).getByText(/choose Use report, which changes nothing/)).toBeTruthy()
+    await userEvent.click(within(dlg).getByRole('radio', { name: /Use report/ }))
+    expect(within(dlg).getByTestId('write-effect').textContent).toBe('On publish. Nothing changes on publish: the extraction already holds $15,019,971.52 in all 5 fields.')
+    await userEvent.click(within(dlg).getByRole('radio', { name: /Use ours/ }))
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save and re-run rules' }))
     expect(within(dlg).getByRole('alert').textContent).toMatch(/at least 3 characters/)
     expect(calls.some(c => c.method === 'POST')).toBe(false)
@@ -87,6 +95,7 @@ describe('Review report', () => {
     expect(within(screen.getByRole('region', { name: 'Report' })).getByText('1 resolved')).toBeTruthy()
     expect(within(card()).getByText(REASON, { exact: false })).toBeTruthy()
     expect(within(card()).queryByRole('button', { name: /for R05/ })).toBeNull()
+    expect(within(card()).getByTestId('pending-correction').textContent).toBe(`Pending on publish. Writes $15,020,071.52 to 5 fields: ${FIVE}.`)
     expect(await screen.findByText(/R05 resolved: Use ours/)).toBeTruthy()
     await waitFor(() => expect((screen.getByRole('button', { name: 'Publish to partner…' }) as HTMLButtonElement).disabled).toBe(false))
     // The audit log is fetched again after the override
@@ -105,6 +114,10 @@ describe('Review report', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Publish to partner…' }))
     let dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
     expect(within(dlg).getByText(/1 finding resolved with a reason/)).toBeTruthy()
+    const table = within(dlg).getByRole('table', { name: 'Corrections publishing writes' })
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(5)
+    expect(rows[1].textContent).toBe('Tranche balance · closing$15,019,971.52$15,020,071.52R05 · Use ours')
     await userEvent.click(within(dlg).getByRole('button', { name: 'Approve and publish' }))
     expect((await within(dlg).findByRole('alert')).textContent).toMatch(/block finding is still open/)
     refuse = false
@@ -216,5 +229,70 @@ describe('Review report', () => {
     mockApi([on('GET', /^\/master/, () => ({ body: [] }))])
     show()
     expect(await screen.findByText('Upload not found')).toBeTruthy()
+  })
+})
+
+describe('Review report: corrections', () => {
+  it('disables use ours / use report on a finding without targets, with the reason', async () => {
+    const state = fresh(); state.findings = clone(strideFx)
+    stack(state)
+    show()
+    const first = await screen.findAllByRole('article', { name: /Covenant thresholds equal the master record/ })
+    const useOurs = within(first[0]).getByRole('button', { name: 'Use ours for R14' }) as HTMLButtonElement
+    expect(useOurs.disabled).toBe(true)
+    expect((within(first[0]).getByRole('button', { name: 'Use report for R14' }) as HTMLButtonElement).disabled).toBe(true)
+    await userEvent.click(within(first[0]).getByRole('button', { name: 'Acknowledge for R14' }))
+    const dlg = await screen.findByRole('dialog')
+    expect(within(dlg).getByRole('radio', { name: /Use ours/ })).toHaveProperty('disabled', true)
+    expect(within(dlg).getByRole('radio', { name: /Acknowledge/ })).toHaveProperty('checked', true)
+    expect(within(dlg).getByText(/names no single value to change/)).toBeTruthy()
+    expect(within(dlg).queryByTestId('write-effect')).toBeNull()
+  })
+
+  it('use report publishes with no corrections listed', async () => {
+    const state = fresh(); state.findings = overridden('use_report')
+    stack(state)
+    show()
+    await screen.findByRole('article', { name: /Tranche balance roll-forward/ })
+    expect(within(card()).getByTestId('pending-correction').textContent).toMatch(/Nothing changes on publish/)
+    await userEvent.click(screen.getByRole('button', { name: 'Publish to partner…' }))
+    const dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
+    expect(within(dlg).queryByRole('table')).toBeNull()
+    expect(within(dlg).getByText(/No values change/)).toBeTruthy()
+    expect(within(dlg).getByText(/R05: the chosen value is already the extracted one/)).toBeTruthy()
+  })
+
+  it('shows conflicting_corrections with the field, both values and a link to each card', async () => {
+    const state = fresh(); state.findings = overridden()
+    stack(state, [on('POST', /\/approve$/, () => ({ status: 409, body: {
+      code: 'conflicting_corrections', message: 'resolved findings write different values to the same field',
+      conflicts: [{ pointer: '/tranche_balance/closing', values: [15020071.52, 15019971.52], finding_ids: [R05.id, R05.id], rule_ids: ['R05', 'R07'] }],
+    } }))])
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish to partner…' }))
+    const dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Approve and publish' }))
+    const alert = await within(dlg).findByRole('alert')
+    expect(alert.textContent).toMatch(/different values to the same field/)
+    expect(alert.textContent).toMatch(/Tranche balance · closing: \$15,020,071\.52 \(R05\) vs \$15,019,971\.52 \(R07\)/)
+    await userEvent.click(within(alert).getAllByRole('button', { name: 'Go to R05' })[0])
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(card()))
+  })
+
+  it('shows correction_inconsistent with the new block findings and the corrections involved', async () => {
+    const state = fresh(); state.findings = overridden()
+    stack(state, [on('POST', /\/approve$/, () => ({ status: 409, body: {
+      code: 'correction_inconsistent', message: 'the corrected deal raises 1 new block finding(s): R07',
+      findings: [{ rule_id: 'R07', message: 'Aging buckets sum to 15019971.52, closing balance is 15020071.52', fields: ['/aging_history/0/bucket_sum'] }],
+    } }))])
+    show()
+    await userEvent.click(await screen.findByRole('button', { name: 'Publish to partner…' }))
+    const dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Approve and publish' }))
+    const alert = await within(dlg).findByRole('alert')
+    expect(alert.textContent).toMatch(/nothing was published/)
+    expect(within(alert).getByText(/R07 Aging buckets sum to the closing balance/)).toBeTruthy()
+    expect(within(alert).getByRole('button', { name: 'Go to R05' })).toBeTruthy()
   })
 })
