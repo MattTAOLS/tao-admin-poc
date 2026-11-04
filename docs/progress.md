@@ -2,6 +2,11 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Rules: merged lead/covenants. With Stride's and Xpedite's own definitions, R14 raises nothing on
+  the 12 reference deals (the Stride pair was the seed copy); Xpedite's ARFA refs are now compared, banded 9.1 (b)/(c)
+  included. R14 skips a definition with no threshold and no threshold_rule (Stride 9.1 (g), per vintage). Fixtures
+  unchanged (r14/r15 are Moneda). Rules 86, worker/validate 19. The Stride/Xpedite seed request in requests.md is resolved.
+
 - 2026-11-04 — Lead: Stride and Xpedite covenant definitions replaced (branch lead/covenants). They were copies of
   Moneda's. Now from each 2026-08 report's covenant page, marked UNVERIFIED: Xpedite ARFA dated 2022-10-14, 9.1 (b)/(c)
   banded 6%/3% and 4%/2% on NPV ≤ / > $10M, (d) 3.0%, (f) CNL 2.75%, (e) ICR ≥ 1.10, (g) leverage ≤ 10, (h) equity
