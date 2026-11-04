@@ -201,13 +201,13 @@ describe('Review report', () => {
   it('extracted values link every value to its page, and carried months say where they came from', async () => {
     stack(fresh())
     show()
-    const closing = await screen.findByRole('button', { name: 'Tranche balance, Closing: open source page 2' })
+    const closing = await screen.findByRole('button', { name: 'p. 2: Tranche balance, Closing, open source page' })
     expect(closing.getAttribute('title')).toBe('15,019,971.52')
     // Carried months of the roll-forward table come from the July publication
     const trend = screen.getByRole('table', { name: 'Roll-forward by month' })
     const rows = within(trend).getAllByRole('row')
     expect(within(rows[1]).getByText('Aug 2026')).toBeTruthy()
-    expect(within(rows[1]).getByRole('button', { name: /open source page 2/ })).toBeTruthy()
+    expect(within(rows[1]).getByRole('button', { name: /^p. 2: / })).toBeTruthy()
     expect(within(rows[2]).getByText('from published Jul 2026')).toBeTruthy()
     await userEvent.click(closing)
     const viewer = await screen.findByRole('dialog', { name: 'Report page 2 of 16' })
