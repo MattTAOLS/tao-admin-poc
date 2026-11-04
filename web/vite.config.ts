@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
@@ -10,4 +11,6 @@ export default defineConfig({
   plugins: [react()],
   server: { port, strictPort: true, host: true, fs: { allow: ['..'] }, proxy },
   resolve: { alias: { '@': path.resolve(__dirname, 'src'), '@contracts': path.resolve(__dirname, '../contracts') } },
+  // The full suite loads lazy pages under heavy parallel load; 5 s (the default) timed out at random. 30 s per test.
+  test: { testTimeout: 30_000, hookTimeout: 30_000 },
 })
