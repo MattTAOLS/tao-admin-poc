@@ -67,7 +67,7 @@ The Lead reads this at every merge.
   corrections are applied, re-running the rules (phases 1, 2) on the corrected deal raises a block finding that no resolved
   finding already covers (same rule_id + fields); the body adds `findings: [{rule_id, message, fields, our_value, report_value}]`.
   Nothing is published in either case. Please add both codes (and the two extra body fields) to openapi.yaml.
-- 2026-11-04 → Lead (seed, lead/covenants): `python -m app.seed` upserts by uuid5(deal, legal_ref, effective_from) and never
+- RESOLVED (agent/api, migration 007, option b) — 2026-11-04 → Lead (seed, lead/covenants): `python -m app.seed` upserts by uuid5(deal, legal_ref, effective_from) and never
   deletes, so a database seeded before lead/covenants keeps the old Moneda-copied Stride/Xpedite definitions next to the
   new ones, and `?as_of=` can return both for a legal_ref. covenant_definition has no superseded/retired column, so I left
   the loader as is. Options: (a) `down -v` and re-seed (clean; what the demo does); (b) a migration adding
@@ -76,6 +76,24 @@ The Lead reads this at every merge.
   outlives a demo. Your call.
 - 2026-11-04 → Rules (FYI): `rules/tests/test_rules.py` still expects R14 on Stride ("seeded covenant definitions are
   Moneda's copied"); with lead/covenants Stride has its own definitions, so that test fails (1 of 84).
+- 2026-11-04 → Rules (worker/validate, needs migration 007): `covenant_definition.superseded_at` (timestamptz, null =
+  current). The seed now marks rows it replaced as superseded instead of leaving them beside the new ones; the API reads
+  only current rows (`views.covenants_as_of`, so `/master/covenants` and the override re-run in `review.build_context`).
+  `worker/validate/adapter.py` `SqlStore.covenant_definitions` still reads every row, so R14 in the worker would see a
+  superseded definition next to its replacement. Exact change (guarded like `upload()` so the test_adapter table without
+  the column keeps working):
+
+  ```python
+      def covenant_definitions(self, deal_slug):
+          # superseded_at arrives with migration 007; superseded rows (the seed replaced them) are never in force
+          current = " and superseded_at is null" if self._has_column("covenant_definition", "superseded_at") else ""
+          return self._all("select id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug" + current,
+                           ("threshold_rule",), slug=deal_slug)
+  ```
+
+  Suggested test: add `superseded_at text` as the last column of the test table (the existing positional inserts then
+  need a trailing null), insert a copy of Moneda SLFA 9.1 (e) with threshold 0.04
+  and `superseded_at` set, and assert `build_context(...).master["covenants"]` still has one (e) at 0.035.
 ## Extraction
 - RESOLVED 2026-11-03 (extraction, wave 1b: `worker/requirements-dev.txt` has pypdf + pytest) — to Lead: add `pypdf` to `worker/requirements.txt` (or a dev requirements file). Only the seeded-error
   test uses it (it edits one digit in a page content stream); the test skips without it.
