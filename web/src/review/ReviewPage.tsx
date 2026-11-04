@@ -9,7 +9,7 @@ import { useLoad } from './lib/useLoad'
 import { useMasterNames } from './lib/master'
 import { ruleTitle } from './lib/rules'
 import { findingBoxes, focusBox, getPointer } from './lib/provenance'
-import { formatDateTime, pct, text } from './lib/format'
+import { formatDateTime, formatMessage, pct, text } from './lib/format'
 import type { Finding, OverrideChoice, Upload } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
@@ -180,7 +180,7 @@ function Review({ uploadId }: { uploadId: string }) {
             <section key={sev} className="rv-group" aria-label={`${sev} findings`}>
               <div className="rv-group__head"><SeverityPill severity={sev} count={group.length} size="sm" /><span className="rv-muted">{openN} open</span></div>
               {group.map(f => (
-                <FindingCard key={f.id} finding={f} ruleTitle={ruleTitle(f.rule_id)} actions={cardActions(f)}
+                <FindingCard key={f.id} finding={{ ...f, message: formatMessage(f.message) }} ruleTitle={ruleTitle(f.rule_id)} actions={cardActions(f)}
                   crop={f.source_page != null ? <PageCrop uploadId={uploadId} page={f.source_page} boxes={findingBoxes(ex, f.fields, f.source_page)} focus={focusBox(ex, f.fields, f.source_page, f.report_value)} onZoom={openCrop(f)} /> : undefined} />
               ))}
             </section>

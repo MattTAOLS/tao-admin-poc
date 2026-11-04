@@ -9,7 +9,17 @@ export function formatDateTime(iso: string | null | undefined) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export const money = (v: unknown) => (typeof v === 'number' ? formatCurrency(v) : v == null ? '—' : String(v))
+/** ISO 8601 date-times inside rule-engine text, e.g. "2026-11-04T01:33:28.285866+00:00" in R12's message. */
+const ISO_DATETIME = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?/g
+
+/** A finding message for display: every ISO date-time in it is shown like the rest of the review pages
+ * (formatDateTime). The words and numbers are the rule engine's; only the timestamp's format changes. */
+export function formatMessage(message: string | null | undefined) {
+  if (!message) return message ?? ''
+  return message.replace(ISO_DATETIME, m => formatDateTime(m))
+}
+
+export const money =(v: unknown) => (typeof v === 'number' ? formatCurrency(v) : v == null ? '—' : String(v))
 /** Fractions as stored in the deal object: 0.0179 → 1.79%. */
 export const pct = (v: unknown) => (typeof v === 'number' ? formatPercent(v) : v == null ? '—' : String(v))
 export const count = (v: unknown) => (typeof v === 'number' ? formatNumber(v) : v == null ? '—' : String(v))
