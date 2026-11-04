@@ -215,6 +215,12 @@ The Lead reads this at every merge.
   (5) **Precision:** our_value is rounded to 2 dp for money and 6 dp for ratios (e.g. R17 CNL 0.032988 where the
   report prints 0.0330). use_ours writes that precision.
 
+- 2026-11-03 — to Data & API (corrected re-issues): R12 reads `ctx.upload["replaces_upload_id"]` (your upload_dict
+  should carry it after migration 006; the worker adapter already does, None without the column). For the date in
+  the re-issue message, pass `published_periods` as {collection_period: published_at} instead of a set (`in` works
+  the same, and the worker adapter now does this); with a set the message says "published earlier". R12 keeps
+  severity block and carries no targets: approve should accept it as acknowledge + reason, like any block override.
+
 ## UI-Admin
 - RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
   error codes `already_published` (409), `upload_in_progress` (409), `not_a_pdf` / `unknown_deal` (422), `tao_only` /

@@ -149,9 +149,10 @@ def test_context_has_the_api_shape(conn):
     assert len(covs) == 7 and set(covs[0]) == {"id", "deal_slug", "legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "source"}
     assert next(c for c in covs if c["legal_ref"] == "SLFA 9.1 (e)")["threshold"] == 0.035          # 2026-09 amendment not yet in force
     assert next(c for c in covs if c["legal_ref"] == "SLFA 9.1 (c)")["threshold_rule"]["on"] == "/tranche_balance/closing"
-    assert ctx.published_periods == {"2026-06", "2026-07"}
+    assert ctx.published_periods == {"2026-06": "2026-07-15T14:02:00Z", "2026-07": "2026-07-15T14:02:00Z"}   # dict: membership like the API's set, plus the date
     assert set(ctx.upload) == {"id", "deal_slug", "program_slug", "partner_slug", "collection_period", "reporting_period", "status", "file_name", "page_count",
-                               "uploaded_by", "uploaded_at", "finding_counts", "latest_extraction_id", "published_at", "reject_reason"}
+                               "uploaded_by", "uploaded_at", "finding_counts", "latest_extraction_id", "published_at", "reject_reason", "replaces_upload_id"}
+    assert ctx.upload["replaces_upload_id"] is None          # no migration-006 column in this database: tolerated
     assert ctx.upload["program_slug"] == "f-pil-2-0" and ctx.upload["reporting_period"] == "2026-07"
 
 def test_wrong_deal_selected_blocks(conn):
@@ -232,3 +233,34 @@ def test_targets_stored_when_the_column_exists(conn, caplog):
     row = conn.execute(text("select targets, our_value, report_value from finding where extraction_id = :e and rule_id = 'R05'"), {"e": out2["extraction_id"]}).one()
     assert json.loads(row.targets)[:2] == ["/period_history/3/closing_balance", "/tranche_balance/closing"]
     assert conn.execute(text("select targets from finding where extraction_id = :e"), {"e": out["extraction_id"]}).scalar() is None
+
+# ---------- corrected re-issues ----------
+def test_reissue_chains_onto_the_month_before_and_r12_names_the_replacement(conn):
+    """A re-issue of August (replaces_upload_id = the published August upload): extend and ctx.prior both use the
+    July publication, never the August one being replaced; R12 blocks with the re-issue message and the date."""
+    conn.execute(text("alter table finding add column targets text"))                    # migration 005
+    conn.execute(text("alter table setrep_upload add column replaces_upload_id text"))   # migration 006
+    full = mf.load_deal(mf.MONEDA); july = mf.prior_state(full)
+    publish(conn, full["deal_slug"], "2026-07", july)
+    publish(conn, full["deal_slug"], "2026-08", {**full, "collection_period": "August 2026", "marker": "published August"}, at="2026-08-12T16:40:00Z")
+    publish(conn, full["deal_slug"], "2026-09", {"collection_period": "September 2026"}, at="2026-09-14T10:00:00Z")
+    old = new_upload(conn, status="published")
+    uid = new_upload(conn, status="extracting")
+    conn.execute(text("update setrep_upload set replaces_upload_id = :o where id = :u"), {"o": old, "u": uid})
+    ext = FakeExtend(); store = adapter.SqlStore(conn)
+    ctx = adapter.build_context(store, store.upload(uid), full)
+    assert ctx.prior == july and ctx.upload["replaces_upload_id"] == old
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.single_month(full)), conn=conn, enqueue=FakeQueue(), extend=ext)
+    assert ext.calls[0][0] == july and "marker" not in ext.calls[0][0]
+    assert stored_deal(conn, out["extraction_id"])["period_history"] == full["period_history"]
+    row = conn.execute(text("select severity, message, context, targets from finding where extraction_id = :e and rule_id = 'R12'"), {"e": out["extraction_id"]}).one()
+    assert row.severity == "block" and row.message == ("Corrected re-issue: replaces the 2026-08 report published 2026-08-12T16:40:00Z. "
+                                                       "Later published months (2026-09) still carry the earlier figures for 2026-08.")
+    c = json.loads(row.context)
+    assert c["replaces_upload_id"] == old and c["later_periods"] == ["2026-09"] and c["published_at"] == "2026-08-12T16:40:00Z"
+    assert out["counts"]["block"] == 1 and out["status"] == "needs_review"
+
+def test_prior_publication_skips_the_replaced_month():
+    pubs = [{"collection_period": p, "deal": {"p": p}} for p in ("2026-06", "2026-07", "2026-08", "2026-09")]
+    assert adapter.prior_publication(pubs, "2026-08")["collection_period"] == "2026-07"
+    assert adapter.prior_publication(pubs, "2026-06") is None

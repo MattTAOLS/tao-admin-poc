@@ -85,8 +85,13 @@ class SqlStore:
     def latest_extraction(self, upload_id, pass_=None):
         sql = "select id, upload_id, pass, meta, created_at from extraction where upload_id = :u" + (" and pass = :p" if pass_ else "") + " order by pass desc, created_at desc"
         return self._one(sql, ("meta",), u=str(upload_id), p=pass_)
+    def _has_column(self, table, column):
+        try: return column in {c["name"] for c in inspect(self.conn).get_columns(table)}
+        except Exception: return False
     def upload(self, upload_id):
-        return self._one("select id, deal_slug, collection_period, reporting_period, file_name, page_count, uploaded_by, uploaded_at, status, reject_reason from setrep_upload where id = :id", id=str(upload_id))
+        # replaces_upload_id arrives with migration 006 (corrected re-issues); read it only when the column exists
+        extra = ", replaces_upload_id" if self._has_column("setrep_upload", "replaces_upload_id") else ""
+        return self._one(f"select id, deal_slug, collection_period, reporting_period, file_name, page_count, uploaded_by, uploaded_at, status, reject_reason{extra} from setrep_upload where id = :id", id=str(upload_id))
     def deal(self, slug):
         return self._one("select slug, name, program_slug, servicer, template_id from deal where slug = :slug", slug=slug)
     def program(self, slug):
@@ -121,7 +126,8 @@ def upload_dict(store: SqlStore, u: dict) -> dict:
             "reporting_period": u.get("reporting_period") or ((ex or {}).get("meta") or {}).get("reporting_period"), "status": u["status"],
             "file_name": u.get("file_name"), "page_count": u.get("page_count"), "uploaded_by": u.get("uploaded_by"), "uploaded_at": u.get("uploaded_at"),
             "finding_counts": store.open_counts(ex["id"]) if ex else {"block": 0, "review": 0, "note": 0},
-            "latest_extraction_id": ex["id"] if ex else None, "published_at": pub["published_at"] if pub else None, "reject_reason": u.get("reject_reason")}
+            "latest_extraction_id": ex["id"] if ex else None, "published_at": pub["published_at"] if pub else None, "reject_reason": u.get("reject_reason"),
+            "replaces_upload_id": u.get("replaces_upload_id")}
 
 def prior_publication(pubs: list[dict], period: str | None) -> dict | None:
     """The last publication with a period before `period` (pubs ordered by collection_period). Used by build_context
@@ -137,7 +143,8 @@ def build_context(store: SqlStore, upload: dict, deal_obj: dict | None = None) -
     prior = (prior_publication(pubs, period) or {}).get("deal")
     master = {"program": program, "deal": deal_row,
               "covenants": covenants_as_of(store.covenant_definitions(slug), period_end(period) if period else None)}
-    return Context(prior=prior, master=master, published_periods={p["collection_period"] for p in pubs}, upload=upload_dict(store, upload))
+    # {period: published_at}: membership works like the API's set, and R12 can name the publication's date
+    return Context(prior=prior, master=master, published_periods={p["collection_period"]: p["published_at"] for p in pubs}, upload=upload_dict(store, upload))
 
 def validate_extraction(store, extraction_id, phases=PHASES, rules_doc: dict | None = None) -> list[dict]:
     """Run the rules over one stored extraction. Findings carry this extraction's id and are not yet persisted."""

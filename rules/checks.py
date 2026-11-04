@@ -394,12 +394,24 @@ def _restatement(rule, ex, month, field, prior_value, value, t, unit, prior):
 
 # ---------- R12 ----------
 def period_not_published(rule, ex, ctx, tol):
+    """Blocks when the period is already published. On a corrected re-issue (ctx.upload.replaces_upload_id) it still
+    blocks, naming the publication it replaces and any later published months, whose chained history still carries
+    the earlier figures for this month; the reviewer acknowledges with a reason or rejects. No targets: nothing to write.
+    published_periods may be a set or a dict {period: published_at}; only the dict gives the date in the message."""
     d = ex["deal"]; k = period_key(d.get("collection_period")); pp = ctx.published_periods
     if not k or not pp: return []
     hit = k in pp or (d.get("deal_slug"), k) in pp
     if not hit: return []
-    at = pp.get(k) if isinstance(pp, dict) else None
-    return [finding(rule, _uid(ex), report_value=k, unit="months", context={"deal": d.get("deal_slug"), "period": k, "published_at": at or "earlier"})]
+    at = (pp.get(k) if isinstance(pp, dict) else None) or "earlier"
+    c = {"deal": d.get("deal_slug"), "period": k, "published_at": at}
+    reissue = (ctx.upload or {}).get("replaces_upload_id")
+    if not reissue:
+        return [finding(rule, _uid(ex), report_value=k, unit="months", context=c)]
+    later = sorted({period_key(p) for p in pp if isinstance(p, str) and period_key(p) and period_key(p) > k})
+    c.update(replaces_upload_id=reissue, later_periods=later, later_list=", ".join(later), reissue=True)
+    msg = "Corrected re-issue: replaces the {period} report published {published_at}."
+    if later: msg += " Later published months ({later_list}) still carry the earlier figures for {period}."
+    return [finding(rule, _uid(ex), report_value=k, unit="months", context=c, message=msg)]
 
 # ---------- R13 ----------
 def _norm(s): return re.sub(r"[^a-z0-9]", "", (s or "").lower())

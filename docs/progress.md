@@ -2,6 +2,15 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Rules, corrected re-issues: R12 on an upload with `replaces_upload_id` still blocks, with "Corrected
+  re-issue: replaces the {period} report published {published_at}." and, when later months are published, "Later
+  published months (...) still carry the earlier figures for {period}." Context has replaces_upload_id, published_at,
+  later_periods; no targets (acknowledge with a reason, or reject). A plain duplicate keeps its message. The
+  worker's `build_context` reads `replaces_upload_id` once migration 006 adds the column (absent: None), and passes
+  `published_periods` as {period: published_at} so the message carries the date. History chaining on a re-issue
+  uses the last publication before the period (`prior_publication`, strict <), never the one being replaced; tested
+  end to end. Fixtures r12-reissue and r12-reissue-later. Run: rules 84, worker/validate 19.
+
 - 2026-11-03 — Data & API: page-image crash fixed. PDFium is not thread-safe and concurrent first renders killed the
   uvicorn process silently. `api/app/pdf.py` puts every PDFium open, render and save (page counting on upload included)
   under one process-wide lock, and writes each PNG to a temp file in the page folder before `os.replace`. Burst of 12
