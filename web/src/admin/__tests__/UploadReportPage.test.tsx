@@ -145,8 +145,28 @@ describe('Upload report', () => {
     await fillAndChoose(user)
     await user.click(screen.getByRole('button', { name: 'Upload report' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(screen.getByText(/should be the month before the collection period/)).toBeTruthy()
     expect(screen.getByText(/Rule R04 checks this/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open in approval queue →' })).toBeTruthy()
+  })
+
+  it('expects the same month on a MOVE Trust deal (reporting lag 0 in rules.yaml)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const move = { deal_slug: 'move-trust-dynamic-capital', program_slug: 'move-trust', collection_period: '2026-04' }
+    mockApi.mockImplementation(fakeApi({
+      ...master,
+      'POST /uploads': upload(move),
+      [`GET /uploads/${upload().id}`]: upload({ ...move, status: 'needs_review', reporting_period: '2026-04' }),
+    }))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderPage('/admin/uploads/new', route)
+    await user.selectOptions(await screen.findByLabelText(/^Deal/), 'move-trust-dynamic-capital')
+    fireEvent.change(screen.getByLabelText(/^Collection period/), { target: { value: '2026-04' } })
+    await user.upload(screen.getByTestId('filedrop-input'), pdf())
+    await user.click(screen.getByRole('button', { name: 'Upload report' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(screen.getByText('Needs review', { selector: '[aria-current="step"]' })).toBeTruthy()
+    expect(screen.queryByText(/Rule R04 checks this/)).toBeNull()
   })
 
   // The published Moneda Aug upload the re-issue replaces (demo profile admin publishes it).

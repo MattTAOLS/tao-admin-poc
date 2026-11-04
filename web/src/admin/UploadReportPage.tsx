@@ -6,7 +6,7 @@ import {
 import { usePageHeader } from '@/shell/header'
 import { adminApi, IN_FLIGHT, type ApiError, type Upload } from './data'
 import { useResource } from './hooks'
-import { FindingCountsText, LoadError, TextLink, dealOptions, errorText, formatDateTime, periodHistoryHref, prevMonth, reviewHref, totalFindings } from './ui'
+import { FindingCountsText, LoadError, TextLink, addMonths, dealOptions, errorText, formatDateTime, periodHistoryHref, reportingLag, reviewHref, totalFindings } from './ui'
 
 export const POLL_MS = 2000
 const DROP_TEXT = 'Drop the settlement report PDF here, or click to choose'
@@ -72,7 +72,8 @@ export default function UploadReportPage() {
   const reset = () => { setUpload(undefined); setFile(null); setSubmitError(undefined); setFileError(undefined); setReissue(false); setConflict(false) }
   const publishedOn = publishedUpload?.published_at ? ` (on ${formatDateTime(publishedUpload.published_at)})` : ''
 
-  if (upload) return <UploadProgress initial={upload} dealName={dealName(upload.deal_slug)} onAnother={reset} replaced={publishedUpload} />
+  if (upload) return <UploadProgress initial={upload} dealName={dealName(upload.deal_slug)} onAnother={reset} replaced={publishedUpload}
+    lag={reportingLag(deals.find(d => d.slug === upload.deal_slug)?.template_id)} />
 
   return (
     <form className="adm-stack" onSubmit={submit} noValidate aria-label="Upload a settlement report">
@@ -122,7 +123,8 @@ export default function UploadReportPage() {
   )
 }
 
-function UploadProgress({ initial, dealName, onAnother, replaced }: { initial: Upload; dealName: string; onAnother: () => void; replaced?: Upload }) {
+/** `lag`: months from the reporting (page-header) month to the collection period for this deal's template. */
+function UploadProgress({ initial, dealName, onAnother, replaced, lag }: { initial: Upload; dealName: string; onAnother: () => void; replaced?: Upload; lag: number }) {
   const [u, setU] = useState(initial)
   const [pollError, setPollError] = useState<string>()
   const timer = useRef<ReturnType<typeof setTimeout>>()
@@ -148,7 +150,8 @@ function UploadProgress({ initial, dealName, onAnother, replaced }: { initial: U
   const inFlight = IN_FLIGHT.includes(u.status)
   const stepIndex = STEPS.indexOf(u.status as typeof STEPS[number])
   const findings = totalFindings(u.finding_counts)
-  const r04 = u.reporting_period && u.reporting_period !== prevMonth(u.collection_period)
+  const expectedReporting = addMonths(u.collection_period, -lag)
+  const r04 = u.reporting_period && u.reporting_period !== expectedReporting
   const canReview = u.status === 'needs_review' || findings > 0
 
   return (
@@ -179,7 +182,8 @@ function UploadProgress({ initial, dealName, onAnother, replaced }: { initial: U
           </dl>
           {r04 && (
             <div className="adm-note adm-note--warn" role="status">
-              The reporting period should be the month before the collection period ({formatPeriod(prevMonth(u.collection_period))}). Rule R04 checks this.
+              The reporting period should be {lag === 0 ? 'the same month as' : lag === 1 ? 'the month before' : `${lag} months before`} the collection period
+              ({formatPeriod(expectedReporting)}) for this deal’s reports. Rule R04 checks this.
             </div>
           )}
           {u.status === 'extraction_failed' && <div className="adm-note adm-note--warn" role="alert">Extraction failed. Check the audit log for the reason, then upload the file again.</div>}

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, KpiTile, StatePanel, formatNumber, type SelectOption } from '@/design/components'
 import type { ApiError, Deal, FindingCounts, Program, Upload } from './data'
+import rulesYaml from '@contracts/rules.yaml?raw'
 import './admin.css'
 
 /** Error panel for a failed load. 403 is the no-access state (the API, not the UI, is the boundary). */
@@ -41,6 +42,31 @@ export function prevMonth(p: string) {
   const [y, m] = p.split('-').map(Number)
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
+
+/** "YYYY-MM" moved by n months (negative goes back). */
+export function addMonths(p: string, n: number) {
+  const [y, m] = p.split('-').map(Number)
+  const t = y * 12 + (m - 1) + n
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+}
+
+/** Months from the page-header (reporting) month to the collection period, per template id, read from
+ * `reporting_lag_months` in contracts/rules.yaml (F-PIL 1, MOVE Trust 0). Line scan, like review/lib/rules.ts. */
+export function parseReportingLags(yaml: string): Record<string, number> {
+  const out: Record<string, number> = {}
+  let inBlock = false
+  for (const line of yaml.split(/\r?\n/)) {
+    if (/^reporting_lag_months:\s*$/.test(line)) { inBlock = true; continue }
+    if (!inBlock) continue
+    const m = /^\s+([\w.-]+):\s*(-?\d+)\s*$/.exec(line)
+    if (m) out[m[1]] = Number(m[2])
+    else if (line.trim() && !/^\s/.test(line)) break
+  }
+  return out
+}
+export const REPORTING_LAG = parseReportingLags(rulesYaml)
+/** Unknown template: 1, as rule R04 assumes. */
+export const reportingLag = (templateId?: string | null) => REPORTING_LAG[templateId ?? ''] ?? 1
 
 /** Deals grouped by program name, for <Select options>. */
 export function dealOptions(deals: Deal[], programs: Program[]): { group: string; options: SelectOption[] }[] {
