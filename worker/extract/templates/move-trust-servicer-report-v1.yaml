@@ -1,0 +1,181 @@
+# MOVE Trust servicer report (payment-date layout), template v1.
+#
+# Selected from the dispatch template move-trust-settrep-v1 when page 1 carries "PAYMENT DATE" and
+# "COLLECTION PERIOD INFORMATION". Parsed by worker/extract/engines/servicer_report.py; everything that is a fact
+# about the document (headings, row labels, column order, legal references, wording) lives here, not in code.
+#
+# Period convention for this layout (differs from F-PIL):
+#   cover/page header: "Payment Date August 24, 2026 for Collection Period July 2026"; page 1 "Report Month: Jul-26".
+#   deal.settlement_date     = the payment date as printed ("August 24, 2026")
+#   deal.collection_period   = the collection period as printed ("July 2026"); period = "2026-07"
+#   meta.reporting_period    = the Report Month ("Jul-26" -> "2026-07"): the SAME month as the collection period,
+#                              not one month before it as on F-PIL. The settlement (payment) date falls in the month
+#                              after the collection period.
+#
+# Matching: headings and line labels are regexes matched on whitespace-collapsed, upper-cased text (text.norm);
+# cover patterns are matched case-insensitively on the collapsed printed text so values keep their casing.
+
+template_id: move-trust-servicer-report-v1
+engine: servicer_report
+
+program:
+  name: "MOVE Trust"
+  deal_name_format: "{program} - {issuer}"
+  issuer_abbreviations:            # applied to the issuer name printed on the cover ("... as Issuer")
+    "Limited Partnership": "LP"
+
+terminology: null                  # the dashboards' default labels apply (the reference objects carry null)
+
+number_format:
+  thousands: ","
+  decimal: "."
+  currency_prefix: "$"
+  zero: ["-", "$0.00"]
+  percent: fraction                # "0.53%" is stored as 0.0053
+  negative: [parentheses, sign_hugging_previous_cell]    # "($41,317.75)" on the aging page; "- 1,052,006.04" on page 2
+
+# Line decorations on the waterfall / test pages: a leading form line number ("69 Current Month ...") and a trailing
+# input-status word ("AUTO", "PREVIOUS"). The line number is dropped unless the next word is MONTH/MONTHS
+# ("1 Month Prior to Current Month" is a label).
+line_decorations:
+  row_number_prefix: true
+  row_number_keeps_before: ["MONTH", "MONTHS"]
+  status_suffixes: ["AUTO", "PREVIOUS"]
+
+dates:
+  settlement_date: "%B %d, %Y"     # "August 24, 2026", kept as printed
+  collection_period: "%B %Y"       # "July 2026"
+  report_month: "%b-%y"            # "Jul-26"
+  funding_date: "%d-%b-%y"         # "23-Jun-26", kept as printed
+
+derived:
+  watch_buffer_pct: 0.1
+  trend_flat_band: 0.01            # |relative change| below this is "flat"
+  top_movers: 10
+  reconcile_tolerance: 1.00
+  written_off_bucket_label: "Deemed Defaults"
+  utilization_round: 4
+  program_utilization_round: 10
+  spread_round: 6                  # cnl spread = trigger - ratio (the printed spread is rounded to 0.1 %)
+
+cover:
+  page: 1
+  patterns:   # one named group each; the group name is the cover field
+    header: 'Payment Date (?P<settlement_date>[A-Za-z]+ \d{1,2}, \d{4}) for Collection Period (?P<collection_period>[A-Za-z]+ \d{4})'
+    issuer: '^(?P<issuer>.+?) as Issuer$'
+    collection_start: 'Start of Collection Period (?P<collection_start>\d{1,2}-[A-Za-z]{3}-\d{2})'
+    report_month: 'Report Month: ?(?P<report_month>[A-Za-z]{3}-\d{2})'
+
+sections:
+  tranche_balances:                # page 2: per-tranche roll-forward, k = b - c - d - e - f + adjustment
+    page_hint: 2
+    heading: '^SUMMARY OF TRANCHE CONTRACT BALANCES$'
+    row_label: [funding_date, tranche]
+    columns: [original, opening, principal, prepayments, deemed_defaults, charge_off, interest, penalties,
+              recoveries, adjustment, closing]
+    total_row: '^POOL BALANCE$'    # "ELIGIBLE / DISCOUNTED / POOL BALANCE" printed on three lines
+    total_columns: [original, opening, principal, prepayments, deemed_defaults, charge_off, interest, penalties,
+                    recoveries, adjustment, closing]
+
+  outstanding_balances:            # page 3: LP outstanding balances (the tranche amounts)
+    page_hint: 3
+    heading: '^SUMMARY OF OUTSTANDING BALANCES$'
+    total_row: '^PROGRAM TOTALS$'
+    total_columns: [original_tranche_balance, original_outstanding, opening, funding_cost_pct, principal_reduction,
+                    funding_cost, closing]
+
+  funding_costs:                   # page 6
+    page_hint: 6
+    heading: '^SUMMARY OF FUNDING COSTS AND FEES$'
+    lines:
+      commitment: '^MOVE COMMITMENT$'
+
+  enhancement:                     # page 7
+    page_hint: 7
+    heading: '^ENHANCEMENT FROM OVERCOLLATERALIZATION$'
+    lines:
+      ending_cash_reserve: '^ENDING CASH RESERVE AMOUNT$'
+      total_amount: '^TOTAL ENHANCEMENT \(\$\)$'
+      total_pct: '^TOTAL ENHANCEMENT \(%\)$'
+
+  concentration:                   # page 8: large-obligor concentration (the layout's stand-in for a top-10 table)
+    page_hint: 8
+    heading: '^EXCESS CONCENTRATION AMOUNT'
+
+  ratio_tests:                     # page 11: lock-up events, events of default, CNL, servicer termination events
+    page_hint: 11
+    heading: '^LOCK-UP EVENTS AND EVENTS OF DEFAULT'
+    ratios:                        # in printed order; `title` matches the block's title line
+      - key: portfolio_delinquency_ratio
+        financial_ratio_key: delinquency_ratio
+        title: '^PORTFOLIO DELINQUENCY RATIO \(.*\)$'
+      - key: portfolio_deemed_default_ratio
+        financial_ratio_key: deemed_default_ratio
+        title: '^PORTFOLIO DEEMED DEFAULT RATIO \(.*\)$'
+      - key: portfolio_charge_off_ratio
+        financial_ratio_key: charge_off_ratio
+        title: '^PORTFOLIO CHARGE-OFF RATIO \(.*\)$'
+    history_row: '^(CURRENT MONTH|\d+ MONTHS? PRIOR TO CURRENT MONTH)$'   # 3 cells: base $, numerator $, ratio %
+    history_columns: [base_amount, numerator_amount, ratio_pct]
+    test_result_row: 'TEST RESULT$'                                      # then one prior result per history_row line
+    lockup_trigger: '^LOCK-UP TRIGGER$'
+    eod_trigger: '^EVENT OF DEFAULT TRIGGER$'
+    lockup_triggered: '^LOCK-UP EVENT TRIGGERED\?$'
+    eod_triggered: '^EVENT OF DEFAULT TRIGGERED\?$'
+    cnl:
+      title: '^CNL RATIO$'
+      row: '^(?P<period>[A-Z]{3} \d{4} - [A-Z]{3} \d{4})$'
+      columns: [tranche_balance_funded, losses_allocated, cnl_ratio_pct, event_of_default_trigger_pct, spread_printed]
+    servicer_termination:
+      titles: ['^RISK WEIGHTED CAPITAL ADEQUACY RATIO$', '^LIQUIDITY COVERAGE RATIO$']
+      triggered: '^SERVICER TERMINATION EVENT TRIGGERED\?$'
+
+  aging:                           # page 12
+    page_hint: 12
+    heading: '^AGING SUMMARY PER TRANCHE'
+    row_label: [funding_date, tranche]
+    columns: [current, days_31_60, days_61_90, deemed_defaults, cumulative_net_losses,
+              closing_tranche_contract_balance, net_book_value]
+    total_row: '^TRANCHE BALANCE TOTALS$'
+
+# deal.source_pages key -> section whose heading page it reports (null: the layout has no such section)
+source_pages:
+  tranche_balance: tranche_balances
+  tranche_amounts: outstanding_balances
+  outstanding_contracts: null
+  funding_costs: funding_costs
+  enhancement: enhancement
+  top10_obligor: concentration
+  aging_summary: aging
+  aggregate_performance: null
+  cumulative_losses: aging          # the Cumulative Net Losses column of the aging table (as on F-PIL)
+  quantitative_tests: ratio_tests
+  financial_ratios: ratio_tests
+
+# Covenants, in this order: per ratio block a lock-up and an event-of-default test, then the CNL test, then one
+# binary test per servicer-termination block. {title} is the block title as printed, {trigger} the trigger as printed.
+covenants:
+  category: Event of Termination
+  lockup: {legal_ref: "SS Lock-Up", description: "Has the {title} exceeded the Lock-Up Trigger of {trigger}?"}
+  eod: {legal_ref: "SS EOD", description: "Has the {title} exceeded the Event of Default Trigger of {trigger}?"}
+  cnl: {legal_ref: "SS EOD", description: "Has the CNL Ratio exceeded the Event of Default Trigger for its origination period?"}
+  servicer_termination:
+    legal_ref: "SS"
+    description: "Has a Servicer Termination Event occurred under the {title}?"
+    note: "Reported directly by the servicer/originator; no underlying data series available."
+  answers: {"NO": "NO", "N": "NO", "YES": "YES", "Y": "YES"}
+
+financial_ratios:
+  group: Portfolio Performance      # the three rolling ratios; label = block title as printed
+  format: pct
+  cnl: {key: cnl_ratio, label: "CNL Ratio (worst vintage)", format: pct, group: Cumulative Net Losses}
+
+# Deal fields this layout does not print; the dashboards expect them present with these values.
+constants:
+  contracts: {opening: 0, closing: 0, change_abs: 0, change_pct: null}
+  period_contracts: {opening_contracts: 0, closing_contracts: 0}
+  prior_closing_contracts: 0
+  program: {unused_facility: null, maximum_program_limit: null}
+  warehouse: null
+  tranche_yields: {original_tranche_yield: null, current_period_effective_tranche_yield: null}
+  cnl_limits: {cnl_limit: null, cnl_limit_is_exception: false, cnl_within_limit: null}
