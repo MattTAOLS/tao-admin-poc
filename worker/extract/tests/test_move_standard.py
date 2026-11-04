@@ -95,15 +95,8 @@ DEALS = {
                 "the reference repeats July's '(14 of 53 tranches eligible)'; the June report had 52 tranches "
                 "securitized before its collection period.",
         },
-        # history.extend infers which earlier reports printed a month assuming reporting month = collection - 1
-        # (history._reporting_month, the F-PIL convention); here they are the same month, so the April report's
-        # Apr-26 leverage / coverage values are not attributed when months are added one at a time.
-        "extend_quirks": {
-            r"^/restatements/[01]/as_reported/":
-                "history.extend assumes reporting month = collection month - 1 (F-PIL); on this layout they are the "
-                "same month, so extend drops the April report's own Apr-26 value (6.35 / 1.15) from as_reported. "
-                "chain() reproduces the reference; history.py needs a per-layout offset.",
-        },
+        # history.extend reads the reporting-month lag from the extraction (0 here), so it matches chain()
+        "extend_quirks": {},
         "blocks": {m: {"R04"} for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
     },
     "tpine": {

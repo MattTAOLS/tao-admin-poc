@@ -111,15 +111,8 @@ DEALS = {
         "blocks": {"R04", "R05"},
         "adjustments": {"2026-04": (0.0, 3035.22), "2026-05": (0.0, 2551.21), "2026-06": (0.0, 2972.92),
                         "2026-07": (0.0, 2782.68)},
-        # history.extend infers which earlier reports printed a restated month as reporting month = period - 1
-        # (_reporting_month, F-PIL). On this layout each report's newest ratio month is its own collection month,
-        # so the April report's Apr-26 and the May report's May-26 RVL ratios (0.0, later restated to 0.112487%)
-        # are left out of as_reported. history.chain reads every report and matches the reference.
-        "extend_divergence": {
-            r"^/restatements/[01]/as_reported/":
-                "extend() drops source_period 2026-04 from Apr-26 and 2026-05 from May-26 (reporting month taken "
-                "as period - 1; this layout's reporting month = period)",
-        },
+        # history.extend reads the reporting-month lag from the extraction (0 here), so it matches chain()
+        "extend_divergence": {},
     },
     "move-trust-tlfc-loans": {
         "prefix": "TLFC_Loans",
