@@ -524,6 +524,11 @@ Append an entry when a work package lands. Newest first.
   failed the upload (worker/validate mark_failed reason, or 'queue unavailable'); null unless extraction_failed. No
   migration, no worker change. Needs from Lead: `failure_reason` on the Upload schema in contracts/openapi.yaml.
   Tests: api 141, check_contracts green.
+- 2026-11-04 — Rules, worker/validate (migration 007): merged main (b40a3f3) and agent/api (dbf0e42).
+  `SqlStore.covenant_definitions` now reads only current rows (`superseded_at is null`). Like `upload()`, it checks for
+  the column first, so a database without migration 007 still works. Test: a later-dated superseded SLFA 9.1 (e) at
+  4.00% next to the current 3.50% reaches neither the context nor R14; the same row left in force does raise R14.
+  Tests: worker/validate 20, rules 123, check_contracts green.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
