@@ -2,6 +2,19 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — UI-Partner, latest month (merged main 9ce35c8 and lead/latest-month cb12a95): built against
+  `PublishedProgram.deals_behind`. A deal behind the program month shows a blue "As of Jul 2026" pill (dot plus word)
+  on its Program Executive Summary card, its Program Dashboard deal row and covenant rows, its Portfolio flagged-deal
+  row, its Go to deal option, and in the deal page header. Program totals (both program pages and each portfolio card)
+  carry one line: "Moneda Capital Corp. is as of Jul 2026; its Aug 2026 report is not published yet." Several deals
+  are listed as "A (Jul 2026), B (Jun 2026) and N more are behind; …". Every deal link (cards, deal rows, flagged rows,
+  Go to deal, prev / next) now carries `?period=` = the deal's own month (`as_of` when behind, else the program
+  month). The deal page reads the program at its latest month when the deal is at its newest publication (so prev /
+  next open each neighbour at its own newest month), and at the deal's month otherwise. The deal month picker already
+  used the deal's own `available_periods`. Empty or absent `deals_behind`: no pill, no note, links at the program
+  month. Tests: portfolio 70 (new `behind.test.tsx`, 7: F-PIL references with one change, Moneda published for
+  2026-07 only, fake API 404s it for 2026-08). Full web suite 348 pass, 1 fail in `src/admin/__tests__/DashboardPage.test.tsx`
+  (MOVE covenant totals row, fails on main without this change too; UI-Admin's). tsc and check_contracts green.
 - 2026-11-04 — Design System: merged lead/latest-month and agent/api (302cd45, Upload.failure_reason). The upload card
   and the failed upload's review footer show `failure_reason` to tao_admin and tao_analyst, with the usual-cause text
   when it is null; neither reads the audit log any more. Help "When extraction fails" updated. Web 376 passed, 17

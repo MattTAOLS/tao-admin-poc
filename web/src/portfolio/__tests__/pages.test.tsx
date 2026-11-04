@@ -73,7 +73,7 @@ describe('Portfolio Executive Summary', () => {
     expect(within(flagged).queryByText('Stride Capital')).toBeNull() // OK deal
     expect(within(flagged).getByText('Finloc 2000 Inc.')).toBeTruthy() // MOVE Trust BREACH
     await userEvent.selectOptions(screen.getByLabelText('Go to deal'), `f-pil-2-0|${MONEDA}`)
-    expect(screen.getByTestId('where').textContent).toBe(`/investor/portfolio/f-pil-2-0/deals/${MONEDA}`)
+    expect(screen.getByTestId('where').textContent).toBe(`/investor/portfolio/f-pil-2-0/deals/${MONEDA}?period=2026-08`)
   })
   it('TAO sees both programs', async () => {
     renderAt('/admin/portfolio', 'tao_admin')
