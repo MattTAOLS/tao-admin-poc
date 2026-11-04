@@ -12,9 +12,9 @@ import { pageTitle, shot, signInAs, switchRole } from '../lib/ui'
 const slug = DEALS[STEP1.deal].slug
 
 /** Demo step 3. As Investor Viewer: Portfolio Executive Summary > F-PIL 2.0 > Deal page. Numbers match the shared
- * dashboard for that deal and period to the cent; switching to the other partner's deal shows You don't have access.
- * (The Manager Viewer seeing the same deal is wave-3 behaviour: wave3/manager-sees-programs.spec.ts.) */
-test('step 3: investor viewer sees the published deal and the numbers match the shared dashboard', async ({ page }) => {
+ * dashboard for that deal and period to the cent; the Manager Viewer sees the same. (Both partners now share both programs,
+ * so "the other partner's deal" has no instance left; the tenancy negatives are in specs/08-negatives.spec.ts.) */
+test('step 3: investor and manager viewers see the published deal; the numbers match the shared dashboard', async ({ page }) => {
   await signInAs(page, 'investor_viewer')
   await expect(pageTitle(page)).toHaveText('Portfolio Executive Summary')
   await shot(page, '03-portfolio-summary')
@@ -44,18 +44,18 @@ test('step 3: investor viewer sees the published deal and the numbers match the 
   for (const k of ['opening', 'closing', 'principal', 'principal_prepayments', 'losses', 'interest', 'recoveries'] as const)
     expect(published.tranche_balance[k], `tranche_balance.${k}`).toBeCloseTo(ref.tranche_balance[k], 2)
 
-  // A partner that does not see this program gets "You don't have access" on the same deal, by URL and by API.
-  const partners = (await programPartners())[PROGRAM]
-  const outsider = (['investor', 'manager'] as const).find(p => !partners.includes(p))
-  test.info().annotations.push({ type: 'tenancy', description: `${PROGRAM} partners: ${partners.join(', ')}; outsider: ${outsider ?? 'none'}` })
-  if (outsider) {
-    const role = outsider === 'manager' ? 'manager_viewer' : 'investor_viewer'
-    await switchRole(page, role)
-    await page.goto(`/${outsider}/portfolio/${PROGRAM}/deals/${slug}`)
-    await expect(page.getByRole('heading', { name: 'You don’t have access' })).toBeVisible()
-    await expect(page.locator('[data-field]')).toHaveCount(0)
-    await shot(page, '03-other-partner-no-access')
-    const r = await new Api(role).get(`/published/programs/${PROGRAM}/deals/${slug}`)
-    expect([403, 404]).toContain(r.status)
-  }
+  // The Manager Viewer sees the same deal with the same numbers (both partners share F-PIL 2.0).
+  expect((await programPartners())[PROGRAM]).toEqual(expect.arrayContaining(['investor', 'manager']))
+  await switchRole(page, 'manager_viewer')
+  await expect(pageTitle(page)).toHaveText('Portfolio Executive Summary')
+  const mcard = page.locator('.ds-card', { hasText: PROGRAM_NAME }).filter({ has: page.getByRole('link', { name: 'Executive summary' }) }).first()
+  await mcard.getByRole('link', { name: 'Executive summary' }).click()
+  await page.getByRole('link', { name: /^Open deal .*Xpedite Leasing/ }).click()
+  await expect(page).toHaveURL(new RegExp(`/manager/portfolio/${PROGRAM}/deals/${slug}$`))
+  await expect(page.locator('[data-field="tranche_balance.closing"]').first()).toBeVisible()
+  await shot(page, '03-manager-deal-page')
+  const asManager = (await new Api('manager_viewer').get(`/published/programs/${PROGRAM}/deals/${slug}`)).body
+  expect(asManager.tranche_balance).toEqual(published.tranche_balance)
+  const mchecks = compareFields(await readDealFields(page), asManager, ref)
+  expectAllMatch(mchecks, 'Xpedite Leasing 2026-08 (manager)')
 })

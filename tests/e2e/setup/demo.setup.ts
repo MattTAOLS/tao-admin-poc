@@ -4,7 +4,7 @@ import path from 'node:path'
 import { expect, test as setup } from '@playwright/test'
 import { findings, findUpload, tao, waitSettled } from '../lib/api'
 import { API_URL, PYTHON, REPO, SAMPLES, WEB_URL } from '../lib/env'
-import { DEALS, HISTORY_MONTHS, SEEDED, STEP1, STEP4, STEP6, period, samplePath, type DealKey } from '../lib/facts'
+import { DEALS, HISTORY, SEEDED, STEP1, STEP4, STEP6, period, samplePath, type DealKey } from '../lib/facts'
 import { record, resetMeasurements } from '../lib/measure'
 
 /** Brings a freshly seeded stack (docker compose up + `python -m app.seed`) to the demo's starting point: May-Jul
@@ -24,7 +24,7 @@ setup('stack is up, seeded and fresh', async () => {
     const u = await findUpload(s.deal, s.period)
     expect(u, `${s.deal} ${s.period} already uploaded (${u?.status}): the demo needs a fresh stack; see docs/demo.md "Reset"`).toBeUndefined()
   }
-  for (const d of Object.keys(DEALS) as DealKey[]) for (const m of [...HISTORY_MONTHS, '202608'])
+  for (const [d, m] of [...HISTORY, ['moneda', '202608'], ['xpedite', '202608'], ['stride', '202608']] as [DealKey, string][])
     expect(fs.existsSync(samplePath(d, m)), `sample PDF ${samplePath(d, m)} (place the SetRep PDFs in ${SAMPLES})`).toBe(true)
 })
 
@@ -37,10 +37,10 @@ setup('seeded-error PDF is built', async () => {
   fs.writeFileSync(SEEDED.file, pdf)
 })
 
-setup('May-Jul published for Moneda, Xpedite and Stride', async () => {
+setup('history published: Moneda and Xpedite May-Jul, Stride Jul', async () => {
   setup.setTimeout(20 * 60_000)
-  for (const m of HISTORY_MONTHS) {
-    for (const d of ['moneda', 'xpedite', 'stride'] as DealKey[]) {
+  for (const [d, m] of HISTORY) {
+    {
       const per = period(m)
       const existing = await findUpload(d, per, 'published')
       if (existing) continue

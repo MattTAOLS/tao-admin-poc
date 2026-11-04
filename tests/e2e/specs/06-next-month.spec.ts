@@ -8,10 +8,8 @@ import { navTo, openReview, shot, signInAs, switchRole } from '../lib/ui'
 const investor = new Api('investor_viewer')
 
 /** Demo step 6. As TAO Analyst: upload the following month. Rule 11 confirms opening = prior closing; the program
- * dashboard shows the new period and the covenant status change raises an in-app toast.
- * Stride Capital 2026-08 follows its published 2026-07. The real samples carry no covenant status change from Jul to
- * Aug for any F-PIL 2.0 deal (prior_covenants equal covenants in all three reference objects), and the app has no
- * covenant-change toast, so that clause is recorded as an annotation, not asserted (docs/requests.md, QA & Demo). */
+ * dashboard shows the new period. Stride Capital 2026-08 follows its published 2026-07. (The build plan's covenant-change
+ * toast was dropped from the demo, decision 2026-11-03.) */
 test('step 6: analyst uploads the following month; R11 holds and the program dashboard shows the new period', async ({ page }) => {
   const slug = DEALS[STEP6.deal].slug
   const before = (await investor.get(`/published/programs/${PROGRAM}?period=${STEP6.period}`)).body
@@ -61,5 +59,4 @@ test('step 6: analyst uploads the following month; R11 holds and the program das
   const after = (await investor.get(`/published/programs/${PROGRAM}`)).body
   expect(after.period).toBe(STEP6.period)
   expect(after.deal_count).toBe(3)
-  test.info().annotations.push({ type: 'not exercised', description: `covenant status change toast: deals_with_escalations = ${JSON.stringify(after.deals_with_escalations)}; no toast exists in the app` })
 })

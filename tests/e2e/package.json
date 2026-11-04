@@ -6,8 +6,6 @@
   "type": "module",
   "scripts": {
     "test:e2e": "playwright test --project=demo",
-    "test:e2e:wave3": "playwright test --project=wave3",
-    "test:e2e:all": "playwright test",
     "lighthouse": "node scripts/lighthouse.mjs",
     "report": "playwright show-report"
   },

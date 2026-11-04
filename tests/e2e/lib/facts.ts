@@ -12,8 +12,14 @@ export type DealKey = keyof typeof DEALS
 export const PROGRAM = 'f-pil-2-0'
 export const PROGRAM_NAME = 'F-PIL 2.0'
 
-/** Months published by the setup project before the demo starts (the demo needs a prior month for R11). */
-export const HISTORY_MONTHS = ['202605', '202606', '202607']
+/** Months published by the setup project before the demo starts, oldest first. Moneda and Xpedite carry May-Jul (the
+ * deal pages show four months and Xpedite's Jun/Jul restatements are part of its history); Stride needs only July, the
+ * prior month step 6 checks R11 against. Fewer uploads keep the full demo under 10 minutes. */
+export const HISTORY: [DealKey, string][] = [
+  ['moneda', '202605'], ['xpedite', '202605'],
+  ['moneda', '202606'], ['xpedite', '202606'],
+  ['moneda', '202607'], ['xpedite', '202607'], ['stride', '202607'],
+]
 /** Demo journey uploads, in order. */
 export const STEP1 = { deal: 'xpedite' as DealKey, month: '202608', period: '2026-08' }  // clean report, published in step 2
 export const STEP4 = { deal: 'moneda' as DealKey, month: '202608', period: '2026-08' }  // seeded error, one R05 block
@@ -27,6 +33,8 @@ export const SEEDED = {
   difference: -100.0,
   reason: 'servicer typo, confirmed by email',
 }
+/** Step 7: a corrected re-issue of month one (Moneda 2026-05, the same real PDF uploaded again with replace=true). */
+export const STEP7 = { deal: 'moneda' as DealKey, month: '202605', period: '2026-05', reason: 'servicer re-sent the May report; replaces the published one' }
 
 export const samplePath = (deal: DealKey, month: string) => path.join(SAMPLES, DEALS[deal].file(month))
 export const period = (month: string) => `${month.slice(0, 4)}-${month.slice(4)}`
