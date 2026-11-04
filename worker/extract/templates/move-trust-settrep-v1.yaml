@@ -8,6 +8,10 @@ layouts:
   # Settlement report split by currency and rate type (tranche balance pages per FIXED/FLOATING x CAD/USD)
   - template: move-trust-settrep-multicurrency-v1
     when_page1_has: ["SUMMARY OF TRANCHE BALANCE - FIXED (CAD)"]
+  # Settlement report with a sub-servicer and a performance guarantor (page-1 contacts block and the
+  # Sub-Administration Agreement legend); covenants under an MLA / PA 7.1, cumulative losses by calendar period
+  - template: move-trust-settrep-guarantor-v1
+    when_page1_has: ["SUMMARY OF TRANCHE BALANCE", "SUB - SERVICER:", "PERFORMANCE GUARANTOR:", "SAA = SUB-ADMINISTRATION AGREEMENT"]
   # Standard MOVE settlement report (tranche balance, contracts, amounts, enhancement, top 10, aging, tests)
   - template: move-trust-settrep-standard-v1
     when_page1_has: ["SUMMARY OF TRANCHE BALANCE"]
