@@ -2,6 +2,10 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Design System: merged lead/latest-month and agent/api (302cd45, Upload.failure_reason). The upload card
+  and the failed upload's review footer show `failure_reason` to tao_admin and tao_analyst, with the usual-cause text
+  when it is null; neither reads the audit log any more. Help "When extraction fails" updated. Web 376 passed, 17
+  skipped; tsc clean; check_contracts green.
 - 2026-11-04 — Design System, help-page gaps fixed (Lead-authorized, in web/src/admin and web/src/review for this task):
   (1) the upload card's R04 hint reads the reporting lag per template from `reporting_lag_months` in rules.yaml
   (F-PIL 1, MOVE Trust 0), so MOVE uploads no longer warn; (2) Extraction failed states the worker's reason to TAO

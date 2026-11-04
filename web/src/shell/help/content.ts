@@ -123,8 +123,8 @@ export const ADMIN_HELP: HelpContent = {
       intro: 'The status turns to **Extraction failed** when the system cannot read the report. The upload card says why, and so does the upload’s details page.',
       steps: [
         { text: 'Open the upload: **Upload details →** on the upload card, or **Details** on its row in [Uploads](/admin/uploads) or [Upload history](/admin/uploads/history).' },
-        { roles: ADMIN, text: 'Read the reason in the message, for example “page 1 has no text layer”. The Audit log keeps it too.' },
-        { roles: ANALYST, text: 'The message gives the usual cause: a scanned or blank PDF with no text to read. A TAO Admin sees the exact reason.' },
+        { text: 'Read the reason in the message, for example “page 1 has no text layer”. If no reason was recorded, the message gives the usual cause: a scanned or blank PDF with no text to read.' },
+        { roles: ADMIN, text: 'The Audit log keeps the reason too, on the upload’s **Extract** entry.' },
         { text: 'The POC reads only PDFs that carry text; there is no scanning fallback yet. Get a text PDF from the servicer.' },
         { text: 'Upload the corrected file for the same deal and period. A failed upload does not hold the month, so the new upload goes straight in.' },
         { roles: ADMIN, text: 'Optional: close the failed upload with **Reject…** on its details page.' },
