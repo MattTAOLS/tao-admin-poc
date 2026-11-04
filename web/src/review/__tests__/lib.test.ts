@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { RULE_TITLES, parseRuleTitles } from '../lib/rules'
 import { provenance, findingBoxes, focusBox, carriedLabel } from '../lib/provenance'
-import { covenantValue, byFormat } from '../lib/format'
+import { covenantValue, byFormat, formatMessage, formatDateTime } from '../lib/format'
 import type { Extraction } from '../lib/types'
 import extractionFx from './fixtures/extraction-moneda.json'
 import findingsFx from './fixtures/findings-moneda.json'
@@ -84,5 +84,53 @@ describe('corrections preview', async () => {
     expect(writesFor(ex, r05, 'use_report').filter(w => w.changed)).toHaveLength(0)
     expect(writesFor(ex, { ...r05, targets: undefined }, 'use_ours')).toEqual([])
     expect(plannedCorrections(ex, [{ ...r05, status: 'acknowledge' as never }])).toEqual([])
+  })
+})
+
+describe('finding messages', () => {
+  const r12 = 'Corrected re-issue: replaces the 2026-07 report published 2026-11-04T01:33:28.285866+00:00. Later published months (2026-08) still carry the earlier figures for 2026-07.'
+  it('formats ISO date-times in a rule message like the rest of the review pages', () => {
+    const out = formatMessage(r12)
+    expect(out).not.toMatch(/T\d{2}:\d{2}/)
+    expect(out).toBe(`Corrected re-issue: replaces the 2026-07 report published ${formatDateTime('2026-11-04T01:33:28.285866+00:00')}. Later published months (2026-08) still carry the earlier figures for 2026-07.`)
+    expect(out).toMatch(/published \d{4}-\d{2}-\d{2} \d{2}:\d{2}\. Later/)
+  })
+  it('leaves periods, dates and messages without a time alone', () => {
+    const plain = 'Settlement date 2026-08-07 is not in the collection month 2026-08 or the month after'
+    expect(formatMessage(plain)).toBe(plain)
+    expect(formatMessage('Corrected re-issue: replaces the 2026-07 report published earlier.')).toBe('Corrected re-issue: replaces the 2026-07 report published earlier.')
+    expect(formatMessage('at 2026-11-04T14:32Z')).toBe(`at ${formatDateTime('2026-11-04T14:32Z')}`)
+    expect(formatMessage(undefined)).toBe('')
+  })
+})
+
+// The library dims a resolved FindingCard with opacity, which blends its token text under WCAG AA. review.css restores
+// full-strength tokens on a resolved card; this checks the override and the AA ratio of the text it carries.
+describe('resolved finding card contrast', () => {
+  const dir = resolve(__dirname, '..')
+  const css = readFileSync(resolve(dir, 'review.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const tokensCss = readFileSync(resolve(dir, '../../../contracts/tokens.css'), 'utf8')
+  const tok = (name: string) => {
+    const m = new RegExp('(?:^|[ \\t;{])' + name + '[ \\t]*:[ \\t]*(#[0-9a-fA-F]{6})', 'm').exec(tokensCss)
+    if (!m) throw new Error('token not found: ' + name)
+    return m[1]
+  }
+  const lum = (hex: string) => {
+    const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+  }
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+  const rule = /\.rv-group \.ds-finding--resolved\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+  it('drops the dimming and stays distinguishable', () => {
+    expect(rule).toMatch(/opacity:\s*1\s*;/)
+    expect(rule).toMatch(/background:\s*var\(--canvas-deep\)/)
+    expect(rule).toMatch(/border-left-color:\s*var\(--border\)/)
+  })
+  it('keeps every text on the resolved card at 4.5:1 or more', () => {
+    const bg = tok(/background:\s*var\((--[a-z0-9-]+)\)/.exec(rule)![1])
+    // layer and value labels (--muted), our value (--dpv), difference and other values, and the small pills on their own -bg
+    for (const t of ['--muted', '--dpv', '--indigo', '--text', '--bad', '--ok', '--warn', '--blue']) expect(ratio(tok(t), bg), t).toBeGreaterThanOrEqual(4.5)
+    for (const t of ['--bad', '--ok', '--warn', '--blue']) expect(ratio(tok(t), tok(t + '-bg')), t + '-bg').toBeGreaterThanOrEqual(4.5)
   })
 })

@@ -5,7 +5,7 @@ import { ruleTitle } from '../lib/rules'
 import type { ApiError, Extraction, Finding, OverrideChoice, Upload } from '../lib/types'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
 import { isReissueFinding, type ReissueInfo } from '../lib/reissue'
-import { formatDateTime } from '../lib/format'
+import { formatDateTime, formatMessage } from '../lib/format'
 
 export const CHOICES: { id: OverrideChoice; label: string; help: string }[] = [
   { id: 'use_ours', label: 'Use ours', help: 'Our value is right; publishing writes it over the report figure.' },
@@ -66,7 +66,7 @@ export function OverrideDialog({ uploadId, finding, ex, initialChoice, onClose, 
       description="The rules re-run after you save. The choice and reason go in the audit log."
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Save and re-run rules</Button></>}>
       <div className="rv-dialog-body">
-        <p style={{ margin: 0 }}>{finding.message}</p>
+        <p style={{ margin: 0 }}>{formatMessage(finding.message)}</p>
         {!isReissueFinding(finding) && (finding.our_value !== undefined || finding.report_value !== undefined) && (
           <dl className="rv-facts">
             <div><dt>Ours</dt><dd>{formatByUnit(finding.our_value, finding.unit)}</dd></div>
@@ -231,7 +231,7 @@ function PublishError({ err, findings, ex, goTo }: { err: ApiError; findings: Fi
       <div className="rv-dialog-error" role="alert">
         <p>{errorText(err)}</p>
         <ul className="rv-summary">
-          {err.findings.map((k, i) => <li key={i}><b>{k.rule_id} {ruleTitle(k.rule_id)}</b>: {k.message}</li>)}
+          {err.findings.map((k, i) => <li key={i}><b>{k.rule_id} {ruleTitle(k.rule_id)}</b>: {formatMessage(k.message)}</li>)}
         </ul>
         {sources.length > 0 && <p>Corrections involved: <span className="rv-pills rv-goto">{sources.map(goTo)}</span></p>}
       </div>

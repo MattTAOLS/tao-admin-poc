@@ -49,6 +49,19 @@ describe('Corrected re-issue', () => {
     expect(within(banner).getByRole('link', { name: 'Open the replaced report' }).getAttribute('href')).toBe(`/admin/uploads/queue/${OLD}`)
   })
 
+  it('shows the R12 message with a formatted time, never the raw ISO timestamp', async () => {
+    stack(fresh())
+    show(NEW)
+    const card = await screen.findByRole('article', { name: /Period not already published/ })
+    const msg = within(card).getByText(/^Corrected re-issue: replaces the 2026-07 report published/)
+    expect(msg.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}/)
+    expect(msg.textContent).toMatch(/published \d{4}-\d{2}-\d{2} \d{2}:\d{2}\. Later published months/)
+    await userEvent.click(within(card).getByRole('button', { name: 'Accept as replacement for R12' }))
+    const dlg = await screen.findByRole('dialog')
+    const dmsg = within(dlg).getByText(/^Corrected re-issue: replaces/)
+    expect(dmsg.textContent).toBe(msg.textContent)
+  }, 20000)
+
   it('makes Accept as replacement the R12 action and sends acknowledge with the reason', async () => {
     const state = fresh()
     const calls = stack(state, [on('POST', /\/override$/, () => { state.findings = clone(reissueResolvedFx); return { body: state.findings } })])

@@ -2,6 +2,18 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — UI-Review, polish (merged main b40a3f3). (1) Resolved finding card contrast: the library's
+  `.ds-finding--resolved { opacity: .78 }` blended token text under WCAG AA on the Review report (Lighthouse 96).
+  `review.css` now sets a resolved card in `.rv-group` to opacity 1 on `--canvas-deep` with a neutral `--border` left
+  rule and no shadow (resolution line on `--card`); the Resolved pill and resolution line still say it in words.
+  Ratios before → after: layer and value labels (`--muted`) 3.40 → 5.08:1, small Block pill (`--bad` on `--bad-bg`)
+  3.34 → 4.66:1, our value (`--dpv`) 4.23 → 6.33:1. Tokens only. Design System may want to drop the opacity in
+  components.css itself so other users of FindingCard get the same fix. (2) R12 timestamp: `formatMessage` in
+  `lib/format.ts` shows ISO date-times inside a rule message with `formatDateTime` ("2026-11-04 01:33", as the
+  banner, queue and footer do); used on finding cards, the resolve dialog and the correction_inconsistent list. No
+  change to rules/. Tests: vitest review 69, 5 new (formatMessage, resolved-card contrast from tokens.css, R12 card and
+  dialog text); full web suite green except the help-page and Upload history timing tests that also fail on main
+  under full-suite load; tsc clean; check_contracts green. Not re-run: Lighthouse (needs the demo stack).
 - 2026-11-04 — UI-Partner, latest month (merged main 9ce35c8 and lead/latest-month cb12a95): built against
   `PublishedProgram.deals_behind`. A deal behind the program month shows a blue "As of Jul 2026" pill (dot plus word)
   on its Program Executive Summary card, its Program Dashboard deal row and covenant rows, its Portfolio flagged-deal
