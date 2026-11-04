@@ -114,7 +114,7 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
     path.write_bytes(data)
     s.commit()
     try:
-        q.push({"upload_id": u.id, "pass": 1})
+        q.push({"upload_id": u.id, "pass": 1, "template_id": s.get(Deal, u.deal_slug).template_id})
     except Exception as e:                                   # queue down: say so on the upload, don't lose it silently
         log.error("queue push failed for %s: %s", u.id, e)
         u.status = "extraction_failed"
@@ -208,7 +208,7 @@ def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_ca
     pages = sorted(set(body.pages))
     if any(p < 1 or (u.page_count and p > u.page_count) for p in pages):
         raise err(422, "invalid", f"pages must be within 1..{u.page_count or 'page count'}")
-    q.push({"upload_id": u.id, "pass": 2, "pages": pages})
+    q.push({"upload_id": u.id, "pass": 2, "pages": pages, "template_id": s.get(Deal, u.deal_slug).template_id})
     u.status = "extracting"
     views.audit(s, c, "reextract", upload_id=u.id, detail={"pages": pages})
     s.commit()

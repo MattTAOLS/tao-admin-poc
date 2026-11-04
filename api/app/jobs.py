@@ -1,4 +1,4 @@
-"""Extraction job queue. Job = {"upload_id": ..., "pass": 1|2, "pages": [...]} on Redis list `extract:jobs`
+"""Extraction job queue. Job = {"upload_id": ..., "pass": 1|2, "pages": [...], "template_id": <the deal's>} on Redis list `extract:jobs`
 (RPUSH here, BLPOP in worker/main.py, so jobs run first-in first-out). Tests swap in a list."""
 import json, os
 

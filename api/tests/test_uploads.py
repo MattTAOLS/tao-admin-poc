@@ -18,7 +18,7 @@ def test_create_upload_stores_file_counts_pages_and_queues(client, queue):
     u = r.json()
     assert u["status"] == "received" and u["page_count"] == 3 and u["program_slug"] == "f-pil-2-0" and u["partner_slug"] == "investor"
     assert u["uploaded_by"] == "tao_admin" and u["file_name"] == "Moneda-202609 -SETTREP.pdf" and u["finding_counts"] == {"block": 0, "review": 0, "note": 0}
-    assert queue.jobs == [{"upload_id": u["id"], "pass": 1}]
+    assert queue.jobs == [{"upload_id": u["id"], "pass": 1, "template_id": "fpil-2.0-settrep-v1"}]
     from app.db import file_store
     assert (file_store() / "uploads" / u["id"] / "source.pdf").read_bytes()[:5] == b"%PDF-"
     audit = client.get("/api/v1/audit", headers=TAO, params={"upload_id": u["id"]}).json()
