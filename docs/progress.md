@@ -2,21 +2,12 @@
 
 Append an entry when a work package lands. Newest first.
 
-- 2026-11-03 — Data & API: corrected re-issues. `POST /uploads` takes `replace`; a published period without it is still
-  409 `already_published`, `replace` with no publication is 422 `nothing_to_replace`, and with one the upload records
-  `replaces_upload_id`. Approve swaps the publication row to the new upload (rollup_version + 1, publish audit names
-  `replaced_upload_id`); the old upload stays `published` and reports `replaced_by_upload_id` (derived). Migration 006 adds
-  the column and stops a `published` upload counting as the period's active upload, so the re-issue can be uploaded while
-  one-in-flight still holds. The Upload dict in the override Context carries `replaces_upload_id`. 133 API tests pass on
-  SQLite and PostgreSQL (migrations 001-006).
-
-- 2026-11-03 — Data & API: page-image crash fixed. PDFium is not thread-safe and concurrent first renders killed the
-  uvicorn process silently. `api/app/pdf.py` puts every PDFium open, render and save (page counting on upload included)
-  under one process-wide lock, and writes each PNG to a temp file in the page folder before `os.replace`. Burst of 12
-  parallel requests for pages 3-8 on a private stack: before, 1 of 4 bursts killed the server (health timed out) and
-  others served 11 valid PNGs of 12; after, 6 of 6 bursts gave 12/12 valid PNGs with health 200. New
-  tests/test_page_concurrency.py; 128 API tests pass on SQLite and PostgreSQL.
-
+- 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
+  partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
+  Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
+  pointers to every copy of the value); approve writes the chosen value there and appends `data_corrections`; no
+  targets means 409 `no_target`. (3) the API's extra fields and error codes are now in openapi.yaml, plus
+  `GET /master/partners`, `CovenantDefinition.unit`, and `collection_period` / `action` query filters.
 - 2026-11-03 — Lead: UI-wave prep (branch lead/ui-prep). `web/vite.config.ts` reads VITE_PORT and VITE_API_PROXY, so a
   dev server can sit beside compose's :5173 and proxy /api to any API (set VITE_API_URL=/api/v1; no CORS change).
   `scripts/compose.agent.yml` gives each agent a private stack (API on ${API_PORT}, no host ports for Postgres/Redis).
@@ -149,14 +140,6 @@ Append an entry when a work package lands. Newest first.
   carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
   `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
   (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
-- 2026-11-03 — UI-Partner, wave 3: merged integration/wave3. Admin-shell portfolio links now use the nested routes
-  (`/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId`); tests updated. Router links use `<Button as="link">`;
-  my KPI minimum width is gone (tiles no longer ellipsize). Deal page: "Data corrections" section from `deal.data_corrections`
-  only (six MOVE Trust reference deals carry one each). Ownership per program_partner: both partners see both programs; an
-  unknown program (404) shows "You don't have access". Tests: `cd web && npx vitest run src/portfolio` 60 passed (17 live
-  tests skipped without PF_LIVE_API); live against tao-ui-partner seeded with `--reference-publications`: 17 passed. Browser
-  check on :5176: manager sees MOVE Trust Dynamic Capital with its correction; admin nested dashboard links to nested deal routes.
-  Known red test outside my folder: UI-Review ReportsLibraryPage "deepest registered portfolio route" (see requests).
 - 2026-11-03 — UI-Partner, wave 1: `web/src/portfolio/`. Portfolio Executive Summary (a card per program the caller
   may see: balance with change, utilization, covenant counts, deals flagged; flagged-deals table; Go to deal picker
   grouped by program), Program Executive Summary (tiles, escalations, a card per deal with OK / WATCH / BREACH and a
@@ -222,6 +205,26 @@ Append an entry when a work package lands. Newest first.
   R04 note shown, 4 block findings, polling stopped); PUT program / deal / covenant on the real API with the
   dialogs' bodies, then the master_change entries in the Audit log. Lighthouse accessibility 96 on Upload report and
   Upload history (only failure: Design System colour contrast). Needs: see `docs/requests.md` › UI-Admin.
+- 2026-11-03 — QA & Demo: Playwright suite in `tests/e2e/` (own package.json + lockfile, @playwright/test 1.56.1,
+  lighthouse 13.5.0). Projects: `setup` (stack up, seeded, fresh; seeded-error PDF via `scripts/demo_data.py`; May–Jul
+  published for Moneda, Xpedite, Stride through the API), `demo` (steps 1–7 of the build plan's demo script, each
+  switching role through the sidebar user card and asserting on visible text and on API state with the role-header
+  client, plus negatives: analyst 403, publish 409 while R05 is open, partner tenancy by URL and API, partner and analyst
+  on TAO routes, blank PDF → extraction_failed), `wave3` (manager sees both programs, /master/partners, covenant unit,
+  Use ours writes 15,020,071.52 with data_corrections; expected red until merged). Result from `docker compose down -v`
+  on the QA stack: 16/16 green in 8 min (a second clean run lost step 4 to the API page-image crash filed to Data & API, the rest green after an API restart); wave3 4/4 red for the expected reasons. `docs/demo.md` is the walkthrough with
+  27 screenshots in `docs/demo/` and the acceptance table measured (Xpedite deal page: 154 numbers, 0 mismatches against
+  the shared dashboard; upload to needs review 6–32 s; Lighthouse 93–96; full demo 11 min 17 s, over the 10-minute
+  target). Run: see `docs/demo.md` › Run it. Stubbed: step 6's covenant toast (not built, no data) and step 7's
+  re-upload (API refuses, R12). Needs: see `docs/requests.md` › QA & Demo.
+- 2026-11-03 — UI-Partner, wave 3: merged integration/wave3. Admin-shell portfolio links now use the nested routes
+  (`/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId`); tests updated. Router links use `<Button as="link">`;
+  my KPI minimum width is gone (tiles no longer ellipsize). Deal page: "Data corrections" section from `deal.data_corrections`
+  only (six MOVE Trust reference deals carry one each). Ownership per program_partner: both partners see both programs; an
+  unknown program (404) shows "You don't have access". Tests: `cd web && npx vitest run src/portfolio` 60 passed (17 live
+  tests skipped without PF_LIVE_API); live against tao-ui-partner seeded with `--reference-publications`: 17 passed. Browser
+  check on :5176: manager sees MOVE Trust Dynamic Capital with its correction; admin nested dashboard links to nested deal routes.
+  Known red test outside my folder: UI-Review ReportsLibraryPage "deepest registered portfolio route" (see requests).
 - 2026-11-03 — Data & API: wave 3b. Merged agent/rules (7d05e5b, findings carry `targets`). Override re-runs refresh
   `targets`. Approve plans every resolved use_ours / use_report write first: different values for one pointer → 409
   `conflicting_corrections`; equal values are written once. After writing, if anything changed, the rules re-run on the
@@ -270,12 +273,6 @@ Append an entry when a work package lands. Newest first.
   | R14, R15 | thresholds, limits | none | master data |
   | R17 | covenant recompute | `covenants[i].current_value` + same-number copies (other covenants on the metric, `financial_ratios`) | our_value = recomputed |
   | R18, R19 | status, YES/NO, summary, status change | none | statuses / text |
-- 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
-  partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
-  Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
-  pointers to every copy of the value); approve writes the chosen value there and appends `data_corrections`; no
-  targets means 409 `no_target`. (3) the API's extra fields and error codes are now in openapi.yaml, plus
-  `GET /master/partners`, `CovenantDefinition.unit`, and `collection_period` / `action` query filters.
 - 2026-11-03 — Design System: wave 3 fixes on `agent/design` (merged main e20ce7d and lead/wave3 72c66e8).
   (1) `percent_points` findings are fractions: formatByUnit / formatDiffByUnit multiply by 100, so Stride R14 reads
   ours 4.00%, report 3.50%, difference −0.50 pp, tolerance ±0.00%; context fractions follow, context amounts in a
@@ -324,20 +321,29 @@ Append an entry when a work package lands. Newest first.
   the API returned `partner_slugs: ["investor"]`, Manager's details page then listed only MOVE Trust and the
   Manager program URL for F-PIL showed "No such program"; restored through the dialog. Lighthouse accessibility 100
   on Upload report and Upload history. Run: `cd web && npx vitest run src/admin` (58 tests).
+- 2026-11-03 — Rules, corrected re-issues: R12 on an upload with `replaces_upload_id` still blocks, with "Corrected
+  re-issue: replaces the {period} report published {published_at}." and, when later months are published, "Later
+  published months (...) still carry the earlier figures for {period}." Context has replaces_upload_id, published_at,
+  later_periods; no targets (acknowledge with a reason, or reject). A plain duplicate keeps its message. The
+  worker's `build_context` reads `replaces_upload_id` once migration 006 adds the column (absent: None), and passes
+  `published_periods` as {period: published_at} so the message carries the date. History chaining on a re-issue
+  uses the last publication before the period (`prior_publication`, strict <), never the one being replaced; tested
+  end to end. Fixtures r12-reissue and r12-reissue-later. Run: rules 84, worker/validate 19.
+- 2026-11-03 — Data & API: page-image crash fixed. PDFium is not thread-safe and concurrent first renders killed the
+  uvicorn process silently. `api/app/pdf.py` puts every PDFium open, render and save (page counting on upload included)
+  under one process-wide lock, and writes each PNG to a temp file in the page folder before `os.replace`. Burst of 12
+  parallel requests for pages 3-8 on a private stack: before, 1 of 4 bursts killed the server (health timed out) and
+  others served 11 valid PNGs of 12; after, 6 of 6 bursts gave 12/12 valid PNGs with health 200. New
+  tests/test_page_concurrency.py; 128 API tests pass on SQLite and PostgreSQL.
+- 2026-11-03 — Data & API: corrected re-issues. `POST /uploads` takes `replace`; a published period without it is still
+  409 `already_published`, `replace` with no publication is 422 `nothing_to_replace`, and with one the upload records
+  `replaces_upload_id`. Approve swaps the publication row to the new upload (rollup_version + 1, publish audit names
+  `replaced_upload_id`); the old upload stays `published` and reports `replaced_by_upload_id` (derived). Migration 006 adds
+  the column and stops a `published` upload counting as the period's active upload, so the re-issue can be uploaded while
+  one-in-flight still holds. The Upload dict in the override Context carries `replaces_upload_id`. 133 API tests pass on
+  SQLite and PostgreSQL (migrations 001-006).
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
-- 2026-11-03 — QA & Demo: Playwright suite in `tests/e2e/` (own package.json + lockfile, @playwright/test 1.56.1,
-  lighthouse 13.5.0). Projects: `setup` (stack up, seeded, fresh; seeded-error PDF via `scripts/demo_data.py`; May–Jul
-  published for Moneda, Xpedite, Stride through the API), `demo` (steps 1–7 of the build plan's demo script, each
-  switching role through the sidebar user card and asserting on visible text and on API state with the role-header
-  client, plus negatives: analyst 403, publish 409 while R05 is open, partner tenancy by URL and API, partner and analyst
-  on TAO routes, blank PDF → extraction_failed), `wave3` (manager sees both programs, /master/partners, covenant unit,
-  Use ours writes 15,020,071.52 with data_corrections; expected red until merged). Result from `docker compose down -v`
-  on the QA stack: 16/16 green in 8 min (a second clean run lost step 4 to the API page-image crash filed to Data & API, the rest green after an API restart); wave3 4/4 red for the expected reasons. `docs/demo.md` is the walkthrough with
-  27 screenshots in `docs/demo/` and the acceptance table measured (Xpedite deal page: 154 numbers, 0 mismatches against
-  the shared dashboard; upload to needs review 6–32 s; Lighthouse 93–96; full demo 11 min 17 s, over the 10-minute
-  target). Run: see `docs/demo.md` › Run it. Stubbed: step 6's covenant toast (not built, no data) and step 7's
-  re-upload (API refuses, R12). Needs: see `docs/requests.md` › QA & Demo.

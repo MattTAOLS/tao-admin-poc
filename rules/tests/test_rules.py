@@ -240,3 +240,18 @@ def test_no_targets_on_master_period_status_or_text_findings():
     for p in sorted(glob.glob(str(FIX / "findings/*.json"))):
         f = load(p)
         if f["rule_id"] not in TARGET_RULES: assert "targets" not in f, p
+
+# ---------- R12 corrected re-issues ----------
+def test_r12_reissue_has_no_targets_and_carries_context():
+    f = mf.evaluate(load(FIX / "r12-reissue-later-fail.json"))[0]
+    assert f["severity"] == "block" and "targets" not in f
+    assert f["context"]["replaces_upload_id"] == "11111111-1111-4111-8111-111111111111" and f["context"]["later_periods"] == ["2026-09", "2026-10"]
+    assert f["context"]["published_at"] == "2026-08-12T16:40:00Z"
+
+def test_r12_plain_duplicate_keeps_its_message_and_set_form_works():
+    d = mf.load_deal(mf.MONEDA)
+    f = run({"meta": mf.META, "deal": d, "sources": {}}, Context(published_periods={"2026-08"}), only={"R12"})[0]
+    assert f["message"] == "f-pil-2-0-moneda-capital-corp already has a published report for 2026-08 (published earlier)"
+    g = run({"meta": mf.META, "deal": d, "sources": {}}, Context(published_periods={"2026-08", "2026-09"}, upload={"replaces_upload_id": "x"}), only={"R12"})[0]
+    assert g["message"] == ("Corrected re-issue: replaces the 2026-08 report published earlier. "
+                            "Later published months (2026-09) still carry the earlier figures for 2026-08.")
