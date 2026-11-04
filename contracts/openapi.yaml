@@ -116,6 +116,7 @@ components:
         latest_extraction_id: { type: [string, 'null'], format: uuid }
         published_at: { type: [string, 'null'], format: date-time }
         reject_reason: { type: [string, 'null'] }
+        failure_reason: { type: [string, 'null'], description: 'set while status is extraction_failed: why extraction failed (the worker error, or queue unavailable), from the audit row that failed it' }
         replaces_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a corrected re-issue: the upload whose publication this one replaces on approve' }
         replaced_by_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a published upload once a re-issue for its period has been approved' }
     Extraction:
@@ -234,6 +235,19 @@ components:
       properties:
         program: { $ref: '#/components/schemas/Program' }
         available_periods: { type: array, items: { type: string } }
+        deals_behind:
+          type: array
+          description: >
+            Deals in this aggregate whose newest publication is earlier than `period`. A program's month lists every
+            deal: each deal contributes its latest publication at or before `period`, so a deal still waiting for
+            approval shows its last published month instead of dropping out. Empty when every deal is current.
+          items:
+            type: object
+            required: [deal_slug, as_of]
+            properties:
+              deal_slug: { type: string }
+              deal_name: { type: string }
+              as_of: { type: string, description: the collection_period of the publication used }
     PublishedDeal:
       type: object
       description: One deal = the published extraction.deal (dashboard.json deal object, data_corrections included) plus the publication fields below.
