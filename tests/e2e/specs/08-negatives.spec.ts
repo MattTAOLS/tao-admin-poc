@@ -89,7 +89,7 @@ test('negative: a blank PDF ends in extraction_failed with a plain message', asy
   await page.getByLabel('Collection period').fill('2026-09')
   await page.getByTestId('filedrop-input').setInputFiles({ name: 'blank.pdf', mimeType: 'application/pdf', buffer: blankPdf() })
   await page.getByRole('button', { name: 'Upload report', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('Extraction failed. Check the audit log for the reason, then upload the file again.', { timeout: 120_000 })
+  await expect(page.getByRole('alert')).toContainText('Extraction failed: page 1 has no text layer', { timeout: 120_000 })
   await shot(page, '08-blank-pdf-failed')
   const uploads = (await tao.get(`/uploads?deal_slug=${DEALS.stride.slug}`)).body as any[]
   const u = uploads.find(x => x.collection_period === '2026-09')

@@ -13,7 +13,8 @@ const investor = new Api('investor_viewer')
 test('step 6: analyst uploads the following month; R11 holds and the program dashboard shows the new period', async ({ page }) => {
   const slug = DEALS[STEP6.deal].slug
   const before = (await investor.get(`/published/programs/${PROGRAM}?period=${STEP6.period}`)).body
-  expect(before.deals.map((d: any) => d.deal_slug)).not.toContain(slug)
+  // Every deal stays in the program month: before its August upload, Stride shows its July publication, flagged as behind.
+  expect(before.deals_behind).toContainEqual(expect.objectContaining({ deal_slug: slug, as_of: '2026-07' }))
   const priorDeal = (await investor.get(`/published/programs/${PROGRAM}/deals/${slug}?period=2026-07`)).body
 
   await signInAs(page, 'tao_analyst')
@@ -59,4 +60,5 @@ test('step 6: analyst uploads the following month; R11 holds and the program das
   const after = (await investor.get(`/published/programs/${PROGRAM}`)).body
   expect(after.period).toBe(STEP6.period)
   expect(after.deal_count).toBe(3)
+  expect(after.deals_behind.map((d: any) => d.deal_slug)).not.toContain(slug)
 })

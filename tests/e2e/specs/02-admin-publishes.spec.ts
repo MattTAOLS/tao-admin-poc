@@ -46,7 +46,7 @@ test('step 2: admin reviews the clean report and publishes it', async ({ page })
   // Approve > Publish to partner.
   await page.getByRole('button', { name: 'Publish to partner…' }).click()
   const dlg = page.getByRole('dialog', { name: 'Publish to partner' })
-  await expect(dlg).toContainText('the Investor portal')
+  await expect(dlg).toContainText('the Investor and Manager portals')
   await shot(page, '02-publish-dialog')
   await dlg.getByRole('button', { name: 'Approve and publish' }).click()
   await expect(page.getByText('Published to partner').first()).toBeVisible()
