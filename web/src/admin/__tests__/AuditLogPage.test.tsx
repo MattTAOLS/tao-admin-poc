@@ -15,8 +15,8 @@ const UID = AUDIT[0].upload_id!
 const calls: string[] = []
 const audit = fakeApi({ 'GET /audit': (p: string) => {
   calls.push(p)
-  const id = new URLSearchParams(p.split('?')[1] ?? '').get('upload_id')
-  return AUDIT.filter(e => !id || e.upload_id === id)
+  const q = new URLSearchParams(p.split('?')[1] ?? '')
+  return AUDIT.filter(e => (!q.get('upload_id') || e.upload_id === q.get('upload_id')) && (!q.get('action') || e.action === q.get('action')))
 } })
 const bodyRows = () => within(screen.getByRole('table', { name: 'Audit log' })).getAllByRole('row').filter(r => r.querySelector('td') && !r.classList.contains('ds-table__detail'))
 
@@ -46,14 +46,14 @@ describe('Audit log', () => {
     expect(screen.getAllByText(UID).length).toBeGreaterThan(0)
   })
 
-  it('filters by action on the client and by upload on the server, in the URL', async () => {
+  it('filters by action and by upload on the server, in the URL', async () => {
     mockApi.mockImplementation(audit)
     renderPage(PATH, route)
     await screen.findByRole('table', { name: 'Audit log' })
     await userEvent.selectOptions(screen.getByLabelText('Action'), 'master_change')
     await waitFor(() => expect(bodyRows()).toHaveLength(1))
     expect(screen.getByTestId('loc').textContent).toBe(PATH + '?action=master_change')
-    expect(calls).toEqual(['/audit'])
+    expect(calls).toEqual(['/audit', '/audit?action=master_change'])
 
     await userEvent.selectOptions(screen.getByLabelText('Action'), '')
     await userEvent.type(screen.getByLabelText(/Upload id/), 'not-a-uuid')

@@ -4,9 +4,9 @@ import {
   Button, Card, DataTable, Field, Select, SkeletonBlock, StatePanel, StatusPill, formatCurrency, formatPercent, icons, type Column, type Tone,
 } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
-import { adminApi, type CovenantDefinition, type Deal } from './data'
+import { adminApi, programPartners, type CovenantDefinition, type Deal } from './data'
 import { canEditMaster, useResource, useRole } from './hooks'
-import { partnerName, thresholdText, versionStates, type VersionState } from './master'
+import { partnerLabel, thresholdText, versionStates, type VersionState } from './master'
 import { CovenantDialog, DealDialog, ProgramDialog, type CovenantMode } from './MasterDialogs'
 import { LoadError } from './ui'
 
@@ -24,9 +24,10 @@ export default function ProgramRecordPage() {
   const nav = useNavigate()
   const role = useRole()
   const canEdit = canEditMaster(role)
-  const res = useResource(() => Promise.all([adminApi.programs(), adminApi.deals(programId), adminApi.covenants()]), [programId, role])
-  const program = res.data?.[0].find(p => p.slug === programId && p.partner_slug === partnerId)
-  const pName = partnerName(partnerId)
+  const res = useResource(() => Promise.all([adminApi.programs(), adminApi.deals(programId), adminApi.covenants(), adminApi.partners()]), [programId, role])
+  const partners = res.data?.[3] ?? []
+  const program = res.data?.[0].find(p => p.slug === programId && programPartners(p).includes(partnerId))
+  const pName = partnerLabel(partners, partnerId)
   usePageHeader({
     title: program?.name ?? 'Program / facility record', subtitle: program ? `${pName} · program / facility record` : undefined,
     crumbs: [{ label: 'TAO Admin' }, { label: 'Partners', href: '/admin/partners' }, { label: pName, href: `/admin/partners/${encodeURIComponent(partnerId)}` }, { label: program?.name ?? programId }],
@@ -81,9 +82,10 @@ export default function ProgramRecordPage() {
   return (
     <div className="adm-stack">
       {!canEdit && <div className="adm-note" role="note">Read only. Only TAO Admin can change master data.</div>}
-      <Card title="Limits" actions={canEdit ? <Button onClick={() => setEditProgram(true)} aria-label={`Edit limits for ${program.name}`}>Edit limits</Button> : undefined}>
+      <Card title="Limits and visibility" subtitle="Partners on the visibility list see this program in their portal."
+        actions={canEdit ? <Button onClick={() => setEditProgram(true)} aria-label={`Edit limits and visibility for ${program.name}`}>Edit</Button> : undefined}>
         <dl className="adm-dl">
-          <dt>Partner</dt><dd>{pName}</dd>
+          <dt>Visible to</dt><dd>{programPartners(program).map(s => partnerLabel(partners, s)).join(', ')}</dd>
           <dt>Currency</dt><dd>{program.currency}</dd>
           <dt>Program limit</dt><dd className="adm-num">{formatCurrency(program.limit, { decimals: 0 })}</dd>
           <dt>Warehouse limit</dt><dd className="adm-num">{program.warehouse_limit == null ? 'None' : formatCurrency(program.warehouse_limit, { decimals: 0 })}</dd>
@@ -107,7 +109,7 @@ export default function ProgramRecordPage() {
         <DataTable columns={covCols} rows={shown} rowKey={(c, i) => c.id ?? `${c.deal_slug}-${c.legal_ref}-${c.effective_from}-${i}`} caption="Covenant definitions" captionHidden
           empty={{ title: 'No covenant definitions', message: dealFilter ? 'None for this deal yet.' : 'None for this program’s deals yet.' }} />
       </Card>
-      {editProgram && <ProgramDialog program={program} onClose={() => setEditProgram(false)} onSaved={saved(() => setEditProgram(false))} />}
+      {editProgram && <ProgramDialog program={program} partners={partners} onClose={() => setEditProgram(false)} onSaved={saved(() => setEditProgram(false))} />}
       {editDeal && <DealDialog deal={editDeal} onClose={() => setEditDeal(undefined)} onSaved={saved(() => setEditDeal(undefined))} />}
       {covenantMode && <CovenantDialog mode={covenantMode} deals={deals} onClose={() => setCovenantMode(undefined)} onSaved={saved(() => setCovenantMode(undefined))} />}
     </div>

@@ -78,14 +78,15 @@ describe('Uploads', () => {
 })
 
 describe('Upload history', () => {
-  it('filters by deal and status on the server and by period on the client, in the URL', async () => {
+  it('filters by deal, status and collection period on the server, in the URL', async () => {
     const calls: string[] = []
     mockApi.mockImplementation(fakeApi({
       ...master,
       'GET /uploads': (p: string) => {
         calls.push(p)
         const q = new URLSearchParams(p.split('?')[1] ?? '')
-        return UPLOADS.filter(u => (!q.get('deal_slug') || u.deal_slug === q.get('deal_slug')) && (!q.get('status') || u.status === q.get('status')))
+        return UPLOADS.filter(u => (!q.get('deal_slug') || u.deal_slug === q.get('deal_slug')) && (!q.get('status') || u.status === q.get('status'))
+          && (!q.get('collection_period') || u.collection_period === q.get('collection_period')))
       },
     }))
     renderPage('/admin/uploads/history', historyRoute)
@@ -102,7 +103,11 @@ describe('Upload history', () => {
     await waitFor(() => expect(calls.at(-1)).toBe('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp&status=published'))
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3))
 
+    // A partial period is not sent.
+    fireEvent.change(screen.getByLabelText(/Collection period/), { target: { value: '2026-0' } })
+    expect(calls.at(-1)).toBe('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp&status=published')
     fireEvent.change(screen.getByLabelText(/Collection period/), { target: { value: '2026-06' } })
+    await waitFor(() => expect(calls.at(-1)).toBe('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp&status=published&collection_period=2026-06'))
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(2))
     expect(screen.getByText('1 upload match the filters')).toBeTruthy()
     const row = within(table).getAllByRole('row')[1]

@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Dialog, Field, Input, Select, Textarea, icons, useToast } from '@/design/components'
-import { adminApi, type ApiError, type Band, type CovenantDefinition, type Deal, type Program } from './data'
+import { adminApi, programPartners, type ApiError, type Band, type CovenantDefinition, type Deal, type Partner, type Program } from './data'
 import { parseNumber } from './master'
 import { errorText } from './ui'
 
@@ -37,8 +37,9 @@ function useSave<T>(save: () => Promise<T>, done: (v: T) => void, successTitle: 
   return { busy, error, setError, run }
 }
 
-export function ProgramDialog({ program, onClose, onSaved }: { program: Program; onClose: () => void; onSaved: () => void }) {
+export function ProgramDialog({ program, partners, onClose, onSaved }: { program: Program; partners: Partner[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(program.name)
+  const [visible, setVisible] = useState<string[]>(programPartners(program))
   const [currency, setCurrency] = useState(program.currency)
   const [limit, setLimit] = useState(String(program.limit ?? ''))
   const [warehouse, setWarehouse] = useState(program.warehouse_limit == null ? '' : String(program.warehouse_limit))
@@ -49,11 +50,15 @@ export function ProgramDialog({ program, onClose, onSaved }: { program: Program;
     currency: !/^[A-Z]{3}$/.test(currency) ? 'Three-letter code, e.g. CAD.' : undefined,
     limit: lim === undefined ? 'Required.' : Number.isNaN(lim) || lim < 0 ? 'A non-negative number.' : undefined,
     warehouse: wh !== undefined && (Number.isNaN(wh) || wh < 0) ? 'A non-negative number, or leave blank.' : undefined,
+    visible: visible.length === 0 ? 'Choose at least one partner.' : undefined,
   }
-  const s = useSave(() => adminApi.putProgram({ ...program, name: name.trim(), currency, limit: lim!, warehouse_limit: wh ?? null }), onSaved, `${name.trim()} saved`)
+  // Keep the master-data order, so the first checked partner becomes partner_slug.
+  const ordered = [...partners.map(p => p.slug), ...visible.filter(v => !partners.some(p => p.slug === v))].filter(s => visible.includes(s))
+  const toggle = (slug: string, on: boolean) => setVisible(v => (on ? [...v, slug] : v.filter(x => x !== slug)))
+  const s = useSave(() => adminApi.putProgram({ ...program, name: name.trim(), partner_slug: ordered[0], partner_slugs: ordered, currency, limit: lim!, warehouse_limit: wh ?? null }), onSaved, `${name.trim()} saved`)
   const e = (k: keyof typeof errs) => (touched ? errs[k] : undefined)
   return (
-    <EditDialog open title={`Edit ${program.name}`} description="Program limits. Saving writes a master_change entry to the audit log."
+    <EditDialog open title={`Edit ${program.name}`} description="Limits and the partners who see this program. Saving writes a master_change entry to the audit log."
       onClose={onClose} busy={s.busy} error={s.error}
       onSubmit={() => { setTouched(true); if (!Object.values(errs).some(Boolean)) s.run() }}>
       <Field label="Program name" required error={e('name')}><Input value={name} onChange={ev => setName(ev.target.value)} /></Field>
@@ -62,6 +67,17 @@ export function ProgramDialog({ program, onClose, onSaved }: { program: Program;
         <Field label="Program limit" required error={e('limit')}><Input numeric value={limit} onChange={ev => setLimit(ev.target.value)} /></Field>
         <Field label="Warehouse limit" hint="Leave blank if none." error={e('warehouse')}><Input numeric value={warehouse} onChange={ev => setWarehouse(ev.target.value)} /></Field>
       </div>
+      <fieldset className="adm-checks" aria-describedby={e('visible') ? 'adm-visible-err' : undefined}>
+        <legend className="ds-field__label">Visible to<span className="ds-field__req" aria-hidden="true">*</span></legend>
+        {partners.map(pt => (
+          <label key={pt.slug} className="adm-check">
+            <input type="checkbox" checked={visible.includes(pt.slug)} onChange={ev => toggle(pt.slug, ev.target.checked)} />
+            {pt.name}{pt.status !== 'active' && <span className="adm-muted"> ({pt.status})</span>}
+          </label>
+        ))}
+        {partners.length === 0 && <span className="adm-muted">Partner list unavailable; visibility is unchanged.</span>}
+        {e('visible') && <span className="ds-field__error" id="adm-visible-err" role="alert">{e('visible')}</span>}
+      </fieldset>
     </EditDialog>
   )
 }
@@ -94,6 +110,7 @@ export function CovenantDialog({ mode, deals, onClose, onSaved }: { mode: Covena
   const [legalRef, setLegalRef] = useState(base?.legal_ref ?? '')
   const [description, setDescription] = useState(base?.description ?? '')
   const [kind, setKind] = useState<'ceiling' | 'floor'>(base?.kind ?? 'ceiling')
+  const [unit, setUnit] = useState<string>(base?.unit ?? '')
   const [banded, setBanded] = useState(!!base?.threshold_rule)
   const [threshold, setThreshold] = useState(base?.threshold == null ? '' : String(base.threshold))
   const [on, setOn] = useState(base?.threshold_rule?.on ?? '/tranche_balance/closing')
@@ -122,6 +139,7 @@ export function CovenantDialog({ mode, deals, onClose, onSaved }: { mode: Covena
   const body = (): CovenantDefinition => ({
     ...(mode.kind === 'edit' ? { id: mode.def.id } : {}),
     deal_slug: deal, legal_ref: legalRef.trim(), description: description.trim(), kind,
+    unit: (unit || null) as CovenantDefinition['unit'],
     threshold: banded ? null : th!,
     threshold_rule: banded ? { on: on.trim(), bands: parsedBands.map(b => ({ [b.op]: b.bound!, threshold: b.threshold! } as Band)) } : null,
     watch_buffer_pct: buf!, effective_from: effective, source: source.trim() || null,
@@ -150,6 +168,10 @@ export function CovenantDialog({ mode, deals, onClose, onSaved }: { mode: Covena
         </Field>
       </div>
       <Field label="Description" required error={e('description')}><Input value={description} onChange={ev => setDescription(ev.target.value)} /></Field>
+      <Field label="Unit" hint="How the threshold reads: fraction 0.035 = 3.50%, ratio 1.10 = 1.10×, currency = an amount.">
+        <Select value={unit} onChange={ev => setUnit(ev.target.value)}
+          options={[{ value: '', label: 'Not set' }, { value: 'fraction', label: 'Fraction (percentage)' }, { value: 'ratio', label: 'Ratio' }, { value: 'currency', label: 'Currency amount' }]} />
+      </Field>
       <Field label="Threshold type">
         <Select value={banded ? 'banded' : 'single'} onChange={ev => setBanded(ev.target.value === 'banded')}
           options={[{ value: 'single', label: 'Single threshold' }, { value: 'banded', label: 'Banded threshold rule' }]} />

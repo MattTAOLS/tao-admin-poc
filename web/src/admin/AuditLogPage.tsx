@@ -30,8 +30,8 @@ function DetailView({ e }: { e: AuditEntry }) {
   )
 }
 
-/** Audit log: every recorded action, newest first. Upload filter goes to the API (`upload_id`); the action filter
- * is applied here (the contract has no action parameter). Both live in the URL. */
+/** Audit log: every recorded action, newest first. Both filters go to the API (`upload_id`, `action`) and live in
+ * the URL. */
 export default function AuditLogPage() {
   const role = useRole()
   const [params, setParams] = useSearchParams()
@@ -41,7 +41,7 @@ export default function AuditLogPage() {
   useEffect(() => setUploadDraft(uploadId), [uploadId])
   usePageHeader({ title: 'Audit log', subtitle: 'Uploads, extractions, overrides, approvals, publications and master data changes.' })
   const validUpload = uploadId && UUID.test(uploadId) ? uploadId : ''
-  const res = useResource(() => adminApi.audit(validUpload || undefined), [validUpload, role])
+  const res = useResource(() => adminApi.audit({ upload_id: validUpload || undefined, action: action || undefined }), [validUpload, action, role])
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params)
     if (v) next.set(k, v); else next.delete(k)
@@ -50,7 +50,7 @@ export default function AuditLogPage() {
   if (res.error) return <LoadError error={res.error} onRetry={res.reload} />
 
   const loading = res.loading && !res.data
-  const rows = (res.data ?? []).filter(e => !action || e.action === action).sort((a, b) => b.at.localeCompare(a.at))
+  const rows = (res.data ?? []).slice().sort((a, b) => b.at.localeCompare(a.at))
   const filtered = !!(uploadId || action)
   const draftError = uploadDraft && !UUID.test(uploadDraft.trim()) ? 'Paste a full upload id (a UUID).' : undefined
 

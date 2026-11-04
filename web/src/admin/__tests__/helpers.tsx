@@ -8,7 +8,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ToastProvider } from '@/design/components'
 import { headerStore } from '@/shell/header'
 import { KEY } from '@/shell/roles'
-import type { Deal, Program, Upload, CovenantDefinition, AuditEntry, PublishedPortfolio } from '../data'
+import type { Deal, Partner, Program, Upload, CovenantDefinition, AuditEntry, PublishedPortfolio } from '../data'
 
 /** A route table: [pattern, element]. Renders at `path` with the shell's providers. */
 export function renderPage(path: string, routes: [string, ReactElement][], role = 'tao_admin') {
@@ -48,9 +48,13 @@ export function fakeApi(table: Record<string, unknown | ((path: string, init?: R
 export const never = () => new Promise<never>(() => {})
 
 // ---- fixtures: copies of the seed master data (seed/*.json) and contract-shaped uploads ----
+export const PARTNERS: Partner[] = [
+  { slug: 'investor', name: 'Investor', kind: 'investor', status: 'active' },
+  { slug: 'manager', name: 'Manager', kind: 'manager', status: 'active' },
+]
 export const PROGRAMS: Program[] = [
-  { slug: 'f-pil-2-0', name: 'F-PIL 2.0', partner_slug: 'investor', currency: 'CAD', limit: 150000000, warehouse_limit: 5000000 },
-  { slug: 'move-trust', name: 'MOVE Trust', partner_slug: 'investor', currency: 'CAD', limit: 1916709163, warehouse_limit: null },
+  { slug: 'f-pil-2-0', name: 'F-PIL 2.0', partner_slug: 'investor', partner_slugs: ['investor', 'manager'], currency: 'CAD', limit: 150000000, warehouse_limit: 5000000 },
+  { slug: 'move-trust', name: 'MOVE Trust', partner_slug: 'investor', partner_slugs: ['investor', 'manager'], currency: 'CAD', limit: 1916709163, warehouse_limit: null },
 ]
 export const DEALS: Deal[] = [
   { slug: 'f-pil-2-0-moneda-capital-corp', name: 'Moneda Capital Corp.', program_slug: 'f-pil-2-0', servicer: 'Moneda Capital Corp.', template_id: 'fpil-2.0-settrep-v1' },
@@ -58,10 +62,10 @@ export const DEALS: Deal[] = [
   { slug: 'move-trust-dynamic-capital', name: 'Dynamic Capital', program_slug: 'move-trust', servicer: 'Dynamic Capital', template_id: 'move-trust-settrep-v1' },
 ]
 export const COVENANTS: CovenantDefinition[] = [
-  { id: '7d1f0a8e-0000-4000-8000-000000000001', deal_slug: 'f-pil-2-0-moneda-capital-corp', legal_ref: 'SLFA 9.1 (c)', description: 'Rolling Three Month Loss Ratio', kind: 'ceiling', threshold: null,
+  { id: '7d1f0a8e-0000-4000-8000-000000000001', deal_slug: 'f-pil-2-0-moneda-capital-corp', legal_ref: 'SLFA 9.1 (c)', description: 'Rolling Three Month Loss Ratio', kind: 'ceiling', threshold: null, unit: 'fraction',
     threshold_rule: { on: '/tranche_balance/closing', bands: [{ lte: 10000000, threshold: 0.06 }, { gt: 10000000, threshold: 0.04 }] }, watch_buffer_pct: 0.1, effective_from: '2022-12-09',
     source: 'SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement' },
-  { id: '7d1f0a8e-0000-4000-8000-000000000002', deal_slug: 'f-pil-2-0-moneda-capital-corp', legal_ref: 'SLFA 9.1 (h)', description: 'Interest Coverage Ratio', kind: 'floor', threshold: 1.1,
+  { id: '7d1f0a8e-0000-4000-8000-000000000002', deal_slug: 'f-pil-2-0-moneda-capital-corp', legal_ref: 'SLFA 9.1 (h)', description: 'Interest Coverage Ratio', kind: 'floor', threshold: 1.1, unit: 'ratio',
     threshold_rule: null, watch_buffer_pct: 0.1, effective_from: '2023-12-09', source: 'as above (applies after first anniversary)' },
 ]
 export function upload(over: Partial<Upload> = {}): Upload {

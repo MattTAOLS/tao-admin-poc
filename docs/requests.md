@@ -216,27 +216,27 @@ The Lead reads this at every merge.
   report prints 0.0330). use_ours writes that precision.
 
 ## UI-Admin
-- 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
+- RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
   error codes `already_published` (409), `upload_in_progress` (409), `not_a_pdf` / `unknown_deal` (422), `tao_only` /
   `admin_only` (403), each mapped to a sentence on Upload report and in the edit dialogs; `PublishedPortfolio` shape
   `{partner, programs: [{program, period, deal_count, covenant_totals, deals: [{worst_status, ...}]}]}` (the Dashboard
   KPIs and the covenant table read it; the contract says only `type: object`); `PUT /master/covenants` without `id`
   for a new version (the contract marks `id` required). Please fold them into `contracts/openapi.yaml`.
-- 2026-11-03 — to Lead / Data & API (contract): there is no partner list route. Partners and Partner details derive
+- RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead / Data & API (contract): there is no partner list route. Partners and Partner details derive
   partners from `programs[].partner_slug` and title-case the slug for the name, so a partner without a program
   never shows. A `GET /master/partners` returning `seed/partners.json` rows (slug, name, kind, status) would fix both.
-- 2026-11-03 — to Lead (contract): `CovenantDefinition.threshold` has no unit. The Program record shows a value
+- RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract): `CovenantDefinition.threshold` has no unit. The Program record shows a value
   below 1 as a percentage, 1,000 or more as currency, anything else as a ratio (`web/src/admin/master.ts:
   formatThreshold`). Right for all 21 seeded definitions; a `unit` field (percent / ratio / currency) would remove the guess.
-- 2026-11-03 — to Lead (contract): `GET /uploads` has no `collection_period` filter, so Upload history filters the
+- RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract): `GET /uploads` has no `collection_period` filter, so Upload history filters the
   period client side; the audit action filter is client side too (`GET /audit` takes only `upload_id`). Both fine at
   POC volume; add `collection_period` and `action` query params if the lists grow.
-- 2026-11-03 — to Design System / Lead (shell roles): `pages.ts` limits Partners, Partner details and Program record
+- RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Design System / Lead (shell roles): `pages.ts` limits Partners, Partner details and Program record
   to `tao_admin`, but the brief says analysts see master data read only and `docs/portal-map.md` gives Analyst view
   access. The pages already render read-only for `tao_analyst` (no edit controls, a note); add `tao_analyst` to those
   three routes' `roles` if you agree. The Audit log stays `tao_admin` (the API returns 403 `admin_only` to analysts),
   and the Uploads tables hide their Audit links for analysts.
-- 2026-11-03 — to Design System (contrast): Lighthouse accessibility is 96 on Upload report and Upload history; the
+- RESOLVED (integration/wave3 tokens; Lighthouse accessibility now 100 on both pages) — 2026-11-03 — to Design System (contrast): Lighthouse accessibility is 96 on Upload report and Upload history; the
   only failing audit is color-contrast, all on Design System tokens or components: `--muted` text (#8b8597) on
   cream/white at 3.42–3.55:1 (breadcrumb, page subtitle, card subtitle, field hint, table header and sort buttons),
   the sidebar `.navlabel` at 4.04:1, and the small pill words for `warn` (#bd7a18, 3.11:1) and `ok` (#1f9d6b, 3.06:1).
@@ -246,6 +246,18 @@ The Lead reads this at every merge.
   (worth a line in the UI briefs).
 - 2026-11-03 — to UI-Review: Upload report and the Uploads tables link to `/admin/uploads/queue/:uploadId` for
   uploads in `needs_review` ("Review N findings"). The Audit log links there too ("Open the upload").
+- 2026-11-03 — to UI-Partner / Lead (wave 3): `web/src/portfolio/__tests__/pages.test.tsx` › "Program Executive
+  Summary › tiles, a card per deal with status and a link, prev / next program" fails on integration/wave3 (04d1d30)
+  with or without UI-Admin's changes: it expects `/admin/portfolio?program=move-trust`, the page navigates to
+  `/admin/portfolio/move-trust`. Not in my folder; flagging so `npx vitest run` is green again.
+- 2026-11-03 — to Lead (contract, minor): `threshold_rule.bands[].lte` / `.gt` are values of the field named by `on`
+  (e.g. `/tranche_balance/closing`, an amount), and `unit` describes only the threshold. The Program record formats
+  band thresholds by `unit` and keeps the old guess for the bounds (1,000 or more reads as currency). Right for every
+  seeded rule; add a `bound_unit` if a rule ever bands on a ratio.
+- 2026-11-03 — to Data & API (FYI): the program dialog sends `partner_slugs` in `/master/partners` order and
+  `partner_slug` = the first of them, so unchecking Investor on a program visible to both makes Manager the
+  `partner_slug`. Tell me if `partner_slug` should instead stay fixed while it is still in the list.
+
 ## UI-Review
 - 2026-11-03 — to Design System (bug, visible on Stride Aug 2026): `formatByUnit` / `formatDiffByUnit` treat `percent_points`
   values as points, but findings carry fractions (rules.yaml: "0.01 pp expressed as a fraction"). R14 on Stride shows
