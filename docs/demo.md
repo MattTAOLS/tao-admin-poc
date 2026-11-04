@@ -1,7 +1,7 @@
 # TAO Admin POC — demo walkthrough
 
-The build plan's demo script (section "Demo script and acceptance", steps 1–7), run in order from a fresh database,
-with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test in
+The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
+9), run in order from a fresh database, with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test in
 `tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
 
@@ -11,13 +11,14 @@ On a clean Windows machine with Docker Desktop, Node 20+, Python 3.11+ (`pip ins
 
 ```sh
 cp .env.example .env                        # fill in ANTHROPIC_API_KEY
-# put the 12 SetRep PDFs in data/samples/ (Moneda, Stride, Xpedite, 202605-202608)
+# put the 12 F-PIL SetRep PDFs in data/samples/ (Moneda, Stride, Xpedite, 202605-202608)
+# and the MOVE Trust PDFs in data/samples/move-trust/ (step 9 uses Essex, TLFC_LP and Finloc, 202604-202607)
 docker compose up -d --build
 docker compose exec api python -m app.seed  # Git Bash: prefix MSYS_NO_PATHCONV=1 if a path argument is mangled
 cd tests/e2e
 npm ci
 npx playwright install chromium
-npm run test:e2e                            # setup + the seven steps + negatives, about 4 minutes
+npm run test:e2e                            # setup + steps 1-7 + negatives + step 9, about 8 minutes
 npm run lighthouse                          # optional: accessibility on the four main pages, after test:e2e
 ```
 
@@ -32,7 +33,7 @@ cd tests/e2e && E2E_WEB_URL=http://localhost:15500 E2E_API_URL=http://localhost:
 ```
 
 **Reset.** The demo needs a fresh database: the setup test stops with a clear message if Xpedite, Moneda or Stride
-2026-08 has already been uploaded. Reset with `docker compose down -v`, then `up -d` and the seed again (add
+2026-08 has already been uploaded, and step 9 stops the same way if any of its MOVE Trust months has. Reset with `docker compose down -v`, then `up -d` and the seed again (add
 `-p tao-qa -f docker-compose.yml -f scripts/compose.agent.yml` for the private stack).
 
 **What the setup does.** `tests/e2e/setup/demo.setup.ts` checks the stack is up, seeded and fresh, builds the
@@ -72,7 +73,8 @@ A page link opens the page image at that value.
 
 ![Page viewer](demo/02-page-viewer.png)
 
-Publish to partner › Approve and publish. The status becomes Published; the Activity card and the Audit log show
+Publish to partner › Approve and publish. The dialog says the report goes to the Investor and Manager portals, the
+two partners F-PIL 2.0 is shared with. The status becomes Published; the Activity card and the Audit log show
 Approve and Publish by `tao_admin`.
 
 ![Publish dialog](demo/02-publish-dialog.png)
@@ -81,7 +83,11 @@ Approve and Publish by `tao_admin`.
 
 ### Step 3. Investor and Manager viewers see the deal; the numbers match the shared dashboard
 
-Switched to Investor · Viewer: Portfolio Executive Summary › F-PIL 2.0 › Open deal Xpedite Leasing.
+Switched to Investor · Viewer: Portfolio Executive Summary › F-PIL 2.0 › Open deal Xpedite Leasing. The program
+month is now August, and every deal stays in it: Moneda and Stride have nothing published for August yet, so their
+cards show July with a blue "As of Jul 2026" pill and the totals carry one line, "Moneda Capital Corp. (Jul 2026) and
+Stride Capital (Jul 2026) are behind; their Aug 2026 reports are not published yet." Each Open deal link carries the
+deal's own month (`?period=`).
 
 ![Portfolio summary](demo/03-portfolio-summary.png)
 ![Program summary](demo/03-program-summary.png)
@@ -142,7 +148,8 @@ Moneda 2026-08 closing is ours, $15,020,071.52, and the deal's `data_corrections
 
 ### Step 6. TAO Analyst uploads the following month
 
-Stride Capital 2026-08, after Stride 2026-07 is published. No R11 finding: the extracted opening balance and
+Stride Capital 2026-08, after Stride 2026-07 is published. Until it is published, the program API lists Stride in
+`deals_behind` as of 2026-07; afterwards it does not. No R11 finding: the extracted opening balance and
 opening contracts equal July's published closing. Two R14 review findings, no block; TAO Admin publishes it. The
 F-PIL 2.0 program dashboard now shows 3 deals for August 2026.
 
@@ -192,26 +199,92 @@ Regenerate by `tao_admin`. The investor deal page for May 2026 now serves the re
 - Partner roles get 403 on `/uploads`, `/audit`, `/master/*` and regenerate, and `/admin` URLs send them back to
   their portal. An analyst gets "You don’t have access" on the Audit log page and 403 on `/audit` (Partners is
   read-only for analysts).
-- A blank PDF ends in `extraction_failed`; the page says "Extraction failed. Check the audit log for the reason,
-  then upload the file again." and the audit reason reads "page 1 has no text layer; cover block not found (no page
-  has text: scanned or blank PDF, OCR fallback not built yet)". The test rejects it afterwards.
+- A blank PDF ends in `extraction_failed`. The upload card states the worker's reason (`Upload.failure_reason`):
+  "Extraction failed: page 1 has no text layer; cover block not found (no page has text: scanned or blank PDF, OCR
+  fallback not built yet)", followed by what to do next. The test rejects it afterwards.
 
 ![Blank PDF](demo/08-blank-pdf-failed.png)
 
-## Acceptance (build plan), measured 2026-11-03
+## Journey 4 — MOVE Trust, month by month
+
+### Step 9. Restatements a reviewer meets, and a deal behind the program month
+
+MOVE Trust has nine deals and real reports from April to July 2026. The test takes three of them through nine
+uploads, the fewest that show what a reviewer meets on this program. A MOVE report names its own month: the file
+`Essex - 202605 - SETTREP.pdf` is collection period 2026-05 and reporting period 2026-05 (R04's lag is 0 for this
+template). Each month is uploaded by the TAO Analyst and published by the TAO Admin before the deal's next month.
+
+**April.** Essex Lease Financial Corp., TLFC LP (Leases) and Finloc 2000 Inc. 2026-04 go up through the API and
+reach needs review with no Block (Finloc carries one R19 Note, MSA 8.1 (d) moving to BREACH). The admin publishes
+each one.
+
+**Essex May restates April.** The analyst uploads `Essex - 202605 - SETTREP.pdf` through the form. It stops at needs
+review with two R11 Blocks and one R19 Note. Each R11 is a restatement: the May report prints April's ratios again,
+with different values from the April report already published.
+
+![Essex May needs review](demo/09-essex-may-needs-review.png)
+
+- Debt-to-equity for 2026-04 was 6.35 in the published April report; the May report says 6.22.
+- Interest coverage for 2026-04 was 1.15 in the published April report; the May report says 1.12.
+
+![Essex R11 restatements](demo/09-essex-r11-restatements.png)
+
+Switched to TAO Admin, on each card: Accept as restatement for R11, reason "servicer restated the April ratios in the
+May report", Save and re-run rules. The card reads "Accepted as restatement"; after the second, "Rules re-ran. No
+block findings open." Publish to partner shows "2 findings resolved with a reason" and the Investor and Manager
+portals; Approve and publish. The audit log has one Restatement accepted row per finding, with the reason.
+
+![Restatement dialog](demo/09-restatement-dialog.png)
+![Essex publish dialog](demo/09-essex-publish-dialog.png)
+
+The published Essex May deal carries 1.12 and 6.22 in its April ratio row, and its `restatements` list records both
+changes (2026-04 as reported in April, then in May), the same as the start of the list in
+`docs/dashboard-json/move-trust-essex-lease-financial-corp.dashboard.json`.
+
+**A deal behind.** Essex May is now published and TLFC LP's and Finloc's May are not. The MOVE Trust program month is
+May 2026, and the two deals still contribute April. As Investor · Viewer, Portfolio Executive Summary › MOVE Trust:
+TLFC LP and Finloc carry a blue "As of Apr 2026" pill, Essex does not, and the totals say "… are behind; their May
+2026 reports are not published yet." The program API lists both in `deals_behind` as of 2026-04.
+
+![MOVE Trust with two deals behind](demo/09-program-deals-behind.png)
+
+**TLFC LP June restates the RVL ratio.** TLFC LP May (no findings) and Finloc May are published. TLFC LP June then
+reaches needs review with two R11 Blocks: the RVL ratio for 2026-04 and for 2026-05 was 0.00% in the published May
+report, and the June report says 0.112487% for both. The admin accepts both as restatements with the reason
+"servicer restated the April and May RVL ratio in the June report" and publishes. The published June deal's ratio
+history and `restatements` match the reference object.
+
+![TLFC LP R11 restatements](demo/09-tlfc-r11-restatements.png)
+
+**Finloc's currency revaluation is not a break.** Finloc carries CAD and USD tranches. Its opening balance in CAD
+equivalent differs from the prior month's published closing by the USD revaluation: +$64,124.04 in May,
++$106,968.53 in June, −$47,609.31 in July. R11 compares each currency in its own units, where the opening equals the
+prior closing, so none of the three months raises R11 (or any Block). The test checks the gap, the CAD opening
+against the prior CAD closing, and the empty R11 list for each month.
+
+**The reference period.** Finloc July is the period the MOVE reference objects were taken at. The MOVE Trust program
+page now shows July 2026, with Essex "As of May 2026" and TLFC LP "As of Jun 2026". Open deal Finloc 2000 Inc.: the
+test reads the 209 numbers on the deal page and compares each with the published object and with
+`docs/dashboard-json/move-trust-finloc-2000-inc.dashboard.json`: 0 mismatches, largest money difference $0.01. The
+deal offers four periods (2026-04 to 2026-07).
+
+![MOVE Trust in July](demo/09-program-july.png)
+![Finloc deal page](demo/09-finloc-deal-page.png)
+
+## Acceptance (build plan), measured 2026-11-04
 
 Two runs on the QA stack (Windows 11, Docker Desktop), each from `docker compose down -v`, then `up -d` (images
-built), seed, `npm run test:e2e`; both 18 of 18 green.
+built), seed, `npm run test:e2e`; both 21 of 21 green (18 for steps 1–8 as before, 3 for step 9).
 
 | Criterion | Pass | Measured |
 | --- | --- | --- |
-| Both sample SetReps extract with no null required field | Yes / No | Yes for the F-PIL template: every F-PIL PDF the demo uploads reaches needs review; the schema validation is the Extraction agent's suite. No MOVE Trust SetRep exists to test. |
+| Both sample SetReps extract with no null required field | Yes / No | Yes for both templates the demo uses: every F-PIL PDF and the nine MOVE Trust PDFs of step 9 (Essex, TLFC LP, Finloc) reach needs review; the schema validation is the Extraction agent's suite. |
 | Rules 1–18 each have a passing and a failing fixture and run in under 2 s | Yes / No | Pass and fail fixtures for R01–R15, R17–R19 under `rules/tests/fixtures/`; R16 (program-level SetRep) has none because no such SetRep exists. Timing is the Rules suite's `test_reference_findings_validate_and_run_fast`. |
-| Published deal page equals the shared dashboard for the same deal and period | Every metric within $1 / 0.01 pp | Yes. Xpedite Leasing 2026-08: 154 numbers on the page, 0 mismatches against the published object and the reference, largest money difference $0.00, for the investor and the manager. |
+| Published deal page equals the shared dashboard for the same deal and period | Every metric within $1 / 0.01 pp | Yes. Xpedite Leasing 2026-08: 154 numbers on the page, 0 mismatches against the published object and the reference, largest money difference $0.00, for the investor and the manager. MOVE Trust Finloc 2000 Inc. 2026-07: 209 numbers, 0 mismatches, largest money difference $0.01. |
 | A partner role cannot reach another partner's data by URL or API | Verified by test | Yes: `specs/08-negatives.spec.ts` (4 tests). With both programs shared, this rests on the X-Partner checks (other, unknown, missing partner) and the portal redirect. |
-| Time from upload to needs review on a 20-page SetRep | Under 3 minutes | Yes. 4–15 s per report (13–17 pages) across both runs: Stride 4–7 s, Moneda 5–11 s, Xpedite 9–15 s; the seeded Moneda with its second pass 7–11 s. |
+| Time from upload to needs review on a 20-page SetRep | Under 3 minutes | Yes. 3–26 s per report across both runs. F-PIL (13–17 pages): Stride 3–9 s, Moneda 5–17 s (the seeded copy with its second pass included), Xpedite 7–26 s. MOVE Trust (18–29 pages): Essex 11–19 s, Finloc 12–18 s, TLFC LP 17–23 s. |
 | Every number on the Review report has a page reference | 100% | Yes. Xpedite 2026-08: 94 page links, 8 values carried from the July publication (labelled so), 0 "no source"; 27 of 27 key-value rows referenced. |
 | Lighthouse accessibility on the four main pages | 90 or higher | Yes. TAO Admin dashboard 100, Review report 96, Portfolio executive summary 100, Deal page 100. The one failure is colour contrast on the Review report's resolved finding card (layer and value labels, the Block pill, our value). |
-| Full demo from `docker compose up` on a clean Windows machine | Under 10 minutes including seed | Yes. Run 1: 5 min 16 s (start and seed 55 s, tests 4 min 21 s). Run 2: 4 min 43 s (50 s, 3 min 53 s). Images were already built and web dependencies already in `web/node_modules`; a first `up --build` added about 2 minutes in earlier runs. |
+| Full demo from `docker compose up` on a clean Windows machine | Under 10 minutes including seed | Yes. Run 1: 8 min 38 s (start and seed 47 s, tests 7 min 51 s, of which step 9 about 3 min 10 s). Run 2: 7 min 25 s (36 s, 6 min 49 s; step 9 about 3 min). Images were already built and web dependencies already in `web/node_modules`; a first `up --build` added about 2 minutes in earlier runs. |
 
 Per-report extraction times are written to `tests/e2e/.cache/measurements.jsonl` on every run.

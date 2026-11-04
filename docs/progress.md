@@ -2,6 +2,22 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — QA & Demo, MOVE Trust in the demo (merged main b40a3f3): `specs/09-move-trust.spec.ts`, three tests in
+  order. 9a: Essex, TLFC LP and Finloc April uploaded by the analyst and published by the admin (API); Essex May through
+  the upload form gets two R11 restatement Blocks (April ICR 1.15 → 1.12, D/E 6.35 → 6.22), the admin accepts each as a
+  restatement with a reason and publishes; the MOVE program (May) then shows TLFC LP and Finloc "As of Apr 2026"
+  (`deals_behind` too). 9b: TLFC LP May, Finloc May, then TLFC LP June with two R11 restatements (Apr and May RVL ratio
+  0 → 0.112487%) accepted in the UI and published. 9c: Finloc June and July; Finloc May–July raise no R11 (CAD-equivalent
+  gap = revaluation +64,124.04 / +106,968.53 / −47,609.31, CAD opening = prior CAD closing); Finloc July investor deal
+  page vs `move-trust-finloc-2000-inc.dashboard.json`: 209 numbers, 0 mismatches. Published ratio_history and
+  `restatements` checked against the references. Facts in `lib/facts.ts` (DEALS essex / tlfcLp / finloc, MOVE,
+  STEP9). `lib/deal.ts`: rows sharing an id (Finloc's two "MSA (Definitions)" covenants) now match by occurrence.
+  docs/demo.md: step 9 walkthrough with 8 new screenshots; steps 2, 3, 6 and the blank-PDF negative follow main
+  (both portals in the publish dialog, "As of Jul 2026" on F-PIL, deals_behind, failure_reason on the card); every
+  screenshot retaken. Two clean runs from `down -v`: 21/21 and 21/21, 8 min 38 s and 7 min 25 s including start and
+  seed; step 9 about 3 min. Nine uploads instead of seven because Finloc must reach July for May–July and for the
+  reference comparison (MOVE extraction 11–23 s each). Run: as docs/demo.md, with data/samples/move-trust/ in place.
+  The five orphaned screenshots listed in requests.md (2026-11-03) are still in docs/demo/ for the Lead to remove.
 - 2026-11-04 — UI-Partner, latest month (merged main 9ce35c8 and lead/latest-month cb12a95): built against
   `PublishedProgram.deals_behind`. A deal behind the program month shows a blue "As of Jul 2026" pill (dot plus word)
   on its Program Executive Summary card, its Program Dashboard deal row and covenant rows, its Portfolio flagged-deal
