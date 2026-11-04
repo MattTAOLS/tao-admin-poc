@@ -63,6 +63,15 @@ The Lead reads this at every merge.
   corrections are applied, re-running the rules (phases 1, 2) on the corrected deal raises a block finding that no resolved
   finding already covers (same rule_id + fields); the body adds `findings: [{rule_id, message, fields, our_value, report_value}]`.
   Nothing is published in either case. Please add both codes (and the two extra body fields) to openapi.yaml.
+- 2026-11-04 → Lead (seed, lead/covenants): `python -m app.seed` upserts by uuid5(deal, legal_ref, effective_from) and never
+  deletes, so a database seeded before lead/covenants keeps the old Moneda-copied Stride/Xpedite definitions next to the
+  new ones, and `?as_of=` can return both for a legal_ref. covenant_definition has no superseded/retired column, so I left
+  the loader as is. Options: (a) `down -v` and re-seed (clean; what the demo does); (b) a migration adding
+  `superseded_at` and the loader marking seed-owned rows (id = uuid5 of a seed key) missing from the file, with
+  `covenants_as_of` skipping them; (c) a `--prune` flag that deletes them. I recommend (a) now and (b) if master data ever
+  outlives a demo. Your call.
+- 2026-11-04 → Rules (FYI): `rules/tests/test_rules.py` still expects R14 on Stride ("seeded covenant definitions are
+  Moneda's copied"); with lead/covenants Stride has its own definitions, so that test fails (1 of 84).
 ## Extraction
 - RESOLVED 2026-11-03 (extraction, wave 1b: `worker/requirements-dev.txt` has pypdf + pytest) — to Lead: add `pypdf` to `worker/requirements.txt` (or a dev requirements file). Only the seeded-error
   test uses it (it edits one digit in a page content stream); the test skips without it.

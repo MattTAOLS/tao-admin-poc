@@ -91,8 +91,9 @@ def test_covenant_update_in_place_and_threshold_rule(client):
     assert c["threshold_rule"]["on"] == "/tranche_balance/closing"
     r = client.put(f"{M}/covenants", headers=TAO, json=dict(c, description="Rolling 3-month loss ratio"))
     assert r.status_code == 200 and r.json()["id"] == c["id"] and r.json()["threshold_rule"] == c["threshold_rule"]
-    bad = {k: v for k, v in c.items() if k != "id"} | {"threshold_rule": None, "threshold": None}
-    assert client.put(f"{M}/covenants", headers=TAO, json=bad).status_code == 422
+    both_null = {k: v for k, v in c.items() if k != "id"} | {"threshold_rule": None, "threshold": None, "effective_from": "2026-01-01"}
+    r = client.put(f"{M}/covenants", headers=TAO, json=both_null)                # allowed: e.g. a per-vintage limit
+    assert r.status_code == 200 and r.json()["threshold"] is None and r.json()["threshold_rule"] is None
     assert client.put(f"{M}/covenants", headers=TAO, json=dict(c, kind="sideways")).status_code == 422
 
 
@@ -102,3 +103,14 @@ def test_partners_cannot_read_master(client, path, h):
     assert client.get(f"{M}/{path}", headers=h).status_code == 403
     if path != "partners":
         assert client.put(f"{M}/{path}", headers=h, json={}).status_code == 403
+
+
+def test_definition_with_no_threshold_round_trips(client):
+    """Stride SLFA 9.1 (g) CNL: limit per vintage, so threshold and threshold_rule are both null in the seed."""
+    g = [c for c in client.get(f"{M}/covenants", headers=TAO, params={"deal_slug": "f-pil-2-0-stride-capital"}).json()
+         if c["legal_ref"] == "SLFA 9.1 (g)"]
+    assert len(g) == 1 and g[0]["threshold"] is None and g[0]["threshold_rule"] is None and g[0]["unit"] == "fraction"
+    assert any(c["id"] == g[0]["id"] for c in client.get(f"{M}/covenants", headers=TAO,
+                                                         params={"deal_slug": "f-pil-2-0-stride-capital", "as_of": "2026-08-31"}).json())
+    r = client.put(f"{M}/covenants", headers=TAO, json=dict(g[0], source="checked"))
+    assert r.status_code == 200 and r.json()["id"] == g[0]["id"] and r.json()["threshold"] is None and r.json()["threshold_rule"] is None
