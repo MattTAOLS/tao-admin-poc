@@ -45,6 +45,13 @@
           "type": "string",
           "description": "extraction mapping used, e.g. fpil-2.0-settrep-v1"
         },
+        "layout": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "for a dispatch template, the document layout it picked from page 1, e.g. move-trust-settrep-standard-v1"
+        },
         "page_count": {
           "type": "integer",
           "minimum": 1
@@ -55,7 +62,7 @@
             "null"
           ],
           "pattern": "^\\d{4}-\\d{2}$",
-          "description": "month named in the page header \"for reporting period\"; one month before collection_period under the current convention"
+          "description": "month named in the page header \"for reporting period\" (F-PIL) or the collection month the report covers (MOVE Trust). The lag to collection_period is per program: F-PIL one month before, MOVE Trust the same month"
         },
         "extracted_at": {
           "type": "string",
@@ -448,6 +455,20 @@
                   "null"
                 ],
                 "description": "Page 2 ineligible buyback in the period (−), as a positive amount; only where the layout prints it"
+              },
+              "adjustment_increase": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "upward part of the signed page-2 portfolio / NBV adjustment column (+), as a positive amount; the downward part is charge_off"
+              },
+              "balance_adjustment": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "signed tranche contract balance adjustment where the layout prints it (Meridian servicer report)"
               }
             },
             "additionalProperties": true
@@ -668,6 +689,13 @@
                 "number",
                 "null"
               ]
+            },
+            "adjustment_increase": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "upward part of the signed portfolio / NBV adjustment, as a positive amount"
             }
           },
           "additionalProperties": true,
@@ -1110,6 +1138,13 @@
               },
               "days_61_90": {
                 "type": "number"
+              },
+              "payment_deferral": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "balance under payment deferral where the aging table prints it (MOVE Trust)"
               },
               "written_off_bucket_label": {
                 "type": "string"

@@ -21,6 +21,12 @@ tolerances:
   count: 0
   ratio: 0.005             # for leverage / coverage ratios (two decimals on the report)
 
+# Months from meta.reporting_period to collection_period, per extraction template (R04). F-PIL page headers name
+# the month before the cover's collection period; MOVE Trust reports name the collection month itself.
+reporting_lag_months:
+  fpil-2.0-settrep-v1: 1
+  move-trust-settrep-v1: 0
+
 rules:
   # ---------- Layer 1: structural ----------
   - id: R01
@@ -50,8 +56,9 @@ rules:
     severity: block
     title: Values in plausible ranges
     description: >
-      Percentage ratios between −1 and 1 (stored as fractions; loss and CNL ratios go negative when recoveries
-      exceed losses), multiples between −100 and 100, no negative balances or contract counts, utilization 0..1.5.
+      Percentage ratios between −1 and 1 (stored as fractions), except loss and CNL ratios, which go negative when
+      recoveries exceed losses on a small base: those between −5 and 1 (TPine prints a rolling 3-month loss ratio
+      of −130.68%). Multiples between −100 and 100, no negative balances or contract counts, utilization 0..1.5.
     fields: [/financial_ratios, /tranche_balance, /contracts, /program/program_utilization_pct]
     fn: plausible_ranges
     on_failure: retry_pass_2_then_review
@@ -63,9 +70,9 @@ rules:
     severity: block
     title: Dates parse and periods line up
     description: >
-      settlement_date and collection_period parse; collection_period (cover block, = settlement month under
-      the current convention) is exactly one month after meta.reporting_period (page header "for reporting
-      period"), and exactly one month after prior:/collection_period when a prior published period exists.
+      settlement_date and collection_period parse; collection_period is exactly reporting_lag_months (per
+      meta.template_id, above: F-PIL 1, MOVE Trust 0) after meta.reporting_period, and exactly one month after
+      prior:/collection_period when a prior published period exists. An unknown template_id assumes 1.
     fields: [/settlement_date, /collection_period, meta:/reporting_period, prior:/collection_period]
     fn: periods_line_up
     on_failure: review
@@ -82,10 +89,11 @@ rules:
       opening + new funded − scheduled principal − prepayments − defaults − NPV adjustment − ineligible buyback
       = closing. The deal object carries the period totals in period_history (current period row): principal,
       principal_prepayments, losses (defaults), and, where the layout prints them, charge_off (the NPV
-      adjustment, column i), new_funded and ineligible_buyback, all as positive amounts; an absent or null term
-      counts as 0. Check the total, then each top_movers row where both opening and closing are present.
+      adjustment, column i), new_funded and ineligible_buyback, all as positive amounts, plus adjustment_increase
+      (the upward part of a signed portfolio adjustment column, MOVE Trust) and balance_adjustment (signed,
+      Meridian); an absent or null term counts as 0. Check the total, then each top_movers row where both opening and closing are present.
     fields: [/tranche_balance/opening, /tranche_balance/closing, /period_history, /tranche_balance/top_movers]
-    expr: "near(period.opening_balance + (period.new_funded or 0) - period.principal - period.principal_prepayments - period.losses - (period.charge_off or 0) - (period.ineligible_buyback or 0), period.closing_balance, tol.currency)"
+    expr: "near(period.opening_balance + (period.new_funded or 0) - period.principal - period.principal_prepayments - period.losses - (period.charge_off or 0) - (period.ineligible_buyback or 0) + (period.adjustment_increase or 0) + (period.balance_adjustment or 0), period.closing_balance, tol.currency)"
     fn: tranche_rollforward
     tolerance: { unit: currency }
     on_failure: retry_pass_2_then_review
