@@ -2,6 +2,13 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Lead: Stride and Xpedite covenant definitions replaced (branch lead/covenants). They were copies of
+  Moneda's. Now from each 2026-08 report's covenant page, marked UNVERIFIED: Xpedite ARFA dated 2022-10-14, 9.1 (b)/(c)
+  banded 6%/3% and 4%/2% on NPV ≤ / > $10M, (d) 3.0%, (f) CNL 2.75%, (e) ICR ≥ 1.10, (g) leverage ≤ 10, (h) equity
+  ≥ $3,000,000. Stride SLFA dated 2021-02-05, amended 2026-01-22 (footnote, page 11): (d) 3.50%, (e) 2.50%, (f)
+  3.5%, effective 2026-01-22 (pre-amendment values are not printed); (g) CNL is per vintage (3.50% for Sept 2021 -
+  Aug 2022, 2.75% otherwise), so no scalar threshold; R08 checks it per vintage. R14 now raises nothing on the
+  three F-PIL reference deals (Stride had two false reviews; Xpedite was never compared). 21 -> 18 definitions.
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON

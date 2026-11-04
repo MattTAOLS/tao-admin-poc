@@ -109,7 +109,55 @@
   },
   {
     "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (c)",
+    "legal_ref": "SLFA 9.1 (d)",
+    "description": "Rolling Three Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "unit": "fraction",
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2026-01-22",
+    "source": "SLFA dated 2021-02-05, as amended 2026-01-22 (loss and CNL ratios amended when the Dec 2025 9.1(e) Event of Default was waived; footnote on page 11 of the 2026-08 report). Thresholds as printed on page 11 of the 2026-08 report; pre-amendment values not printed. UNVERIFIED against the executed agreement"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (e)",
+    "description": "Rolling Twelve Month Loss Ratio",
+    "kind": "ceiling",
+    "threshold": 0.025,
+    "threshold_rule": null,
+    "unit": "fraction",
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2026-01-22",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (f)",
+    "description": "Delinquency Ratio",
+    "kind": "ceiling",
+    "threshold": 0.035,
+    "threshold_rule": null,
+    "unit": "fraction",
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2026-01-22",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-stride-capital",
+    "legal_ref": "SLFA 9.1 (g)",
+    "description": "Cumulative Net Loss Ratio, per vintage: at most 3.50% for the vintage beginning Sept. 1, 2021 and ending Aug. 31, 2022, at most 2.75% for every other vintage (no single threshold; checked per vintage by R08)",
+    "kind": "ceiling",
+    "threshold": null,
+    "threshold_rule": null,
+    "unit": "fraction",
+    "watch_buffer_pct": 0.1,
+    "effective_from": "2026-01-22",
+    "source": "as above"
+  },
+  {
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (b)",
     "description": "Rolling Three Month Loss Ratio",
     "kind": "ceiling",
     "threshold": null,
@@ -122,18 +170,18 @@
         },
         {
           "gt": 10000000,
-          "threshold": 0.04
+          "threshold": 0.03
         }
       ]
     },
     "unit": "fraction",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
+    "effective_from": "2022-10-14",
+    "source": "ARFA dated 2022-10-14, as printed on page 15 of the 2026-08 report; UNVERIFIED against the executed agreement"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (d)",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (c)",
     "description": "Rolling Twelve Month Loss Ratio",
     "kind": "ceiling",
     "threshold": null,
@@ -146,181 +194,73 @@
         },
         {
           "gt": 10000000,
-          "threshold": 0.0225
+          "threshold": 0.02
         }
       ]
     },
     "unit": "fraction",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
+    "effective_from": "2022-10-14",
     "source": "as above"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (e)",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (d)",
     "description": "Delinquency Ratio",
     "kind": "ceiling",
-    "threshold": 0.035,
+    "threshold": 0.03,
     "threshold_rule": null,
     "unit": "fraction",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
+    "effective_from": "2022-10-14",
     "source": "as above"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (f)",
-    "description": "CNL Ratio, measured on annual origination",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (f)",
+    "description": "Cumulative Net Loss Ratio",
     "kind": "ceiling",
-    "threshold": 0.035,
+    "threshold": 0.0275,
     "threshold_rule": null,
     "unit": "fraction",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
+    "effective_from": "2022-10-14",
     "source": "as above"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (h)",
-    "description": "Interest Coverage Ratio",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (e)",
+    "description": "Interest Coverage Ratio (Borrower and Guarantor combined)",
     "kind": "floor",
     "threshold": 1.1,
     "threshold_rule": null,
     "unit": "ratio",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2023-12-09",
-    "source": "as above (applies after first anniversary)"
+    "effective_from": "2022-10-14",
+    "source": "as above"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (i)",
-    "description": "Leverage Ratio",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (g)",
+    "description": "Leverage Ratio (Borrower and Guarantor combined)",
     "kind": "ceiling",
     "threshold": 10.0,
     "threshold_rule": null,
     "unit": "ratio",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
+    "effective_from": "2022-10-14",
     "source": "as above"
   },
   {
-    "deal_slug": "f-pil-2-0-stride-capital",
-    "legal_ref": "SLFA 9.1 (j)",
-    "description": "Minimum Total Equity",
+    "deal_slug": "f-pil-2-0-xpedite-leasing",
+    "legal_ref": "ARFA 9.1 (h)",
+    "description": "Minimum Total Equity (Borrower and Guarantor combined)",
     "kind": "floor",
-    "threshold": 2500000.0,
+    "threshold": 3000000.0,
     "threshold_rule": null,
     "unit": "currency",
     "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "as above"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (c)",
-    "description": "Rolling Three Month Loss Ratio",
-    "kind": "ceiling",
-    "threshold": null,
-    "threshold_rule": {
-      "on": "/tranche_balance/closing",
-      "bands": [
-        {
-          "lte": 10000000,
-          "threshold": 0.06
-        },
-        {
-          "gt": 10000000,
-          "threshold": 0.04
-        }
-      ]
-    },
-    "unit": "fraction",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "SLFA 2022-12-09, as printed on page 14 of the 2026-08 report; UNVERIFIED against the executed agreement"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (d)",
-    "description": "Rolling Twelve Month Loss Ratio",
-    "kind": "ceiling",
-    "threshold": null,
-    "threshold_rule": {
-      "on": "/tranche_balance/closing",
-      "bands": [
-        {
-          "lte": 10000000,
-          "threshold": 0.04
-        },
-        {
-          "gt": 10000000,
-          "threshold": 0.0225
-        }
-      ]
-    },
-    "unit": "fraction",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "as above"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (e)",
-    "description": "Delinquency Ratio",
-    "kind": "ceiling",
-    "threshold": 0.035,
-    "threshold_rule": null,
-    "unit": "fraction",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "as above"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (f)",
-    "description": "CNL Ratio, measured on annual origination",
-    "kind": "ceiling",
-    "threshold": 0.035,
-    "threshold_rule": null,
-    "unit": "fraction",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "as above"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (h)",
-    "description": "Interest Coverage Ratio",
-    "kind": "floor",
-    "threshold": 1.1,
-    "threshold_rule": null,
-    "unit": "ratio",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2023-12-09",
-    "source": "as above (applies after first anniversary)"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (i)",
-    "description": "Leverage Ratio",
-    "kind": "ceiling",
-    "threshold": 10.0,
-    "threshold_rule": null,
-    "unit": "ratio",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
-    "source": "as above"
-  },
-  {
-    "deal_slug": "f-pil-2-0-xpedite-leasing",
-    "legal_ref": "SLFA 9.1 (j)",
-    "description": "Minimum Total Equity",
-    "kind": "floor",
-    "threshold": 2500000.0,
-    "threshold_rule": null,
-    "unit": "currency",
-    "watch_buffer_pct": 0.1,
-    "effective_from": "2022-12-09",
+    "effective_from": "2022-10-14",
     "source": "as above"
   }
 ]
