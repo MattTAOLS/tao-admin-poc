@@ -1,0 +1,1476 @@
+{
+ "rule_id": "R05",
+ "name": "r05-balance-adjustment",
+ "case": "pass",
+ "source": "docs/dashboard-json/move-trust-meridian-onecap-lp.dashboard.json",
+ "changes": [
+  {
+   "target": "deal",
+   "path": "/period_history/3/balance_adjustment",
+   "value": -1000.0,
+   "why": "a signed -1,000.00 tranche contract balance adjustment"
+  },
+  {
+   "target": "deal",
+   "path": "/period_history/3/principal",
+   "value": 7350226.06,
+   "why": "offset: principal 1,000.00 lower, closing unchanged"
+  }
+ ],
+ "meta": {
+  "upload_id": "00000000-0000-4000-8000-000000000000",
+  "pass": 1,
+  "template_id": "move-trust-settrep-v1",
+  "page_count": 16,
+  "extracted_at": "2026-10-28T00:00:00Z",
+  "engine": {
+   "text_layer": "pdfplumber",
+   "model": "claude"
+  }
+ },
+ "context": {},
+ "deal": {
+  "deal_slug": "move-trust-meridian-onecap-lp",
+  "deal_name": "MOVE Trust - Meridian OneCap LP",
+  "terminology": null,
+  "source_pages": {
+   "tranche_balance": 2,
+   "tranche_amounts": 3,
+   "outstanding_contracts": null,
+   "funding_costs": 6,
+   "enhancement": 7,
+   "top10_obligor": 8,
+   "aging_summary": 12,
+   "aggregate_performance": null,
+   "cumulative_losses": 12,
+   "quantitative_tests": null,
+   "financial_ratios": 1
+  },
+  "source_file": "MOCLP_-_202607_-_Servicer_Report.pdf",
+  "settlement_date": "August 24, 2026",
+  "collection_period": "July 2026",
+  "ratio_history": [],
+  "period_history": [
+   {
+    "period": "2026-04",
+    "collection_period": "April 2026",
+    "opening_balance": 207441379.41,
+    "closing_balance": 185421212.59,
+    "opening_amount": 196041383.92,
+    "closing_amount": 173379995.51,
+    "principal": 6833527.86,
+    "principal_prepayments": 15000504.15,
+    "losses": -1052006.04,
+    "interest": 1645417.26,
+    "recoveries": 867294.83,
+    "charge_off": 1238140.85,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 0,
+    "opening_contracts": 0
+   },
+   {
+    "period": "2026-05",
+    "collection_period": "May 2026",
+    "opening_balance": 185421212.59,
+    "closing_balance": 176638488.87,
+    "opening_amount": 173379995.51,
+    "closing_amount": 165171257.89,
+    "principal": 6651367.04,
+    "principal_prepayments": 1844295.55,
+    "losses": 167221.34,
+    "interest": 859638.99,
+    "recoveries": 15693.27,
+    "charge_off": 119839.78,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 0,
+    "opening_contracts": 0
+   },
+   {
+    "period": "2026-06",
+    "collection_period": "June 2026",
+    "opening_balance": 237719438.6,
+    "closing_balance": 227483490.75,
+    "opening_amount": 222243909.92,
+    "closing_amount": 212676696.33,
+    "principal": 8741365.73,
+    "principal_prepayments": 1264047.29,
+    "losses": 74495.77,
+    "interest": 1674225.89,
+    "recoveries": 88916.67,
+    "charge_off": 156039.06,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 0,
+    "opening_contracts": 0
+   },
+   {
+    "period": "2026-07",
+    "collection_period": "July 2026",
+    "opening_balance": 227483490.75,
+    "closing_balance": 217522568.5,
+    "opening_amount": 212676696.33,
+    "closing_amount": 203366582.8,
+    "principal": 7350226.06,
+    "principal_prepayments": 1837118.9,
+    "losses": 173862.48,
+    "interest": 1359721.46,
+    "recoveries": 276955.58,
+    "charge_off": 598714.82,
+    "by_currency": null,
+    "activity_by_currency": null,
+    "amount_by_currency": null,
+    "closing_contracts": 0,
+    "opening_contracts": 0,
+    "balance_adjustment": -1000.0
+   }
+  ],
+  "tranche_balance": {
+   "opening": 227483490.75,
+   "closing": 217522568.5,
+   "change_abs": -9960922.25,
+   "change_pct": -0.04378745119990647,
+   "top_movers": [
+    {
+     "tranche": 12,
+     "original_tranche_balance": 54363474.39,
+     "opening_tranche_balance": 28504677.07,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 26999026.84,
+     "funding_date": "23-Sep-24"
+    },
+    {
+     "tranche": 14,
+     "original_tranche_balance": 61080949.73,
+     "opening_tranche_balance": 59284390.98,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 57926146.24,
+     "funding_date": "23-Jun-26"
+    },
+    {
+     "tranche": 13,
+     "original_tranche_balance": 59710758.32,
+     "opening_tranche_balance": 35675304.71,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 34373779.83,
+     "funding_date": "23-Jan-25"
+    },
+    {
+     "tranche": 7,
+     "original_tranche_balance": 98250045.88,
+     "opening_tranche_balance": 19504876.22,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 18320195.24,
+     "funding_date": "23-Mar-23"
+    },
+    {
+     "tranche": 11,
+     "original_tranche_balance": 65128457.2,
+     "opening_tranche_balance": 28927529.23,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 27860741.36,
+     "funding_date": "25-Jun-24"
+    },
+    {
+     "tranche": 8,
+     "original_tranche_balance": 59927588.0,
+     "opening_tranche_balance": 14551073.9,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 13741438.24,
+     "funding_date": "23-Jun-23"
+    },
+    {
+     "tranche": 10,
+     "original_tranche_balance": 44156912.22,
+     "opening_tranche_balance": 18208448.04,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 17580450.74,
+     "funding_date": "24-Mar-24"
+    },
+    {
+     "tranche": 4,
+     "original_tranche_balance": 73378426.84,
+     "opening_tranche_balance": 3482807.55,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 2926456.23,
+     "funding_date": "17-Dec-21"
+    },
+    {
+     "tranche": 9,
+     "original_tranche_balance": 34060570.74,
+     "opening_tranche_balance": 10676121.33,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 10146011.36,
+     "funding_date": "23-Feb-24"
+    },
+    {
+     "tranche": 3,
+     "original_tranche_balance": 49429173.3,
+     "opening_tranche_balance": 1588176.51,
+     "original_tranche_yield": null,
+     "current_period_effective_tranche_yield": null,
+     "closing_tranche_balance": 1276622.66,
+     "funding_date": "29-Sep-21"
+    }
+   ],
+   "all_tranches": [
+    {
+     "tranche": 1,
+     "opening": 138428.71,
+     "closing": 102268.52
+    },
+    {
+     "tranche": 2,
+     "opening": 1466171.81,
+     "closing": 1296829.07
+    },
+    {
+     "tranche": 3,
+     "opening": 1588176.51,
+     "closing": 1276622.66
+    },
+    {
+     "tranche": 4,
+     "opening": 3482807.55,
+     "closing": 2926456.23
+    },
+    {
+     "tranche": 5,
+     "opening": 3031860.11,
+     "closing": 2724087.78
+    },
+    {
+     "tranche": 6,
+     "opening": 2443624.58,
+     "closing": 2248514.38
+    },
+    {
+     "tranche": 7,
+     "opening": 19504876.22,
+     "closing": 18320195.24
+    },
+    {
+     "tranche": 8,
+     "opening": 14551073.9,
+     "closing": 13741438.24
+    },
+    {
+     "tranche": 9,
+     "opening": 10676121.33,
+     "closing": 10146011.36
+    },
+    {
+     "tranche": 10,
+     "opening": 18208448.04,
+     "closing": 17580450.74
+    },
+    {
+     "tranche": 11,
+     "opening": 28927529.23,
+     "closing": 27860741.36
+    },
+    {
+     "tranche": 12,
+     "opening": 28504677.07,
+     "closing": 26999026.84
+    },
+    {
+     "tranche": 13,
+     "opening": 35675304.71,
+     "closing": 34373779.83
+    },
+    {
+     "tranche": 14,
+     "opening": 59284390.98,
+     "closing": 57926146.24
+    }
+   ],
+   "by_currency": null,
+   "principal": 7351226.06,
+   "principal_prepayments": 1837118.9,
+   "losses": 173862.48,
+   "charge_off": 598714.82,
+   "interest": 1359721.46,
+   "recoveries": 276955.58,
+   "activity_by_currency": null
+  },
+  "tranche_amount": {
+   "opening": 212676696.33,
+   "closing": 203366582.8,
+   "by_currency": null
+  },
+  "contracts": {
+   "opening": 0,
+   "closing": 0,
+   "change_abs": 0,
+   "change_pct": null,
+   "top_movers": []
+  },
+  "program": {
+   "program_limit": 500000000.0,
+   "program_amount": 203366582.8,
+   "unused_facility": null,
+   "program_utilization_pct": 0.4067331656,
+   "maximum_program_limit": null
+  },
+  "warehouse": null,
+  "top10_obligors": [],
+  "total_enhancement": {
+   "ending_cash_reserve_amount": 4549669.82,
+   "total_enhancement_amount": 18705655.51,
+   "total_enhancement_pct": 0.086
+  },
+  "cnl_by_period": [
+   {
+    "annual_period": "Apr 2021 - Mar 2022",
+    "tranche_balance_funded": 283328911.81,
+    "losses_allocated": 5520621.02,
+    "cnl_ratio_pct": 0.0195,
+    "event_of_default_trigger_pct": 0.035,
+    "spread_pct": 0.0155,
+    "cnl_limit": null,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": null
+   },
+   {
+    "annual_period": "Apr 2022 - Mar 2023",
+    "tranche_balance_funded": 123772962.56,
+    "losses_allocated": 4413606.06,
+    "cnl_ratio_pct": 0.0357,
+    "event_of_default_trigger_pct": 0.045,
+    "spread_pct": 0.0093,
+    "cnl_limit": null,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": null
+   },
+   {
+    "annual_period": "Apr 2023 - Mar 2024",
+    "tranche_balance_funded": 138145070.97,
+    "losses_allocated": 3956019.71,
+    "cnl_ratio_pct": 0.0286,
+    "event_of_default_trigger_pct": 0.045,
+    "spread_pct": 0.0164,
+    "cnl_limit": null,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": null
+   },
+   {
+    "annual_period": "Apr 2024 - Mar 2025",
+    "tranche_balance_funded": 179202689.9,
+    "losses_allocated": 2565776.89,
+    "cnl_ratio_pct": 0.0143,
+    "event_of_default_trigger_pct": 0.035,
+    "spread_pct": 0.0207,
+    "cnl_limit": null,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": null
+   },
+   {
+    "annual_period": "Apr 2026 - Mar 2027",
+    "tranche_balance_funded": 61080949.73,
+    "losses_allocated": 0.0,
+    "cnl_ratio_pct": 0.0,
+    "event_of_default_trigger_pct": 0.035,
+    "spread_pct": 0.035,
+    "cnl_limit": null,
+    "cnl_limit_is_exception": false,
+    "cnl_within_limit": null
+   }
+  ],
+  "aging_history": [
+   {
+    "period": "2026-07",
+    "collection_period": "July 2026",
+    "tranche_rows": [
+     {
+      "funding_date": "1-Apr-21",
+      "tranche": 1,
+      "current": 102268.52,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 199322.66,
+      "closing_tranche_contract_balance": 102268.52,
+      "net_book_value": 102268.52
+     },
+     {
+      "funding_date": "30-Jun-21",
+      "tranche": 2,
+      "current": 1294869.73,
+      "days_31_60": 0.0,
+      "days_61_90": 1200.06,
+      "deemed_defaults": 759.29,
+      "cumulative_net_losses": 902123.29,
+      "closing_tranche_contract_balance": 1296069.79,
+      "net_book_value": 1296829.07
+     },
+     {
+      "funding_date": "29-Sep-21",
+      "tranche": 3,
+      "current": 1243670.46,
+      "days_31_60": 18641.46,
+      "days_61_90": 0.0,
+      "deemed_defaults": 14310.74,
+      "cumulative_net_losses": 829675.18,
+      "closing_tranche_contract_balance": 1262311.92,
+      "net_book_value": 1276622.66
+     },
+     {
+      "funding_date": "17-Dec-21",
+      "tranche": 4,
+      "current": 2872659.77,
+      "days_31_60": 7794.03,
+      "days_61_90": 32429.3,
+      "deemed_defaults": 13573.12,
+      "cumulative_net_losses": 2041460.64,
+      "closing_tranche_contract_balance": 2912883.11,
+      "net_book_value": 2926456.23
+     },
+     {
+      "funding_date": "23-Mar-22",
+      "tranche": 5,
+      "current": 2690165.33,
+      "days_31_60": 9790.71,
+      "days_61_90": 19275.82,
+      "deemed_defaults": 4855.93,
+      "cumulative_net_losses": 1548039.25,
+      "closing_tranche_contract_balance": 2719231.86,
+      "net_book_value": 2724087.78
+     },
+     {
+      "funding_date": "23-Jun-22",
+      "tranche": 6,
+      "current": 2215861.84,
+      "days_31_60": 32652.54,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1069362.3,
+      "closing_tranche_contract_balance": 2248514.38,
+      "net_book_value": 2248514.38
+     },
+     {
+      "funding_date": "23-Mar-23",
+      "tranche": 7,
+      "current": 17740097.64,
+      "days_31_60": 140419.93,
+      "days_61_90": 296961.87,
+      "deemed_defaults": 142715.8,
+      "cumulative_net_losses": 3344243.76,
+      "closing_tranche_contract_balance": 18177479.44,
+      "net_book_value": 18320195.24
+     },
+     {
+      "funding_date": "23-Jun-23",
+      "tranche": 8,
+      "current": 13500643.58,
+      "days_31_60": 205103.36,
+      "days_61_90": 0.0,
+      "deemed_defaults": 35691.29,
+      "cumulative_net_losses": 2394379.16,
+      "closing_tranche_contract_balance": 13705746.95,
+      "net_book_value": 13741438.24
+     },
+     {
+      "funding_date": "23-Feb-24",
+      "tranche": 9,
+      "current": 10041024.44,
+      "days_31_60": 0.0,
+      "days_61_90": 28769.41,
+      "deemed_defaults": 76217.51,
+      "cumulative_net_losses": 492717.6,
+      "closing_tranche_contract_balance": 10069793.85,
+      "net_book_value": 10146011.36
+     },
+     {
+      "funding_date": "24-Mar-24",
+      "tranche": 10,
+      "current": 17526982.75,
+      "days_31_60": 94785.74,
+      "days_61_90": 0.0,
+      "deemed_defaults": -41317.75,
+      "cumulative_net_losses": 1068922.95,
+      "closing_tranche_contract_balance": 17621768.5,
+      "net_book_value": 17580450.74
+     },
+     {
+      "funding_date": "25-Jun-24",
+      "tranche": 11,
+      "current": 27749569.51,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 111171.86,
+      "cumulative_net_losses": 874955.72,
+      "closing_tranche_contract_balance": 27749569.51,
+      "net_book_value": 27860741.36
+     },
+     {
+      "funding_date": "23-Sep-24",
+      "tranche": 12,
+      "current": 26643496.69,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 355530.15,
+      "cumulative_net_losses": 587999.37,
+      "closing_tranche_contract_balance": 26643496.69,
+      "net_book_value": 26999026.84
+     },
+     {
+      "funding_date": "23-Jan-25",
+      "tranche": 13,
+      "current": 33995210.9,
+      "days_31_60": 319499.56,
+      "days_61_90": 0.0,
+      "deemed_defaults": 59069.37,
+      "cumulative_net_losses": 1102821.81,
+      "closing_tranche_contract_balance": 34314710.46,
+      "net_book_value": 34373779.83
+     },
+     {
+      "funding_date": "23-Jun-26",
+      "tranche": 14,
+      "current": 57926146.24,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 0.0,
+      "closing_tranche_contract_balance": 57926146.24,
+      "net_book_value": 57926146.24
+     }
+    ],
+    "current_0_30": 215542667.42,
+    "days_31_60": 828687.33,
+    "days_61_90": 378636.46,
+    "written_off_bucket_label": "Deemed Defaults",
+    "written_off": 772577.29,
+    "cumulative_net_losses": 16456023.67,
+    "closing_balance": 216749991.2,
+    "bucket_sum": 216749991.21,
+    "bucket_sum_with_writeoff": 217522568.5,
+    "reconciles": true
+   },
+   {
+    "period": "2026-06",
+    "collection_period": "June 2026",
+    "tranche_rows": [
+     {
+      "funding_date": "1-Apr-21",
+      "tranche": 1,
+      "current": 138428.71,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 199322.66,
+      "closing_tranche_contract_balance": 138428.71,
+      "net_book_value": 138428.71
+     },
+     {
+      "funding_date": "30-Jun-21",
+      "tranche": 2,
+      "current": 1464212.47,
+      "days_31_60": 1200.06,
+      "days_61_90": 759.29,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 902123.29,
+      "closing_tranche_contract_balance": 1466171.81,
+      "net_book_value": 1466171.81
+     },
+     {
+      "funding_date": "29-Sep-21",
+      "tranche": 3,
+      "current": 1572040.15,
+      "days_31_60": 0.0,
+      "days_61_90": 14310.74,
+      "deemed_defaults": 1825.63,
+      "cumulative_net_losses": 775891.43,
+      "closing_tranche_contract_balance": 1586350.88,
+      "net_book_value": 1588176.51
+     },
+     {
+      "funding_date": "17-Dec-21",
+      "tranche": 4,
+      "current": 3375785.75,
+      "days_31_60": 32429.3,
+      "days_61_90": 13573.12,
+      "deemed_defaults": 61019.37,
+      "cumulative_net_losses": 2004029.05,
+      "closing_tranche_contract_balance": 3421788.17,
+      "net_book_value": 3482807.55
+     },
+     {
+      "funding_date": "23-Mar-22",
+      "tranche": 5,
+      "current": 3007728.36,
+      "days_31_60": 19275.82,
+      "days_61_90": 4855.93,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1548039.25,
+      "closing_tranche_contract_balance": 3031860.11,
+      "net_book_value": 3031860.11
+     },
+     {
+      "funding_date": "23-Jun-22",
+      "tranche": 6,
+      "current": 2440730.84,
+      "days_31_60": 2893.75,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1067100.4,
+      "closing_tranche_contract_balance": 2443624.58,
+      "net_book_value": 2443624.58
+     },
+     {
+      "funding_date": "23-Mar-23",
+      "tranche": 7,
+      "current": 19006852.35,
+      "days_31_60": 373447.04,
+      "days_61_90": 124576.82,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 3271761.89,
+      "closing_tranche_contract_balance": 19504876.22,
+      "net_book_value": 19504876.22
+     },
+     {
+      "funding_date": "23-Jun-23",
+      "tranche": 8,
+      "current": 14518577.26,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 32496.64,
+      "cumulative_net_losses": 2374918.81,
+      "closing_tranche_contract_balance": 14518577.26,
+      "net_book_value": 14551073.9
+     },
+     {
+      "funding_date": "23-Feb-24",
+      "tranche": 9,
+      "current": 10570303.92,
+      "days_31_60": 0.0,
+      "days_61_90": 105817.42,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 492916.6,
+      "closing_tranche_contract_balance": 10676121.33,
+      "net_book_value": 10676121.33
+     },
+     {
+      "funding_date": "24-Mar-24",
+      "tranche": 10,
+      "current": 18114582.95,
+      "days_31_60": 33355.74,
+      "days_61_90": 0.0,
+      "deemed_defaults": 60509.35,
+      "cumulative_net_losses": 1054296.24,
+      "closing_tranche_contract_balance": 18147938.69,
+      "net_book_value": 18208448.04
+     },
+     {
+      "funding_date": "25-Jun-24",
+      "tranche": 11,
+      "current": 28813997.88,
+      "days_31_60": 66897.65,
+      "days_61_90": 46633.7,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 736582.5,
+      "closing_tranche_contract_balance": 28927529.23,
+      "net_book_value": 28927529.23
+     },
+     {
+      "funding_date": "23-Sep-24",
+      "tranche": 12,
+      "current": 28548588.25,
+      "days_31_60": 9384.42,
+      "days_61_90": 39288.95,
+      "deemed_defaults": -92584.55,
+      "cumulative_net_losses": 641265.85,
+      "closing_tranche_contract_balance": 28597261.61,
+      "net_book_value": 28504677.07
+     },
+     {
+      "funding_date": "23-Jan-25",
+      "tranche": 13,
+      "current": 35508036.32,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 167268.39,
+      "cumulative_net_losses": 1066016.46,
+      "closing_tranche_contract_balance": 35508036.32,
+      "net_book_value": 35675304.71
+     },
+     {
+      "funding_date": "23-Jun-26",
+      "tranche": 14,
+      "current": 59268781.23,
+      "days_31_60": 15609.75,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 0.0,
+      "closing_tranche_contract_balance": 59284390.98,
+      "net_book_value": 59284390.98
+     }
+    ],
+    "current_0_30": 226348646.44,
+    "days_31_60": 554493.53,
+    "days_61_90": 349815.95,
+    "written_off_bucket_label": "Deemed Defaults",
+    "written_off": 230534.83,
+    "cumulative_net_losses": 16134264.43,
+    "closing_balance": 227252955.92,
+    "bucket_sum": 227252955.92,
+    "bucket_sum_with_writeoff": 227483490.75,
+    "reconciles": true
+   },
+   {
+    "period": "2026-05",
+    "collection_period": "May 2026",
+    "tranche_rows": [
+     {
+      "funding_date": "1-Apr-21",
+      "tranche": 1,
+      "current": 172396.15,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 199322.66,
+      "closing_tranche_contract_balance": 172396.15,
+      "net_book_value": 172396.15
+     },
+     {
+      "funding_date": "30-Jun-21",
+      "tranche": 2,
+      "current": 1700370.02,
+      "days_31_60": 759.29,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 902123.29,
+      "closing_tranche_contract_balance": 1701129.31,
+      "net_book_value": 1701129.31
+     },
+     {
+      "funding_date": "29-Sep-21",
+      "tranche": 3,
+      "current": 1921844.83,
+      "days_31_60": 18447.27,
+      "days_61_90": 2965.04,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 775891.43,
+      "closing_tranche_contract_balance": 1943257.14,
+      "net_book_value": 1943257.14
+     },
+     {
+      "funding_date": "17-Dec-21",
+      "tranche": 4,
+      "current": 4029293.01,
+      "days_31_60": 13573.12,
+      "days_61_90": 61019.37,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1995690.88,
+      "closing_tranche_contract_balance": 4103885.5,
+      "net_book_value": 4103885.5
+     },
+     {
+      "funding_date": "23-Mar-22",
+      "tranche": 5,
+      "current": 3362608.36,
+      "days_31_60": 6178.86,
+      "days_61_90": 0.0,
+      "deemed_defaults": 8613.61,
+      "cumulative_net_losses": 1543239.3,
+      "closing_tranche_contract_balance": 3368787.22,
+      "net_book_value": 3377400.82
+     },
+     {
+      "funding_date": "23-Jun-22",
+      "tranche": 6,
+      "current": 2621588.83,
+      "days_31_60": 17889.94,
+      "days_61_90": 2757.36,
+      "deemed_defaults": 19230.32,
+      "cumulative_net_losses": 1052022.47,
+      "closing_tranche_contract_balance": 2642236.12,
+      "net_book_value": 2661466.44
+     },
+     {
+      "funding_date": "23-Mar-23",
+      "tranche": 7,
+      "current": 20159066.13,
+      "days_31_60": 160930.47,
+      "days_61_90": 100490.23,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 3271107.63,
+      "closing_tranche_contract_balance": 20420486.83,
+      "net_book_value": 20420486.83
+     },
+     {
+      "funding_date": "23-Jun-23",
+      "tranche": 8,
+      "current": 14990068.99,
+      "days_31_60": 0.0,
+      "days_61_90": 32496.64,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 2374918.81,
+      "closing_tranche_contract_balance": 15022565.63,
+      "net_book_value": 15022565.63
+     },
+     {
+      "funding_date": "23-Feb-24",
+      "tranche": 9,
+      "current": 11029773.66,
+      "days_31_60": 80170.05,
+      "days_61_90": 30424.77,
+      "deemed_defaults": 93364.43,
+      "cumulative_net_losses": 403671.48,
+      "closing_tranche_contract_balance": 11140368.48,
+      "net_book_value": 11233732.9
+     },
+     {
+      "funding_date": "24-Mar-24",
+      "tranche": 10,
+      "current": 18925499.08,
+      "days_31_60": 0.0,
+      "days_61_90": 41317.75,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1057034.32,
+      "closing_tranche_contract_balance": 18966816.84,
+      "net_book_value": 18966816.84
+     },
+     {
+      "funding_date": "25-Jun-24",
+      "tranche": 11,
+      "current": 30645471.44,
+      "days_31_60": 80152.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 44388.87,
+      "cumulative_net_losses": 784837.46,
+      "closing_tranche_contract_balance": 30725623.44,
+      "net_book_value": 30770012.31
+     },
+     {
+      "funding_date": "23-Sep-24",
+      "tranche": 12,
+      "current": 29265358.01,
+      "days_31_60": 73399.02,
+      "days_61_90": 0.0,
+      "deemed_defaults": 162568.36,
+      "cumulative_net_losses": 641265.85,
+      "closing_tranche_contract_balance": 29338757.04,
+      "net_book_value": 29501325.4
+     },
+     {
+      "funding_date": "23-Jan-25",
+      "tranche": 13,
+      "current": 36532366.14,
+      "days_31_60": 214901.51,
+      "days_61_90": 16745.95,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1066016.46,
+      "closing_tranche_contract_balance": 36764013.6,
+      "net_book_value": 36764013.6
+     }
+    ],
+    "current_0_30": 175355704.65,
+    "days_31_60": 666401.53,
+    "days_61_90": 288217.11,
+    "written_off_bucket_label": "Deemed Defaults",
+    "written_off": 328165.58,
+    "cumulative_net_losses": 16067142.05,
+    "closing_balance": 176310323.29,
+    "bucket_sum": 176310323.29,
+    "bucket_sum_with_writeoff": 176638488.87,
+    "reconciles": true
+   },
+   {
+    "period": "2026-04",
+    "collection_period": "April 2026",
+    "tranche_rows": [
+     {
+      "funding_date": "1-Apr-21",
+      "tranche": 1,
+      "current": 208015.27,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 199322.66,
+      "closing_tranche_contract_balance": 208015.27,
+      "net_book_value": 208015.27
+     },
+     {
+      "funding_date": "30-Jun-21",
+      "tranche": 2,
+      "current": 2278190.66,
+      "days_31_60": 0.0,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 901459.73,
+      "closing_tranche_contract_balance": 2278190.66,
+      "net_book_value": 2278190.66
+     },
+     {
+      "funding_date": "29-Sep-21",
+      "tranche": 3,
+      "current": 2172935.87,
+      "days_31_60": 27793.08,
+      "days_61_90": 0.0,
+      "deemed_defaults": 74063.96,
+      "cumulative_net_losses": 775891.43,
+      "closing_tranche_contract_balance": 2200728.95,
+      "net_book_value": 2274792.91
+     },
+     {
+      "funding_date": "17-Dec-21",
+      "tranche": 4,
+      "current": 4514352.75,
+      "days_31_60": 61019.37,
+      "days_61_90": 4040.32,
+      "deemed_defaults": 16074.67,
+      "cumulative_net_losses": 1971417.64,
+      "closing_tranche_contract_balance": 4579412.44,
+      "net_book_value": 4595487.11
+     },
+     {
+      "funding_date": "23-Mar-22",
+      "tranche": 5,
+      "current": 3726200.14,
+      "days_31_60": 40079.67,
+      "days_61_90": 8613.61,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1543239.3,
+      "closing_tranche_contract_balance": 3774893.41,
+      "net_book_value": 3774893.41
+     },
+     {
+      "funding_date": "23-Jun-22",
+      "tranche": 6,
+      "current": 2817327.68,
+      "days_31_60": 15280.23,
+      "days_61_90": 25118.3,
+      "deemed_defaults": 27936.42,
+      "cumulative_net_losses": 1052022.47,
+      "closing_tranche_contract_balance": 2857726.21,
+      "net_book_value": 2885662.62
+     },
+     {
+      "funding_date": "23-Mar-23",
+      "tranche": 7,
+      "current": 21275333.63,
+      "days_31_60": 146009.22,
+      "days_61_90": 0.0,
+      "deemed_defaults": 26960.07,
+      "cumulative_net_losses": 3241723.04,
+      "closing_tranche_contract_balance": 21421342.85,
+      "net_book_value": 21448302.92
+     },
+     {
+      "funding_date": "23-Jun-23",
+      "tranche": 8,
+      "current": 15498843.63,
+      "days_31_60": 32496.64,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 2374919.68,
+      "closing_tranche_contract_balance": 15531340.27,
+      "net_book_value": 15531340.27
+     },
+     {
+      "funding_date": "23-Feb-24",
+      "tranche": 9,
+      "current": 11614150.35,
+      "days_31_60": 0.0,
+      "days_61_90": 243810.38,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 403870.48,
+      "closing_tranche_contract_balance": 11857960.73,
+      "net_book_value": 11857960.73
+     },
+     {
+      "funding_date": "24-Mar-24",
+      "tranche": 10,
+      "current": 19498087.78,
+      "days_31_60": 41317.75,
+      "days_61_90": 0.0,
+      "deemed_defaults": 27842.94,
+      "cumulative_net_losses": 1027121.9,
+      "closing_tranche_contract_balance": 19539405.54,
+      "net_book_value": 19567248.48
+     },
+     {
+      "funding_date": "25-Jun-24",
+      "tranche": 11,
+      "current": 32233594.34,
+      "days_31_60": 41854.86,
+      "days_61_90": 0.0,
+      "deemed_defaults": 15944.49,
+      "cumulative_net_losses": 784837.46,
+      "closing_tranche_contract_balance": 32275449.2,
+      "net_book_value": 32291393.69
+     },
+     {
+      "funding_date": "23-Sep-24",
+      "tranche": 12,
+      "current": 30653556.67,
+      "days_31_60": 87677.88,
+      "days_61_90": 162568.36,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 621153.28,
+      "closing_tranche_contract_balance": 30903802.91,
+      "net_book_value": 30903802.91
+     },
+     {
+      "funding_date": "23-Jan-25",
+      "tranche": 13,
+      "current": 37787375.65,
+      "days_31_60": 16745.95,
+      "days_61_90": 0.0,
+      "deemed_defaults": 0.0,
+      "cumulative_net_losses": 1066016.46,
+      "closing_tranche_contract_balance": 37804121.6,
+      "net_book_value": 37804121.6
+     }
+    ],
+    "current_0_30": 184277964.42,
+    "days_31_60": 510274.65,
+    "days_61_90": 444150.97,
+    "written_off_bucket_label": "Deemed Defaults",
+    "written_off": 188822.56,
+    "cumulative_net_losses": 15962995.53,
+    "closing_balance": 185232390.03,
+    "bucket_sum": 185232390.04,
+    "bucket_sum_with_writeoff": 185421212.6,
+    "reconciles": true
+   }
+  ],
+  "ratio_test_detail": {
+   "portfolio_delinquency_ratio": {
+    "history": [
+     {
+      "period": "Current Month",
+      "base_amount": 227483490.75,
+      "numerator_amount": 1207323.79,
+      "ratio_pct": 0.0053
+     },
+     {
+      "period": "1 Month Prior to Current Month",
+      "base_amount": 176638488.87,
+      "numerator_amount": 904309.48,
+      "ratio_pct": 0.0051
+     },
+     {
+      "period": "2 Months Prior to Current Month",
+      "base_amount": 185421212.59,
+      "numerator_amount": 954618.64,
+      "ratio_pct": 0.0051
+     }
+    ],
+    "test_result_history": [
+     0.0052,
+     0.005,
+     0.005,
+     0.0047,
+     0.0049,
+     0.0054
+    ],
+    "current_test_result": 0.0052,
+    "lockup_trigger": 0.02,
+    "event_of_default_trigger": 0.03,
+    "lockup_event_triggered": "No",
+    "event_of_default_triggered": "No"
+   },
+   "portfolio_deemed_default_ratio": {
+    "history": [
+     {
+      "period": "Current Month",
+      "base_amount": 227483490.75,
+      "numerator_amount": 772577.29,
+      "ratio_pct": 0.0034
+     },
+     {
+      "period": "1 Month Prior to Current Month",
+      "base_amount": 176638488.87,
+      "numerator_amount": 230534.83,
+      "ratio_pct": 0.0013
+     },
+     {
+      "period": "2 Months Prior to Current Month",
+      "base_amount": 185421212.59,
+      "numerator_amount": 328165.58,
+      "ratio_pct": 0.0018
+     },
+     {
+      "period": "3 Month Prior to Current Month",
+      "base_amount": 207441379.41,
+      "numerator_amount": 188822.56,
+      "ratio_pct": 0.0009
+     },
+     {
+      "period": "4 Months Prior to Current Month",
+      "base_amount": 216765020.51,
+      "numerator_amount": 182418.91,
+      "ratio_pct": 0.0008
+     },
+     {
+      "period": "5 Month Prior to Current Month",
+      "base_amount": 226878701.58,
+      "numerator_amount": 280549.78,
+      "ratio_pct": 0.0012
+     }
+    ],
+    "test_result_history": [
+     0.0016,
+     0.0014,
+     0.0014,
+     0.0016,
+     0.0017,
+     0.0019
+    ],
+    "current_test_result": 0.0016,
+    "lockup_trigger": 0.0225,
+    "event_of_default_trigger": 0.035,
+    "lockup_event_triggered": "No",
+    "event_of_default_triggered": "No"
+   },
+   "portfolio_charge_off_ratio": {
+    "history": [
+     {
+      "period": "Current Month",
+      "base_amount": 227483490.75,
+      "numerator_amount": 321759.24,
+      "ratio_pct": 0.017
+     },
+     {
+      "period": "1 Month Prior to Current Month",
+      "base_amount": 176638488.87,
+      "numerator_amount": 67122.39,
+      "ratio_pct": 0.0046
+     },
+     {
+      "period": "2 Months Prior to Current Month",
+      "base_amount": 185421212.59,
+      "numerator_amount": 104146.51,
+      "ratio_pct": 0.0067
+     }
+    ],
+    "test_result_history": [
+     0.0094,
+     0.0109,
+     0.0099,
+     0.01,
+     0.0087,
+     0.0175
+    ],
+    "current_test_result": 0.0094,
+    "lockup_trigger": 0.0225,
+    "event_of_default_trigger": 0.035,
+    "lockup_event_triggered": "No",
+    "event_of_default_triggered": "No"
+   }
+  },
+  "restatements": [],
+  "balance_discontinuities": [
+   {
+    "field": "Tranche Balance",
+    "period": "2026-06",
+    "prior_period": "2026-05",
+    "prior_closing": 176638488.87,
+    "current_opening": 237719438.6,
+    "gap": 61080949.72999999,
+    "new_tranche_count": 1,
+    "new_tranche_ids": [
+     14
+    ],
+    "explained_by_new_tranches": 61080949.73,
+    "residual": -7.450580596923828e-09,
+    "fully_explained": true
+   },
+   {
+    "field": "Tranche Amount",
+    "period": "2026-06",
+    "prior_period": "2026-05",
+    "prior_closing": 165171257.89,
+    "current_opening": 222243909.92,
+    "gap": 57072652.03,
+    "new_tranche_count": 1,
+    "new_tranche_ids": [
+     14
+    ],
+    "explained_by_new_tranches": null,
+    "residual": 57072652.03,
+    "fully_explained": false
+   }
+  ],
+  "covenant_summary": {
+   "BREACH": 0,
+   "WATCH": 0,
+   "OK": 9,
+   "AVAILABLE": 0
+  },
+  "watch_buffer_pct": 0.1,
+  "worst_status": "OK",
+  "covenants": [
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Delinquency Ratio (3 Month Rolling Average) exceeded the Lock-Up Trigger of 2.00%?",
+    "current_value": 0.0052,
+    "threshold": 0.02,
+    "kind": "ceiling",
+    "utilization_pct": 0.26,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Delinquency Ratio (3 Month Rolling Average) exceeded the Event of Default Trigger of 3.00%?",
+    "current_value": 0.0052,
+    "threshold": 0.03,
+    "kind": "ceiling",
+    "utilization_pct": 0.1733,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Deemed Default Ratio (6 Month Rolling Average) exceeded the Lock-Up Trigger of 2.25%?",
+    "current_value": 0.0016,
+    "threshold": 0.0225,
+    "kind": "ceiling",
+    "utilization_pct": 0.0711,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Deemed Default Ratio (6 Month Rolling Average) exceeded the Event of Default Trigger of 3.50%?",
+    "current_value": 0.0016,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.0457,
+    "trend": "rising",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Charge-Off Ratio (3 Month Rolling Average) exceeded the Lock-Up Trigger of 2.25%?",
+    "current_value": 0.0094,
+    "threshold": 0.0225,
+    "kind": "ceiling",
+    "utilization_pct": 0.4178,
+    "trend": "falling",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Charge-Off Ratio (3 Month Rolling Average) exceeded the Event of Default Trigger of 3.50%?",
+    "current_value": 0.0094,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.2686,
+    "trend": "falling",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the CNL Ratio exceeded the Event of Default Trigger for its origination period?",
+    "current_value": 0.0357,
+    "threshold": 0.045,
+    "kind": "ceiling",
+    "utilization_pct": 0.7933,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null,
+    "worst_vintage": "Apr 2022 - Mar 2023"
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS",
+    "description": "Has a Servicer Termination Event occurred under the Risk Weighted Capital Adequacy Ratio?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS",
+    "description": "Has a Servicer Termination Event occurred under the Liquidity Coverage Ratio?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   }
+  ],
+  "financial_ratios": [
+   {
+    "key": "delinquency_ratio",
+    "label": "Portfolio Delinquency Ratio (3 Month Rolling Average)",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0052
+   },
+   {
+    "key": "deemed_default_ratio",
+    "label": "Portfolio Deemed Default Ratio (6 Month Rolling Average)",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0016
+   },
+   {
+    "key": "charge_off_ratio",
+    "label": "Portfolio Charge-Off Ratio (3 Month Rolling Average)",
+    "format": "pct",
+    "group": "Portfolio Performance",
+    "value": 0.0094
+   },
+   {
+    "key": "cnl_ratio",
+    "label": "CNL Ratio (worst vintage)",
+    "format": "pct",
+    "group": "Cumulative Net Losses",
+    "value": 0.0357,
+    "vintage": "Apr 2022 - Mar 2023"
+   }
+  ],
+  "prior_period": "2026-06",
+  "prior_covenants": [
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Delinquency Ratio (3 Month Rolling Average) exceeded the Lock-Up Trigger of 2.00%?",
+    "current_value": 0.005,
+    "threshold": 0.02,
+    "kind": "ceiling",
+    "utilization_pct": 0.25,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Delinquency Ratio (3 Month Rolling Average) exceeded the Event of Default Trigger of 3.00%?",
+    "current_value": 0.005,
+    "threshold": 0.03,
+    "kind": "ceiling",
+    "utilization_pct": 0.1667,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Deemed Default Ratio (6 Month Rolling Average) exceeded the Lock-Up Trigger of 2.25%?",
+    "current_value": 0.0014000000000000002,
+    "threshold": 0.0225,
+    "kind": "ceiling",
+    "utilization_pct": 0.0622,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Deemed Default Ratio (6 Month Rolling Average) exceeded the Event of Default Trigger of 3.50%?",
+    "current_value": 0.0014000000000000002,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.04,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS Lock-Up",
+    "description": "Has the Portfolio Charge-Off Ratio (3 Month Rolling Average) exceeded the Lock-Up Trigger of 2.25%?",
+    "current_value": 0.0109,
+    "threshold": 0.0225,
+    "kind": "ceiling",
+    "utilization_pct": 0.4844,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the Portfolio Charge-Off Ratio (3 Month Rolling Average) exceeded the Event of Default Trigger of 3.50%?",
+    "current_value": 0.0109,
+    "threshold": 0.035,
+    "kind": "ceiling",
+    "utilization_pct": 0.3114,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS EOD",
+    "description": "Has the CNL Ratio exceeded the Event of Default Trigger for its origination period?",
+    "current_value": 0.0351,
+    "threshold": 0.045,
+    "kind": "ceiling",
+    "utilization_pct": 0.78,
+    "trend": "n/a",
+    "status": "OK",
+    "note": null,
+    "worst_vintage": "Apr 2022 - Mar 2023"
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS",
+    "description": "Has a Servicer Termination Event occurred under the Risk Weighted Capital Adequacy Ratio?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   },
+   {
+    "category": "Event of Termination",
+    "legal_ref": "SS",
+    "description": "Has a Servicer Termination Event occurred under the Liquidity Coverage Ratio?",
+    "current_value": null,
+    "threshold": null,
+    "kind": "binary",
+    "utilization_pct": null,
+    "trend": "n/a",
+    "status": "OK",
+    "note": "Reported directly by the servicer/originator; no underlying data series available."
+   }
+  ],
+  "prior_closing_tranche_balance": 227483490.75,
+  "prior_closing_contracts": 0
+ }
+}

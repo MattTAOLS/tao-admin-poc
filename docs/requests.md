@@ -267,6 +267,24 @@ The Lead reads this at every merge.
   the same, and the worker adapter now does this); with a set the message says "published earlier". R12 keeps
   severity block and carries no targets: approve should accept it as acknowledge + reason, like any block override.
 
+- HANDLED (f0741bc) — 2026-11-04 — Extraction's wave 2 requests R03, R04 and R05 (see Extraction section), per lead/move-trust
+  b9a8343. R04 reads the lag from `reporting_lag_months` by `meta.template_id` (fallback: the master deal's
+  template_id; unknown: 1). R05 adds `+ adjustment_increase + balance_adjustment`. R03 gives loss and CNL ratios
+  −5..1. Measured on all 36 fresh MOVE extractions: no R03, R04 or R05 finding (before: R04 ×36, R05 ×7, R03 ×2).
+  The two `KNOWN_ROLLFORWARD_GAPS` stay in `rules/tests/test_engine.py` as reference-data gaps: the references carry
+  charge_off null and no adjustment_increase. Fixtures `r05-adjustment-increase` (TLFC LP +2,782.68) and
+  `r05-charge-off-move` (Finloc 4,163.85) close them with the extracted July values.
+- 2026-11-04 — to Lead (reference data): when the MOVE references are regenerated from the extraction (Extraction's
+  wave 2 request), drop Finloc and TLFC LP from `KNOWN_ROLLFORWARD_GAPS` in `rules/tests/test_engine.py` and
+  `rules/tests/test_rules.py`. The Rules agent can do it on request. Test failures will show the moment the
+  references carry the terms.
+- 2026-11-04 — to Lead / Extraction (FYI, R11 on chained MOVE months): month N's extraction run as the prior of month N+1
+  gives 7 R11 blocks. Finloc May, June and July opening ≠ prior closing (residual −16,765.69, +32,571.92,
+  −115,492.18, after new tranches). This is the multicurrency CAD-equivalent re-translation, which R11 cannot
+  explain from the fields it has; it needs an FX-revaluation term or field. Essex May restates April ICR 1.15→1.12
+  and leverage 6.35→6.22. TLFC LP June restates rvl_ratio_pct for April and May 0.0→0.00112487. That may be a
+  May-report read. Please check before treating it as a restatement.
+
 ## UI-Admin
 - RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
   error codes `already_published` (409), `upload_in_progress` (409), `not_a_pdf` / `unknown_deal` (422), `tao_only` /

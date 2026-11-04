@@ -1,0 +1,40 @@
+{
+  "id": "04072bb2-9cde-5716-97ea-fac4f0bcf040",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R05",
+  "layer": "arithmetic",
+  "severity": "block",
+  "message": "Opening 145292754.81 − principal 2230643.87 − prepayments 6081954.47 − defaults 50396.13 − NPV adjustment 2782.68 = 136926977.66, report says closing 136932543.02 (difference 5565.36)",
+  "fields": [
+    "/tranche_balance/opening",
+    "/tranche_balance/closing",
+    "/period_history",
+    "/tranche_balance/top_movers"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 136926977.66,
+  "report_value": 136932543.02,
+  "difference": 5565.36,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 2,
+  "context": {
+    "opening": 145292754.81,
+    "new_funded": 0.0,
+    "principal": 2230643.87,
+    "prepayments": 6081954.47,
+    "losses": 50396.13,
+    "charge_off": 2782.68,
+    "ineligible_buyback": 0.0,
+    "adjustment_increase": 0.0,
+    "balance_adjustment": 0.0,
+    "computed": 136926977.66,
+    "closing": 136932543.02
+  },
+  "resolution": null,
+  "targets": [
+    "/period_history/3/closing_balance",
+    "/tranche_balance/closing"
+  ]
+}

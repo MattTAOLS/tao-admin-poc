@@ -78,7 +78,7 @@ def test_expected_findings_validate_against_schema():
     for p in sorted(glob.glob(str(FIX / "findings/*.json"))): jsonschema.validate(load(p), FINDING_SCHEMA)
 
 # ---------- reference deals with master data ----------
-KNOWN_ROLLFORWARD_GAPS = {"move-trust-finloc-2000-inc", "move-trust-tlfc-lp-leases"}   # see test_engine.py
+KNOWN_ROLLFORWARD_GAPS = {"move-trust-finloc-2000-inc", "move-trust-tlfc-lp-leases"}   # reference-data gaps, see test_engine.py
 
 def reference_runs(phases=(1, 2)):
     for f in sorted(glob.glob(str(ROOT / "docs/dashboard-json/[fm]*.dashboard.json"))):
@@ -175,6 +175,81 @@ def test_r05_subtracts_the_npv_adjustment():
     fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R05"})
     assert len(fs) == 1 and abs(fs[0]["difference"] - (-598714.81)) < 0.01
 
+MOVE_META = {**mf.META, "template_id": "move-trust-settrep-v1"}
+TPINE = "move-trust-tpine-leasing-capital-corporation.dashboard.json"
+
+def test_r05_move_terms_close_the_documented_reference_gaps():
+    """The two reference gaps are the MOVE Trust adjustment column the references do not carry. With July's values as
+    extracted (TLFC LP adjustment_increase +2,782.68, Finloc charge_off 4,163.85) R05 closes to the cent; Meridian
+    closes with balance_adjustment 0.00 as every sample prints it."""
+    for name, field, value, gap in ((mf.TLFC_LP, "adjustment_increase", 2782.68, 2782.68), (mf.FINLOC, "charge_off", 4163.85, -4163.85)):
+        d = mf.load_deal(name)
+        fs = run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"})
+        assert len(fs) == 1 and abs(fs[0]["difference"] - gap) < 0.01, name
+        cur = next(p for p in d["period_history"] if p["collection_period"] == d["collection_period"]); cur[field] = value
+        assert run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"}) == [], name
+    d = mf.load_deal(mf.MERIDIAN); d["period_history"][3]["balance_adjustment"] = 0.0
+    assert run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"}) == []
+
+def test_r05_null_move_terms_count_as_zero():
+    d = mf.load_deal(mf.MONEDA); d["period_history"][3].update(adjustment_increase=None, balance_adjustment=None)
+    assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R05"}) == []
+
+def test_r05_message_names_the_move_terms():
+    fx = json.loads((FIX / "r05-charge-off-move-fail.json").read_text(encoding="utf-8"))
+    f = mf.evaluate(fx)[0]
+    assert "+ upward adjustment 4163.85" in f["message"] and f["context"]["adjustment_increase"] == 4163.85
+
+def _tpine_with_rolling_3m(value):
+    d = mf.load_deal(TPINE)
+    r = d["financial_ratios"][1]; assert r["key"] == "rolling_3month_loss_ratio"
+    r["value"] = value
+    return run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R03"})
+
+@pytest.mark.parametrize("printed", [-1.1321, -1.3068, -5.0, 1.0])
+def test_r03_loss_ratios_may_go_below_minus_100_percent(printed):
+    """TPine April / May print Rolling 3M Loss Ratio -113.21% / -130.68% (recoveries on a small base)."""
+    assert _tpine_with_rolling_3m(printed) == []
+
+@pytest.mark.parametrize("misread", [113.21, -113.21, 1.1321, -5.01])
+def test_r03_loss_ratio_misreads_still_block(misread):
+    fs = _tpine_with_rolling_3m(misread)
+    assert len(fs) == 1 and fs[0]["severity"] == "block" and fs[0]["context"]["range"] == "-5.0 to 1.0" and fs[0]["report_value"] == misread
+
+def test_r03_loss_range_covers_loss_and_cnl_keys_only():
+    for key in ("loss_ratio", "rolling_3month_loss_ratio", "rolling_12month_loss_ratio", "cnl_ratio", "annualized_loss_ratio", "cumulative_net_loss_ratio"):
+        assert checks.ratio_range({"key": key, "format": "pct"}) == checks.LOSS_RANGE, key
+    for key in ("delinquency_ratio", "rvl_ratio", "charge_off_ratio", "deemed_default_ratio"):
+        assert checks.ratio_range({"key": key, "format": "pct"}) == (-1.0, 1.0), key
+    d = mf.load_deal(TPINE); d["financial_ratios"][0]["value"] = -1.1321   # delinquency keeps -1..1
+    fs = run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R03"})
+    assert len(fs) == 1 and fs[0]["context"]["range"] == "-1.0 to 1.0"
+
+def test_r04_reporting_lag_comes_from_the_contract_per_template():
+    lags = load_rules()["reporting_lag_months"]
+    assert lags["fpil-2.0-settrep-v1"] == 1 and lags["move-trust-settrep-v1"] == 0
+    d = mf.load_deal(TPINE)   # "Settlement Date August 20, 2026 for Collection Period July 2026"
+    ok = run({"meta": {**MOVE_META, "reporting_period": "2026-07"}, "deal": d, "sources": {}}, Context(), only={"R04"})
+    assert ok == []
+    fs = run({"meta": {**MOVE_META, "reporting_period": "2026-06"}, "deal": d, "sources": {}}, Context(), only={"R04"})
+    assert len(fs) == 1 and "should be 0 months after the reporting period 2026-06 for template move-trust-settrep-v1 (expected 2026-06)" in fs[0]["message"]
+    fs = run({"meta": {**mf.META, "reporting_period": "2026-07"}, "deal": d, "sources": {}}, Context(), only={"R04"})   # F-PIL lag on a MOVE month
+    assert len(fs) == 1 and "should be 1 month after" in fs[0]["message"] and fs[0]["our_value"] == "2026-08"
+
+def test_r04_unknown_template_assumes_one_month_and_master_template_is_the_fallback():
+    d = mf.load_deal(mf.MONEDA)   # collection 2026-08
+    meta = {**mf.META, "template_id": "unknown-v9", "reporting_period": "2026-07"}
+    assert run({"meta": meta, "deal": d, "sources": {}}, Context(), only={"R04"}) == []
+    d = mf.load_deal(TPINE); meta = {k: v for k, v in MOVE_META.items() if k != "template_id"}; meta["reporting_period"] = "2026-07"
+    master = {"deal": {"slug": d["deal_slug"], "template_id": "move-trust-settrep-v1"}}
+    assert run({"meta": meta, "deal": d, "sources": {}}, Context(master=master), only={"R04"}) == []
+    assert len(run({"meta": meta, "deal": d, "sources": {}}, Context(), only={"R04"})) == 1
+
+def test_r04_direct_call_without_settings_reads_the_contract():
+    rule = next(r for r in RULES if r["id"] == "R04")
+    d = mf.load_deal(TPINE)
+    assert checks.periods_line_up(rule, {"meta": {**MOVE_META, "reporting_period": "2026-07"}, "deal": d}, Context(), load_rules()["tolerances"]) == []
+
 def test_r09_resolves_from_the_contract():
     d = mf.load_deal(mf.MONEDA); d["program"]["program_utilization_pct"] = 0.33
     fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R09"})
@@ -229,7 +304,7 @@ def test_every_fixture_target_resolves_to_report_value():
         for case in ("pass", "fail"):
             fx = load(FIX / f"{name}-{case}.json"); fs = mf.evaluate(fx)
             assert_targets_resolve(fx["deal"], fs, f"{name}-{case}"); n += sum("targets" in f for f in fs)
-    assert n == 9   # R05 x3 (base, new-funded, buyback), R06, R07, R08, R09, R10, R17
+    assert n == 12   # R05 x6 (base, new-funded, buyback, MOVE adjustment increase, charge-off, balance adjustment), R06, R07, R08, R09, R10, R17
 
 def test_targets_resolve_in_single_and_chained_objects():
     """Seed the same errors in each reference deal as uploaded (one month) and as chained (four months): the current

@@ -2,6 +2,15 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Rules, wave 2 (MOVE Trust): merged lead/move-trust. `engine.run` hands top-level rules.yaml settings
+  (`reporting_lag_months`) to every rule as `rule["settings"]`. R04 expects collection_period = reporting_period + the
+  template's lag (F-PIL 1, MOVE Trust 0, unknown 1) and names it in the message. R05 adds + adjustment_increase +
+  balance_adjustment. R03 gives loss and CNL ratios −5..1 (TPine −113.21% / −130.68% pass, 113.21 still blocks). New
+  fixtures cover r05-adjustment-increase, r05-charge-off-move and r05-balance-adjustment. Reference gaps for Finloc and
+  TLFC LP stay documented as reference-data gaps. Over the 36 MOVE extractions from agent/extraction, phases 1+2,
+  with the previous month as prior: R03/R04/R05 0 (was 2/36/7). What remains is R11 ×7 (Finloc FX re-translation,
+  Essex and TLFC LP restatements; see requests.md › Rules) and R19 notes ×8. Tests: rules 104, worker/validate 19,
+  check_contracts green.
 - 2026-11-04 — Extraction: wave 2, MOVE Trust. `move-trust-settrep-v1` is a dispatch template choosing one of four
   layouts from page-1 keywords: servicer-report (Meridian), multicurrency (Finloc), guarantor (TLFC LP, Leases,
   Loans) and standard (Dynamic, Essex, TPine, VCC IV), each a template plus an engine under
