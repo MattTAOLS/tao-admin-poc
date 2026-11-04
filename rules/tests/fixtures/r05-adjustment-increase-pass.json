@@ -3,14 +3,7 @@
  "name": "r05-adjustment-increase",
  "case": "pass",
  "source": "docs/dashboard-json/move-trust-tlfc-lp-leases.dashboard.json",
- "changes": [
-  {
-   "target": "deal",
-   "path": "/period_history/3/adjustment_increase",
-   "value": 2782.68,
-   "why": "July upward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"
-  }
- ],
+ "changes": [],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
@@ -212,9 +205,10 @@
     "principal": 2479686.83,
     "principal_prepayments": 6150413.19,
     "losses": 0.0,
-    "interest": 970074.7,
+    "interest": 968695.49,
     "recoveries": 5245.15,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 3035.22,
     "by_currency": null,
     "activity_by_currency": null,
     "amount_by_currency": null,
@@ -231,9 +225,10 @@
     "principal": 2355057.6,
     "principal_prepayments": 4726213.22,
     "losses": 171332.45,
-    "interest": 926282.5,
+    "interest": 925480.05,
     "recoveries": 96358.79,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 2551.21,
     "by_currency": null,
     "activity_by_currency": null,
     "amount_by_currency": null,
@@ -250,9 +245,10 @@
     "principal": 2323375.27,
     "principal_prepayments": 5148953.5,
     "losses": 0.0,
-    "interest": 946299.8600000001,
+    "interest": 942243.56,
     "recoveries": 117457.86,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 2972.92,
     "by_currency": null,
     "activity_by_currency": null,
     "amount_by_currency": null,
@@ -271,13 +267,13 @@
     "losses": 50396.13,
     "interest": 894011.31,
     "recoveries": 4829.05,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 2782.68,
     "by_currency": null,
     "activity_by_currency": null,
     "amount_by_currency": null,
     "closing_contracts": 2880.0,
-    "opening_contracts": 3036.0,
-    "adjustment_increase": 2782.68
+    "opening_contracts": 3036.0
    }
   ],
   "tranche_balance": {
@@ -873,7 +869,8 @@
    "principal": 2230643.87,
    "principal_prepayments": 6081954.47,
    "losses": 50396.13,
-   "charge_off": null,
+   "charge_off": 0.0,
+   "adjustment_increase": 2782.68,
    "interest": 894011.31,
    "recoveries": 4829.05,
    "activity_by_currency": null
@@ -1549,7 +1546,7 @@
    {
     "category": "Event of Termination",
     "legal_ref": "MLA 7.1 (t)",
-    "description": "Has the Tranche Balance, for any Leasing, at any time been less than the Required Tranche Balance at such time?",
+    "description": "Has the Tranche Balance, for any Leasing, at any time following the OC Rebalancing Date (where applicable) been less than the Required Tranche Balance at such time?",
     "current_value": -0.07,
     "threshold": 0,
     "kind": "binary",
@@ -1573,7 +1570,7 @@
    {
     "category": "Clean-Up Provision",
     "legal_ref": "MLA 7.5",
-    "description": "Is any Tranche Amount less than 10% of the initial Tranche Amount as of the respective Leasing Date? (24 of 97 tranches eligible)",
+    "description": "Is any Tranche Amount less than 10% of the initial Tranche Amount as of the respective Leasing Date? (24 of 98 tranches eligible)",
     "current_value": 24,
     "threshold": null,
     "kind": "binary",

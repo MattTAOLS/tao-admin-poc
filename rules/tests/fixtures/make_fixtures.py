@@ -92,9 +92,10 @@ SPECS = {
 
 # name -> (rule, source deal, context builder, meta overrides, pass changes, fail changes)
 CUR = "/period_history/3"   # Moneda's current period (August 2026) row; also the current (July 2026) row of every MOVE Trust deal
-# MOVE Trust roll-forward terms the references do not carry (charge_off null, no adjustment_increase): the values are
-# the July 2026 extraction's (agent/extraction, worker/extract/tests/test_move_guarantor.py / test_move_multicurrency.py),
-# and they close the two documented reference gaps (test_engine.py KNOWN_ROLLFORWARD_GAPS) to the cent.
+# MOVE Trust roll-forward terms: the corrected references carry the page-2 adjustment column (TLFC LP July
+# adjustment_increase 2,782.68, Finloc July charge_off 4,163.85), so the pass cases are the references as they stand
+# and each fail case drops that one amount (the column not read), which is exactly the old reference gap.
+# A sign-lost read (two fields change) is tested in test_rules.py.
 EXTRA = {
     "r05-new-funded": ("R05", MONEDA, lambda d: {}, {},
         [{"target": "deal", "path": f"{CUR}/new_funded", "value": 1000.0, "why": "a 1,000.00 advance funded in the period"},
@@ -105,11 +106,11 @@ EXTRA = {
          {"target": "deal", "path": f"{CUR}/principal", "value": 645926.71, "why": "offset: principal 1,000.00 lower, closing unchanged"}],
         [{"target": "deal", "path": f"{CUR}/ineligible_buyback", "value": 1000.0, "why": "buyback printed but the closing balance does not reflect it"}]),
     "r05-adjustment-increase": ("R05", TLFC_LP, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
-        [{"target": "deal", "path": f"{CUR}/adjustment_increase", "value": 2782.68, "why": "July upward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"}],
-        [{"target": "deal", "path": f"{CUR}/charge_off", "value": 2782.68, "why": "the +2,782.68 portfolio adjustment read as a charge-off (sign lost)"}]),
+        [],
+        [{"target": "deal", "path": f"{CUR}/adjustment_increase", "value": None, "why": "page 2 adjustment column not read: the +2,782.68 upward adjustment missing (the old reference gap)"}]),
     "r05-charge-off-move": ("R05", FINLOC, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
-        [{"target": "deal", "path": f"{CUR}/charge_off", "value": 4163.85, "why": "July downward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"}],
-        [{"target": "deal", "path": f"{CUR}/adjustment_increase", "value": 4163.85, "why": "the -4,163.85 portfolio adjustment read as an increase (sign lost)"}]),
+        [],
+        [{"target": "deal", "path": f"{CUR}/charge_off", "value": None, "why": "page 2 adjustment column not read: the -4,163.85 charge-off missing (the old reference gap)"}]),
     "r05-balance-adjustment": ("R05", MERIDIAN, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
         [{"target": "deal", "path": f"{CUR}/balance_adjustment", "value": -1000.0, "why": "a signed -1,000.00 tranche contract balance adjustment"},
          {"target": "deal", "path": f"{CUR}/principal", "value": 7350226.06, "why": "offset: principal 1,000.00 lower, closing unchanged"}],

@@ -37,8 +37,8 @@
    "aging_summary": 12,
    "aggregate_performance": null,
    "cumulative_losses": 12,
-   "quantitative_tests": null,
-   "financial_ratios": 1
+   "quantitative_tests": 11,
+   "financial_ratios": 11
   },
   "source_file": "MOCLP_-_202607_-_Servicer_Report.pdf",
   "settlement_date": "August 24, 2026",

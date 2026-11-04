@@ -35,9 +35,6 @@ COMMON_QUIRKS = {
     r"^/ratio_history/Jun-25$":
         "Jun-25 is printed only by the April-June reports; the newest report (July) starts at Jul-25 and "
         "history.chain/extend keep the newest report's months. The reference keeps 14 months.",
-    r"^/(period_history/\d+|tranche_balance)/charge_off$":
-        "reference carries null; the extraction carries the downward part of the signed NBV Adjustment column as "
-        "charge_off (0.0 when the column prints '-'), the R05 term.",
     r"^/data_corrections$":
         "audit record of a correction applied to the published object on 2026-10-09 (old value, date applied); not "
         "on the report. The extraction reads interest the corrected way, so it needs no correction.",
@@ -49,17 +46,6 @@ DEALS = {
         "glob": "Dynamic Capital 1.0-SETTREP-2026*.pdf",
         "settlement_date": "August 20, 2026",
         "quirks": {
-            r"^/period_history/1/(losses|interest|recoveries)$":
-                "May: the reference read the Pool Balances row one column off from the Defaulted column on, taking "
-                "the zero-dash before Interest Collections as a sign: losses -1,363,634.47 (= Interest Collections), "
-                "interest 126,978.64 (= Prepayment Excess + Actual Recoveries), recoveries -216,554.61 (= Estimated "
-                "Recoveries). Placed by column edge: defaults 0, interest 1,363,634.47 + 74,706.96, actual "
-                "recoveries 52,271.68 (the p.16 May-26 row prints the same gross losses '-' and recoveries 52,271.68).",
-            r"^/period_history/2/(principal_prepayments|losses|interest|recoveries)$":
-                "June: same one-column shift (losses -1,465,986.69 = Interest Collections, interest 281,325.43 = "
-                "Prepayment Excess, recoveries -33,189.86 = Estimated Recoveries); the reference also adds the "
-                "Buyback column (d, 4,026,754.90) to principal_prepayments, which the extraction carries as "
-                "ineligible_buyback (R05 term).",
             r"^/balance_discontinuities/(#len|[23]/)":
                 "the reference omits the $0.02 Tranche Amount gap in June (May closing 193,125,980.97, June opening "
                 "193,125,980.99, both as printed); history.chain records every gap above $0.01, so the July entries "
@@ -70,7 +56,7 @@ DEALS = {
                 "-0.01) is left null.",
         },
         "extend_quirks": {},
-        "blocks": {m: {"R04"} for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
+        "blocks": {m: set() for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
     },
     "essex": {
         "slug": "move-trust-essex-lease-financial-corp",
@@ -80,14 +66,6 @@ DEALS = {
             r"^/source_pages/financial_ratios$":
                 "reference names the aggregate-performance page (12); the extraction names the page that prints the "
                 "borrower ratios (13), as the Dynamic Capital and VCC IV references do.",
-            r"^/covenants/7/(description|threshold)$":
-                "the July report prints 'exceeded 15%' for the Restructured Contract Ratio; the reference keeps "
-                "25% (the April-June wording).",
-            r"^/covenants/9/description$":
-                "reference drops 'following the OC Rebalancing Date (where applicable)' and 'of such "
-                "Securitization', both printed in the July MSA 8.1 (l) test.",
-            r"^/covenants/10/note$":
-                "the footnote reads 'Tranches 10 - 11, 13 - 23, and 25'; the reference lists 12 and leaves out 18.",
             r"^/prior_covenants/2/trend$":
                 "June rolling three-month loss ratio 1.26% vs May 1.24% is a 1.6% relative change, past the 1% flat "
                 "band (rising); the reference says flat.",
@@ -97,7 +75,7 @@ DEALS = {
         },
         # history.extend reads the reporting-month lag from the extraction (0 here), so it matches chain()
         "extend_quirks": {},
-        "blocks": {m: {"R04"} for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
+        "blocks": {m: set() for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
     },
     "tpine": {
         "slug": "move-trust-tpine-leasing-capital-corporation",
@@ -112,39 +90,27 @@ DEALS = {
             r"^/cnl_by_period/\d+/current_period_losses$":
                 "reference sums the p.2 Interest Collections column per annual period (e.g. 18,383.92 for tranche "
                 "21); the extraction sums the p.13 Current Period Losses column (-60,656.26 for tranche 21).",
-            r"^/covenants/4/note$":
-                "the note quotes -9,965,355.40, the June report's greatest differential; current_value and the "
-                "extraction use July's (-9,875,676.11, tranche 17).",
             r"^/(covenants|prior_covenants)/6/(category|threshold|note)$":
                 "MLA 7.5 is printed under CLEAN-UP PROVISION; the reference files it as an Event of Termination with "
                 "the generic binary threshold and note. The extraction treats every clean-up provision alike (as the "
                 "VCC IV reference does): category Clean-Up Provision, threshold and note null when answered NO.",
         },
         "extend_quirks": {},
-        # R03: the Rolling 3M Loss Ratio is printed as -113.21% (April) and -130.68% (May): recoveries exceed losses
-        # on a small, shrinking pool. R03's plausible range for percentage ratios is -1..1.
-        "blocks": {"2026-04": {"R03", "R04"}, "2026-05": {"R03", "R04"}, "2026-06": {"R04"}, "2026-07": {"R04"}},
+        # the printed Rolling 3M Loss Ratio of -113.21% / -130.68% (April / May) is inside R03's wider range now
+        "blocks": {m: set() for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
     },
     "vcc": {
         "slug": "move-trust-vcc-iv-lp",
         "glob": "Vault Rated - SETTREP 2026*.pdf",
         "settlement_date": "August 20, 2026",
         "quirks": {
-            r"^/source_pages/enhancement$":
-                "reference names p.5 (collection account); SUMMARY OF ENHANCEMENT is on p.7.",
-            r"^/covenants/3/description$":
-                "reference drops '(where applicable)', printed in the July LSA SRE (t) test.",
-            r"^/covenants/3/note$":
-                "the note quotes -135,257.83, the June report's greatest differential; current_value and the "
-                "extraction use July's (-0.01).",
         },
         "extend_quirks": {},
-        "blocks": {m: {"R04"} for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
+        "blocks": {m: set() for m in ("2026-04", "2026-05", "2026-06", "2026-07")},
     },
 }
-# R04 (every report): periods_line_up expects collection_period = meta.reporting_period + 1 month (F-PIL). On this
-# layout the page header names the collection period itself and the aggregate / borrower tables end at it, so
-# reporting_period = collection_period; R04 needs a per-layout offset (request to Rules / Lead).
+# With R03's wider loss-ratio range, R04's per-program offset (MOVE reporting month = collection month) and
+# R05's adjustment_increase / charge_off terms on main, no MOVE report raises a phase-1 block.
 
 
 def _pdfs(deal: str) -> list:

@@ -2,6 +2,47 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Extraction: MOVE reference corrections (Lead-authorized, nine move-trust-*.dashboard.json files only;
+  every value checked against the printed PDF value, formatting byte-stable: json indent=1, only changed lines move).
+  TLFC LP rvl_ratio_pct is a real restatement, not a misread: May report p.14 prints RVL Ratio Apr-26 0.000000% and
+  May-26 0.000000%; June report p.14 prints 0.112487% for both (Residual Losses '-' in both). No extraction change.
+  Changed values (deal, path: old -> new, PDF page, report):
+  * Dynamic (p.2 Pool Balances row): ph[1] (May) losses -1,363,634.47 -> 0.0; interest 126,978.64 -> 1,438,341.43
+    (interest collections 1,363,634.47 + prepayment excess 74,706.96); recoveries -216,554.61 -> 52,271.68.
+    ph[2] (June) principal_prepayments 7,286,831.27 -> 3,260,076.37; losses -1,465,986.69 -> 0.0; interest
+    281,325.43 -> 1,747,312.12 (1,465,986.69 + 281,325.43); recoveries -33,189.86 -> 0.0; new ineligible_buyback
+    4,026,754.90 (Buyback column d).
+  * Finloc (p.18, July): top10_obligors[0..9] obligor_concentration_pct / concentration_limit_pct /
+    concentration_limit_per_obligor / excess_concentration_amount moved back into their own columns, e.g. [0]
+    6,769,167.28 -> 13.99%, 13.99% -> 5.00%, 5.00% -> 2,419,344.46, 2,419,344.46 -> 4,349,822.82; excess for
+    [1..9]: 1,680,800.32 / 1,048,295.86 / 698,057.36 / 557,899.91 / 327,073.93 / 0 / 0 / 0 / 0 (printed '-').
+  * TLFC LP (p.2 yield formula (e+f)): ph[0..2] interest 970,074.70 -> 968,695.49; 926,282.50 -> 925,480.05;
+    946,299.86 -> 942,243.56. TLFC Loans (p.2, (e+f)): 105,960.85 -> 98,599.13; 93,794.33 -> 90,738.77;
+    144,871.57 -> 141,119.85.
+  * TLFC Leases: inserted the printed lock-up test "Is the amount on deposit in the Deferred Account less that 75%
+    of the Required Deferred Amount ...? No" (p.8/p.17) at covenants[3] and prior_covenants[3];
+    covenant_summary.OK 13 -> 14.
+  * charge_off null -> printed amount (p.2 adjustment column, downward part): Dynamic, Essex, VCC IV ph[0..3] 0.0;
+    Finloc ph 0.0 / 6,011.10 / 0.0 / 4,163.85 and tranche_balance 4,163.85; TLFC LP ph and tranche_balance 0.0;
+    TLFC Leases ph 0 / 0 / 0 / 0.01, tranche_balance 0.01; TLFC Loans ph 0.01 / 0.03 / 0 / 0, tranche_balance 0.0;
+    TPine ph 0 / 0 / 0 / 0.04, tranche_balance 0.04. Meridian already carried it.
+  * adjustment_increase added where printed (upward part): Essex ph[1] 0.01; Finloc ph[0..2] 35,289.34 /
+    50,888.50 / 8,425.37 (CAD equivalent); TLFC LP ph[0..3] 3,035.22 / 2,551.21 / 2,972.92 / 2,782.68 and
+    tranche_balance 2,782.68; TLFC Leases ph[0] 0.01, ph[2] 0.01.
+  * Covenant text quoting June next to July values, replaced with the July report's: Essex MSA 8.1 (j)
+    description "exceeded 25%" -> "15%", threshold 0.25 -> 0.15 (p.14); MSA 8.1 (l) description (adds "following
+    the OC Rebalancing Date (where applicable)" / "of such Securitization", p.8); clean-up note tranches "10, 11,
+    12, ..., 17, 19, ..." -> "10 - 11, 13 - 23, and 25" (p.14 footnote). TPine MLA 7.1 (v) note differential
+    -9,965,355.40 -> -9,875,676.11 (p.10). VCC LSA SRE (t) description adds "(where applicable)", note
+    -135,257.83 -> -0.01 (p.8). TLFC LP 7.1 (t) description (July wording, p.11), 7.5 description "24 of 97" ->
+    "24 of 98" (p.17). TLFC Leases 7.1 (u) description (July wording) and note -0.06 -> -0.01 (p.11); 7.5
+    description "19 of 74" -> "17 of 74" and footnote tranche list (p.17). TLFC Loans 7.1 (s) note -0.06 -> -0.05
+    (p.11).
+  * source_pages plainly wrong: Meridian quantitative_tests null -> 11, financial_ratios 1 -> 11; VCC IV
+    enhancement 5 -> 7; TLFC Loans cumulative_losses 13 -> 15.
+  Left as they were: data_corrections, oldest ratio_history months, other source_pages (convention differences),
+  and the remaining listed quirks in tests/test_move_*.py (not on the Lead's list). Quirk lists shrank to match;
+  all 80 MOVE sample tests pass, and with Rules' R03/R04/R05 on main no MOVE report raises a phase-1 block.
 - 2026-11-04 — Rules, wave 2 (MOVE Trust): merged lead/move-trust. `engine.run` hands top-level rules.yaml settings
   (`reporting_lag_months`) to every rule as `rule["settings"]`. R04 expects collection_period = reporting_period + the
   template's lag (F-PIL 1, MOVE Trust 0, unknown 1) and names it in the message. R05 adds + adjustment_increase +
@@ -421,6 +462,13 @@ Append an entry when a work package lands. Newest first.
   engine.run turns any check that raises into a finding (block, or review for note rules), so a rule can no longer
   mark an upload extraction_failed. Over the 36 MOVE extractions: R11 ×4 (Essex May ×2, TLFC LP June ×2), R19 notes ×8,
   nothing else. Tests: rules 122, worker/validate 19, check_contracts green.
+- 2026-11-04 — Rules, wave 2c (corrected MOVE references): merged lead/move-fixes. KNOWN_ROLLFORWARD_GAPS is now empty
+  in test_engine.py and test_rules.py. All 12 reference deals pass every phase-1/2 rule with no block, and R05 closes on
+  every period_history month of TLFC LP, Finloc and Meridian as the references stand. Fixtures were regenerated from the
+  corrected references. r05-adjustment-increase / r05-charge-off-move now pass unchanged, and each fail case drops the
+  one amount (the old gap: +2,782.68 / −4,163.85). A sign-lost read is tested separately (twice the amount). The R11
+  Finloc tests hold: by_currency is unchanged and July's −47,609.31 is still revaluation. Tests: rules 123,
+  worker/validate 19, api 135, check_contracts green.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.

@@ -78,7 +78,7 @@ def test_expected_findings_validate_against_schema():
     for p in sorted(glob.glob(str(FIX / "findings/*.json"))): jsonschema.validate(load(p), FINDING_SCHEMA)
 
 # ---------- reference deals with master data ----------
-KNOWN_ROLLFORWARD_GAPS = {"move-trust-finloc-2000-inc", "move-trust-tlfc-lp-leases"}   # reference-data gaps, see test_engine.py
+KNOWN_ROLLFORWARD_GAPS = set()   # none since the MOVE references carry the adjustment column; see test_engine.py
 
 def reference_runs(phases=(1, 2)):
     for f in sorted(glob.glob(str(ROOT / "docs/dashboard-json/[fm]*.dashboard.json"))):
@@ -217,26 +217,33 @@ def test_r05_subtracts_the_npv_adjustment():
 MOVE_META = {**mf.META, "template_id": "move-trust-settrep-v1"}
 TPINE = "move-trust-tpine-leasing-capital-corporation.dashboard.json"
 
-def test_r05_move_terms_close_the_documented_reference_gaps():
-    """The two reference gaps are the MOVE Trust adjustment column the references do not carry. With July's values as
-    extracted (TLFC LP adjustment_increase +2,782.68, Finloc charge_off 4,163.85) R05 closes to the cent; Meridian
-    closes with balance_adjustment 0.00 as every sample prints it."""
-    for name, field, value, gap in ((mf.TLFC_LP, "adjustment_increase", 2782.68, 2782.68), (mf.FINLOC, "charge_off", 4163.85, -4163.85)):
+def test_r05_move_references_close_as_they_stand():
+    """The corrected references carry the page-2 adjustment column: TLFC LP July adjustment_increase +2,782.68,
+    Finloc July charge_off 4,163.85, Meridian charge_off 598,714.82. R05 closes on each in every month of its
+    period_history (each row taken as the current one)."""
+    for name, field, value in ((mf.TLFC_LP, "adjustment_increase", 2782.68), (mf.FINLOC, "charge_off", 4163.85), (mf.MERIDIAN, "charge_off", 598714.82)):
         d = mf.load_deal(name)
-        fs = run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"})
-        assert len(fs) == 1 and abs(fs[0]["difference"] - gap) < 0.01, name
-        cur = next(p for p in d["period_history"] if p["collection_period"] == d["collection_period"]); cur[field] = value
-        assert run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"}) == [], name
-    d = mf.load_deal(mf.MERIDIAN); d["period_history"][3]["balance_adjustment"] = 0.0
+        assert d["period_history"][3][field] == value, name
+        for row in d["period_history"]:
+            m = {**d, "collection_period": row["collection_period"], "tranche_balance": {**d["tranche_balance"], "opening": row["opening_balance"], "closing": row["closing_balance"]}}
+            assert run({"meta": MOVE_META, "deal": m, "sources": {}}, Context(), only={"R05"}) == [], (name, row["collection_period"])
+    d = mf.load_deal(mf.MERIDIAN); d["period_history"][3]["balance_adjustment"] = 0.0   # every Meridian sample prints 0.00
     assert run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"}) == []
+
+def test_r05_sign_lost_on_the_adjustment_column_blocks_by_twice_the_amount():
+    for name, up, down, gap in ((mf.TLFC_LP, "adjustment_increase", "charge_off", 2 * 2782.68), (mf.FINLOC, "charge_off", "adjustment_increase", -2 * 4163.85)):
+        d = mf.load_deal(name); cur = d["period_history"][3]
+        cur[down], cur[up] = cur[up], 0.0   # the amount read with the wrong sign
+        fs = run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"})
+        assert len(fs) == 1 and abs(fs[0]["difference"] - gap) < 0.01, (name, fs)
 
 def test_r05_null_move_terms_count_as_zero():
     d = mf.load_deal(mf.MONEDA); d["period_history"][3].update(adjustment_increase=None, balance_adjustment=None)
     assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R05"}) == []
 
 def test_r05_message_names_the_move_terms():
-    fx = json.loads((FIX / "r05-charge-off-move-fail.json").read_text(encoding="utf-8"))
-    f = mf.evaluate(fx)[0]
+    d = mf.load_deal(mf.FINLOC); cur = d["period_history"][3]; cur["adjustment_increase"], cur["charge_off"] = 4163.85, 0.0   # sign lost
+    f = run({"meta": MOVE_META, "deal": d, "sources": {}}, Context(), only={"R05"})[0]
     assert "+ upward adjustment 4163.85" in f["message"] and f["context"]["adjustment_increase"] == 4163.85
 
 def _tpine_with_rolling_3m(value):

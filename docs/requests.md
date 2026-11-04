@@ -163,6 +163,19 @@ The Lead reads this at every merge.
   applied after publication (old value, date applied); neither is on the report. Interest is extracted the
   corrected way (effective-yield income per each report's printed formula), so fresh extractions equal the
   post-correction references without a correction step.
+- 2026-11-04 — to Rules (MOVE reference corrections): the corrected MOVE references break 9 tests in rules/ that
+  copy or pin the old reference values; please update them (I did not edit rules/):
+  test_engine.py::test_reference_deals_pass_implemented_rules (Finloc and TLFC LP no longer fail R05: drop them
+  from KNOWN_ROLLFORWARD_GAPS; Meridian too if listed); test_rules.py::test_r05_move_terms_close_the_documented_
+  reference_gaps and ::test_reference_deals_with_master_have_no_blocks_beyond_known_gaps (same gaps);
+  ::test_pass_fixture_is_the_real_deal_and_passes[R02], ::test_fail_fixture_has_one_change_and_fires[R02],
+  ::test_extra_fixtures[r05-adjustment-increase|r05-charge-off-move|r05-balance-adjustment] and
+  ::test_fixtures_are_reproducible (fixtures are copies of the old Finloc / TLFC LP references; regenerate them
+  from the corrected files: the references now carry charge_off and adjustment_increase themselves).
+- 2026-11-04 — to Lead/Data & API (MOVE reference corrections): api tests/test_published.py::
+  test_program_matches_real_aggregate[move-trust] fails because the TLFC Leases reference gained its missing
+  lock-up test (OK covenants 83 -> 84 across the program). docs/dashboard-json/program-move-trust.dashboard.json
+  covenant_totals.OK needs 83 -> 84 (outside the nine files I was authorized to edit).
 ## Rules
 
 - RESOLVED (75884f0; FN_FALLBACK removed in aa6aa6c) — 2026-11-03 — to Lead (contracts/rules.yaml), R09: add `fn: utilization_recomputes`. R09 has only an `expr`, which

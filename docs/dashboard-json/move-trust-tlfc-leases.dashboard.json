@@ -159,7 +159,8 @@
    "losses": 0.0,
    "interest": 71088.45,
    "recoveries": 0.0,
-   "charge_off": null,
+   "charge_off": 0.0,
+   "adjustment_increase": 0.01,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -178,7 +179,7 @@
    "losses": 5283.86,
    "interest": 62171.7,
    "recoveries": 0.0,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -197,7 +198,8 @@
    "losses": 0.0,
    "interest": 56724.41,
    "recoveries": 0.0,
-   "charge_off": null,
+   "charge_off": 0.0,
+   "adjustment_increase": 0.01,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -216,7 +218,7 @@
    "losses": 0.0,
    "interest": 54989.530000000006,
    "recoveries": 11555.88,
-   "charge_off": null,
+   "charge_off": 0.01,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -697,7 +699,7 @@
   "principal": 103735.81,
   "principal_prepayments": 449299.65,
   "losses": 0.0,
-  "charge_off": null,
+  "charge_off": 0.01,
   "interest": 54989.530000000006,
   "recoveries": 11555.88,
   "activity_by_currency": null
@@ -1099,7 +1101,7 @@
  "covenant_summary": {
   "BREACH": 0,
   "WATCH": 0,
-  "OK": 13,
+  "OK": 14,
   "AVAILABLE": 1
  },
  "watch_buffer_pct": 0.1,
@@ -1140,6 +1142,18 @@
    "trend": "flat",
    "status": "OK",
    "note": null
+  },
+  {
+   "category": "Lock-Up Event",
+   "legal_ref": "MLA (Definitions)",
+   "description": "Is the amount on deposit in the Deferred Account less that 75% of the Required Deferred Amount this Collection Period or any of the preceding five Collection Periods?",
+   "current_value": 0.0,
+   "threshold": 0,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reserve/deferred account excess or (shortfall), for context: 0.00"
   },
   {
    "category": "Lock-Up Event",
@@ -1241,14 +1255,14 @@
   {
    "category": "Event of Termination",
    "legal_ref": "MLA 7.1(u)",
-   "description": "Has the Tranche Balance, for any Leasing, at any time been less than the Required Tranche Balance at such time?",
+   "description": "Has the Tranche Balance, for any Leasing, at any time following the OC Rebalancing Date (where applicable) been less than the Required Tranche Balance at such time?",
    "current_value": -0.01,
    "threshold": 0,
    "kind": "binary",
    "utilization_pct": null,
    "trend": "n/a",
    "status": "OK",
-   "note": "Greatest tranche differential (closing minus required, for context): -0.06"
+   "note": "Greatest tranche differential (closing minus required, for context): -0.01"
   },
   {
    "category": "Event of Termination",
@@ -1265,14 +1279,14 @@
   {
    "category": "Clean-Up Provision",
    "legal_ref": "MLA 7.5",
-   "description": "Is any Tranche Amount less than 10% of the initial Tranche Amount as of the respective Leasing Date? (19 of 74 tranches eligible)",
+   "description": "Is any Tranche Amount less than 10% of the initial Tranche Amount as of the respective Leasing Date? (17 of 74 tranches eligible)",
    "current_value": 17,
    "threshold": null,
    "kind": "binary",
    "utilization_pct": null,
    "trend": "n/a",
    "status": "AVAILABLE",
-   "note": "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): 114, 115, 116, 117, 119, 120, 121, 122, 123, 125, 128, 133, 137, 138, 139, 141, 142, 147, 148"
+   "note": "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): 114, 115, 116, 117, 119, 120, 121, 128, 133, 137, 138, 139, 141, 142, 143, 147, 148"
   }
  ],
  "financial_ratios": [
@@ -1364,6 +1378,18 @@
    "trend": "flat",
    "status": "OK",
    "note": null
+  },
+  {
+   "category": "Lock-Up Event",
+   "legal_ref": "MLA (Definitions)",
+   "description": "Is the amount on deposit in the Deferred Account less that 75% of the Required Deferred Amount this Collection Period or any of the preceding five Collection Periods?",
+   "current_value": 0.0,
+   "threshold": 0,
+   "kind": "binary",
+   "utilization_pct": null,
+   "trend": "n/a",
+   "status": "OK",
+   "note": "Reserve/deferred account excess or (shortfall), for context: 0.00"
   },
   {
    "category": "Lock-Up Event",

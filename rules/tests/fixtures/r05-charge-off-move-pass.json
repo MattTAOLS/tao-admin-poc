@@ -3,14 +3,7 @@
  "name": "r05-charge-off-move",
  "case": "pass",
  "source": "docs/dashboard-json/move-trust-finloc-2000-inc.dashboard.json",
- "changes": [
-  {
-   "target": "deal",
-   "path": "/period_history/3/charge_off",
-   "value": 4163.85,
-   "why": "July downward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"
-  }
- ],
+ "changes": [],
  "meta": {
   "upload_id": "00000000-0000-4000-8000-000000000000",
   "pass": 1,
@@ -165,7 +158,8 @@
     "losses": 0.0,
     "interest": 367935.624488,
     "recoveries": 114804.98,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 35289.3356,
     "by_currency": {
      "cad_opening": 53688771.449999996,
      "cad_closing": 51747271.559999995,
@@ -218,7 +212,8 @@
     "losses": 1349076.018096,
     "interest": 323511.03097600007,
     "recoveries": 157239.73707,
-    "charge_off": null,
+    "charge_off": 6011.0987,
+    "adjustment_increase": 50888.5,
     "by_currency": {
      "cad_opening": 51747271.559999995,
      "cad_closing": 50236462.49,
@@ -271,7 +266,8 @@
     "losses": 679115.24,
     "interest": 349843.14533,
     "recoveries": 531871.37,
-    "charge_off": null,
+    "charge_off": 0.0,
+    "adjustment_increase": 8425.365000000002,
     "by_currency": {
      "cad_opening": 50236462.49,
      "cad_closing": 48017884.01,
@@ -660,7 +656,7 @@
    "principal": 1623113.98813,
    "principal_prepayments": 968735.25,
    "losses": 725097.32449,
-   "charge_off": null,
+   "charge_off": 4163.85,
    "interest": 361800.90235,
    "recoveries": 1141776.1,
    "activity_by_currency": {
@@ -745,10 +741,10 @@
     "aggregate_cad_contract_amount": 6769167.28,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 6769167.28,
-    "obligor_concentration_pct": 6769167.28,
-    "concentration_limit_pct": 0.1399,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.1399,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 4349822.82
    },
    {
     "rank": 2,
@@ -756,10 +752,10 @@
     "aggregate_cad_contract_amount": 4100144.78,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 4100144.78,
-    "obligor_concentration_pct": 4100144.78,
-    "concentration_limit_pct": 0.08470000000000001,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.08470000000000001,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 1680800.32
    },
    {
     "rank": 3,
@@ -767,10 +763,10 @@
     "aggregate_cad_contract_amount": 3467640.32,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 3467640.32,
-    "obligor_concentration_pct": 3467640.32,
-    "concentration_limit_pct": 0.0717,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.0717,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 1048295.86
    },
    {
     "rank": 4,
@@ -778,10 +774,10 @@
     "aggregate_cad_contract_amount": 3117401.82,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 3117401.82,
-    "obligor_concentration_pct": 3117401.82,
-    "concentration_limit_pct": 0.0644,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.0644,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 698057.36
    },
    {
     "rank": 5,
@@ -789,10 +785,10 @@
     "aggregate_cad_contract_amount": 2977244.37,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 2977244.37,
-    "obligor_concentration_pct": 2977244.37,
-    "concentration_limit_pct": 0.061500000000000006,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.061500000000000006,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 557899.91
    },
    {
     "rank": 6,
@@ -800,10 +796,10 @@
     "aggregate_cad_contract_amount": 2746418.39,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 2746418.39,
-    "obligor_concentration_pct": 2746418.39,
-    "concentration_limit_pct": 0.056799999999999996,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.056799999999999996,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 327073.93
    },
    {
     "rank": 7,
@@ -811,10 +807,10 @@
     "aggregate_cad_contract_amount": 1721553.66,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 1721553.66,
-    "obligor_concentration_pct": 1721553.66,
-    "concentration_limit_pct": 0.0356,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.0356,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 0.0
    },
    {
     "rank": 8,
@@ -822,10 +818,10 @@
     "aggregate_cad_contract_amount": 1695017.2,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 1695017.2,
-    "obligor_concentration_pct": 1695017.2,
-    "concentration_limit_pct": 0.035,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.035,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 0.0
    },
    {
     "rank": 9,
@@ -833,10 +829,10 @@
     "aggregate_cad_contract_amount": 1657412.51,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 1657412.51,
-    "obligor_concentration_pct": 1657412.51,
-    "concentration_limit_pct": 0.034300000000000004,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.034300000000000004,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 0.0
    },
    {
     "rank": 10,
@@ -844,10 +840,10 @@
     "aggregate_cad_contract_amount": 1317858.85,
     "aggregate_usd_contract_amount": 0.0,
     "aggregate_contract_amount": 1317858.85,
-    "obligor_concentration_pct": 1317858.85,
-    "concentration_limit_pct": 0.027200000000000002,
-    "concentration_limit_per_obligor": 0.05,
-    "excess_concentration_amount": 2419344.46
+    "obligor_concentration_pct": 0.027200000000000002,
+    "concentration_limit_pct": 0.05,
+    "concentration_limit_per_obligor": 2419344.46,
+    "excess_concentration_amount": 0.0
    }
   ],
   "total_enhancement": {
