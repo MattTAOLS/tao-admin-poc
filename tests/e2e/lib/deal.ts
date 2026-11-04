@@ -33,7 +33,9 @@ export function resolvePair(pub: any, ref: any, path: string): { p: unknown; r: 
       const row = p[Number(seg)]
       const id = rowId(row)
       if (Array.isArray(r)) {
-        r = id ? r.find(x => x && x[id[0]] === id[1]) : (r.length === p.length ? r[Number(seg)] : undefined)
+        // Rows can share an id (Finloc has two "MSA (Definitions)" covenants): match the same occurrence.
+        const nth = id ? p.slice(0, Number(seg)).filter((x: any) => x && x[id[0]] === id[1]).length : 0
+        r = id ? r.filter(x => x && x[id[0]] === id[1])[nth] : (r.length === p.length ? r[Number(seg)] : undefined)
       } else r = undefined
       p = row
       if (r === undefined) return { p, r: undefined, note: `row ${id ? `${id[0]}=${id[1]}` : seg} not in reference` }
