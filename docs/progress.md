@@ -351,3 +351,15 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Review, corrected re-issues (merged integration/wave3 fbb7d41). Review page: a banner on a re-issue
+  ("Corrected re-issue of Moneda Capital Corp. Jul 2026. Publishing replaces the report published …", link to the replaced
+  upload's review record) with the later-months warning from R12's `later_periods`; past tense once published; on a
+  replaced upload a note and footer link to the re-issue. R12 card on a re-issue: one primary "Accept as replacement"
+  (acknowledge + reason; the dialog relabels Acknowledge and hides the empty ours/report values). Publish dialog: "Replaces
+  the report published …" plus the later-months note. Queue tags re-issues; Reports library shows "Re-issue" / "Replaced"
+  status, "Replaces earlier report" / "Replaced by re-issue" links, and no Partner view link on a replaced row. Verified
+  live (tao-ui-review, fresh volume): published Moneda Aug, re-uploaded Moneda 2026-07 with replace=true → R12 "replaces
+  the 2026-07 report published … Later published months (2026-08) still carry the earlier figures for 2026-07"; Accept
+  as replacement + publish in the browser → old upload `replaced_by_upload_id` = the re-issue, publish audit
+  `replaced_upload_id` = the old one. Tests: `cd web && npx vitest run src/review` (62; Reissue.test.tsx on recorded responses).
+

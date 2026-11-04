@@ -19,6 +19,10 @@ export type Upload = {
   published_at?: string | null
   /** real API only */
   reject_reason?: string | null
+  /** Corrected re-issue: the published upload this one replaces on approve. */
+  replaces_upload_id?: string | null
+  /** Set on a published upload once a re-issue for its period is approved. */
+  replaced_by_upload_id?: string | null
 }
 
 /** `targets`: JSON pointers approve writes to on use_ours / use_report (finding.schema.json). */

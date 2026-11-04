@@ -1,0 +1,27 @@
+{
+ "id": "15e20f65-797b-44be-bee0-3b6c5defad6c",
+ "deal_slug": "f-pil-2-0-moneda-capital-corp",
+ "program_slug": "f-pil-2-0",
+ "partner_slug": "investor",
+ "partner_slugs": [
+  "investor",
+  "manager"
+ ],
+ "collection_period": "2026-07",
+ "reporting_period": "2026-06",
+ "status": "published",
+ "file_name": "Moneda-202607 -SETTREP.pdf",
+ "page_count": 16,
+ "uploaded_by": "tao_admin",
+ "uploaded_at": "2026-11-04T01:33:16.620895+00:00",
+ "finding_counts": {
+  "block": 0,
+  "review": 0,
+  "note": 1
+ },
+ "latest_extraction_id": "95726a36-3a63-4c27-bdaf-f1258bff3436",
+ "published_at": "2026-11-04T01:33:28.285866+00:00",
+ "reject_reason": null,
+ "replaces_upload_id": null,
+ "replaced_by_upload_id": null
+}

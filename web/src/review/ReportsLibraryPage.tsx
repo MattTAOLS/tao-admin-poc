@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, DataTable, Dialog, Field, Select, StatePanel, UploadStatusPill, formatPeriod, useToast, type Column } from '@/design/components'
+import { Button, StatusPill, DataTable, Dialog, Field, Select, StatePanel, UploadStatusPill, formatPeriod, useToast, type Column } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { ADMIN_PAGES } from '@/shell/pages'
 import { access, errorText, reviewApi } from './lib/api'
@@ -9,6 +9,7 @@ import { useMasterNames } from './lib/master'
 import { formatDateTime } from './lib/format'
 import type { Program, Upload } from './lib/types'
 import { reviewPath } from './QueuePage'
+import { ReissueTag } from './components/Reissue'
 import './review.css'
 
 const routeRegex = (pattern: string) => new RegExp('^' + pattern.replace(/:[^/]+/g, '[^/]+') + '/?$')
@@ -58,13 +59,17 @@ function Library({ regenOpen, onRegenClose, admin }: { regenOpen: boolean; onReg
     { key: 'deal', header: 'Deal', emphasis: true, render: u => dealName(u.deal_slug), sortValue: u => dealName(u.deal_slug) },
     { key: 'period', header: 'Collection period', sortValue: u => u.collection_period,
       render: u => <>{formatPeriod(u.collection_period)}{u.reporting_period && <span className="rv-sub">reporting {formatPeriod(u.reporting_period)}</span>}</> },
-    { key: 'status', header: 'Status', render: u => <UploadStatusPill status={u.status} size="sm" /> },
+    { key: 'status', header: 'Status', render: u => u.replaced_by_upload_id
+      ? <StatusPill tone="neutral" size="sm">Replaced</StatusPill>
+      : <span className="rv-pills"><UploadStatusPill status={u.status} size="sm" />{u.replaces_upload_id && <ReissueTag />}</span> },
     { key: 'published_at', header: 'Published', numeric: true, sortValue: u => u.published_at ?? '', render: u => formatDateTime(u.published_at) },
     { key: 'file', header: 'File', render: u => <span className="rv-muted">{u.file_name}</span> },
     { key: 'links', header: 'Open', align: 'right', render: u => (
       <span className="rv-pills">
-        <Link to={partnerViewPath(u)} aria-label={`Partner view of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Partner view</Link>
+        {!u.replaced_by_upload_id && <Link to={partnerViewPath(u)} aria-label={`Partner view of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Partner view</Link>}
         <Link to={reviewPath(u.id)} aria-label={`Review record of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Review record</Link>
+        {u.replaces_upload_id && <Link to={reviewPath(u.replaces_upload_id)} aria-label={`Report replaced by this re-issue of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Replaces earlier report</Link>}
+        {u.replaced_by_upload_id && <Link to={reviewPath(u.replaced_by_upload_id)} aria-label={`Re-issue that replaced ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Replaced by re-issue</Link>}
       </span>
     ) },
   ]

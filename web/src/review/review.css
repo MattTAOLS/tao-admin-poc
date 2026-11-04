@@ -106,3 +106,11 @@
 .rv-pending { font-size: var(--fs-small); color: var(--text); background: var(--dpv-bg); border-radius: var(--r-control); padding: 6px 10px; flex-basis: 100%; }
 .rv-pending b { color: var(--dpv); }
 .rv-flash { box-shadow: var(--focus); }
+.rv-banner { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-radius: var(--r-panel); border: 1px solid var(--border-card); font-size: var(--fs-body); }
+.rv-banner p { margin: 0; }
+.rv-banner a { color: var(--purple); font-weight: 600; align-self: flex-start; }
+.rv-banner--warn { background: var(--warn-bg); border-color: var(--warn-bg); }
+.rv-banner--warn b { color: var(--warn); }
+.rv-banner--blue { background: var(--blue-bg); border-color: var(--blue-bg); }
+.rv-banner--blue b { color: var(--blue); }
+.rv-dealcell { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
