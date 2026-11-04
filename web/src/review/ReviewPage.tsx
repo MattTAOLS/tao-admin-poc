@@ -204,7 +204,7 @@ function Review({ uploadId }: { uploadId: string }) {
       {admin && <>
         <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnerLabel(u.partner_slug)} findings={list} ex={ex} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
+        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnersLabel(u)} findings={list} ex={ex} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
       </>}
     </div>
@@ -226,7 +226,13 @@ function FindingsFact({ findings, counts }: { findings?: Finding[]; counts: Uplo
   )
 }
 
-const partnerLabel = (slug: string) => (slug === 'investor' ? 'the Investor portal' : slug === 'manager' ? 'the Manager portal' : slug)
+const PARTNER_NAME: Record<string, string> = { investor: 'Investor', manager: 'Manager' }
+/** "the Investor and Manager portals": every partner on the program's visibility list (partner_slugs). */
+export function partnersLabel(u: Pick<Upload, 'partner_slug' | 'partner_slugs'>) {
+  const names = (u.partner_slugs?.length ? u.partner_slugs : [u.partner_slug]).map(s => PARTNER_NAME[s] ?? s)
+  if (names.length === 1) return `the ${names[0]} portal`
+  return `the ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} portals`
+}
 
 function Footer({ upload: u, admin, openBlocks, onReextract, onReject, onPublish }: {
   upload: Upload; admin: boolean; openBlocks: number; onReextract: () => void; onReject: () => void; onPublish: () => void

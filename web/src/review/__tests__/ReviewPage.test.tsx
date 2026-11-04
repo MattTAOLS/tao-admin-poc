@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockApi, on, renderPage, setRole, clone, type Call } from './helpers'
-import ReviewPage from '../ReviewPage'
+import ReviewPage, { partnersLabel } from '../ReviewPage'
 import type { Upload } from '../lib/types'
 import uploadFx from './fixtures/upload-moneda.json'
 import findingsFx from './fixtures/findings-moneda.json'
@@ -113,6 +113,8 @@ describe('Review report', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: 'Publish to partner…' }))
     let dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
+    // Both partners on the program's visibility list (partner_slugs), not only partner_slug.
+    expect(within(dlg).getByText(/goes to the Investor and Manager portals\./)).toBeTruthy()
     expect(within(dlg).getByText(/1 finding resolved with a reason/)).toBeTruthy()
     const table = within(dlg).getByRole('table', { name: 'Corrections publishing writes' })
     const rows = within(table).getAllByRole('row').slice(1)
@@ -294,5 +296,13 @@ describe('Review report: corrections', () => {
     expect(alert.textContent).toMatch(/nothing was published/)
     expect(within(alert).getByText(/R07 Aging buckets sum to the closing balance/)).toBeTruthy()
     expect(within(alert).getByRole('button', { name: 'Go to R05' })).toBeTruthy()
+  })
+})
+
+describe('partnersLabel', () => {
+  it('names every partner on the visibility list, falling back to partner_slug', () => {
+    expect(partnersLabel({ partner_slug: 'investor', partner_slugs: ['investor', 'manager'] })).toBe('the Investor and Manager portals')
+    expect(partnersLabel({ partner_slug: 'manager', partner_slugs: ['manager'] })).toBe('the Manager portal')
+    expect(partnersLabel({ partner_slug: 'investor' })).toBe('the Investor portal')
   })
 })

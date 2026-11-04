@@ -7,6 +7,8 @@ export type Upload = {
   deal_slug: string
   program_slug: string
   partner_slug: string
+  /** Every partner the program is visible to (the API sends it; older responses only partner_slug). */
+  partner_slugs?: string[]
   collection_period: string
   reporting_period?: string | null
   status: UploadStatus
