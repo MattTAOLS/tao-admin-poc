@@ -64,7 +64,7 @@ describe('role filtering', () => {
     for (const t of ['Upload a settlement report', 'Review a report', 'Re-issue a corrected report for a published month', 'Testing the portal']) expect(titles).toContain(t)
     expect(screen.getByText(/You cannot resolve findings/)).toBeTruthy()
     expect(screen.queryByText(/Regenerate dashboard…/)).toBeNull()
-    expect(screen.getByText(/Ask a TAO Admin for the reason/)).toBeTruthy()
+    expect(screen.getByText(/A TAO Admin sees the exact reason/)).toBeTruthy()
     expect(screen.getByText('Showing help for TAO Analyst.', { exact: false })).toBeTruthy()
   })
   it('shows the Team members note only to partner company admins', () => {

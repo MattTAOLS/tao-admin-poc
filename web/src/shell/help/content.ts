@@ -120,13 +120,14 @@ export const ADMIN_HELP: HelpContent = {
     {
       id: 'extraction-failed',
       title: 'When extraction fails',
-      intro: 'The status turns to **Extraction failed** when the system cannot read the report. The page says: “Extraction failed. Check the audit log for the reason, then upload the file again.”',
+      intro: 'The status turns to **Extraction failed** when the system cannot read the report. The upload card says why, and so does the upload’s details page.',
       steps: [
-        { roles: ADMIN, text: 'Select **Audit** on the upload’s row in [Uploads](/admin/uploads) or [Upload history](/admin/uploads/history). The **Extract** entry’s **Reason** column says why.' },
-        { roles: ANALYST, text: 'Ask a TAO Admin for the reason. The Audit log is open to TAO Admin only.' },
-        { text: 'A scanned or blank PDF fails with “page 1 has no text layer”. The POC reads only PDFs that carry text; there is no scanning fallback yet. Get a text PDF from the servicer.' },
+        { text: 'Open the upload: **Upload details →** on the upload card, or **Details** on its row in [Uploads](/admin/uploads) or [Upload history](/admin/uploads/history).' },
+        { roles: ADMIN, text: 'Read the reason in the message, for example “page 1 has no text layer”. The Audit log keeps it too.' },
+        { roles: ANALYST, text: 'The message gives the usual cause: a scanned or blank PDF with no text to read. A TAO Admin sees the exact reason.' },
+        { text: 'The POC reads only PDFs that carry text; there is no scanning fallback yet. Get a text PDF from the servicer.' },
         { text: 'Upload the corrected file for the same deal and period. A failed upload does not hold the month, so the new upload goes straight in.' },
-        { roles: ADMIN, text: 'Optional: close the failed upload. In the Audit log filtered to it, select **Open the upload**, then **Reject…** with a reason.' },
+        { roles: ADMIN, text: 'Optional: close the failed upload with **Reject…** on its details page.' },
       ],
     },
     {
@@ -219,7 +220,7 @@ export const ADMIN_HELP: HelpContent = {
       points: [
         { text: 'Open Review findings do not stop publishing. Publishing accepts them as shown.' },
         { text: 'Publishing sends the deal’s numbers for that month to the partner portals straight away and rebuilds the program roll-up. The Audit log records Approve and Publish.' },
-        { text: 'Who sees it: every partner on the program’s visibility list. Today both Investor and Manager see both F-PIL 2.0 and MOVE Trust. The dialog names one portal, but both portals get the report. Visibility is set on the program record; see [Partners and programs](#partners).' },
+        { text: 'Who sees it: every partner on the program’s visibility list. Today both Investor and Manager see both F-PIL 2.0 and MOVE Trust, and the dialog names both portals. Visibility is set on the program record; see [Partners and programs](#partners).' },
         { text: 'If the dialog refuses to publish, it says why: two resolutions write different values to one field, or the corrections make another rule fail. Select **Go to R0x** to jump to the card involved.' },
       ],
     },
@@ -233,7 +234,7 @@ export const ADMIN_HELP: HelpContent = {
         { text: 'Select **Reject report**. The status turns to Rejected and the month is free to upload again.' },
       ],
       points: [
-        { text: 'Nobody is notified automatically in the POC. Tell the uploader yourself.' },
+        { text: 'The rejected upload stays in Upload history, and its review page shows the reason.' },
       ],
     },
     {
@@ -274,7 +275,7 @@ export const ADMIN_HELP: HelpContent = {
         { text: 'Select [Uploads](/admin/uploads) in the sidebar for the queue counts and the ten most recent uploads.' },
         { text: 'Select **Upload history** for every upload, newest first.' },
         { text: 'Filter by **Deal**, **Collection period** (YYYY-MM) and **Status**. The filters stay in the address, so you can send a filtered view to a colleague. **Clear filters** resets them.' },
-        { text: 'Each row shows both periods, the status, Block, Review and Note counts, the file, who uploaded it and when. **Review** opens a report that needs review.' },
+        { text: 'Each row shows both periods, the status, Block, Review and Note counts, the file, who uploaded it and when. **Review** opens a report that needs review. **Details** opens an upload whose extraction failed.' },
         { roles: ADMIN, text: '**Audit** opens that upload’s trail in the Audit log.' },
       ],
       points: [
@@ -320,7 +321,7 @@ export const ADMIN_HELP: HelpContent = {
       roles: ADMIN,
       intro: 'Every upload, extraction, resolution, approval, publication, regeneration and master data change is an entry.',
       steps: [
-        { text: 'Select **Audit** on any row in [Uploads](/admin/uploads), [Upload history](/admin/uploads/history) or the Dashboard’s Latest uploads. The log opens filtered to that upload. To see everything, open the [Audit log](/admin/settings/users/audit) directly; it has no sidebar entry yet.' },
+        { text: 'Select **Audit** on any row in [Uploads](/admin/uploads), [Upload history](/admin/uploads/history) or the Dashboard’s Latest uploads. The log opens filtered to that upload. To see everything, select [Audit log](/admin/settings/users/audit) under Account in the sidebar.' },
         { text: 'Filter by **Upload id** (paste the full id, then **Apply**) and by **Action**: Upload, Extract, Re-extract, Override, Restate, Approve, Reject, Publish, Regenerate or Master data change.' },
         { text: 'Each row shows when, the action, the role that did it, the upload, the reason and a short detail. Select the arrow at the start of a row for the full detail.' },
         { text: 'Select an upload id in the table to filter to it. **Open the upload** goes to its review page. **Clear filters** resets the view.' },
@@ -349,7 +350,6 @@ export const ADMIN_HELP: HelpContent = {
         { text: 'A blank or scanned PDF ends in Extraction failed. A re-issue always shows an R12 Block.' },
         { roles: ADMIN, text: 'Pages not built in the POC show a placeholder: Notifications, User management, Profile and System settings.' },
         { roles: ANALYST, text: 'Pages not built in the POC show a placeholder: Notifications and Profile.' },
-        { text: 'Known display issue: on a MOVE Trust upload, the Upload report page may warn that the reporting period should be the month before. MOVE Trust reports use the same month; the R04 result on the review page is the one to trust.' },
       ],
       table: SAMPLE_FILES,
     },
