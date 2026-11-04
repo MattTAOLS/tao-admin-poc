@@ -2,6 +2,18 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Design System, help-page gaps fixed (Lead-authorized, in web/src/admin and web/src/review for this task):
+  (1) the upload card's R04 hint reads the reporting lag per template from `reporting_lag_months` in rules.yaml
+  (F-PIL 1, MOVE Trust 0), so MOVE uploads no longer warn; (2) Extraction failed states the worker's reason to TAO
+  Admin (extract audit row) and the usual cause plus next step to analysts, on the upload card and the review footer;
+  (3) the publish dialog names every partner in `partner_slugs` ("the Investor and Manager portals"); (4) the reject
+  dialog says the status turns to Rejected and the reason goes in the audit log; (5) failed uploads get a Details link
+  in Uploads / Upload history / Dashboard and "Upload details →" on the card; (6) Audit log in the Account nav
+  (tao_admin); (8) Dashboard test expects MOVE OK 84. Help text updated to match, workarounds removed. Spot-checked on
+  the tao-help stack: a MOVE Dynamic Capital 2026-04 upload through the form shows no R04 warning; a blank PDF shows
+  the reason to TAO Admin and the generic cause to an analyst, both reached from Upload history › Details; publish and
+  reject dialog wording; Audit log in the sidebar. Tests: web 375 passed, 17 skipped, 0 failed; tsc clean;
+  check_contracts green. Gap 7 (latest month per program) waits on the operator.
 - 2026-11-04 — Design System: Help & support built for both shells (`/admin/help`, `/investor/help`, `/manager/help`),
   registered in pages.ts with `built: true`. Content is data in `web/src/shell/help/content.ts`; `HelpPage.tsx` renders
   task sections with numbered steps, a glossary ("What the words mean"), a search box (every word must match; kept in
