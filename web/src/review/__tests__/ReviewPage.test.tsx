@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { screen, within, waitFor } from '@testing-library/react'
+import { screen, within, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockApi, on, renderPage, setRole, clone, type Call } from './helpers'
 import ReviewPage, { partnersLabel } from '../ReviewPage'
@@ -184,6 +184,22 @@ describe('Review report', () => {
     expect(screen.queryByText('Activity')).toBeNull()
     expect(calls.some(c => c.path.startsWith('/audit'))).toBe(false)
     expect(calls.every(c => c.headers['X-Role'] === 'tao_analyst')).toBe(true)
+  })
+
+  it('extraction failed: TAO Admin sees the worker reason and Reject; analysts see what to do', async () => {
+    const reason = 'page 1 has no text layer; cover block not found'
+    const failed = (): State => ({ ...fresh(), upload: { ...clone(uploadFx), status: 'extraction_failed' } as Upload, findings: [],
+      audit: [{ id: 'f1', at: '2026-11-04T12:50:00Z', actor_role: 'system', actor_label: 'worker', action: 'extract', upload_id: ID, finding_id: null, reason, detail: { status: 'extraction_failed' } }] })
+    stack(failed())
+    show()
+    expect(await screen.findByText(`Extraction failed: ${reason}. Upload a readable PDF for the same deal and period, or reject this upload with a reason.`)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reject…' })).toBeTruthy()
+    cleanup()
+    setRole('tao_analyst')
+    stack(failed())
+    show()
+    expect(await screen.findByText(/Extraction failed: the report could not be read\. A scanned or blank PDF is the usual cause/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Reject…' })).toBeNull()
   })
 
   it('partner roles get no access and no intake request', () => {
