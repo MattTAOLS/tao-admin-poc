@@ -51,14 +51,15 @@ components:
         Every error is `{code, message}` at the top level (422 may add `errors[]` with field detail). Codes:
         403 `forbidden`, `bad_role` (unknown X-Role), `bad_partner` (X-Partner missing or not the caller's), `tao_only`,
         `admin_only`; 404 `not_found`;
-        409 `already_published` (period published for this deal, R12 pre-check), `upload_in_progress` (another active
+        409 `already_published` (period published for this deal and `replace` not set; R12 pre-check), `upload_in_progress` (another active
         upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
         (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
         `no_target` (use_ours / use_report on a finding without `targets`),
         `conflicting_corrections` (approve: resolved choices write different values to the same pointer; body adds
         `conflicts`), `correction_inconsistent` (approve: re-running the rules on the corrected deal raises a block
         finding no resolved finding covers; body adds `findings`; nothing is published);
-        422 `invalid` (also a missing X-Role), `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`.
+        422 `invalid` (also a missing X-Role), `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`,
+        `nothing_to_replace` (`replace` set but the period has no publication).
       properties:
         code: { type: string }
         message: { type: string }
@@ -115,6 +116,8 @@ components:
         latest_extraction_id: { type: [string, 'null'], format: uuid }
         published_at: { type: [string, 'null'], format: date-time }
         reject_reason: { type: [string, 'null'] }
+        replaces_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a corrected re-issue: the upload whose publication this one replaces on approve' }
+        replaced_by_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a published upload once a re-issue for its period has been approved' }
     Extraction:
       description: See contracts/extraction.schema.json (meta, deal, sources) plus id.
       type: object
@@ -265,6 +268,11 @@ paths:
   /uploads:
     post:
       summary: Create an upload and queue extraction (TAO)
+      description: |
+        A period already published for the deal is refused (409 `already_published`) unless `replace` is true: then the
+        upload is a corrected re-issue, `replaces_upload_id` names the published upload, R12 raises a block finding
+        that says what it replaces (and which later periods are already published), and approving it replaces the
+        publication; the old upload gets `replaced_by_upload_id` and both stay in the audit log.
       parameters: [ { $ref: '#/components/parameters/XRole' } ]
       requestBody:
         required: true
@@ -277,6 +285,7 @@ paths:
                 deal_slug: { type: string }
                 collection_period: { type: string, pattern: '^\d{4}-\d{2}$' }
                 file: { type: string, format: binary }
+                replace: { type: boolean, default: false, description: 'corrected re-issue of a published period' }
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
