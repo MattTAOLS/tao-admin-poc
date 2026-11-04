@@ -5,12 +5,13 @@
                                                 (demo data for the partner portals; skipped for periods
                                                 that already have a publication)
 
-Covenant definitions carry no id in the seed file; their id is a uuid5 of (deal, legal_ref, effective_from),
-so re-running updates the same row instead of adding a copy."""
+Covenant definitions carry no id in the seed file; a deal's definitions are compared by content with its current
+rows (migration 007): identical rows are left alone, rows the file no longer has are marked superseded_at = now, new
+ones are inserted (first version id = uuid5 of deal, legal_ref, effective_from). Re-running with the same file is a no-op."""
 import json, pathlib, sys, uuid, datetime as dt
 from sqlalchemy import select
 from . import db, views
-from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction
+from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction, new_id, utcnow
 
 HERE = pathlib.Path(__file__).resolve()
 NS = uuid.UUID("6f1d3c52-7d0e-4c8e-9a51-2b7f0a1c9e10")
@@ -59,12 +60,65 @@ def load(s, root: pathlib.Path = SEED) -> dict:
         s.flush()
         counts[name] = len(rows)
     rows = json.loads((root / "covenant_definitions.json").read_text(encoding="utf-8"))
-    for r in rows:
-        r = dict(r, effective_from=dt.date.fromisoformat(r["effective_from"]))
-        s.merge(CovenantDefinition(id=covenant_id(dict(r, effective_from=r["effective_from"].isoformat())), **r))
     counts["covenant_definitions"] = len(rows)
+    counts["covenant_definitions_superseded"] = load_covenants(s, rows)
     s.commit()
     return counts
+
+
+COVENANT_FIELDS = ("legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "unit", "source")
+
+
+def _num(v):
+    return None if v is None else round(float(v), 6)
+
+
+def covenant_key(r) -> tuple:
+    """What makes two definitions the same, for a seed row (dict) or a stored row (CovenantDefinition)."""
+    g = r.get if isinstance(r, dict) else lambda k, d=None: getattr(r, k, d)
+    eff = g("effective_from")
+    return (g("legal_ref"), g("description"), g("kind"), _num(g("threshold")),
+            json.dumps(g("threshold_rule"), sort_keys=True) if g("threshold_rule") is not None else None,
+            _num(0.1 if g("watch_buffer_pct") is None else g("watch_buffer_pct")),
+            eff.isoformat() if isinstance(eff, dt.date) else str(eff)[:10], g("unit"), g("source"))
+
+
+def load_covenants(s, rows: list[dict]) -> int:
+    """Per deal in the file: current rows (superseded_at is null) the file no longer contains get superseded_at = now;
+    file rows with no identical current row are inserted. Unchanged rows are left alone, so a re-run with the same file
+    changes nothing. Deals absent from the file keep their rows. Returns the number of rows superseded.
+    A new row takes the stable uuid5 id unless an earlier (now superseded) version already holds it."""
+    now, superseded = utcnow(), 0
+    by_deal: dict[str, list[dict]] = {}
+    for r in rows:
+        by_deal.setdefault(r["deal_slug"], []).append(r)
+    for slug, want in by_deal.items():
+        current = s.scalars(select(CovenantDefinition).where(CovenantDefinition.deal_slug == slug,
+                                                              CovenantDefinition.superseded_at.is_(None))).all()
+        keep = {covenant_key(r) for r in want}
+        have = set()
+        for c in current:
+            k = covenant_key(c)
+            if k in keep and k not in have:
+                have.add(k)
+            else:                                         # gone from the file, changed, or a duplicate
+                c.superseded_at = now; superseded += 1
+        s.flush()
+        for r in want:
+            k = covenant_key(r)
+            if k in have:
+                continue
+            have.add(k)
+            cid = covenant_id(r)
+            if s.get(CovenantDefinition, cid) is not None:
+                cid = new_id()
+            data = {f: r.get(f) for f in COVENANT_FIELDS}
+            data["effective_from"] = dt.date.fromisoformat(r["effective_from"])
+            if data["watch_buffer_pct"] is None:
+                data.pop("watch_buffer_pct")
+            s.add(CovenantDefinition(id=cid, deal_slug=slug, **data))
+        s.flush()
+    return superseded
 
 
 def load_reference_publications(s, root: pathlib.Path = REFERENCE) -> int:

@@ -529,3 +529,13 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-04 — Data & API: superseded covenant definitions (migration 007). `covenant_definition.superseded_at`
+  (timestamptz, null = current) plus a partial index on current rows. `python -m app.seed` compares each deal's
+  definitions in the seed file with its current rows by content: identical rows are untouched, current rows the file no
+  longer has get superseded_at = now, new rows are inserted (the uuid5 id unless an earlier version holds it, then a
+  new uuid). Same file twice is a no-op; deals not in the file keep their rows. So a database seeded before the
+  Stride/Xpedite fix is corrected by re-running the seed after applying 007; no `down -v`. Every API read takes current
+  rows only (`views.covenants_as_of`: /master/covenants with and without as_of, and the override re-run context).
+  An existing database needs `007_covenant_superseded.sql` applied by hand (initdb runs migrations only on a fresh
+  volume). Needs from Rules: the one-line adapter filter in requests.md, or worker R14 still sees superseded rows.
+  No contract change. Tests: api 144 on SQLite and on PostgreSQL (pg8000), check_contracts green.

@@ -115,8 +115,9 @@ def audit_dict(a: ReviewAction) -> dict:
 
 
 def covenants_as_of(s: Session, deal_slug: str | None, as_of: dt.date | None) -> list[CovenantDefinition]:
-    """All definitions, or, with as_of, the one in force for each (deal, legal_ref): latest effective_from <= as_of."""
-    q = select(CovenantDefinition)
+    """All current definitions, or, with as_of, the one in force for each (deal, legal_ref): latest effective_from <= as_of.
+    Rows the seed superseded (007, superseded_at set) are never returned."""
+    q = select(CovenantDefinition).where(CovenantDefinition.superseded_at.is_(None))
     if deal_slug:
         q = q.where(CovenantDefinition.deal_slug == deal_slug)
     if as_of:

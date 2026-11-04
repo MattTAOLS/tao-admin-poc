@@ -63,6 +63,9 @@ class Deal(Base):
 
 class CovenantDefinition(Base):
     __tablename__ = "covenant_definition"
+    # 007: superseded rows are kept for history; every read takes the current ones (superseded_at is null).
+    __table_args__ = (Index("covenant_definition_current", "deal_slug", "legal_ref", "effective_from",
+                            sqlite_where=text("superseded_at is null"), postgresql_where=text("superseded_at is null")),)
     id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
     deal_slug: Mapped[str] = mapped_column(Text, ForeignKey("deal.slug"))
     legal_ref: Mapped[str] = mapped_column(Text)
@@ -74,6 +77,7 @@ class CovenantDefinition(Base):
     effective_from: Mapped[dt.date] = mapped_column(Date)
     unit: Mapped[str | None] = mapped_column(Text, nullable=True)            # 004: fraction | ratio | currency
     source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    superseded_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # 007
 
 
 class SetrepUpload(Base):
