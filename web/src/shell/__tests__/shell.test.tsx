@@ -52,6 +52,20 @@ describe('shell routing', () => {
     const c = routeCrumbs(ADMIN_PAGES, '/admin/portfolio/move-trust/deals/move-trust-vcc-iv-lp', 'TAO Admin')
     expect(c.map(x => x.label)).toEqual(['TAO Admin', 'Portfolio Executive Summary', 'Program Executive Summary', 'Deal page'])
   })
+  it('lists the Approval queue right after Uploads and highlights only the most specific item', () => {
+    renderAt('/admin/uploads/queue/abc')
+    const ws = screen.getByRole('navigation', { name: 'Workspace' })
+    const names = within(ws).getAllByRole('link').map(a => a.textContent)
+    expect(names.indexOf('Approval queue')).toBe(names.indexOf('Uploads') + 1)
+    expect(within(ws).getByRole('link', { name: 'Approval queue' }).getAttribute('aria-current')).toBe('page')
+    expect(within(ws).getByRole('link', { name: 'Uploads' }).className).not.toContain('active')
+  })
+  it('keeps Uploads active on its other subpages', () => {
+    renderAt('/admin/uploads/history')
+    const ws = screen.getByRole('navigation', { name: 'Workspace' })
+    expect(within(ws).getByRole('link', { name: 'Uploads' }).className).toContain('active')
+    expect(within(ws).getByRole('link', { name: 'Approval queue' }).className).not.toContain('active')
+  })
   it('shows Not found with a way home for an unknown path', async () => {
     renderAt('/admin/nope')
     expect(screen.getByRole('heading', { level: 2, name: 'Page not found' })).toBeTruthy()
