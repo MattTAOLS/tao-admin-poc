@@ -81,20 +81,25 @@ def _upload_dir(upload_id: str):
 # ---- uploads (TAO) ----
 @app.post(API + "/uploads", status_code=201)
 async def create_upload(deal_slug: str = Form(...), collection_period: str = Form(...), file: UploadFile = File(...),
+                        replace: bool = Form(False),
                         c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
     tao_only(c)
     _check_period(collection_period, "collection_period")
     if s.get(Deal, deal_slug) is None:
         raise err(422, "unknown_deal", f"no deal {deal_slug}")
-    if s.scalars(select(Publication).where(Publication.deal_slug == deal_slug, Publication.collection_period == collection_period)).first():
-        raise err(409, "already_published", f"{deal_slug} {collection_period} is already published (R12); reject or regenerate instead")
+    published = s.scalars(select(Publication).where(Publication.deal_slug == deal_slug, Publication.collection_period == collection_period)).first()
+    if published and not replace:
+        raise err(409, "already_published", f"{deal_slug} {collection_period} is already published (R12); upload with replace=true for a corrected re-issue")
+    if replace and not published:
+        raise err(422, "nothing_to_replace", f"{deal_slug} {collection_period} has no publication to replace")
     data = await file.read()
     try:
         pages = pdf.page_count(data)
     except Exception:
         raise err(422, "not_a_pdf", "the file is not a readable PDF")
     u = SetrepUpload(id=new_id(), deal_slug=deal_slug, collection_period=collection_period, file_name=file.filename or "source.pdf",
-                     file_path="", page_count=pages, uploaded_by=c.role, status="received")
+                     file_path="", page_count=pages, uploaded_by=c.role, status="received",
+                     replaces_upload_id=published.upload_id if replace else None)
     path = _upload_dir(u.id) / "source.pdf"
     u.file_path = str(path)
     s.add(u)
@@ -103,7 +108,8 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
     except IntegrityError:
         s.rollback()
         raise err(409, "upload_in_progress", f"an upload for {deal_slug} {collection_period} is already in progress")
-    views.audit(s, c, "upload", upload_id=u.id, detail={"file_name": u.file_name, "page_count": pages, "collection_period": collection_period})
+    views.audit(s, c, "upload", upload_id=u.id, detail={"file_name": u.file_name, "page_count": pages, "collection_period": collection_period,
+                                                         "replaces_upload_id": u.replaces_upload_id})
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     s.commit()

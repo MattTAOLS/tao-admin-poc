@@ -2,6 +2,14 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: corrected re-issues. `POST /uploads` takes `replace`; a published period without it is still
+  409 `already_published`, `replace` with no publication is 422 `nothing_to_replace`, and with one the upload records
+  `replaces_upload_id`. Approve swaps the publication row to the new upload (rollup_version + 1, publish audit names
+  `replaced_upload_id`); the old upload stays `published` and reports `replaced_by_upload_id` (derived). Migration 006 adds
+  the column and stops a `published` upload counting as the period's active upload, so the re-issue can be uploaded while
+  one-in-flight still holds. The Upload dict in the override Context carries `replaces_upload_id`. 133 API tests pass on
+  SQLite and PostgreSQL (migrations 001-006).
+
 - 2026-11-03 — Data & API: page-image crash fixed. PDFium is not thread-safe and concurrent first renders killed the
   uvicorn process silently. `api/app/pdf.py` puts every PDFium open, render and save (page counting on upload included)
   under one process-wide lock, and writes each PNG to a temp file in the page folder before `os.replace`. Burst of 12

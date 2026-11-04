@@ -56,7 +56,9 @@ def upload_dict(s: Session, u: SetrepUpload) -> dict:
             "reporting_period": reporting, "status": u.status, "file_name": u.file_name, "page_count": u.page_count,
             "uploaded_by": u.uploaded_by, "uploaded_at": iso(u.uploaded_at), "finding_counts": counts,
             "latest_extraction_id": ex.id if ex else None, "published_at": iso(pub.published_at) if pub else None,
-            "reject_reason": u.reject_reason}
+            "reject_reason": u.reject_reason, "replaces_upload_id": u.replaces_upload_id,
+            "replaced_by_upload_id": s.scalars(select(SetrepUpload.id).where(SetrepUpload.replaces_upload_id == u.id,
+                                                                            SetrepUpload.status == "published")).first()}
 
 
 def extraction_dict(e: Extraction) -> dict:
