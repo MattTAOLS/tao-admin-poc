@@ -2,6 +2,13 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: page-image crash fixed. PDFium is not thread-safe and concurrent first renders killed the
+  uvicorn process silently. `api/app/pdf.py` puts every PDFium open, render and save (page counting on upload included)
+  under one process-wide lock, and writes each PNG to a temp file in the page folder before `os.replace`. Burst of 12
+  parallel requests for pages 3-8 on a private stack: before, 1 of 4 bursts killed the server (health timed out) and
+  others served 11 valid PNGs of 12; after, 6 of 6 bursts gave 12/12 valid PNGs with health 200. New
+  tests/test_page_concurrency.py; 128 API tests pass on SQLite and PostgreSQL.
+
 - 2026-11-03 — Lead: UI-wave prep (branch lead/ui-prep). `web/vite.config.ts` reads VITE_PORT and VITE_API_PROXY, so a
   dev server can sit beside compose's :5173 and proxy /api to any API (set VITE_API_URL=/api/v1; no CORS change).
   `scripts/compose.agent.yml` gives each agent a private stack (API on ${API_PORT}, no host ports for Postgres/Redis).
