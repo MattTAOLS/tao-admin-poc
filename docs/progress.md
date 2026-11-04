@@ -282,3 +282,17 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Review, wave 3 (corrections) on `agent/ui-review`, merged with integration/wave3. Override dialog: Use
+  ours / Use report only when the finding has `targets` (otherwise disabled on the card and in the dialog, with the reason);
+  for a value choice it says what publishing does ("Writes $15,020,071.52 to 5 fields: Roll-forward Aug 2026 · closing
+  balance, Tranche balance · closing, …", pointers as readable labels; "Nothing changes" when the extraction already holds
+  the value); R05 / R07 add the hint that Use report is right when a component was misread. Resolved value choices show
+  "Pending on publish" (then "Published") on the card. Publish dialog lists the corrections approve will write (field,
+  extracted, published, rule and choice) and shows 409 `conflicting_corrections` (field, both values, rules) and
+  `correction_inconsistent` (the new block findings) with "Go to R0x" buttons that close the dialog and focus the card.
+  Page images use `apiBlob`; link-buttons use `<Button as="link">`. Verified live (tao-ui-review, migrations 004/005 on a
+  fresh volume): use ours on the seeded R05 → published closing 15,020,071.52 with five `data_corrections` entries (period
+  history closing balance and amount, tranche balance closing, tranche amount closing, program amount); after a reset, use
+  report → published closing 15,019,971.52, no `data_corrections`, approve audit `corrections: []`; analysts see no buttons;
+  Stride R14 (no targets) shows use ours / use report disabled. Run: `cd web && npx vitest run src/review` (52 tests).
+

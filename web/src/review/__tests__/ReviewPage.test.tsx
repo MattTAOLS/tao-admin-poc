@@ -18,10 +18,10 @@ const ID = uploadFx.id
 const PATH = `/admin/uploads/queue/${ID}`
 const R05 = findingsFx[0]
 
-/** R05 after an override: the recorded R05 (with its five targets) plus the resolution block of a real override
- * response recorded from the review stack; `choice` picks use_ours or use_report. */
+/** R05 after a real use_ours override, recorded from the review stack (same ids as the recorded findings). For
+ * use_report only `resolution.choice` changes. */
 const REASON = overrideFx[0].resolution.reason
-const overridden = (choice = 'use_ours') => [{ ...clone(R05), status: 'overridden', resolution: { ...clone(overrideFx[0].resolution), choice } }]
+const overridden = (choice = 'use_ours') => [{ ...clone(overrideFx[0]), resolution: { ...clone(overrideFx[0].resolution), choice } }]
 const FIVE = 'Roll-forward Aug 2026 · closing balance, Tranche balance · closing, Roll-forward Aug 2026 · closing amount, Tranche amount · closing, Facility · program amount'
 
 type State = { upload: Upload; findings: unknown[]; audit: unknown[] }
@@ -80,7 +80,7 @@ describe('Review report', () => {
     expect(within(dlg).getByTestId('write-effect').textContent).toBe(`On publish. Writes $15,020,071.52 to 5 fields: ${FIVE}.`)
     expect(within(dlg).getByText(/choose Use report, which changes nothing/)).toBeTruthy()
     await userEvent.click(within(dlg).getByRole('radio', { name: /Use report/ }))
-    expect(within(dlg).getByTestId('write-effect').textContent).toBe('On publish. Nothing changes on publish: the extraction already holds $15,019,971.52 in all 5 fields.')
+    expect(within(dlg).getByTestId('write-effect').textContent).toBe('On publish. Nothing changes: the extraction already holds $15,019,971.52 in all 5 fields.')
     await userEvent.click(within(dlg).getByRole('radio', { name: /Use ours/ }))
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save and re-run rules' }))
     expect(within(dlg).getByRole('alert').textContent).toMatch(/at least 3 characters/)
@@ -254,7 +254,7 @@ describe('Review report: corrections', () => {
     stack(state)
     show()
     await screen.findByRole('article', { name: /Tranche balance roll-forward/ })
-    expect(within(card()).getByTestId('pending-correction').textContent).toMatch(/Nothing changes on publish/)
+    expect(within(card()).getByTestId('pending-correction').textContent).toBe('Pending on publish. Nothing changes: the extraction already holds $15,019,971.52 in all 5 fields.')
     await userEvent.click(screen.getByRole('button', { name: 'Publish to partner…' }))
     const dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
     expect(within(dlg).queryByRole('table')).toBeNull()

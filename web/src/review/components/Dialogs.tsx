@@ -31,7 +31,7 @@ export function WriteEffect({ ex, finding, choice, done }: { ex?: Extraction; fi
   const value = formatByUnit(writes[0].value as number, finding.unit)
   const changed = writes.filter(w => w.changed)
   if (changed.length === 0) {
-    return <>{done ? 'Published unchanged' : 'Nothing changes on publish'}: the extraction already holds {value} in {writes.length === 1 ? 'that field' : `all ${writes.length} fields`}.</>
+    return <>{done ? 'Unchanged' : 'Nothing changes'}: the extraction already holds {value} in {writes.length === 1 ? 'that field' : `all ${writes.length} fields`}.</>
   }
   const n = changed.length
   return <>{done ? 'Wrote' : 'Writes'} {value} to {n} field{n === 1 ? '' : 's'}: {listLabels(changed.map(w => w.label), 6)}.</>
