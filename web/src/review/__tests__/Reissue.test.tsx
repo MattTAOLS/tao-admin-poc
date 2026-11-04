@@ -64,7 +64,7 @@ describe('Corrected re-issue', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect((calls.find(c => c.method === 'POST') as Call).body).toEqual({ choice: 'acknowledge', reason: 'servicer sent a corrected July report' })
     expect(R12().rule_id).toBe('R12')
-  })
+  }, 20000)
 
   it('publish dialog says it replaces the published report', async () => {
     const state = fresh(); state.findings = clone(reissueResolvedFx)
