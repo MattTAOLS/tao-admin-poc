@@ -1,0 +1,209 @@
+# MOVE Trust settlement report split by currency and rate type (template v1).
+#
+# Selected by move-trust-settrep-v1.yaml when page 1 lists "SUMMARY OF TRANCHE BALANCE - FIXED (CAD)". The report
+# prints the tranche balance and the tranche amounts on four pages each (FIXED / FLOATING x CAD / USD); the deal
+# object carries CAD-equivalent totals (USD x the spot rate printed on the USD pages) plus the per-currency split.
+# Parsing and derivation live in engines/multicurrency_settrep.py; everything document-specific is here, as data.
+# No deal or servicer names in code: headings, columns and labels below are the only coupling to the document.
+#
+# Period convention of this layout: every page header reads "Settlement Date August 13, 2026 for Collection Period
+# July 2026". collection_period = that month (= the cover block "Collection Period Start Date" month), period
+# "2026-07"; the settlement date falls in the month after. The aggregate-performance table's newest row is the
+# collection month itself, so meta.reporting_period = collection_period (same month, not one month earlier as in
+# F-PIL 2.0). Rule R04 currently expects reporting + 1 month = collection and blocks on this layout.
+
+template_id: move-trust-settrep-multicurrency-v1
+engine: multicurrency_settrep
+
+program:
+  deal_name_format: "{title}"           # title = cover line before "Settlement Report" ("MOVE Trust - <originator>")
+
+terminology: null                       # the reference objects of this layout carry no terminology block
+
+currencies:
+  base: CAD
+  foreign: USD                          # converted at the spot rate printed on the foreign-currency pages
+  spot_rate: '^SPOT RATE: (?P<v>\d+\.\d+)$'
+
+number_format:
+  thousands: ","
+  decimal: "."
+  zero: ["-"]                    # Excel accounting zero; a blank cell is also zero
+  percent: fraction              # "8.65%" is stored as 0.0865
+  negative: [leading_minus, sign_hugging_previous_cell]   # "- 4,163.85" in the adjustment column is negative
+  columns: right_aligned         # blank cells are common; cells are placed under columns by right edge (anchors)
+
+dates:
+  settlement_date: "%B %d, %Y"
+  securitization_date: "%d-%b-%y"      # "29-Jun-23"; "0-Jan-00" is Excel's empty date (kept as printed)
+  month_row: "%b-%y"
+  collection_period_out: "%B %Y"
+  period_out: "%Y-%m"
+
+derived:
+  watch_buffer_pct: 0.1
+  trend_flat_band: 0.01
+  top_movers: {tranche: 10, contracts: 10}
+  written_off_bucket_label: "91+ Days / Other Defaults"
+  reconcile_tolerance: 1.00
+  cnl_ratio_decimals: 6          # cnl_by_period[].cnl_ratio_pct = round(period CNL / period original balance, 6)
+  cad_equivalent_decimals: 2     # per-tranche opening CAD equivalent of a USD tranche, as the page would print it
+
+sections:
+  cover:
+    page_hint: 1
+    patterns:
+      title: '^(?P<v>.+?) SETTLEMENT REPORT$'
+      settlement_date: '^SETTLEMENT DATE (?P<v>[A-Z]+ \d{1,2}, \d{4}) FOR COLLECTION PERIOD'
+      collection_start: 'COLLECTION PERIOD START DATE: (?P<v>[A-Z]+ \d{1,2}, \d{4})'
+  reporting_period:
+    # the page header names the collection period; see the period convention at the top
+    pattern: 'FOR COLLECTION PERIOD (?P<v>[A-Z]+ \d{4})$'
+
+  tranche_balance:
+    source_page_key: tranche_balance
+    also_source_page_keys: [outstanding_contracts]
+    pages:
+      - {heading: "SUMMARY OF TRANCHE BALANCE - FIXED (CAD)", currency: CAD, rate_type: Fixed}
+      - {heading: "SUMMARY OF TRANCHE BALANCE - FIXED (USD)", currency: USD, rate_type: Fixed}
+      - {heading: "SUMMARY OF TRANCHE BALANCE - FLOATING (CAD)", currency: CAD, rate_type: Floating}
+      - {heading: "SUMMARY OF TRANCHE BALANCE - FLOATING (USD)", currency: USD, rate_type: Floating}
+    end: '^SUMMARY OF OUTSTANDING CONTRACTS'
+    total_row: '^PORTFOLIO BALANCES$'
+    # Columns as printed: original balance (unlettered), a opening, b principal collections, c prepayments,
+    # d defaults, e interest collections, f prepayment penalties, g recoveries, h other interest, i adjustment to
+    # portfolio (+/-), original yield, j effective yield, k closing (+ closing CAD equivalent on the USD pages).
+    # The Portfolio Balances row prints every column except the original yield; its right edges are the column
+    # anchors for the tranche rows (cells left of the yields / right of the yields).
+    columns_before_yields: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, other_interest, adjustment]
+    yield_columns: [original_yield, effective_yield]
+    columns_after_yields:
+      CAD: [closing]
+      USD: [closing, closing_cad_equivalent]
+    # Income counted by the report's effective-yield formula j = (e+f)/a*12: interest collections + prepayment
+    # penalties. deal interest is extracted this way (the published objects were corrected to it on 2026-10-09,
+    # see data_corrections in the reference), so a fresh extraction needs no correction step.
+    interest_columns: [interest, penalties]
+    # page identity k = a - b - c - d + i: closing = opening - principal - prepayments - defaults + adjustment.
+    # R05 terms: the downward part of the adjustment -> charge_off, the upward part -> adjustment_increase, both
+    # positive CAD-equivalent amounts.
+    rollforward: {opening: opening, minus: [principal, prepayments, defaults], plus: [adjustment], closing: closing}
+    # deal.tranche_balance.all_tranches / top_movers: dated tranche rows (a securitization date is printed) of the
+    # pages that carry a balance (opening or closing total non-zero), in page order
+    all_tranches: {require_date: true, skip_pages_with_zero_totals: true}
+
+  outstanding_contracts:
+    heading: '^SUMMARY OF OUTSTANDING CONTRACTS - (FIXED|FLOATING)$'    # on each tranche balance page
+    total_row: '^CONTRACT TOTALS$'
+    columns: [opening, change, closing]      # anchors from the Contract Totals row ("333 - 4 329": change -4)
+
+  tranche_amounts:
+    source_page_key: tranche_amounts
+    pages:
+      - {heading: "SUMMARY OF TRANCHE AMOUNTS - FIXED (CAD)", currency: CAD, rate_type: Fixed}
+      - {heading: "SUMMARY OF TRANCHE AMOUNTS - FIXED (USD)", currency: USD, rate_type: Fixed}
+      - {heading: "SUMMARY OF TRANCHE AMOUNTS - FLOATING (CAD)", currency: CAD, rate_type: Floating}
+      - {heading: "SUMMARY OF TRANCHE AMOUNTS - FLOATING (USD)", currency: USD, rate_type: Floating}
+    total_row: '^PROGRAM TOTALS$'
+    columns: [original_balance, original_amount, opening, funding_cost_rate, distribution, funding_cost, days, closing]
+    # deal.tranche_amount opening/closing and period_history opening/closing_amount = CAD amount + USD amount as
+    # printed (no conversion), as the reference objects carry them; tranche_amount.by_currency has the CAD-equivalent
+    # total.
+
+  program:
+    source_page_key: funding_costs
+    heading: '^SUMMARY OF (AVAILABILITY, )?FUNDING COSTS AND FEES$'
+    lines:
+      program_limit: '^PROGRAM LIMIT$'
+      program_amount: '^PROGRAM AMOUNT \(TRANCHE AMOUNT\) AT CAD EQUIVALENT$'
+      unused_facility: '^UNUSED FACILITY AT CAD EQUIVALENT$'
+
+  enhancement:
+    source_page_key: enhancement
+    heading: '^SUMMARY OF ENHANCEMENT$'
+    search_pages_after_heading: 3      # the totals are printed at the end of the overcollateralization pages
+    lines:
+      total_amount: '^TOTAL ENHANCEMENT \(\$\)$'
+      total_pct: '^TOTAL ENHANCEMENT \(%\)$'
+
+  top10_obligor:
+    source_page_key: top10_obligor
+    heading: '^SUMMARY OF TOP 10 OBLIGOR CONCENTRATION$'
+    row: '^(?P<rank>\d{1,2}) (?P<name>.+)$'
+    # column anchors: right edges of these header tokens on the header line that names "Obligor Name"
+    anchor_header: {line_has: "OBLIGOR NAME", tokens: '^(AMOUNT|\(%\)|EQUIVALENT\))$'}
+    columns: [cad_amount, usd_amount, usd_cad_equivalent, total_amount, concentration_pct, limit_pct, limit_per_obligor, excess_amount]
+
+  aging:
+    source_page_key: aging_summary
+    heading: '^AGING SUMMARY PER POOL \(CAD\)$'
+    total_row: '^TOTAL TRANCHE BALANCE$'     # CAD + USD CAD-equivalent, printed after the USD table
+    columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, closing, payment_deferral, net_book_value, originator_net_book_value]
+
+  aggregate_performance:
+    source_page_key: aggregate_performance
+    heading: '^AGGREGATE PORTFOLIO PERFORMANCE'
+    end: '^CUMULATIVE LOSSES$'
+    # month rows, newest first; the newest row is the collection month. Picked by position from either end.
+    pick: {portfolio_balance: 0, delinquency_ratio: -2, loss_ratio: -1}
+
+  cumulative_losses:
+    source_page_key: cumulative_losses
+    heading: '^CUMULATIVE LOSSES$'
+    total_row: '^POOL BALANCE TOTALS \(CAD EQUIVALENT\)$'
+    # tranche rows: date, tranche, currency, [tranche repeated], semi-annual period, then the amount columns (CAD
+    # equivalent) anchored on the Pool Balance Totals row; the semi-annual period summary (period no., CNL ratio as
+    # printed) runs down the right-hand side of the same lines.
+    row: '^(?P<date>\d{1,2}-[A-Z][a-z]{2}-\d{2}) (?P<tranche>\d+-[FV]) (?P<currency>CAD|USD)\b'
+    columns: [original, losses, recoveries, cumulative_net_losses]
+    tranche_label: {CAD: "{tranche}", USD: "{tranche} USD"}
+    pool_totals_source: "{file} p.{page} Pool Balance Totals (CAD Equivalent)"
+
+  borrower_ratios:                        # mapper.parse_borrower format
+    source_page_key: financial_ratios
+    page_hint: 21
+    heading: '^ORIGINATOR DATA, AND FINANCIAL RATIOS'
+    tables:
+      - when_header_has: ["COVERAGE"]
+        pick: {interest_coverage_ratio: 0}
+      - when_header_has: ["LEVERAGE"]
+        pick: {leverage_ratio: 0, total_equity: -1}      # "Tangible Net Worth"
+
+  quantitative_tests:
+    source_page_key: quantitative_tests
+    heading: 'SUMMARY OF QUANTITATIVE TESTS AND TRIGGERS$'
+    test_row: '^(?P<ref>MSA DEF\.|MSA \d+(?:\.\d+)*(?: ?\([a-z]\))?) (?P<desc>.+?) (?P<answer>YES|NO)\**$'
+    ref_aliases: {"MSA DEF.": "MSA (Definitions)"}
+    # category headings; the clean-up provision is listed under its own heading but stays an Event of Termination
+    categories:
+      "LOCK-UP EVENT": "Lock-Up Event"
+      "EVENT OF TERMINATION": "Event of Termination"
+    continue_category: ["CLEAN-UP PROVISION"]
+    binary_note: "Reported directly by the servicer/originator; no underlying data series available."
+    # which series feeds each test, matched on the description; first match wins. `window: n` = the test reads
+    # "this Collection Period or any of the preceding n-1 Collection Periods": the value is the highest of the
+    # last n months.
+    metrics:
+      - {match: 'DELINQUENCY TRIGGER RATIO', series: delinquency_ratio, kind: ceiling, window: 6}
+      - {match: 'LOSS TRIGGER RATIO', series: loss_ratio, kind: ceiling, window: 6}
+      - {match: 'CNL RATIO|CUMULATIVE NET LOSS RATIO', series: cnl_worst_vintage, kind: ceiling}
+      - {match: 'DELINQUENCY RATIO', series: delinquency_ratio, kind: ceiling}
+      - {match: 'LOSS RATIO', series: loss_ratio, kind: ceiling}
+      - {match: 'INTEREST COVERAGE RATIO', series: interest_coverage_ratio, kind: floor}
+      - {match: 'LEVERAGE RATIO', series: leverage_ratio, kind: ceiling}
+      - {match: 'TANGIBLE NET WORTH', series: total_equity, kind: floor}
+
+financial_ratios:
+  - {key: delinquency_ratio, label: Delinquency Ratio, format: pct, group: Portfolio Performance, series: delinquency_ratio}
+  - {key: loss_ratio, label: Loss Ratio, format: pct, group: Portfolio Performance, series: loss_ratio}
+  - {key: cnl_ratio, label: CNL Ratio (worst vintage), format: pct, group: Cumulative Net Losses, series: cnl_worst_vintage}
+  - {key: interest_coverage_ratio, label: Interest Coverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: interest_coverage_ratio}
+  - {key: debt_equity_ratio, label: Leverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: leverage_ratio}
+  - {key: total_equity, label: Total Equity, format: dollar, group: Borrower Data and Financial Ratios, series: total_equity}
+
+ratio_history_fields:   # one row per month printed in the aggregate or the originator tables, oldest first
+  delinquency_ratio_pct: delinquency_ratio
+  loss_ratio_pct: loss_ratio
+  debt_equity_ratio: leverage_ratio
+  total_equity: total_equity
+  interest_coverage_ratio: interest_coverage_ratio
