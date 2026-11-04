@@ -172,9 +172,12 @@ def test_requested_earlier_month_leaves_out_deals_with_nothing_then(client):
 
 
 def test_later_requested_month_marks_every_deal_behind(client):
-    r = client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-09"}).json()
-    assert r["deal_count"] == 3 and sorted(b["deal_slug"] for b in r["deals_behind"]) == [MONEDA, STRIDE, XPEDITE]
-    assert {b["as_of"] for b in r["deals_behind"]} == {"2026-08"}
+    """A month not in available_periods is 404: no view built only from older reports."""
+    r = client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-09"})
+    assert r.status_code == 404 and r.json()["code"] == "not_found"
+    moneda_july_only()                                   # 2026-07 is now an available period, so it is served
+    assert client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-07"}).status_code == 200
+    assert client.get(f"{P}/programs/f-pil-2-0", headers=TAO, params={"period": "2026-09"}).status_code == 404
 
 
 def test_deals_behind_respects_partner_filter(client):

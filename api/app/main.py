@@ -463,7 +463,10 @@ def _program_aggregate(s: Session, program: Program, period: str | None) -> dict
     pubs = _program_publications(s, program.slug)
     if not pubs:
         return None
-    period = period or max(p.collection_period for p in pubs)
+    periods = sorted({p.collection_period for p in pubs}, reverse=True)
+    if period is not None and period not in periods:      # no "Sep 2026" view built only from older reports
+        return None
+    period = period or periods[0]
     # A program's month lists every deal: each deal contributes its latest publication at or before `period`,
     # so a deal whose next report is still waiting for approval shows its last published month (deals_behind).
     latest: dict[str, Publication] = {}
@@ -476,7 +479,6 @@ def _program_aggregate(s: Session, program: Program, period: str | None) -> dict
     behind = [{"deal_slug": p.deal_slug, "deal_name": p.deal.get("deal_name"), "as_of": p.collection_period}
               for p in chosen if p.collection_period < period]
     agg = rollup.build_program(period, [p.deal for p in chosen])
-    periods = sorted({p.collection_period for p in pubs}, reverse=True)
     return {"program": views.program_dict(s, program), "available_periods": periods, "deals_behind": behind, **agg}
 
 
