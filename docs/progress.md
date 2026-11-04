@@ -411,6 +411,16 @@ Append an entry when a work package lands. Newest first.
   now accepts a definition with both threshold and threshold_rule null (Stride SLFA 9.1 (g), limit per vintage); the seed
   test counts the seed files instead of literals. Re-seeding an existing database leaves the 3 retired Stride/Xpedite rows
   in place (no superseded flag in the model; see requests.md). 135 API tests pass on SQLite and PostgreSQL.
+- 2026-11-04 — Rules, wave 2b (R11 FX, robustness): merged main (5b0edb1). R11 compares multi-currency deals per
+  currency: when both objects carry by_currency, each currency's native opening is checked against its native prior
+  closing (USD from usd_closing_raw, or from the CAD equivalent ÷ spot_rate) within tol.currency. The CAD-equivalent
+  gap is revaluation, kept in context. Single-currency deals are unchanged. Finloc May–July raise no R11 (revaluation
+  +64,124.04, +106,968.53, −47,609.31; native gaps 0.00, and the reference May USD cent is absorbed). A native break
+  still blocks (fixture r11-fx-revaluation). Essex May's restatement still blocks. R05 and R07 now return a block
+  finding naming null terms ("Cannot check: … missing … pass 2 or review") instead of raising a TypeError.
+  engine.run turns any check that raises into a finding (block, or review for note rules), so a rule can no longer
+  mark an upload extraction_failed. Over the 36 MOVE extractions: R11 ×4 (Essex May ×2, TLFC LP June ×2), R19 notes ×8,
+  nothing else. Tests: rules 122, worker/validate 19, check_contracts green.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.

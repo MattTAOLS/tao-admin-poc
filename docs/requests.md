@@ -278,12 +278,18 @@ The Lead reads this at every merge.
   wave 2 request), drop Finloc and TLFC LP from `KNOWN_ROLLFORWARD_GAPS` in `rules/tests/test_engine.py` and
   `rules/tests/test_rules.py`. The Rules agent can do it on request. Test failures will show the moment the
   references carry the terms.
-- 2026-11-04 — to Lead / Extraction (FYI, R11 on chained MOVE months): month N's extraction run as the prior of month N+1
+- PARTLY RESOLVED (Finloc FX handled in fb43cf7; Essex and TLFC LP open) — 2026-11-04 — to Lead / Extraction (FYI, R11 on chained MOVE months): month N's extraction run as the prior of month N+1
   gives 7 R11 blocks. Finloc May, June and July opening ≠ prior closing (residual −16,765.69, +32,571.92,
   −115,492.18, after new tranches). This is the multicurrency CAD-equivalent re-translation, which R11 cannot
   explain from the fields it has; it needs an FX-revaluation term or field. Essex May restates April ICR 1.15→1.12
   and leverage 6.35→6.22. TLFC LP June restates rvl_ratio_pct for April and May 0.0→0.00112487. That may be a
   May-report read. Please check before treating it as a restatement.
+
+- 2026-11-04 — to Lead (contracts/rules.yaml, R11 description): R11 now compares multi-currency deals per currency
+  (fb43cf7). Suggested addition: "Where the current and prior objects carry per-currency amounts (by_currency), each
+  currency's opening equals its prior closing in its own units; the reporting-currency difference is spot-rate
+  revaluation and is not a break." Also R05 / R07: a null required term is a block finding naming it (11c0ee2). The
+  description could say so.
 
 ## UI-Admin
 - RESOLVED (integration/wave3; UI-Admin a907119) — 2026-11-03 — to Lead (contract, additive): UI-Admin depends on these real-API-only behaviours, all read as optional:
