@@ -2,11 +2,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { CACHE, REPO, SAMPLES } from './env'
 
-/** The three F-PIL 2.0 deals with real SetRep PDFs in data/samples/. */
+/** The three F-PIL 2.0 deals with real SetRep PDFs in data/samples/, and the three MOVE Trust deals step 9 uploads
+ * from data/samples/move-trust/. */
 export const DEALS = {
   moneda: { slug: 'f-pil-2-0-moneda-capital-corp', file: (m: string) => `Moneda-${m} -SETTREP.pdf` },
   stride: { slug: 'f-pil-2-0-stride-capital', file: (m: string) => `Stride Capital - ${m} - SETTREP.pdf` },
   xpedite: { slug: 'f-pil-2-0-xpedite-leasing', file: (m: string) => `Xpedite Leasing - ${m} - SETTREP.pdf` },
+  essex: { slug: 'move-trust-essex-lease-financial-corp', file: (m: string) => `move-trust/Essex - ${m} - SETTREP.pdf` },
+  tlfcLp: { slug: 'move-trust-tlfc-lp-leases', file: (m: string) => `move-trust/TLFC_LP-${m}-SETTREP.pdf` },
+  finloc: { slug: 'move-trust-finloc-2000-inc', file: (m: string) => `move-trust/Finloc-${m}-SETTREP.pdf` },
 } as const
 export type DealKey = keyof typeof DEALS
 export const PROGRAM = 'f-pil-2-0'
@@ -35,6 +39,42 @@ export const SEEDED = {
 }
 /** Step 7: a corrected re-issue of month one (Moneda 2026-05, the same real PDF uploaded again with replace=true). */
 export const STEP7 = { deal: 'moneda' as DealKey, month: '202605', period: '2026-05', reason: 'servicer re-sent the May report; replaces the published one' }
+
+/** Step 9: MOVE Trust, month by month from April 2026 (the month in a MOVE file name is the collection period and the
+ * reporting period). Nine uploads: the fewest that show both real R11 restatements, Finloc's three multi-currency
+ * months with no R11, a deal behind the program month, and one deal (Finloc) at the reference objects' period, July. */
+export const MOVE = { program: 'move-trust', name: 'MOVE Trust' }
+export const STEP9 = {
+  /** Upload order. Essex May goes before TLFC LP's and Finloc's May, so the program shows those two as of April. */
+  order: [
+    ['essex', '202604'], ['tlfcLp', '202604'], ['finloc', '202604'],
+    ['essex', '202605'],                                   // R11 x2: restates April's ratios
+    ['tlfcLp', '202605'], ['finloc', '202605'],
+    ['tlfcLp', '202606'],                                  // R11 x2: restates the April and May RVL ratio
+    ['finloc', '202606'], ['finloc', '202607'],
+  ] as [DealKey, string][],
+  /** Essex May 2026 restates April 2026 (ratio_history; the reference object's `restatements` records both). */
+  essex: {
+    month: '202605', period: '2026-05',
+    restated: [
+      { field: 'interest_coverage_ratio', month: '2026-04', row: 'Apr-26', was: 1.15, now: 1.12 },
+      { field: 'debt_equity_ratio', month: '2026-04', row: 'Apr-26', was: 6.35, now: 6.22 },
+    ],
+    reason: 'servicer restated the April ratios in the May report',
+  },
+  /** TLFC LP (Leases) June 2026 restates the RVL ratio for April and May: 0.000000% became 0.112487%. */
+  tlfcLp: {
+    month: '202606', period: '2026-06',
+    restated: [
+      { field: 'rvl_ratio_pct', month: '2026-04', row: 'Apr-26', was: 0, now: 0.00112487 },
+      { field: 'rvl_ratio_pct', month: '2026-05', row: 'May-26', was: 0, now: 0.00112487 },
+    ],
+    reason: 'servicer restated the April and May RVL ratio in the June report',
+  },
+  /** Finloc carries CAD and USD tranches. The CAD-equivalent opening differs from the prior closing by the USD
+   * revaluation; each currency's native opening equals its prior closing, so R11 raises nothing. */
+  finloc: { revaluation: { '2026-05': 64_124.04, '2026-06': 106_968.53, '2026-07': -47_609.31 } as Record<string, number> },
+}
 
 export const samplePath = (deal: DealKey, month: string) => path.join(SAMPLES, DEALS[deal].file(month))
 export const period = (month: string) => `${month.slice(0, 4)}-${month.slice(4)}`
