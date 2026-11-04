@@ -155,6 +155,26 @@ def test_context_has_the_api_shape(conn):
     assert ctx.upload["replaces_upload_id"] is None          # no migration-006 column in this database: tolerated
     assert ctx.upload["program_slug"] == "f-pil-2-0" and ctx.upload["reporting_period"] == "2026-07"
 
+def test_superseded_definitions_never_reach_r14(conn):
+    """Migration 007: a superseded SLFA 9.1 (e) at 4.00% beside its current 3.50% replacement. The superseded row is
+    later-dated, so without the superseded_at filter it would be the one in force and R14 would flag the report's 3.50%."""
+    conn.execute(text("alter table covenant_definition add column superseded_at text"))
+    conn.execute(text("insert into covenant_definition values ('old-e', 'f-pil-2-0-moneda-capital-corp', 'SLFA 9.1 (e)', 'Delinquency Ratio', 'ceiling', 0.04, null, 0.1, '2026-01-01', 'seed', '2026-11-04T12:00:00Z')"))
+    d = mf.load_deal(mf.MONEDA); uid = new_upload(conn, status="extracting", reporting="2026-07")
+    store = adapter.SqlStore(conn)
+    defs = store.covenant_definitions(d["deal_slug"])
+    assert "old-e" not in {x["id"] for x in defs} and len(defs) == 7
+    covs = adapter.build_context(store, store.upload(uid), d).master["covenants"]
+    assert [c["threshold"] for c in covs if c["legal_ref"] == "SLFA 9.1 (e)"] == [0.035]
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d), conn=conn, enqueue=FakeQueue())
+    eid = conn.execute(text("select id from extraction where upload_id = :u"), {"u": uid}).scalar()
+    assert not [f for f in store.findings(eid) if f["rule_id"] == "R14"], out
+    conn.execute(text("update covenant_definition set superseded_at = null where id = 'old-e'"))   # the same row in force: R14 does see it
+    covs = adapter.build_context(store, store.upload(uid), d).master["covenants"]
+    assert [c["threshold"] for c in covs if c["legal_ref"] == "SLFA 9.1 (e)"] == [0.04]
+    r14 = [f for f in adapter.validate_extraction(store, eid) if f["rule_id"] == "R14"]
+    assert len(r14) == 1 and r14[0]["our_value"] == 0.04 and r14[0]["report_value"] == 0.035
+
 def test_wrong_deal_selected_blocks(conn):
     uid = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")
     out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.load_deal(mf.MONEDA)), conn=conn, enqueue=FakeQueue())

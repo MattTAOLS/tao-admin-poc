@@ -97,7 +97,9 @@ class SqlStore:
     def program(self, slug):
         return self._one('select slug, name, partner_slug, currency, "limit", warehouse_limit from program where slug = :slug', slug=slug)
     def covenant_definitions(self, deal_slug):
-        return self._all("select id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug",
+        # superseded_at arrives with migration 007; superseded rows (the seed replaced them) are never in force
+        current = " and superseded_at is null" if self._has_column("covenant_definition", "superseded_at") else ""
+        return self._all("select id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug" + current,
                          ("threshold_rule",), slug=deal_slug)
     def publications(self, deal_slug):
         return self._all("select upload_id, collection_period, published_at, deal from publication where deal_slug = :slug order by collection_period", ("deal",), slug=deal_slug)
