@@ -65,6 +65,7 @@ class Parsed:
     tests: list = field(default_factory=list)              # [{ref, desc, answer, conditional: [...], page, bbox}]
     unplaced: list = field(default_factory=list)           # [(section, field, page_hint)]
     notes: list = field(default_factory=list)
+    extra: dict = field(default_factory=dict)              # engine- or template-specific sections
 
 
 def load_template(template_id: str) -> dict:

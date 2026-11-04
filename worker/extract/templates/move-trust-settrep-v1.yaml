@@ -1,0 +1,13 @@
+# MOVE Trust settlement reports: one template id for every MOVE Trust deal (seed/deals.json), dispatching to a
+# layout by keywords on page 1. Layouts are named by document shape, never by deal or servicer.
+template_id: move-trust-settrep-v1
+layouts:
+  # Payment-date servicer report (a different document: collection-period information block, SS triggers)
+  - template: move-trust-servicer-report-v1
+    when_page1_has: ["PAYMENT DATE", "COLLECTION PERIOD INFORMATION"]
+  # Settlement report split by currency and rate type (tranche balance pages per FIXED/FLOATING x CAD/USD)
+  - template: move-trust-settrep-multicurrency-v1
+    when_page1_has: ["SUMMARY OF TRANCHE BALANCE - FIXED (CAD)"]
+  # Standard MOVE settlement report (tranche balance, contracts, amounts, enhancement, top 10, aging, tests)
+  - template: move-trust-settrep-standard-v1
+    when_page1_has: ["SUMMARY OF TRANCHE BALANCE"]
