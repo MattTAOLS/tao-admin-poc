@@ -34,15 +34,6 @@ REFERENCE_QUIRKS = {
     r"^/ratio_history/Jun-25$":
         "Jun-25 is printed only by the April-June reports (originator table); the newest report (July) starts at "
         "Jul-25 and history.chain/extend keep the newest report's months. The reference keeps 14 months.",
-    r"^/(period_history/\d+|tranche_balance)/charge_off$":
-        "reference carries null; the extraction carries the downward part of page 2 column i 'Adjustment to "
-        "Portfolio (+/-)' as charge_off (the R05 term behind KNOWN_ROLLFORWARD_GAPS -4,163.85 in July).",
-    r"^/top10_obligors/\d+/(obligor_concentration_pct|concentration_limit_pct|concentration_limit_per_obligor"
-    r"|excess_concentration_amount)$":
-        "reference columns are shifted by one (obligor_concentration_pct holds the total amount, "
-        "concentration_limit_pct the obligor's concentration, concentration_limit_per_obligor the 5% limit, "
-        "excess_concentration_amount the per-obligor dollar limit); the extraction reads each printed column into "
-        "its own field, as the other MOVE Trust references do.",
     r"^/(covenants|prior_covenants)/8/description$":
         "reference keeps only the first printed line of the MSA 8.1 (h) question; the extraction keeps the wrapped "
         "second line ('... Required Tranche Balance at such time?').",
@@ -60,13 +51,9 @@ REFERENCE_QUIRKS = {
         "not on the report. The extraction reads interest the corrected way, so it needs no correction.",
 }
 
-# Phase-1 block findings each extraction produces, by period, and why.
-# R04: periods_line_up expects collection_period = meta.reporting_period + 1 month (F-PIL convention). In this
-#      layout the page header names the collection period itself and the aggregate table ends at that month, so
-#      reporting_period = collection_period; R04 needs a per-layout offset (request to Rules/Lead).
-# R05: April-June have an upward 'Adjustment to Portfolio' (CAD +29,149.68 / +50,888.50 / +8,318.79, USD
-#      +4,506.50 / +75.00); the extraction carries it as adjustment_increase, which R05 does not read yet.
-EXPECTED_BLOCKS = {"2026-04": {"R04", "R05"}, "2026-05": {"R04", "R05"}, "2026-06": {"R04", "R05"}, "2026-07": {"R04"}}
+# With R03's wider loss-ratio range, R04's per-program offset (MOVE reporting month = collection month) and
+# R05's adjustment_increase / charge_off terms on main, no MOVE report raises a phase-1 block.
+EXPECTED_BLOCKS = {m: set() for m in ("2026-04", "2026-05", "2026-06", "2026-07")}
 
 
 @functools.lru_cache(maxsize=None)
@@ -163,9 +150,6 @@ def test_phase1_rules_block_only_as_expected():
         row = ex["deal"]["period_history"][0]
         blocks = [f for f in run(ex, Context(), phases=(1,)) if f["severity"] == "block"]
         assert {f["rule_id"] for f in blocks} == EXPECTED_BLOCKS[row["period"]], [(f["rule_id"], f["message"]) for f in blocks]
-        r05 = [f for f in blocks if f["rule_id"] == "R05"]
-        if r05:   # misses by exactly the upward adjustment R05 does not read yet
-            assert abs(r05[0]["difference"] - row["adjustment_increase"]) <= 0.02   # rounded difference, USD cents
 
 
 def test_r05_closes_with_adjustment_terms():

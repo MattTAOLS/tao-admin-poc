@@ -29,10 +29,6 @@ SCHEMA = json.loads((ROOT / "contracts" / "extraction.schema.json").read_text(en
 # Reference values this layout's extraction cannot reproduce, with the reason for each. Every entry must match at
 # least one difference (so a stale entry fails the test instead of hiding nothing).
 MERIDIAN_REFERENCE_QUIRKS = {
-    r"^/source_pages/quantitative_tests$":
-        "reference has null; the lock-up / event-of-default tests are printed on page 11 and we cite that page",
-    r"^/source_pages/financial_ratios$":
-        "reference has page 1; the ratios (test results, CNL) are on page 11 and we cite that page",
     r"^/prior_covenants/\d+/trend$":
         "reference prior_covenants carry trend 'n/a'; chain()/extend() copy the prior report's covenants, whose trend "
         "is computed from its own prior-month test result (same quirk as compare.KNOWN_REFERENCE_QUIRKS for F-PIL)",
@@ -129,17 +125,14 @@ def test_schema_provenance_and_layout():
 
 @pytest.mark.slow
 @needs_move_samples
-def test_phase1_rules_only_r04_blocks():
-    """R04 assumes F-PIL's convention (collection period = page-header reporting period + 1 month). On this layout
-    the Report Month IS the collection period, so R04 blocks every report and nothing else does."""
+def test_phase1_rules_no_blocks():
+    """R04 takes MOVE's offset (the Report Month is the collection month): no phase-1 block on any report."""
     from rules import run
     from rules.engine import Context
     for ex in _exs():
         blocks = [f for f in run(ex, Context(), phases=(1,)) if f["severity"] == "block"]
-        assert [f["rule_id"] for f in blocks] == ["R04"], [(f["rule_id"], f["message"]) for f in blocks]
-        cp = ex["deal"]["period_history"][0]["period"]
-        assert ex["meta"]["reporting_period"] == cp
-        assert f"page-header reporting period {cp}" in blocks[0]["message"]
+        assert blocks == [], [(f["rule_id"], f["message"]) for f in blocks]
+        assert ex["meta"]["reporting_period"] == ex["deal"]["period_history"][0]["period"]
 
 
 @pytest.mark.slow
