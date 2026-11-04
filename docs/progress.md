@@ -134,6 +134,14 @@ Append an entry when a work package lands. Newest first.
   carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
   `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
   (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
+- 2026-11-03 — UI-Partner, wave 3: merged integration/wave3. Admin-shell portfolio links now use the nested routes
+  (`/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId`); tests updated. Router links use `<Button as="link">`;
+  my KPI minimum width is gone (tiles no longer ellipsize). Deal page: "Data corrections" section from `deal.data_corrections`
+  only (six MOVE Trust reference deals carry one each). Ownership per program_partner: both partners see both programs; an
+  unknown program (404) shows "You don't have access". Tests: `cd web && npx vitest run src/portfolio` 60 passed (17 live
+  tests skipped without PF_LIVE_API); live against tao-ui-partner seeded with `--reference-publications`: 17 passed. Browser
+  check on :5176: manager sees MOVE Trust Dynamic Capital with its correction; admin nested dashboard links to nested deal routes.
+  Known red test outside my folder: UI-Review ReportsLibraryPage "deepest registered portfolio route" (see requests).
 - 2026-11-03 — UI-Partner, wave 1: `web/src/portfolio/`. Portfolio Executive Summary (a card per program the caller
   may see: balance with change, utilization, covenant counts, deals flagged; flagged-deals table; Go to deal picker
   grouped by program), Program Executive Summary (tiles, escalations, a card per deal with OK / WATCH / BREACH and a

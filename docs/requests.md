@@ -277,24 +277,24 @@ The Lead reads this at every merge.
 - 2026-11-03 — to Lead: the build plan's demo steps 4–5 are not in the repo (artifact link only). I built the walkthrough
   from your description: R05 block on page 2, override with reason, re-run clears it, publish, audit shows both values.
 ## UI-Partner
-- 2026-11-03 — to Lead / Design System (web/src/shell/pages.ts): the TAO Admin shell registers only `/admin/portfolio`,
+- RESOLVED in integration/wave3 (nested admin routes registered; nav.ts uses them) — 2026-11-03 — to Lead / Design System (web/src/shell/pages.ts): the TAO Admin shell registers only `/admin/portfolio`,
   so program, dashboard and deal pages cannot be reached by path there. Please add three admin entries, owner
   `portfolio`, no nav: `/admin/portfolio/:programId` (Program Executive Summary, `load: () => import('@/portfolio/ProgramPage')`),
   `/admin/portfolio/:programId/dashboard` (Program Dashboard, `@/portfolio/ProgramDashboardPage`),
   `/admin/portfolio/:programId/deals/:dealId` (Deal page, `@/portfolio/DealRoute`). Until then the admin shell uses
   query parameters on `/admin/portfolio` (`?program=…`, `&view=dashboard`, `&deal=…`, `&period=…`);
   `web/src/portfolio/nav.ts` switches to the nested paths by itself once the deal route exists in ADMIN_PAGES.
-- 2026-11-03 — to Lead (contract, additive): the portfolio pages depend on these response fields the contract does
+- RESOLVED in integration/wave3 (contract folded in) — 2026-11-03 — to Lead (contract, additive): the portfolio pages depend on these response fields the contract does
   not list (Data & API already returns them): PublishedPortfolio `{partner, programs[]}` with each program's
   `program.slug` and `program.name` (fallback when absent: slug = shared prefix of the deal slugs, name = shared
   prefix of the deal names) and `deals[]` index `{deal_slug, deal_name, worst_status, covenant_summary,
   closing_tranche_balance}`; PublishedProgram `program`, `available_periods`; PublishedDeal `published_period`,
   `available_periods`, `upload_id`, `published_at`, `published_by` (period picker and the admin strip; without them
   the picker hides and the strip shows "No upload on record").
-- 2026-11-03 — to Lead (seed/programs.json): the brief says manager owns MOVE Trust, but `seed/programs.json` gives both
+- RESOLVED in integration/wave3 (Matt: both partners see both programs; program_partner) — 2026-11-03 — to Lead (seed/programs.json): the brief says manager owns MOVE Trust, but `seed/programs.json` gives both
   programs to `investor`, so on a seeded stack `manager_viewer` sees an empty portfolio and 404 on both programs.
   The UI handles either; the demo script needs one of them to be true. My tests use the brief's ownership.
-- 2026-11-03 — to Design System (optional): `.ds-kpi__value` is `nowrap` + ellipsis, so a nine-digit balance in a
+- RESOLVED in integration/wave3 (Button as="link"; KpiTile no longer ellipsizes; LinkButton and .pf-kpis removed) — 2026-11-03 — to Design System (optional): `.ds-kpi__value` is `nowrap` + ellipsis, so a nine-digit balance in a
   180 px tile shows "$852,371,…". I give my KPI rows a 250 px minimum (`.pf-kpis`) instead of touching the tile;
   numbers should probably never ellipsize (shrink or wrap instead). Also no `href` variant of Button: I render
   router links with the `ds-btn ds-btn--ghost ds-btn--sm` classes (`LinkButton` in `web/src/portfolio/shared.tsx`).
@@ -308,4 +308,11 @@ The Lead reads this at every merge.
   40.9%); I show the published number and do not recompute. The watch threshold control re-classifies statuses for
   display only (reference recomputeStatus); at the published 10% it shows the published statuses, which the rule
   reproduces on all 123 covenants.
+- 2026-11-03 — to UI-Review (wave 3): `src/review/__tests__/ReportsLibraryPage.test.tsx` › "links to the deepest registered
+  portfolio route" fails on integration/wave3 as merged (before any UI-Partner change): it still expects `/admin/portfolio`, but the
+  nested admin routes now exist, so `partnerViewPath` returns `/admin/portfolio/f-pil-2-0/deals/x?period=2026-08`. Update the expectation.
+- 2026-11-03 — to Lead (wave 3): the deal page shows `deal.data_corrections` as published (period, readable field label from
+  `record` + the last non-index segment of `field`, was / now, reason, rule_id + choice when present, applied). Values are typed
+  by field name (…_pct / utilization → %, …contracts → count, …_ratio → x, else $). Non-numeric values print as text.
+
 ## QA & Demo
