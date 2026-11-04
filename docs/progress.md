@@ -474,8 +474,8 @@ Append an entry when a work package lands. Newest first.
   publication with collection_period <= P; deals with nothing at or before P are left out. `deals_behind`
   ({deal_slug, deal_name, as_of}) lists the deals contributing an earlier month, on /published/programs/{slug} and on
   each /published/portfolio program entry; [] when all are current. available_periods, the deal endpoint and
-  rollup.build_program are unchanged. A month later than every publication (e.g. ?period=2026-09) now returns 200
-  with every deal behind instead of 404. Also `failure_reason` on the Upload dict: read from the audit row that
+  rollup.build_program are unchanged. A requested month not in available_periods (e.g. ?period=2026-09) is 404,
+  so no month is built only from older reports (Lead's decision). Also `failure_reason` on the Upload dict: read from the audit row that
   failed the upload (worker/validate mark_failed reason, or 'queue unavailable'); null unless extraction_failed. No
   migration, no worker change. Needs from Lead: `failure_reason` on the Upload schema in contracts/openapi.yaml.
   Tests: api 141, check_contracts green.
