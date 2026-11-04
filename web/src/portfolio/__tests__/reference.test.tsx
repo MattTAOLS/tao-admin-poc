@@ -4,7 +4,8 @@
  * from its displayed text and compared with the value at that path in the file. */
 import '@/design/test-utils'
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { DealView } from '../DealPage'
 import { ProgramDashboardView } from '../ProgramDashboard'
@@ -12,7 +13,7 @@ import { ProgramSummaryView } from '../ProgramSummary'
 import { PortfolioView } from '../PortfolioSummary'
 import { parseNum } from '../Num'
 import { displayStatus, type NumKind } from '../fmt'
-import { correctionKind, correctionLabel } from '../Corrections'
+import { correctionKind, correctionLabel, groupCorrections } from '../Corrections'
 import { DEAL_FILES, apiPortfolio, apiProgram, at, deals, programs } from './fixtures'
 
 const TOL: Record<NumKind, number> = { money: 1, 'signed-money': 1, pct: 0.0001, ratio: 0.005, count: 0.5, 'signed-count': 0.5 }
@@ -150,6 +151,53 @@ describe('data corrections', () => {
     expect(corr.textContent).toContain('R05 · kept our recomputation')
     expect(corr.textContent).toContain('$15,019,972')
     expect(corr.textContent).toContain('$15,019,971')
+    expect(checkFields(container, d).bad).toEqual([])
+  })
+})
+
+describe('grouped data corrections (one Use ours written to every copy of the value)', () => {
+  const base = { period: '2026-08', old_value: 15019971.52, new_value: 15020071.52, applied: '2026-11-03', reason: 'Roll-forward recomputes to the cent', rule_id: 'R05', choice: 'use_ours', finding_id: 'f-r05' }
+  const five = [
+    { ...base, record: 'period_history', field: '3/closing_balance' },
+    { ...base, record: 'tranche_balance', field: 'closing' },
+    { ...base, record: 'tranche_amount', field: 'closing' },
+    { ...base, record: 'period_history', field: '3/closing_amount' },
+    { ...base, record: 'program', field: 'program_amount' },
+  ]
+  const other = { period: '2026-08', record: 'period_history', field: '3/interest', old_value: 86704.51, new_value: 86804.51, applied: '2026-11-03', reason: 'Interest includes prepayment penalties' }
+  const corrTable = (c: HTMLElement) => [...c.querySelectorAll('table')].find(t => t.querySelector('caption')?.textContent === 'Data corrections')!
+
+  it('groups by finding_id: one row, primary label, +4 copies listing the others, values and reason once', async () => {
+    const d = { ...deals['f-pil-2-0-moneda-capital-corp'], data_corrections: [...five, other] }
+    const { container } = wrap(<DealView d={d} />)
+    const t = corrTable(container)
+    const rows = t.querySelectorAll('tbody > tr')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].textContent).toContain('Balance history · Closing balance')
+    expect(rows[0].textContent!.match(/Roll-forward recomputes to the cent/g)).toHaveLength(1)
+    expect(rows[0].textContent!.match(/R05 · kept our recomputation/g)).toHaveLength(1)
+    expect(rows[0].querySelectorAll('[data-field]')).toHaveLength(2)
+    const toggle = within(rows[0] as HTMLElement).getByRole('button', { name: '+4 copies' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(rows[0].textContent).not.toContain('Balance · Closing')
+    await userEvent.click(toggle)
+    const list = within(rows[0] as HTMLElement).getByRole('list', { name: 'Same correction written to' })
+    expect(within(list).getAllByRole('listitem').map(li => li.textContent)).toEqual(
+      ['Balance · Closing', 'Amount · Closing', 'Balance history · Closing amount', 'Facility · Drawn'])
+    expect(rows[1].textContent).toContain('Balance history · Interest')
+    expect(within(rows[1] as HTMLElement).queryByRole('button')).toBeNull()
+    expect(checkFields(container, d).bad).toEqual([])
+  })
+  it('without finding_id, groups by period + reason + old and new value', () => {
+    const strip = five.map(({ finding_id: _f, rule_id: _r, choice: _c, ...rest }) => rest)
+    const groups = groupCorrections([...strip, other, { ...strip[0], new_value: 1 }])
+    expect(groups.map(g => [g.primary.i, g.copies.map(c => c.i)])).toEqual([[0, [1, 2, 3, 4]], [5, []], [6, []]])
+  })
+  it('a copy whose values differ from the primary shows its own values', async () => {
+    const d = { ...deals['f-pil-2-0-moneda-capital-corp'], data_corrections: [five[0], { ...five[1], old_value: 15019970.0 }] }
+    const { container } = wrap(<DealView d={d} />)
+    await userEvent.click(within(corrTable(container)).getByRole('button', { name: '+1 copy' }))
+    expect(container.querySelector('[data-field="data_corrections.1.old_value"]')!.textContent).toBe('$15,019,970')
     expect(checkFields(container, d).bad).toEqual([])
   })
 })

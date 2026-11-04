@@ -17,6 +17,8 @@
 .pf-link { color: inherit; text-decoration: none; }
 .pf-link:hover { color: var(--purple); text-decoration: underline; }
 .pf-kpi-status.ds-kpi-row { grid-template-columns: repeat(auto-fit, minmax(200px, 320px)); }
+.pf-copies { margin-left: 6px; }
+.pf-copylist { margin: 6px 0 0; padding-left: 18px; font-weight: 400; color: var(--text); font-size: var(--fs-small); }
 .pf-list { margin: 0; padding-left: 18px; }
 .pf-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text); cursor: pointer; }
 .pf-check input { accent-color: var(--purple); }
