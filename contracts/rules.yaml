@@ -185,6 +185,11 @@ rules:
     phase: 1
     severity: block
     title: Period not already published
+    description: >
+      Blocks when the deal already has a publication for the period. On a corrected re-issue
+      (upload.replaces_upload_id set) it still blocks, with a message naming the publication being replaced and any
+      later periods already published (their history still carries the earlier figures for this month); the reviewer
+      accepts the replacement with acknowledge and a reason, or rejects the upload.
     fields: [/deal_slug, /collection_period]
     fn: period_not_published        # queries the API: publications for (deal, period)
     on_failure: review_replace_or_reject
