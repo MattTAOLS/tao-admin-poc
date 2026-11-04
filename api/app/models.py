@@ -8,7 +8,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 Json = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 # SQLite stores the same dashed text PostgreSQL prints, so raw SQL (worker/validate) can match ids the API returns.
 Id = Uuid(as_uuid=False).with_variant(String(36), "sqlite")
-ACTIVE_UPLOAD = "status not in ('rejected', 'extraction_failed')"
+ACTIVE_UPLOAD = "status not in ('rejected', 'extraction_failed', 'published')"      # 006
 
 
 def utcnow():
@@ -93,6 +93,7 @@ class SetrepUpload(Base):
     uploaded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     status: Mapped[str] = mapped_column(Text, default="received")
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    replaces_upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)   # 006
 
 
 class Extraction(Base):
