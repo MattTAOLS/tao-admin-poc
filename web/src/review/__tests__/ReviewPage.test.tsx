@@ -186,20 +186,23 @@ describe('Review report', () => {
     expect(calls.every(c => c.headers['X-Role'] === 'tao_analyst')).toBe(true)
   })
 
-  it('extraction failed: TAO Admin sees the worker reason and Reject; analysts see what to do', async () => {
+  it('extraction failed: both TAO roles see failure_reason; only TAO Admin gets Reject', async () => {
     const reason = 'page 1 has no text layer; cover block not found'
-    const failed = (): State => ({ ...fresh(), upload: { ...clone(uploadFx), status: 'extraction_failed' } as Upload, findings: [],
-      audit: [{ id: 'f1', at: '2026-11-04T12:50:00Z', actor_role: 'system', actor_label: 'worker', action: 'extract', upload_id: ID, finding_id: null, reason, detail: { status: 'extraction_failed' } }] })
-    stack(failed())
+    const failed = (r: string | null): State => ({ ...fresh(), upload: { ...clone(uploadFx), status: 'extraction_failed', failure_reason: r } as Upload, findings: [] })
+    stack(failed(reason))
     show()
     expect(await screen.findByText(`Extraction failed: ${reason}. Upload a readable PDF for the same deal and period, or reject this upload with a reason.`)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Reject…' })).toBeTruthy()
     cleanup()
     setRole('tao_analyst')
-    stack(failed())
+    stack(failed(reason))
+    show()
+    expect(await screen.findByText(`Extraction failed: ${reason}. Upload a readable PDF for the same deal and period.`)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Reject…' })).toBeNull()
+    cleanup()
+    stack(failed(null))
     show()
     expect(await screen.findByText(/Extraction failed: the report could not be read\. A scanned or blank PDF is the usual cause/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Reject…' })).toBeNull()
   })
 
   it('partner roles get no access and no intake request', () => {

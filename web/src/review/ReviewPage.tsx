@@ -198,7 +198,7 @@ function Review({ uploadId }: { uploadId: string }) {
 
       {admin && <Activity entries={audit.data ?? []} findings={list} loading={audit.loading} />}
 
-      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} failReason={audit.data?.find(e => e.action === 'extract' && e.reason)?.reason ?? undefined} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
+      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
 
       <PageViewer uploadId={uploadId} target={viewer} pageCount={u.page_count} onClose={() => setViewer(null)} />
       {admin && <>
@@ -234,8 +234,8 @@ export function partnersLabel(u: Pick<Upload, 'partner_slug' | 'partner_slugs'>)
   return `the ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} portals`
 }
 
-function Footer({ upload: u, admin, openBlocks, failReason, onReextract, onReject, onPublish }: {
-  upload: Upload; admin: boolean; openBlocks: number; failReason?: string; onReextract: () => void; onReject: () => void; onPublish: () => void
+function Footer({ upload: u, admin, openBlocks, onReextract, onReject, onPublish }: {
+  upload: Upload; admin: boolean; openBlocks: number; onReextract: () => void; onReject: () => void; onPublish: () => void
 }) {
   const reason = useMemo(() => openBlocks > 0 ? `${openBlocks} block finding${openBlocks === 1 ? ' is' : 's are'} open. Resolve ${openBlocks === 1 ? 'it' : 'them'} before publishing.` : null, [openBlocks])
   let note: ReactNode
@@ -243,10 +243,11 @@ function Footer({ upload: u, admin, openBlocks, failReason, onReextract, onRejec
   else if (u.replaced_by_upload_id) note = <>Replaced by a corrected re-issue; partners no longer see this report. <Link to={`/admin/uploads/queue/${u.replaced_by_upload_id}`}>Open the re-issue</Link></>
   else if (u.status === 'published') note = <>Published {formatDateTime(u.published_at)}. Partners can see it. <Link to="/admin/reports">Reports library</Link></>
   else if (u.status === 'rejected') note = `Rejected${u.reject_reason ? `: ${u.reject_reason}` : ''}.`
-  // The reason is the worker's extract audit entry, which only tao_admin may read.
-  else if (u.status === 'extraction_failed') note = admin
-    ? `Extraction failed${failReason ? `: ${failReason}` : ''}. Upload a readable PDF for the same deal and period, or reject this upload with a reason.`
-    : 'Extraction failed: the report could not be read. A scanned or blank PDF is the usual cause. Upload a readable PDF for the same deal and period.'
+  // failure_reason is on the upload for every TAO role; without it (older API) the usual cause stands in.
+  else if (u.status === 'extraction_failed') {
+    const why = u.failure_reason ? `Extraction failed: ${u.failure_reason}.` : 'Extraction failed: the report could not be read. A scanned or blank PDF is the usual cause.'
+    note = `${why} Upload a readable PDF for the same deal and period${admin ? ', or reject this upload with a reason' : ''}.`
+  }
   else if (!admin) note = 'Read only. Only a TAO admin can resolve findings, re-extract, reject or publish.'
   else note = reason ?? 'All block findings are resolved. Ready to publish.'
 
