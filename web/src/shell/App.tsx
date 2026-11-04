@@ -14,7 +14,7 @@ const SHELL_SUB: Record<ShellId, string> = { admin: 'Operations', investor: 'Por
 const NAV_ICON: Record<string, ComponentType<{ width?: number; height?: number }>> = {
   'Dashboard': icons.IconGrid, 'Home': icons.IconGrid, 'Uploads': icons.IconUpload, 'Approval queue': icons.IconInbox, 'Reports library': icons.IconBook, 'Reports': icons.IconBook,
   'Partners': icons.IconBuilding, 'Portfolio Executive Summary': icons.IconChart, 'Notifications': icons.IconBell, 'Help & support': icons.IconHelp,
-  'User management': icons.IconUsers, 'Profile': icons.IconUser, 'System settings': icons.IconSettings, 'Data room': icons.IconFolder,
+  'User management': icons.IconUsers, 'Audit log': icons.IconBook, 'Profile': icons.IconUser, 'System settings': icons.IconSettings, 'Data room': icons.IconFolder,
   "What's new": icons.IconSparkle, 'Team members': icons.IconUsers,
 }
 

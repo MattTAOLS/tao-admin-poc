@@ -32,12 +32,14 @@ describe('shell routing', () => {
     expect(within(ws).getByRole('link', { name: 'Uploads' })).toBeTruthy()
     expect(within(acc).getByRole('link', { name: 'Profile' })).toBeTruthy()
     expect(within(ws).getByRole('link', { name: 'Dashboard' }).className).toContain('active')
+    expect(within(acc).getByRole('link', { name: 'Audit log' }).getAttribute('href')).toBe('/admin/settings/users/audit')
   })
   it('hides admin-only nav from analysts and shows No access on direct visit', () => {
     renderAt('/admin/settings/users/audit', 'tao_analyst')
     const acc = screen.getByRole('navigation', { name: 'Account' })
     expect(within(acc).queryByRole('link', { name: 'System settings' })).toBeNull()
     expect(within(acc).queryByRole('link', { name: 'User management' })).toBeNull()
+    expect(within(acc).queryByRole('link', { name: 'Audit log' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
   })
   it('lets analysts reach master data (read only in the pages) but not the audit log', () => {
