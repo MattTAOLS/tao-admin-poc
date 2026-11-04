@@ -16,7 +16,7 @@ from .auth import caller, tao_only, admin_only, Caller
 from .db import get_db, file_store
 from .jobs import get_queue
 from .models import Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication, new_id, utcnow
-from . import views, review, rollup
+from . import views, review, rollup, pdf
 
 log = logging.getLogger("api")
 app = FastAPI(title="TAO Admin POC API", version="0.1.0", openapi_url="/api/v1/openapi.json")
@@ -90,8 +90,7 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
         raise err(409, "already_published", f"{deal_slug} {collection_period} is already published (R12); reject or regenerate instead")
     data = await file.read()
     try:
-        import pypdfium2 as pdfium
-        pages = len(pdfium.PdfDocument(data))
+        pages = pdf.page_count(data)
     except Exception:
         raise err(422, "not_a_pdf", "the file is not a readable PDF")
     u = SetrepUpload(id=new_id(), deal_slug=deal_slug, collection_period=collection_period, file_name=file.filename or "source.pdf",
@@ -278,14 +277,7 @@ def page_image(upload_id: str, n: int, c: Caller = Depends(tao_caller), s: Sessi
     if not src.exists():
         raise err(404, "not_found", "the source PDF is not in the file store")
     png = _upload_dir(u.id) / "pages" / f"{n}.png"
-    if not png.exists():
-        import pypdfium2 as pdfium
-        png.parent.mkdir(parents=True, exist_ok=True)
-        doc = pdfium.PdfDocument(str(src))
-        try:
-            doc[n - 1].render(scale=PAGE_DPI / 72).to_pil().save(png, format="PNG")
-        finally:
-            doc.close()
+    pdf.render_page(src, n, png, PAGE_DPI)          # locked + atomic: PDFium is not thread-safe
     return FileResponse(png, media_type="image/png")
 
 
