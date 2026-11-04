@@ -1,0 +1,291 @@
+# MOVE Trust standard settlement report (template v1).
+#
+# Selected by move-trust-settrep-v1.yaml when page 1 lists "SUMMARY OF TRANCHE BALANCE" (and no currency split).
+# One page each for the tranche balance, contracts, tranche amounts, funding costs, enhancement, top 10 obligors,
+# aging, aggregate performance + cumulative losses, originator / guarantor ratios and the quantitative tests.
+# Parsing and derivation live in engines/settrep_standard.py; everything document-specific is here, as data.
+# Servicers print the same sections with different columns; each difference is a variant chosen by keywords in
+# the section's header lines (`when_header_has`, first match wins). No deal or servicer names anywhere.
+#
+# Period convention of this layout: every page header reads "Settlement Date August 20, 2026 for Collection
+# Period July 2026". collection_period = that month (= the cover "Collection Period Start Date" month), period
+# "2026-07"; settlement_date as printed ("August 20, 2026", the month after). The aggregate-performance table's
+# newest row and the borrower tables' newest row are the collection month itself, so meta.reporting_period =
+# collection_period (the SAME month, not one month earlier as on F-PIL 2.0). Rule R04 expects
+# reporting + 1 month = collection and blocks on this layout.
+#
+# Interest: period_history.interest / tranche_balance.interest = the income counted by the report's effective-yield
+# formula (k = (f+g)/a*12 or h = (e+f)/a*12): interest collections + prepayment penalties / prepayment excess /
+# prepayment fees and penalties. The published reference objects were corrected to this definition on 2026-10-09
+# (their data_corrections entries), so a fresh extraction needs no correction step.
+
+template_id: move-trust-settrep-standard-v1
+engine: settrep_standard
+
+program:
+  deal_name_format: "{title}"           # title = cover line before "Settlement Report" ("MOVE Trust - <originator>")
+
+terminology: null                       # the reference objects of this layout carry no terminology block
+
+number_format:
+  thousands: ","
+  decimal: "."
+  currency_prefix: "$"
+  zero: ["-"]                    # Excel accounting zero
+  percent: fraction              # "2.34%" is stored as 0.0234
+  # "- 4,147.57" (sign hugging the previous cell) and "4 - 1 3" (sign left-aligned in its own cell, contract
+  # change column) are negative; a lone "-" at a column's right edge is zero. Cells are placed under the columns
+  # of a row that prints every column (the totals row) by right edge.
+  negative: [leading_minus, sign_hugging_previous_cell, sign_left_aligned_in_cell]
+  columns: right_aligned
+
+dates:
+  settlement_date: "%B %d, %Y"
+  tranche_date: "%d-%b-%y"
+  month_row: "%b-%y"
+  collection_period_out: "%B %Y"
+  period_out: "%Y-%m"
+
+source_file:
+  replace: '[^\w\-]'             # "Dynamic Capital 1.0-SETTREP-202607.pdf" -> "Dynamic_Capital_1_0-SETTREP-202607.pdf"
+  with: "_"
+
+derived:
+  watch_buffer_pct: 0.1
+  trend_flat_band: 0.01
+  top_movers: {tranche: 10, contracts: 10}
+  reconcile_tolerance: 1.00
+  utilization_round: 4
+  program_utilization_round: 10
+  spread_round: 4                # cnl_by_period spread = trigger - CNL ratio
+
+sections:
+  cover:
+    page_hint: 1
+    patterns:
+      title: '^(?P<v>.+?) SETTLEMENT REPORT$'
+      settlement_date: '^SETTLEMENT DATE (?P<v>[A-Z]+ \d{1,2}, \d{4}) FOR COLLECTION PERIOD'
+      collection_start: 'COLLECTION PERIOD START DATE: (?P<v>[A-Z]+ \d{1,2}, \d{4})'
+      funding_gap: '^FUNDING GAP PERIOD (?P<v>YES|NO)$'
+  reporting_period:
+    # the page header names the collection period; see the period convention at the top
+    pattern: 'FOR COLLECTION PERIOD (?P<v>[A-Z]+ \d{4})$'
+
+  tranche_balance:
+    source_page_key: tranche_balance
+    heading: '^SUMMARY OF TRANCHE BALANCE$'
+    end: '^SUMMARY OF OUTSTANDING CONTRACTS$'
+    total_row: '^POOL BALANCES$'
+    # Columns as printed, left to right. Cells left of the yields are placed under the right edges of the Pool
+    # Balances row (which prints every one of them); the yields are the two percentages; the closing balance
+    # follows. interest = interest collections + prepayment penalties / excess (the effective-yield numerator).
+    variants:
+      - name: buyback_and_estimated_recoveries     # a b c d e f g h i j, k = (f+g)/a*12, l = a-b-c-d-e+j
+        when_header_has: ["BUYBACK", "ESTIMATED"]
+        columns_before_yields: [original, opening, principal, prepayments, buyback, defaults, interest, penalties, recoveries, estimated_recoveries, adjustment]
+        total_columns_before_pct: [original, opening, principal, prepayments, buyback, defaults, interest, penalties, recoveries, estimated_recoveries, adjustment]
+        yield_columns: [original_yield, effective_yield]
+      - name: wa_contract_rate                      # a b c d e f g, NBV adjustment, WA contract rate, h = (e+f)/a*12, i
+        when_header_has: ["WA CONTRACT"]
+        columns_before_yields: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, adjustment]
+        total_columns_before_pct: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, adjustment, original_yield]
+        yield_columns: [original_yield, effective_yield]
+      - name: plain                                 # a b c d e f g, NBV adjustment, original yield, h, i = a-b-c-d
+        when_header_has: []
+        columns_before_yields: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, adjustment]
+        total_columns_before_pct: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, adjustment]
+        yield_columns: [original_yield, effective_yield]
+    columns_after_yields: [closing]
+    interest_columns: [interest, penalties]
+    # closing = opening - principal - prepayments - buyback - defaults + adjustment (page identity). R05 terms on the
+    # current period_history row: buyback -> ineligible_buyback, the downward part of the signed NBV adjustment ->
+    # charge_off, its upward part -> adjustment_increase; all positive amounts.
+    rollforward: {opening: opening, minus: [principal, prepayments, buyback, defaults], plus: [adjustment], closing: closing}
+    period_fields:
+      principal: [principal]
+      principal_prepayments: [prepayments]
+      losses: [defaults]
+      interest: [interest, penalties]
+      recoveries: [recoveries]
+    extra_terms: {ineligible_buyback: buyback}
+
+  outstanding_contracts:
+    source_page_key: outstanding_contracts
+    heading: '^SUMMARY OF OUTSTANDING CONTRACTS$'
+    total_row: '^CONTRACT TOTALS$'
+    columns: [opening, change, closing]
+
+  tranche_amounts:
+    source_page_key: tranche_amounts
+    heading: '^SUMMARY OF TRANCHE AMOUNTS$'
+    total_row: '^(PROGRAM TOTALS|TOTAL TRANCHE AMOUNTS)$'
+    columns: [original_balance, original_amount, opening, funding_cost_rate, distribution, funding_cost, closing]
+
+  program:
+    source_page_key: funding_costs
+    heading: '^SUMMARY OF FUNDING COSTS AND FEES$'
+    search_pages_after_heading: 1
+    lines:
+      maximum_program_limit: '^MAXIMUM PROGRAM LIMIT$'
+      maximum_warehouse_limit: '^MAXIMUM (WAREHOUSE FACILITY|FACILITY WAREHOUSE) LIMIT$'
+      program_limit: '^([A-Z]{3} )?PROGRAM LIMIT$'
+      program_amount: '^PROGRAM AMOUNT( \(TRANCHE AMOUNT\))?$'
+      unused_facility: '^UNUSED FACILITY$'
+    # when no Program Amount line is printed: the opening tranche amount (what "PROGRAM AMOUNT (Tranche Amount)"
+    # prints where it is printed), and unused facility = program limit - program amount
+    program_amount_fallback: tranche_amounts.opening
+
+  warehouse:
+    # the warehouse advances table ends with this line; its Total row is the line above it
+    anchor: '^TOTAL WAREHOUSE ADVANCES OUTSTANDING GREATER THAN 90 DAYS'
+    total_row: '^TOTAL$'
+    opening_index: 1          # Total: original advance amount, opening advances outstanding, ..., closing advance outstanding
+    closing_index: -1
+
+  enhancement:
+    source_page_key: enhancement
+    heading: '^SUMMARY OF ENHANCEMENT$'
+    search_pages_after_heading: 2
+    # "TOTAL ENHANCEMENT ($)" and "TOTAL ENHANCEMENT (%)"; one servicer prints both labels on one line
+    line: 'TOTAL ENHANCEMENT'
+
+  required_tranche_balance:
+    heading: '^REQUIRED TRANCHE BALANCE$'
+    search_pages_after_heading: 0
+    row: '^\d+$'                   # tranche number, then the columns below
+    columns: [tranche_amount, oc_amount, required, closing, actual_oc, effective_oc_rate]
+    total_row: '^TOTALS$'
+
+  top10_obligor:
+    source_page_key: top10_obligor
+    heading: '^SUMMARY OF TOP 10 OBLIGOR CONCENTRATION$'
+    row: '^(?P<rank>\d{1,2})$'     # rank, obligor name, amount, concentration %, limit (% or text), limit $, excess
+    amount: '^[\d,]+\.\d{2}$'      # the first cell printed as an amount ends the obligor name
+
+  aging:
+    source_page_key: aging_summary
+    heading: '^AGING SUMMARY PER POOL'
+    total_row: '^TRANCHE BALANCE TOTALS$'
+    written_off_bucket_label: "91+ Days / Other Defaults"
+    variants:
+      - name: over_60
+        when_header_has: ["OVER 60 DAYS"]
+        columns: [current_0_30, days_31_60, days_91_plus, cumulative_losses, closing, net_book_value]
+        written_off_bucket_label: "Over 60 Days"
+      - name: deferral_before_closing
+        when_header_has: ["DEFERRAL CLOSING"]
+        columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, payment_deferral, closing]
+      - name: deferral_after_closing
+        when_header_has: ["PAYMENT DEFERRAL"]
+        columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, closing, payment_deferral]
+      - name: plain
+        when_header_has: []
+        columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, closing]
+
+  aggregate_performance:
+    source_page_key: aggregate_performance
+    heading: '^AGGREGATE PORTFOLIO PERFORMANCE'
+    end: '^CUMULATIVE LOSSES$'
+    # month rows, newest first (the newest row is the collection month); cells picked by position from either end
+    variants:
+      - name: rolling_ratios
+        when_header_has: ["TWELVE MONTH"]
+        pick: {portfolio_balance: 0, delinquency_ratio: -3, rolling_3m_loss_ratio: -2, rolling_12m_loss_ratio: -1}
+      - name: rolling_ratios_short_labels
+        when_header_has: ["12M LOSS RATIO"]
+        pick: {portfolio_balance: 0, delinquency_ratio: -3, rolling_3m_loss_ratio: -2, rolling_12m_loss_ratio: -1}
+      - name: loss_ratio
+        when_header_has: []
+        pick: {portfolio_balance: 0, delinquency_ratio: -2, loss_ratio: -1}
+
+  cumulative_losses:
+    source_page_key: cumulative_losses
+    heading: '^CUMULATIVE LOSSES$'
+    total_row: '^POOL BALANCE TOTALS$'
+    columns: [original, current_period_losses, cumulative_net_losses]    # anchors: the Pool Balance Totals row
+    # tranche rows: date, tranche #, annual period, then the columns; the annual-period summary (period, tranches,
+    # CNL ratio as printed) runs down the right-hand side of the same lines. A summary row's tranches are the
+    # tranche rows printed under the same annual period.
+    period: '[A-Z][a-z]{2}(?:-\d{2}| \d{4}) [-‒–—] [A-Z][a-z]{2}(?:-\d{2}| \d{4})'
+    tranche_row: '^(?P<date>\d{1,2}-[A-Z][a-z]{2}-\d{2}) (?P<tranche>\d+) (?P<period>{period}) '
+    summary_row: '(?P<period>{period}) (?P<range>\d+(?: ?- ?\d+)?) (?P<ratio>-?\d+(?:\.\d+)?%)$'
+    # deal.cnl_by_period keys, by layout variant
+    variants:
+      - name: annual_period_with_trigger
+        when_header_has: ["CNL RATIO (MLA)"]
+        keys: {period: annual_period, range: tranches_originated, original: tranche_balance_funded,
+               current_period_losses: current_period_losses, cumulative_net_losses: cumulative_net_losses,
+               trigger: event_of_default_trigger_pct, spread: spread_pct}
+      - name: period_and_advance_range
+        when_header_has: []
+        keys: {period: period, range: advance_range, original: original_finance_contract_npv,
+               current_period_losses: current_period_losses, cumulative_net_losses: cumulative_net_losses}
+
+  borrower_ratios:                        # mapper.parse_borrower format
+    source_page_key: financial_ratios
+    heading: '^(BORROWER|SERVICER|ORIGINATOR AND PERFORMANCE GUARANTOR|PERFORMANCE GUARANTOR) DATA,? (AND )?FINANCIAL RATIOS'
+    tables:   # the ratio column is the first cell printed as a plain two-decimal number; picks are relative to it
+      - when_header_has: ["FIXED CHARGE"]
+        pick: {}                          # fixed charge coverage: no covenant or dashboard series
+      - when_header_has: ["TANGIBLE NET"]
+        pick: {leverage_ratio: 0, total_equity: -2}      # "Tangible Net Worth", then the minimum, then the ratio
+      - when_header_has: ["COVERAGE"]
+        pick: {interest_coverage_ratio: 0}
+      - when_header_has: ["LEVERAGE"]
+        pick: {leverage_ratio: 0, total_equity: -1}
+
+  quantitative_tests:
+    source_page_key: quantitative_tests
+    heading: 'SUMMARY OF QUANTITATIVE TESTS AND TRIGGERS$'
+    test_row: '^(?P<ref>(?:MSA|MLA|LSA|SSA) (?:SRE )?(?:\d+(?:\.\d+)*)?(?: ?\([a-z]+\))*|\d+(?:\.\d+)+) (?P<desc>.+?) (?P<answer>YES|NO)\**$'
+    ref_prefix_line: '^(MSA|MLA|LSA|SSA)$'      # "7.4 Is the Tranche Amount ... NO" with "LSA" printed on the next line
+    categories:
+      "EVENT OF TERMINATION": "Event of Termination"
+      "EVENT OF DEFAULT": "Event of Termination"
+      "CLEAN-UP PROVISION": "Clean-Up Provision"
+      "FUNDING GAP PERIOD": "Funding Gap Period"
+    binary_note: "Reported directly by the servicer/originator; no underlying data series available."
+    clean_up:
+      category: "Clean-Up Provision"
+      footnote: 'PROVISION FOR TRANCHES (?P<list>.+?) CAN BE EXERCISED'
+      description: "{desc} ({n} of {total} tranches eligible)"   # total = tranches securitized before the collection period
+      note: "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): {list}"
+    funding_gap:
+      category: "Funding Gap Period"
+      note: "This deal is currently in a Funding Gap Period per the report. Not a covenant breach, but it changes waterfall mechanics (see how the OC and Required Tranche Balance formulas branch on it)."
+    tranche_differential:
+      match: 'REQUIRED TRANCHE BALANCE'
+      note: "Greatest tranche differential (closing minus required, for context): {value}"
+    # CNL limit exception for a named origination window ("... or in the case of Loans completed during the period
+    # from and including January 2023 to and including December 2024, 5.00%")
+    cnl_exception: 'FROM AND INCLUDING (?P<m1>[A-Z]+) (?P<y1>\d{4}) TO AND INCLUDING (?P<m2>[A-Z]+) (?P<y2>\d{4}), (?P<pct>\d+(?:\.\d+)?)%'
+    # which series feeds each test, matched on the description; first match wins
+    metrics:
+      - {match: 'ROLLING THREE MONTH LOSS RATIO', series: rolling_3m_loss_ratio, kind: ceiling}
+      - {match: 'ROLLING TWELVE MONTH LOSS RATIO', series: rolling_12m_loss_ratio, kind: ceiling}
+      - {match: 'CNL RATIO|CUMULATIVE NET LOSS RATIO', series: cnl_worst_vintage, kind: ceiling}
+      - {match: 'RESTRUCTURED CONTRACT RATIO', series: null}
+      - {match: 'DELINQUENCY RATIO', series: delinquency_ratio, kind: ceiling}
+      - {match: 'LOSS RATIO', series: loss_ratio, kind: ceiling}
+      - {match: 'INTEREST COVERAGE RATIO', series: interest_coverage_ratio, kind: floor}
+      - {match: 'LEVERAGE RATIO', series: leverage_ratio, kind: ceiling}
+      - {match: 'TOTAL EQUITY', series: total_equity, kind: floor}
+
+financial_ratios:   # deal.financial_ratios, in this order, when the series has a value for the collection month
+  - {key: delinquency_ratio, label: Delinquency Ratio, format: pct, group: Portfolio Performance, series: delinquency_ratio}
+  - {key: rolling_3month_loss_ratio, label: Rolling 3-Month Loss Ratio, format: pct, group: Portfolio Performance, series: rolling_3m_loss_ratio}
+  - {key: rolling_12month_loss_ratio, label: Rolling 12-Month Loss Ratio, format: pct, group: Portfolio Performance, series: rolling_12m_loss_ratio}
+  - {key: loss_ratio, label: Loss Ratio, format: pct, group: Portfolio Performance, series: loss_ratio}
+  - {key: cnl_ratio, label: CNL Ratio (worst vintage), format: pct, group: Cumulative Net Losses, series: cnl_worst_vintage}
+  - {key: interest_coverage_ratio, label: Interest Coverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: interest_coverage_ratio}
+  - {key: debt_equity_ratio, label: Leverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: leverage_ratio}
+  - {key: total_equity, label: Total Equity, format: dollar, group: Borrower Data and Financial Ratios, series: total_equity}
+
+ratio_history_fields:   # one row per month printed in the aggregate or the borrower tables, oldest first
+  delinquency_ratio_pct: delinquency_ratio
+  rolling_3month_loss_ratio_pct: rolling_3m_loss_ratio
+  rolling_12month_loss_ratio_pct: rolling_12m_loss_ratio
+  loss_ratio_pct: loss_ratio
+  interest_coverage_ratio: interest_coverage_ratio
+  debt_equity_ratio: leverage_ratio
+  total_equity: total_equity

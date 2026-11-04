@@ -1,0 +1,231 @@
+# MOVE Trust settlement report with a sub-servicer and a performance guarantor (template v1).
+#
+# Selected by move-trust-settrep-v1.yaml when page 1 carries the sub-servicer / performance-guarantor contacts block
+# and the Sub-Administration Agreement legend. One tranche-balance page, contracts, tranche amounts, funding costs,
+# cash and OC enhancement, required tranche balance, top 10 obligors, aging, aggregate performance (with a
+# residual-value-loss table on the lease reports), cumulative losses by calendar period, servicer / seller and
+# guarantor ratio tables, quantitative tests under a Master Lease Agreement or a Purchase Agreement (MLA / PA 7.1).
+# Headings are title-case on some reports and upper-case on others; every heading and label below is matched on
+# whitespace-collapsed, upper-cased text (text.norm), so one pattern covers both.
+# Parsing and derivation live in engines/guarantor_settrep.py; everything document-specific is here, as data.
+#
+# Period convention of this layout: every page header reads "Settlement Date August 17, 2026 for Collection Period
+# July 2026"; page 1 prints "Collection Period Start Date July 1, 2026".
+#   deal.collection_period = "July 2026" (the cover month = the page-header collection period); period "2026-07"
+#   deal.settlement_date   = "August 17, 2026" as printed (the month after the collection period)
+#   meta.reporting_period  = the page-header collection period, "2026-07": the SAME month as the collection period.
+#     The aggregate-performance and RVL tables end at that month (Jul-26). F-PIL prints a reporting month one
+#     before the collection month; rule R04 assumes that and blocks on this layout.
+
+template_id: move-trust-settrep-guarantor-v1
+engine: guarantor_settrep
+
+program:
+  deal_name_format: "{title}"     # title = page-1 line before "Settlement Report" ("MOVE Trust - <seller> (<pool>)")
+
+terminology: null                 # the reference objects of this layout carry no terminology block
+
+number_format:
+  thousands: ","
+  decimal: "."
+  zero: ["-", "0.00"]             # Excel accounting zero; a blank cell is also zero
+  percent: fraction               # "0.43%" is stored as 0.0043; "0.552163%" as 0.00552163
+  negative: [leading_minus, sign_hugging_previous_cell]   # "- 0.01" in the adjustment column is -0.01
+  null: ["n.a."]
+  columns: right_aligned          # blank cells occur; cells are placed under columns by right edge (anchors)
+
+dates:
+  tranche_date: '^\d{1,2}[-/][A-Z][a-z]{2}[-/]\d{2}$'     # "28-Sep-18" (lease reports), "31/Aug/18" (loan report)
+  month_row: "%b-%y"
+
+derived:
+  watch_buffer_pct: 0.1
+  trend_flat_band: 0.01
+  top_movers: {tranche: 10, contracts: 10}
+  written_off_bucket_label: "91+ Days / Other Defaults"
+  reconcile_tolerance: 1.00
+  utilization_decimals: 4
+  program_utilization_decimals: 10
+
+sections:
+  cover:
+    page_hint: 1
+    patterns:
+      title: '^(?P<v>.+?) SETTLEMENT REPORT$'
+      settlement_date: '^SETTLEMENT DATE (?P<v>[A-Z]+ \d{1,2}, \d{4}) FOR COLLECTION PERIOD'
+      collection_start: 'COLLECTION PERIOD START DATE:? (?P<v>[A-Z]+ \d{1,2}, \d{4})'
+  reporting_period:
+    # the page header names the collection period; see the period convention at the top
+    pattern: 'FOR COLLECTION PERIOD (?P<v>[A-Z]+ \d{4})$'
+
+  tranche_balance:
+    source_page_key: tranche_balance
+    heading: '^SUMMARY OF TRANCHE BALANCE$'
+    total_row: '^PORTFOLIO BALANCES$'
+    # Columns as printed (letters differ between reports; the order does not): original balance, opening, actual
+    # principal collections, principal prepayments, defaults, interest collections, prepayment penalties,
+    # recoveries, other interest, adjustment to portfolio (+/-), original yield, current-period effective yield,
+    # closing. The Portfolio Balances row prints every column except the original yield; its right edges are the
+    # column anchors for the tranche rows (cells left of the yields / right of the yields).
+    columns_before_yields: [original, opening, principal, prepayments, defaults, interest, penalties, recoveries, other_interest, adjustment]
+    yield_columns: [original_yield, effective_yield]
+    columns_after_yields: [closing]
+    # deal interest = the income the report's own effective-yield formula counts, read from the formula printed in
+    # the page-2 header (first match wins, spaces removed). TLFC Leases prints j=(e+f+h)/a*12: interest collections
+    # + prepayment penalties + other interest; the published object was corrected to that on 2026-10-09 (see its
+    # data_corrections), so a fresh extraction needs no correction step. The other two reports print (e+f)/a*12:
+    # interest collections + prepayment penalties.
+    effective_yield_income:
+      - {formula: "(E+F+H)/A*12", columns: [interest, penalties, other_interest]}
+      - {formula: "(E+F)/A*12", columns: [interest, penalties]}
+    # closing = opening - principal - prepayments - defaults + adjustment, on every report (the formula printed on
+    # the lease-partnership report omits the adjustment, but its closing includes it). R05 terms: the downward part
+    # of the adjustment -> charge_off, the upward part -> adjustment_increase, both positive amounts.
+    rollforward: {opening: opening, minus: [principal, prepayments, defaults], plus: [adjustment], closing: closing}
+
+  outstanding_contracts:
+    source_page_key: outstanding_contracts
+    heading: '^SUMMARY OF OUTSTANDING CONTRACTS$'
+    total_row: '^CONTRACT TOTALS:?$'
+    columns: [opening, change, closing]
+    # closing = opening - change on every report ("l=(j-k)"); the change is printed as a decrease on some reports
+    # ("156") and signed on others ("-11"). change_contracts keeps the printed number.
+
+  tranche_amounts:
+    source_page_key: tranche_amounts
+    heading: '^SUMMARY OF TRANCHE AMOUNTS$'
+    total_row: '^PROGRAM TOTALS$'
+    columns: [original_balance, original_amount, opening, funding_cost_rate, distribution, funding_cost, days, closing]
+
+  program:
+    source_page_key: funding_costs
+    heading: '^SUMMARY OF FUNDING COSTS AND FEES\*?$'
+    lines:
+      program_limit: '^PROGRAM LIMIT$'
+      program_amount: '^PROGRAM AMOUNT( \(TRANCHE AMOUNT\))?$'
+      unused_facility: '^UNUSED FACILITY$'
+
+  enhancement:
+    source_page_key: enhancement
+    heading: '^SUMMARY OF ENHANCEMENT$'
+    search_pages_after_heading: 3      # the totals are printed at the end of the overcollateralization pages
+    lines:
+      total_amount: '^TOTAL ENHANCEMENT \(\$\)$'
+      total_pct: '^TOTAL ENHANCEMENT \(%\)$'
+    # cash enhancement, page of the heading: context for the deferred-account test
+    deferred_lines:
+      required: '^REQUIRED DEFERRED AMOUNT$'
+      actual: '^ACTUAL DEFERRED ACCOUNT CASH BALANCE$'
+      excess: '^EXCESS ?/ ?\(SHORTFALL\) IN THE DEFERRED ACCOUNT$'
+
+  required_tranche_balance:
+    heading: '^REQUIRED TRANCHE BALANCE$'
+    # tranche rows: closing tranche amount, OC amount, required tranche balance, closing tranche balance, actual OC
+    # amount, effective OC rate
+    columns: [closing_amount, oc_amount, required, closing, actual_oc, oc_rate]
+
+  top10_obligor:
+    source_page_key: top10_obligor
+    heading: '^SUMMARY OF TOP 10 OBLIGOR CONCENTRATION$'
+    end: '^(AGGREGATE EXCESS CONCENTRATION|TOP 10 TOTAL|SUMMARY OF FLEET)'
+    # value columns, right to left, by header keywords (first match wins); `null` columns are not carried
+    variants:
+      - when_header_has: ["AGGREGATE OBLIGOR"]
+        columns: [aggregate_contract_amount, obligor_concentration_pct, concentration_limit_pct, concentration_limit_per_obligor, null, excess_concentration_amount]
+      - when_header_has: []
+        columns: [aggregate_contract_amount, obligor_concentration_pct, concentration_limit_pct, concentration_limit_per_obligor, excess_concentration_amount]
+
+  aging:
+    source_page_key: aging_summary
+    heading: '^AGING SUMMARY PER POOL$'
+    total_row: '^TRANCHE BALANCE TOTALS$'
+    columns: [current_0_30, days_31_60, days_61_90, days_91_plus, cumulative_losses, closing, payment_deferral, net_book_value, reported_net_book_value]
+
+  aggregate_performance:
+    source_page_key: aggregate_performance
+    also_source_page_keys: [financial_ratios]
+    heading: '^AGGREGATE PORTFOLIO PERFORMANCE, DATA, AND FINANCIAL RATIOS$'
+    end: '^(MONTH RESIDUAL VALUE|FOR GREATER CERTAINTY)'
+    # month rows, newest first; the newest row is the collection month. Picked by position from either end
+    # (signed losses print as two tokens, so the cell count varies in the middle of the row).
+    pick: {portfolio_balance: 1, delinquency_ratio: -2, loss_ratio: -1}
+
+  rvl:
+    # residual value losses, lease reports only (absent on the loan report: no RVL series, no RVL covenant)
+    heading: '^MONTH RESIDUAL VALUE RESIDUAL LOSSES RVL RATIO$'
+    pick: {rvl_ratio: -1}
+
+  cumulative_losses:
+    source_page_key: cumulative_losses
+    heading: '^CUMULATIVE LOSSES$'
+    # calendar semi-annual / annual period summary at the foot of the page: period, original tranche balance and
+    # cumulative net losses of this pool, combined-pool original balance and cumulative net losses, CNL ratio
+    period_row: '^(?P<period>\d{4}(?:H[12])?)$'
+    columns: [period_original_balance, period_cumulative_net_losses, original_finance_contract_npv, cumulative_net_losses, cnl_ratio_pct]
+    limit_from_test: 'CNL RATIO'
+
+  borrower_ratios:
+    source_page_key: financial_ratios
+    # month rows under each heading; values picked by position from the end of the row
+    tables:
+      - heading: '^(SERVICER|SELLER) DATA,? AND FINANCIAL RATIOS$'
+        pick: {interest_coverage_ratio: -1}
+      - heading: '^(TAG|PERFORMANCE GUARANTOR) DATA,? AND FINANCIAL RATIOS$'
+        pick: {total_equity: -2, leverage_ratio: -1}
+
+  quantitative_tests:
+    source_page_key: quantitative_tests
+    heading: 'SUMMARY OF QUANTITATIVE TESTS AND TRIGGERS$'
+    test_row: '^(?P<ref>(?:MLA|PA) DEF\.|(?:MLA|PA) \d+(?:\.\d+)*(?: ?\([a-z]{1,2}\))?) (?P<desc>.+?) (?P<answer>YES|NO)\**$'
+    answer_only: '^(?P<desc>.+?) (?P<answer>YES|NO)\**$'
+    ref_aliases: {'^(?P<a>MLA|PA) DEF\.$': '{a} (Definitions)'}   # legal_ref keeps the printed spacing otherwise
+    categories:
+      "LOCK-UP EVENT": "Lock-Up Event"
+      "EVENT OF TERMINATION": "Event of Termination"
+      "CLEAN-UP PROVISION": "Clean-Up Provision"
+    skip_lines: ['^LEGAL REF\.?$']
+    binary_notes:
+      "Lock-Up Event": "Binary test reported directly; no underlying ratio to trend."
+      default: "Reported directly by the servicer/originator; no underlying data series available."
+    # which series feeds each test, matched on the description; first match wins. `window: n` = the test reads
+    # "this Collection Period or any of the preceding n-1 Collection Periods": the value is the highest of the last n
+    # months. `threshold`: regex on the description, group 1, times `scale`.
+    metrics:
+      - {match: 'DEFERRED ACCOUNT', series: deferred_excess, kind: context,
+         note: "Reserve/deferred account excess or (shortfall), for context: {value:.2f}"}
+      - {match: 'REQUIRED TRANCHE BALANCE', series: tranche_differential, kind: context,
+         note: "Greatest tranche differential (closing minus required, for context): {value:.2f}"}
+      - {match: 'TRANCHE AMOUNT LESS THAN 10%', series: clean_up, kind: clean_up}
+      - {match: 'DELINQUENCY RATIO.*PRECEDING FIVE', series: delinquency_ratio, kind: ceiling, window: 6, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'LOSS RATIO.*PRECEDING FIVE', series: loss_ratio, kind: ceiling, window: 6, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'RVL RATIO.*PRECEDING FIVE', series: rvl_ratio, kind: ceiling, window: 6, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'CNL RATIO', series: cnl_worst_vintage, kind: ceiling, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'DELINQUENCY RATIO', series: delinquency_ratio, kind: ceiling, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'LOSS RATIO', series: loss_ratio, kind: ceiling, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'RVL RATIO', series: rvl_ratio, kind: ceiling, threshold: {pattern: '(\d+(?:\.\d+)?)\s?%', scale: 0.01}}
+      - {match: 'INTEREST COVERAGE RATIO', series: interest_coverage_ratio, kind: floor, threshold: {pattern: '(\d+(?:\.\d+)?):1', scale: 1}}
+      - {match: 'DEBT/EQUITY RATIO', series: leverage_ratio, kind: ceiling, threshold: {pattern: '(\d+(?:\.\d+)?):1', scale: 1}}
+      - {match: 'TOTAL EQUITY', series: total_equity, kind: floor, threshold: {pattern: 'REQUIRED EQUITY OF \$?([\d,]+(?:\.\d+)?)', scale: 1}}
+    # clean-up provision: the footnote names the tranches whose call option can be exercised
+    clean_up:
+      footnote: 'PROVISION FOR TRANCHES (?P<list>.+?) CAN BE EXERCISED'
+      description_suffix: " ({n} of {total} tranches eligible)"
+      note: "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): {tranches}"
+      status_if_yes: AVAILABLE
+
+financial_ratios:
+  - {key: delinquency_ratio, label: Delinquency Ratio, format: pct, group: Portfolio Performance, series: delinquency_ratio}
+  - {key: loss_ratio, label: Loss Ratio, format: pct, group: Portfolio Performance, series: loss_ratio}
+  - {key: cnl_ratio, label: CNL Ratio (worst vintage), format: pct, group: Cumulative Net Losses, series: cnl_worst_vintage}
+  - {key: rvl_ratio, label: RVL Ratio, format: pct, group: Portfolio Performance, series: rvl_ratio}
+  - {key: interest_coverage_ratio, label: Interest Coverage Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: interest_coverage_ratio}
+  - {key: debt_equity_ratio, label: Debt/Equity Ratio, format: ratio, group: Borrower Data and Financial Ratios, series: leverage_ratio}
+  - {key: total_equity, label: Total Equity, format: dollar, group: Borrower Data and Financial Ratios, series: total_equity}
+
+ratio_history_fields:   # one row per month printed in the aggregate, RVL or ratio tables, oldest first
+  delinquency_ratio_pct: delinquency_ratio
+  loss_ratio_pct: loss_ratio
+  rvl_ratio_pct: rvl_ratio
+  interest_coverage_ratio: interest_coverage_ratio
+  debt_equity_ratio: leverage_ratio
+  total_equity: total_equity

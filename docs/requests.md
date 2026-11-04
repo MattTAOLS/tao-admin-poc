@@ -126,6 +126,43 @@ The Lead reads this at every merge.
 - 2026-11-03 — to Rules (wave 1c): worker/main.py passes `extend=history.extend` to `handle_extraction` when the
   signature has an `extend` parameter (or **kwargs). Call it as `extend(last_published_deal_or_None, extraction)`
   before validating; it raises ValueError if the published deal's latest period is not before the upload's.
+- 2026-11-04 — to Lead (wave 2, seed): no change needed. All nine MOVE Trust deals keep template id
+  `move-trust-settrep-v1`; it is a dispatch template that picks a layout from page-1 keywords
+  (`meta.layout` records which): servicer-report (Meridian), multicurrency (Finloc), guarantor (TLFC LP, Leases,
+  Loans), standard (Dynamic, Essex, TPine, VCC IV). A dispatch test reads page 1 of all 36 samples.
+- 2026-11-04 — to Rules (wave 2, R04): MOVE Trust reports state "Settlement Date <next month> for Collection
+  Period <month>"; the cover start date, page headers, aggregate and borrower tables all end at the collection
+  month. So `meta.reporting_period` = `collection_period` (lag 0), against F-PIL's collection = reporting + 1.
+  R04 blocks all 36 MOVE extractions today. Make the expected offset per program (or per `meta.layout`):
+  F-PIL +1, MOVE Trust 0.
+- 2026-11-04 — to Rules (wave 2, R05): add `+ (period.adjustment_increase or 0)` (the upward part of the signed
+  "Adjustment to Portfolio" / NBV adjustment column; `charge_off` is the downward part). With it R05 closes in
+  all 36 MOVE reports: TLFC LP's +2,782.68 is July's upward adjustment, Finloc's −4,163.85 is July's
+  charge_off, Meridian's −598,714.81 is page-2 "Charge-Off Contracts". Then drop all three from
+  `rules/tests/test_engine.py: KNOWN_ROLLFORWARD_GAPS` (the references carry charge_off null; the extraction
+  carries the amounts). Today R05 still blocks TLFC LP (all 4 months) and Finloc April–June by exactly the
+  upward adjustment. Optional: `+ (period.balance_adjustment or 0)` (Meridian's signed "Tranche Contract
+  Balance Adjustment", 0 in every sample).
+- 2026-11-04 — to Rules (wave 2, R03): TPine April and May print Rolling 3M Loss Ratio −113.21% / −130.68%
+  (negative losses from recoveries on a small base). R03's −1..1 range blocks them; these are the report's
+  numbers. Decide whether rolling loss ratios get a wider range.
+- 2026-11-04 — to Lead (wave 2, schema): optional fields the MOVE layouts write, to fold into
+  extraction.schema.json: `period_history[].adjustment_increase`, `period_history[].balance_adjustment`,
+  `tranche_balance.adjustment_increase`, `tranche_balance.charge_off` (already in schema), 
+  `aging_history[].payment_deferral`, `top10_obligors[].concentration_limit_desc` (already there),
+  `cnl_by_period[].current_period_losses` / `annual_period` / `tranches_originated` / `tranche_balance_funded` /
+  `event_of_default_trigger_pct` / `spread_pct` (check against SCHEMA.md; most exist). Also fix the
+  `meta.reporting_period` description ("one month before collection_period" is F-PIL only).
+- 2026-11-04 — to Lead (wave 2, reference data): every MOVE quirk is listed with its reason in the layout test
+  files (`worker/extract/tests/test_move_*.py`). The ones worth regenerating the references for: Dynamic May/June
+  period_history read one column off (losses = −interest collections, etc.) and June principal_prepayments
+  including the buyback; Finloc top10_obligors columns shifted by one; TLFC LP/Loans April–June interest
+  including Other Interest that their yield formula excludes; charge_off null on every MOVE reference. Several
+  covenant notes and descriptions quote the June report next to July values.
+- 2026-11-04 — to Lead (wave 2, data_corrections): not produced by extraction. It is an audit record of a change
+  applied after publication (old value, date applied); neither is on the report. Interest is extracted the
+  corrected way (effective-yield income per each report's printed formula), so fresh extractions equal the
+  post-correction references without a correction step.
 ## Rules
 
 - RESOLVED (75884f0; FN_FALLBACK removed in aa6aa6c) — 2026-11-03 — to Lead (contracts/rules.yaml), R09: add `fn: utilization_recomputes`. R09 has only an `expr`, which

@@ -56,14 +56,48 @@ def _apply_model_cells(p: Parsed, cells: list[dict]):
         p.notes.append(f"model placed {sec}.{fld} from page {c['page']}")
 
 
+class _DefaultEngine:
+    """Template-driven section parsing (mapper.py) and dashboard derivation (derive.py)."""
+    parse = staticmethod(parse)
+    build = staticmethod(derive.build)
+
+
+def _pick_layout(tpl: dict, page1) -> str:
+    """A dispatch template lists document layouts sharing one template id (e.g. every MOVE Trust deal is
+    `move-trust-settrep-v1`): the first layout whose keywords all appear on page 1 wins."""
+    from .text import norm
+    text = norm(page1.text)
+    for lay in tpl["layouts"]:
+        if all(norm(k) in text for k in lay.get("when_page1_has", [])):
+            return lay["template"]
+    raise ExtractionError(f"page 1 matches none of the layouts of {tpl['template_id']}")
+
+
+def _engine(tpl: dict):
+    """A template may name an engine module under worker/extract/engines/ (`engine: <module>`) when its
+    documents need parsing the default section parsers cannot express. The module provides
+    parse(pages, page_count, tpl) -> mapper.Parsed and build(parsed, recorder, *, prior, partial)."""
+    name = tpl.get("engine")
+    if not name:
+        return _DefaultEngine
+    import importlib
+    return importlib.import_module(f".engines.{name}", __package__)
+
+
 def extract(pdf_path: str, template_id: str = DEFAULT_TEMPLATE, pages: Optional[list[int]] = None, *,
             upload_id: str | None = None, prior: dict | None = None, model: ModelFallback | None = None) -> dict:
     tpl = load_template(template_id)
     read, page_count = read_pdf(pdf_path, pages)
+    layout_id = None
+    if tpl.get("layouts"):
+        first = read[0] if read and read[0].number == 1 else read_pdf(pdf_path, [1])[0][0]
+        layout_id = _pick_layout(tpl, first)
+        tpl = load_template(layout_id)
     no_text = pages_without_text(read)
     if no_text:
         log.warning("pages without a text layer (OCR fallback not built yet): %s", no_text)
-    p = parse(read, page_count, tpl)
+    engine = _engine(tpl)
+    p = engine.parse(read, page_count, tpl)
     p.source_file = Path(pdf_path).name
     pass_no = 2 if pages else 1
 
@@ -84,12 +118,12 @@ def extract(pdf_path: str, template_id: str = DEFAULT_TEMPLATE, pages: Optional[
                               f"is this a {template_id} settlement report?")
 
     rec = Recorder(pass_no)
-    derive.build(p, rec, prior=prior, partial=bool(pages))
+    engine.build(p, rec, prior=prior, partial=bool(pages))
 
     rp = p.cover.get("reporting_period")
     reporting_period = None
     if rp is not None:
-        d = datetime.strptime(rp.value.title(), "%B %Y")
+        d = datetime.strptime(" ".join(rp.value.split()).title(), "%B %Y")
         reporting_period = f"{d.year:04d}-{d.month:02d}"
 
     n_req = 40
@@ -100,6 +134,7 @@ def extract(pdf_path: str, template_id: str = DEFAULT_TEMPLATE, pages: Optional[
         "upload_id": upload_id or str(uuid.uuid4()),
         "pass": pass_no,
         "template_id": template_id,
+        "layout": layout_id,
         "page_count": page_count,
         "reporting_period": reporting_period,
         "extracted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

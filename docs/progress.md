@@ -2,6 +2,18 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Extraction: wave 2, MOVE Trust. `move-trust-settrep-v1` is a dispatch template choosing one of four
+  layouts from page-1 keywords: servicer-report (Meridian), multicurrency (Finloc), guarantor (TLFC LP, Leases,
+  Loans) and standard (Dynamic, Essex, TPine, VCC IV), each a template plus an engine under
+  `worker/extract/engines/` (hook in `extract()`; `meta.layout` names the layout). For all nine deals, chain()
+  and month-by-month extend() over April–July reproduce the reference objects except listed quirks (per-deal
+  dicts with reasons in `tests/test_move_*.py`). Interest is the effective-yield income each report's formula
+  prints, so fresh extractions equal the post-correction references. Roll-forward: `charge_off` /
+  `adjustment_increase` close R05 in all 36 reports (Finloc, TLFC LP and Meridian gaps explained); R05 needs the
+  `adjustment_increase` term, R04 a per-program offset (MOVE reporting month = collection month). history.extend
+  now reads the reporting-month lag from the extraction. Slow tests: `@pytest.mark.slow`, skipped unless
+  `EXTRACT_ALL=1` (`EXTRACT_SAMPLES_DIR` points at a checkout with data/samples). Run everything:
+  `EXTRACT_ALL=1 python -m pytest -q worker/extract/tests` (about 20 min).
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON

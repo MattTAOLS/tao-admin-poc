@@ -118,11 +118,23 @@ def chain(extractions: list[dict]) -> dict:
 _MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def _reporting_month(ym: str) -> str:
-    """A report for collection period YYYY-MM covers reporting month MM - 1, as 'Mon-YY'."""
+def _reporting_month(ym: str, lag: int = -1) -> str:
+    """The newest month a report for collection period YYYY-MM prints, as 'Mon-YY': `lag` months from the
+    period (F-PIL: -1, the month before; MOVE Trust layouts: 0, the collection month itself)."""
     y, m = map(int, ym.split("-"))
-    m, y = (12, y - 1) if m == 1 else (m - 1, y)
-    return f"{_MON[m - 1]}-{y % 100:02d}"
+    k = y * 12 + (m - 1) + lag
+    return f"{_MON[k % 12]}-{(k // 12) % 100:02d}"
+
+
+def _lag(extraction: dict) -> int:
+    """Months from an extraction's period to the newest month its ratio_history prints."""
+    rows = extraction["deal"].get("ratio_history") or []
+    if not rows:
+        return -1
+    newest = max((r["month"] for r in rows), key=_month_key)
+    ny, nm = _month_key(newest)
+    y, m = map(int, extraction["deal"]["period_history"][0]["period"].split("-"))
+    return (ny * 12 + nm) - (y * 12 + m)
 
 
 def _months_between(a: str, b: str) -> int:
@@ -152,7 +164,8 @@ def extend(prior_deal: dict | None, extraction: dict) -> dict:
 
     Restatements need to know which earlier reports printed a month, which a deal object does not record. It is
     inferred from the report format: the report for period P prints field f for the months from
-    (reporting month of P) - span_f up to that reporting month, where span_f is how far back the new report
+    (reporting month of P) - span_f up to that reporting month (reporting month = P + lag, the lag read from
+    the new extraction: -1 for F-PIL, 0 for MOVE Trust), where span_f is how far back the new report
     prints f. Those reports printed the prior deal's value unless the prior deal already lists a restatement.
 
     Carried-over values have no page in this upload, so they get no `sources` entries (the schema requires a
@@ -198,6 +211,7 @@ def extend(prior_deal: dict | None, extraction: dict) -> dict:
                 if k != "month":
                     span[k] = max(span.get(k, 0), _months_between(m, newest))
     rest = {(r["month"], r["field"]): r for r in prior.get("restatements") or []}
+    lag = _lag(extraction)
     for m, r in new_rows.items():
         for k, v in r.items():
             if k == "month" or v is None:
@@ -208,7 +222,7 @@ def extend(prior_deal: dict | None, extraction: dict) -> dict:
             pv = prior_rows.get(m, {}).get(k)
             if pv is None or abs(pv - v) <= EPS:
                 continue
-            printed_by = [p for p in report_periods if 0 <= _months_between(m, _reporting_month(p)) <= span.get(k, 12)]
+            printed_by = [p for p in report_periods if 0 <= _months_between(m, _reporting_month(p, lag)) <= span.get(k, 12)]
             rest[(m, k)] = {"month": m, "field": k,
                             "as_reported": [{"source_period": p, "value": pv} for p in printed_by]
                             + [{"source_period": cur_period, "value": v}]}
