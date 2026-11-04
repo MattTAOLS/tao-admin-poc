@@ -91,7 +91,8 @@ rules:
       principal_prepayments, losses (defaults), and, where the layout prints them, charge_off (the NPV
       adjustment, column i), new_funded and ineligible_buyback, all as positive amounts, plus adjustment_increase
       (the upward part of a signed portfolio adjustment column, MOVE Trust) and balance_adjustment (signed,
-      Meridian); an absent or null term counts as 0. Check the total, then each top_movers row where both opening and closing are present.
+      Meridian); an absent or null optional term counts as 0. A null opening, closing, principal, prepayments or
+      losses is itself a block finding naming the missing field (pass 2, then review). Check the total, then each top_movers row where both opening and closing are present.
     fields: [/tranche_balance/opening, /tranche_balance/closing, /period_history, /tranche_balance/top_movers]
     expr: "near(period.opening_balance + (period.new_funded or 0) - period.principal - period.principal_prepayments - period.losses - (period.charge_off or 0) - (period.ineligible_buyback or 0) + (period.adjustment_increase or 0) + (period.balance_adjustment or 0), period.closing_balance, tol.currency)"
     fn: tranche_rollforward
@@ -118,7 +119,7 @@ rules:
     phase: 1
     severity: block
     title: Aging buckets sum to the closing balance
-    description: "Page 11 prints g = a + b + c + e. current_0_30 + days_31_60 + days_61_90 = closing_balance (F-PIL convention) OR the same plus written_off = closing_balance (most MOVE Trust deals). Both conventions occur in the 12 reference deals; the pipeline records bucket_sum and bucket_sum_with_writeoff for this reason. The aging closing vs page-2 closing comparison is context only (Meridian OneCap differs by deemed defaults)."
+    description: "Page 11 prints g = a + b + c + e. current_0_30 + days_31_60 + days_61_90 = closing_balance (F-PIL convention) OR the same plus written_off = closing_balance (most MOVE Trust deals). Both conventions occur in the 12 reference deals; the pipeline records bucket_sum and bucket_sum_with_writeoff for this reason. The aging closing vs page-2 closing comparison is context only (Meridian OneCap differs by deemed defaults). A missing aging row, bucket or closing is a block finding naming it."
     fields: [/aging_history/0, /tranche_balance/closing]
     expr: "near(aging.current_0_30 + aging.days_31_60 + aging.days_61_90, aging.closing_balance, tol.currency) and near(aging.closing_balance, deal.tranche_balance.closing, tol.currency)"
     fn: aging_buckets_sum
@@ -180,7 +181,10 @@ rules:
       tranche_balance.opening = prior published tranche_balance.closing and contracts.opening = prior
       contracts.closing. Second check, free from the report itself: the prior month's row in
       ratio_history / period_history must equal the prior published report's values; a difference is a
-      restatement the reviewer must accept or reject.
+      restatement the reviewer must accept or reject. Multi-currency deals (tranche_balance.by_currency with two
+      or more currencies, now and in the prior): each currency's opening in its own units must equal its prior
+      closing in its own units; the CAD-equivalent difference from a new spot rate is revaluation, reported in
+      context, not a break.
     fields: [/tranche_balance/opening, /contracts/opening, /period_history, prior:/tranche_balance/closing, prior:/contracts/closing, prior:/period_history]
     fn: opening_equals_prior_closing
     tolerance: { unit: currency }
