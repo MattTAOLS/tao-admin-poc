@@ -56,7 +56,6 @@ DEALS = {
         "prefix": "TLFC_Leases",
         "quirks": {
             r"^/ratio_history/(Mar-24|Jul-25)$": _RATIO_MONTHS,
-            r"^/(period_history/\d+|tranche_balance)/charge_off$": _CHARGE_OFF,
             r"^/contracts/top_movers/#len$":
                 "reference keeps 5 of the 9 tranches whose contract count changed in July; the layout's top-movers "
                 "limit is 10 (the LP and Loans references carry 10)",
@@ -65,15 +64,6 @@ DEALS = {
             r"^/aging_history/3/cumulative_net_losses$":
                 "April prints '- 790.22' (negative, as on the April cumulative-losses page 'Pool Balance Totals ... "
                 "- 790.22' and like July's '- 7,062.24', which the reference keeps negative); reference +790.22",
-            r"^/covenant_summary/OK$":
-                "the deferred-account lock-up test the reference leaves out (see EXTRA_COVENANTS) is OK",
-            r"^/covenants/MLA 7\.1\(u\)/description$":
-                "the July report adds 'following the OC Rebalancing Date (where applicable)'; the reference keeps "
-                "the April-June wording",
-            r"^/covenants/MLA 7\.1\(u\)/note$": _DIFFERENTIAL_NOTE,
-            r"^/covenants/MLA 7\.5/(description|note)$":
-                "reference description and note list the June footnote's 19 tranches (114-117, 119-123, 125, ...), "
-                "while its current_value is July's 17; the extraction reads July's footnote for all three",
             r"^/prior_covenants/MLA \(Definitions\) \| Does the (Delinquency|Loss) Ratio/trend$": _PRIOR_TREND,
             r"^/data_corrections$":
                 "audit record of a correction applied to the published object on 2026-10-09 (old value, date "
@@ -81,12 +71,8 @@ DEALS = {
                 "the printed formula j=(e+f+h)/a*12 counts.",
         },
         # covenants the extraction carries that the reference leaves out, with the reason
-        "extra_covenants": {
-            "MLA (Definitions) | Is the amount on":
-                "printed lock-up test 'Is the amount on deposit in the Deferred Account less that 75% of the "
-                "Required Deferred Amount ...? No' (description wrapped over two lines); missing from the reference",
-        },
-        "blocks": {"R04"},
+        "extra_covenants": {},   # the printed lock-up test is now in the corrected reference
+        "blocks": set(),
         "adjustments": {"2026-04": (0.0, 0.01), "2026-05": (0.0, 0.0), "2026-06": (0.0, 0.01), "2026-07": (0.01, 0.0)},
         "extend_divergence": {},
     },
@@ -94,21 +80,13 @@ DEALS = {
         "prefix": "TLFC_LP",
         "quirks": {
             r"^/ratio_history/(Dec-22|Jul-25)$": _RATIO_MONTHS,
-            r"^/period_history/[0-2]/interest$": _INTEREST,
-            r"^/(period_history/\d+|tranche_balance)/charge_off$": _CHARGE_OFF,
-            r"^/covenants/MLA 7\.1 \(t\)/description$":
-                "the July report adds 'following the OC Rebalancing Date (where applicable)'; the reference keeps "
-                "the April-June wording",
             r"^/(covenants|prior_covenants)/MLA 7\.1 \(aa\)/description$":
                 "reference keeps only the first printed line; the extraction keeps the wrapped second line "
                 "('following March 9th, 2026 ... remedied within three Business Days?')",
-            r"^/covenants/MLA 7\.5/description$":
-                "reference counts 97 tranches (the June report's page 2); July adds tranche 157: 24 of 98",
             r"^/prior_covenants/MLA \(Definitions\) \| Does the (Delinquency|Loss|RVL) Ratio/trend$": _PRIOR_TREND,
         },
         "extra_covenants": {},
-        # R05 reads charge_off but not adjustment_increase yet: every month has an upward adjustment
-        "blocks": {"R04", "R05"},
+        "blocks": set(),
         "adjustments": {"2026-04": (0.0, 3035.22), "2026-05": (0.0, 2551.21), "2026-06": (0.0, 2972.92),
                         "2026-07": (0.0, 2782.68)},
         # history.extend reads the reporting-month lag from the extraction (0 here), so it matches chain()
@@ -117,12 +95,7 @@ DEALS = {
     "move-trust-tlfc-loans": {
         "prefix": "TLFC_Loans",
         "quirks": {
-            r"^/source_pages/cumulative_losses$":
-                "reference has page 13 (aging); 'CUMULATIVE LOSSES' is printed on page 15",
             r"^/ratio_history/(Dec-23|Jul-25)$": _RATIO_MONTHS,
-            r"^/period_history/[0-2]/interest$": _INTEREST,
-            r"^/(period_history/\d+|tranche_balance)/charge_off$": _CHARGE_OFF,
-            r"^/covenants/PA 7\.1 \(s\)/note$": _DIFFERENTIAL_NOTE,
             r"^/(covenants|prior_covenants)/PA 7\.1 \(x\)/(description|current_value|threshold|note)$":
                 "the reference keeps only the line printed beside the reference ('remedied within three Business "
                 "Days?') and so treats it as a plain binary test; the description starts on the line above ('Is the "
@@ -132,7 +105,7 @@ DEALS = {
             r"^/prior_covenants/PA \(Definitions\) \| Does the (Delinquency|Loss) Ratio/trend$": _PRIOR_TREND,
         },
         "extra_covenants": {},
-        "blocks": {"R04"},
+        "blocks": set(),
         "adjustments": {"2026-04": (0.01, 0.0), "2026-05": (0.03, 0.0), "2026-06": (0.0, 0.0), "2026-07": (0.0, 0.0)},
         "extend_divergence": {},
     },
@@ -273,20 +246,13 @@ def test_schema_provenance_and_layout(slug):
 @pytest.mark.slow
 @needs_samples
 def test_phase1_rules_block_only_as_expected(slug):
-    """R04 assumes F-PIL's convention (collection period = page-header reporting period + 1 month). On this layout
-    the page header names the collection period itself, so R04 blocks every report. R05 does not read
-    adjustment_increase yet, so it blocks the LP reports by exactly their upward adjustment."""
+    """No phase-1 block on any report: R04 takes MOVE's offset (reporting month = collection month) and R05 reads
+    charge_off and adjustment_increase, so TLFC LP's upward adjustments close the roll-forward."""
     from rules import run
     from rules.engine import Context
     for ex in _exs(slug):
-        row = ex["deal"]["period_history"][0]
         blocks = [f for f in run(ex, Context(), phases=(1,)) if f["severity"] == "block"]
         assert {f["rule_id"] for f in blocks} == DEALS[slug]["blocks"], [(f["rule_id"], f["message"]) for f in blocks]
-        r04 = next(f for f in blocks if f["rule_id"] == "R04")
-        assert f"page-header reporting period {row['period']}" in r04["message"]
-        for f in blocks:
-            if f["rule_id"] == "R05":
-                assert abs(f["difference"] - row["adjustment_increase"]) <= 0.01
 
 
 @deal_params
