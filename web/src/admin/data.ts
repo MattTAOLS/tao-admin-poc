@@ -21,6 +21,8 @@ export type Upload = {
   published_at?: string | null
   /** real API only */
   reject_reason?: string | null
+  /** Set while status is extraction_failed: why extraction failed (newest extract audit reason). */
+  failure_reason?: string | null
   /** Corrected re-issue: the published upload this one replaces when approved. */
   replaces_upload_id?: string | null
   /** Set on a published upload once a re-issue for its period has been approved. */

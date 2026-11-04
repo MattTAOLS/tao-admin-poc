@@ -5,7 +5,7 @@ import {
 } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { adminApi, IN_FLIGHT, type ApiError, type Upload } from './data'
-import { useResource, useRole } from './hooks'
+import { useResource } from './hooks'
 import { FindingCountsText, LoadError, TextLink, addMonths, dealOptions, errorText, formatDateTime, periodHistoryHref, reportingLag, reviewHref, totalFindings } from './ui'
 
 export const POLL_MS = 2000
@@ -154,10 +154,8 @@ function UploadProgress({ initial, dealName, onAnother, replaced, lag }: { initi
   const r04 = u.reporting_period && u.reporting_period !== expectedReporting
   const canReview = u.status === 'needs_review' || findings > 0
   const failed = u.status === 'extraction_failed'
-  // The failure reason is an audit entry (actor: worker). Only tao_admin may read the audit log.
-  const admin = useRole() === 'tao_admin'
-  const failure = useResource(() => (failed && admin ? adminApi.audit({ upload_id: u.id, action: 'extract' }) : Promise.resolve([])), [failed, admin, u.id])
-  const reason = failure.data?.find(e => e.reason)?.reason
+  // failure_reason comes on the upload for every TAO role; older API responses lack it (generic text then).
+  const reason = u.failure_reason
 
   return (
     <div className="adm-stack">
