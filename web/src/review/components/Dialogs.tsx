@@ -125,10 +125,10 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
   }
   return (
     <Dialog open={open} onClose={onClose} dismissable={!busy} role="alertdialog" title="Reject report"
-      description={`${title}. The uploader is told, and the period can be uploaded again.`}
+      description={`${title}. The status turns to Rejected and the reason goes in the audit log. The period can be uploaded again.`}
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="danger" loading={busy} onClick={submit}>Reject report</Button></>}>
       <div className="rv-dialog-body">
-        <Field label="Reason" required error={r.error} hint="Shown to the uploader and kept in the audit log.">
+        <Field label="Reason" required error={r.error} hint="Shown on the review page and kept in the audit log.">
           <Textarea rows={3} value={r.reason} onChange={e => r.setReason(e.target.value)} onBlur={() => r.setTouched(true)} />
         </Field>
         {err && <div className="rv-dialog-error" role="alert">{err}</div>}

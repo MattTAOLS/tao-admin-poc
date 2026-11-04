@@ -138,6 +138,8 @@ describe('Review report', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: 'Reject…' }))
     const dlg = await screen.findByRole('alertdialog', { name: 'Reject report' })
+    expect(within(dlg).getByText(/The status turns to Rejected and the reason goes in the audit log/)).toBeTruthy()
+    expect(within(dlg).queryByText(/uploader is told/)).toBeNull()
     await userEvent.click(within(dlg).getByRole('button', { name: 'Reject report' }))
     expect(within(dlg).getByRole('alert')).toBeTruthy()
     await userEvent.type(within(dlg).getByRole('textbox', { name: /Reason/ }), 'wrong month uploaded')
