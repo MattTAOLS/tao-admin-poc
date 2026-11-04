@@ -122,7 +122,12 @@ type ProgramAggregateBase = {
   /** Extras from the API (master record, published periods). */
   program?: ProgramMaster
   available_periods?: string[]
+  /** Deals whose newest publication is earlier than `period`; the aggregate uses their latest publication at or
+   * before it (contracts/openapi.yaml PublishedProgram.deals_behind). Absent or empty: every deal is current. */
+  deals_behind?: DealBehind[]
 }
+
+export type DealBehind = { deal_slug: string; deal_name?: string; as_of: string }
 
 export type ProgramAggregate = ProgramAggregateBase & { deals: Deal[] }
 

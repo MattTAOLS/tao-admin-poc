@@ -10,7 +10,7 @@ import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
 import { PeriodPicker } from './ProgramSummary'
 import { RatioChart } from './RatioChart'
-import { LoadGate, crumbs, programName } from './shared'
+import { AsOfPill, LoadGate, behindOf, crumbs, dealMonth, programName } from './shared'
 import type { AgingRow, CnlRow, Deal, FinancialRatio, PeriodRow, ProgramAggregate } from './types'
 
 /** Deal page: Deal Metrics, covenants with legal reference, ratio history, prev / next deal, period picker. */
@@ -20,29 +20,38 @@ export function DealPage() {
   const nav = useNavigate()
   const { programId, dealId, period } = usePortfolioParams()
   const load = usePublished<Deal>(programId && dealId ? paths.deal(programId, dealId, period) : null)
-  // The program's latest deal list gives prev / next within the program.
-  const prog = usePublished<ProgramAggregate>(programId ? paths.program(programId) : null)
+  const deal = load.state === 'ok' ? load.data : undefined
+  // The program gives prev / next within it. At the deal's newest publication: the program's latest month, so each
+  // neighbour opens at its own newest month. At an older month: the program as of that month.
+  const shown = deal ? dealPeriod(deal) : undefined
+  const progPeriod = deal && shown && deal.available_periods?.length && shown !== deal.available_periods[0] ? shown : undefined
+  const prog = usePublished<ProgramAggregate>(programId && deal ? paths.program(programId, progPeriod) : null)
   const siblings = prog.state === 'ok' ? [...prog.data.deals].sort((a, b) => a.deal_name.localeCompare(b.deal_name)) : []
   const prefix = commonDealNamePrefix(siblings.map(d => d.deal_name))
   const i = siblings.findIndex(d => d.deal_slug === dealId)
   const prev = i > 0 ? siblings[i - 1] : undefined
   const next = i >= 0 && i < siblings.length - 1 ? siblings[i + 1] : undefined
-  const deal = load.state === 'ok' ? load.data : undefined
+  // This deal is behind the program month (its newer report is not published yet).
+  const behind = prog.state === 'ok' && dealId ? behindOf(prog.data, dealId) : undefined
+  const behindHere = behind && behind.as_of === shown ? behind : undefined
   const pname = prog.state === 'ok' ? programName(prog.data) : programId ?? ''
   usePageHeader({
     title: deal ? deal.deal_name : 'Deal',
-    status: deal ? <CovenantPill status={deal.worst_status} /> : undefined,
+    status: deal ? <><CovenantPill status={deal.worst_status} />{behindHere && prog.state === 'ok' && <AsOfPill p={prog.data} dealSlug={behindHere.deal_slug} />}</> : undefined,
     subtitle: deal ? <>Collection period {deal.collection_period}{deal.settlement_date ? ` · settled ${deal.settlement_date}` : ''}{deal.prior_period ? ` · compared with ${formatPeriod(deal.prior_period)}` : ''}</> : undefined,
     crumbs: crumbs(shell, L.portfolio(), { label: pname, href: programId ? L.program(programId) : undefined }, { label: deal ? shortName(deal.deal_name, prefix) : dealId ?? '' }),
     actions: programId ? <>
-      {prev && <Button as="link" to={L.deal(programId, prev.deal_slug)} aria-label={`Previous deal: ${prev.deal_name}`} size="sm">‹ {shortName(prev.deal_name, prefix)}</Button>}
-      {next && <Button as="link" to={L.deal(programId, next.deal_slug)} aria-label={`Next deal: ${next.deal_name}`} size="sm">{shortName(next.deal_name, prefix)} ›</Button>}
+      {prev && <Button as="link" to={L.deal(programId, prev.deal_slug, prog.state === 'ok' ? dealMonth(prog.data, prev.deal_slug) : undefined)} aria-label={`Previous deal: ${prev.deal_name}`} size="sm">‹ {shortName(prev.deal_name, prefix)}</Button>}
+      {next && <Button as="link" to={L.deal(programId, next.deal_slug, prog.state === 'ok' ? dealMonth(prog.data, next.deal_slug) : undefined)} aria-label={`Next deal: ${next.deal_name}`} size="sm">{shortName(next.deal_name, prefix)} ›</Button>}
     </> : undefined,
   })
   return (
     <LoadGate load={load}>{d => (
       <div className="pf-stack">
         {shell === 'admin' && <AdminStrip deal={d} />}
+        {behindHere && prog.state === 'ok' && (
+          <p className="pf-behind" role="note">{shortName(d.deal_name, prefix)} is as of {formatPeriod(behindHere.as_of)}; its {formatPeriod(prog.data.period)} report is not published yet.</p>
+        )}
         <div className="pf-toolbar">
           <PeriodPicker periods={d.available_periods} value={dealPeriod(d)} onChange={per => programId && dealId && nav(L.deal(programId, dealId, per))} />
         </div>

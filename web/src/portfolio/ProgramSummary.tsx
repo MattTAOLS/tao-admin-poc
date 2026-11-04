@@ -5,7 +5,7 @@ import { paths, usePublished, type Load } from './data'
 import { commonDealNamePrefix, shortName, terms } from './fmt'
 import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
-import { LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
+import { AsOfPill, BehindNote, LoadGate, ProgramTiles, crumbs, dealMonth, programName, programSlug } from './shared'
 import type { Portfolio, ProgramAggregate } from './types'
 
 function useProgram() {
@@ -63,6 +63,7 @@ export function ProgramSummaryView({ p }: { p: ProgramAggregate }) {
         <PeriodPicker periods={p.available_periods} value={p.period} onChange={per => nav(L.program(slug, per))} />
       </div>
       <ProgramTiles p={p} />
+      <BehindNote p={p} />
       {p.deals_with_escalations.length > 0 && (
         <Card title="Escalated this period" subtitle="A covenant moved to a worse status than last period">
           <ul className="pf-list">{p.deals_with_escalations.map(n => <li key={n}>{shortName(n, prefix)}</li>)}</ul>
@@ -73,14 +74,14 @@ export function ProgramSummaryView({ p }: { p: ProgramAggregate }) {
           const t = terms(d.terminology ?? undefined)
           return (
             <Card key={d.deal_slug} as="article" headingLevel={3} title={shortName(d.deal_name, prefix)}
-              actions={<CovenantPill status={d.worst_status} size="sm" />}>
+              actions={<span className="pf-cardpills"><AsOfPill p={p} dealSlug={d.deal_slug} /><CovenantPill status={d.worst_status} size="sm" /></span>}>
               <dl className="pf-dl">
                 <dt>{t.balance}</dt><dd><Num v={d.tranche_balance.closing} kind="money" field={`deals.${i}.tranche_balance.closing`} /></dd>
                 <dt>Change</dt><dd><Num v={d.tranche_balance.change_abs} kind="signed-money" field={`deals.${i}.tranche_balance.change_abs`} /> (<Num v={d.tranche_balance.change_pct} kind="pct" field={`deals.${i}.tranche_balance.change_pct`} />)</dd>
                 <dt>Utilization</dt><dd><Num v={d.program?.program_utilization_pct} kind="pct" field={`deals.${i}.program.program_utilization_pct`} /></dd>
                 <dt>Covenants</dt><dd>{d.covenant_summary.BREACH} breach · {d.covenant_summary.WATCH} watch · {d.covenant_summary.OK} OK</dd>
               </dl>
-              <div className="pf-cardfoot"><Button as="link" to={L.deal(slug, d.deal_slug)} aria-label={`Open deal ${d.deal_name}`} size="sm">Open deal</Button></div>
+              <div className="pf-cardfoot"><Button as="link" to={L.deal(slug, d.deal_slug, dealMonth(p, d.deal_slug))} aria-label={`Open deal ${d.deal_name}`} size="sm">Open deal</Button></div>
             </Card>
           )
         })}

@@ -25,6 +25,10 @@
 
 .pf-dealgrid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .pf-grid2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.pf-behind { margin: 0; font-size: var(--fs-small); color: var(--muted); }
+.pf-asof { margin-left: 6px; vertical-align: middle; }
+.pf-cardpills { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pf-cardpills .pf-asof { margin-left: 0; }
 .pf-cardfoot { margin-top: 12px; display: flex; justify-content: flex-end; }
 
 .pf-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-family: var(--data); font-size: var(--fs-table); }

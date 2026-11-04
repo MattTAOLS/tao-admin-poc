@@ -8,7 +8,7 @@ import { commonDealNamePrefix, covKind, displayStatus, shortName, stableKey, ter
 import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
 import { PeriodPicker } from './ProgramSummary'
-import { LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
+import { AsOfPill, BehindNote, LoadGate, ProgramTiles, crumbs, dealMonth, programName, programSlug } from './shared'
 import type { Covenant, Deal, ProgramAggregate } from './types'
 
 /** Program Dashboard: Portfolio Metrics, Covenant Status & Review, watch threshold, print. */
@@ -69,7 +69,7 @@ export function ProgramDashboardView({ p }: { p: ProgramAggregate }) {
 
   const statusCell = (r: Row) => <CovenantPill status={r.status} size="sm" />
   const cols: Column<Row>[] = [
-    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <span className="pf-nowrap">{shortName(r.d.deal_name, prefix)}</span> },
+    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <span className="pf-nowrap">{shortName(r.d.deal_name, prefix)}<AsOfPill p={p} dealSlug={r.d.deal_slug} /></span> },
     { key: 'ref', header: 'Covenant', render: r => <><div className="pf-nowrap">{r.c.legal_ref}</div><div className="pf-muted pf-small pf-clip">{r.c.description}</div></> },
     { key: 'status', header: 'Status', render: statusCell, sortValue: r => ({ BREACH: 0, WATCH: 1, OK: 2, AVAILABLE: 3 } as Record<string, number>)[r.status] ?? 4 },
     { key: 'value', header: 'Value', numeric: true, render: r => <Num v={r.c.current_value} kind={covKind(r.c)} field={`deals.${r.di}.covenants.${r.ci}.current_value`} /> },
@@ -80,7 +80,7 @@ export function ProgramDashboardView({ p }: { p: ProgramAggregate }) {
 
   type MRow = { d: Deal; di: number }
   const mcols: Column<MRow>[] = [
-    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <Link className="pf-link" to={L.deal(slug, r.d.deal_slug)} aria-label={`Open deal ${r.d.deal_name}`}>{shortName(r.d.deal_name, prefix)}</Link> },
+    { key: 'deal', header: 'Deal', emphasis: true, sortValue: r => r.d.deal_name, render: r => <span className="pf-nowrap"><Link className="pf-link" to={L.deal(slug, r.d.deal_slug, dealMonth(p, r.d.deal_slug))} aria-label={`Open deal ${r.d.deal_name}`}>{shortName(r.d.deal_name, prefix)}</Link><AsOfPill p={p} dealSlug={r.d.deal_slug} /></span> },
     { key: 'status', header: 'Status', render: r => <CovenantPill status={atPublished ? r.d.worst_status : worstOf(r.d.covenants.map(c => ({ category: c.category, status: displayStatus(c, buffer, r.d.watch_buffer_pct) })))} size="sm" /> },
     { key: 'bal', header: t.balance, numeric: true, sortValue: r => r.d.tranche_balance.closing, render: r => <Num v={r.d.tranche_balance.closing} kind="money" field={`deals.${r.di}.tranche_balance.closing`} /> },
     { key: 'chg', header: 'Change', numeric: true, render: r => <><Num v={r.d.tranche_balance.change_abs} kind="signed-money" field={`deals.${r.di}.tranche_balance.change_abs`} /> <span className="pf-muted">(<Num v={r.d.tranche_balance.change_pct} kind="pct" field={`deals.${r.di}.tranche_balance.change_pct`} />)</span></> },
@@ -102,6 +102,7 @@ export function ProgramDashboardView({ p }: { p: ProgramAggregate }) {
       <section aria-labelledby="pf-pm" className="pf-stack">
         <h2 id="pf-pm" className="pf-section">Portfolio Metrics</h2>
         <ProgramTiles p={p} />
+        <BehindNote p={p} />
         <Card title="Deals" subtitle={`${p.deal_count} deals · ${formatPeriod(p.period)}`} padding="flush">
           <DataTable columns={mcols} rows={order} rowKey={r => r.d.deal_slug} caption="Deal metrics" captionHidden density="compact" />
         </Card>

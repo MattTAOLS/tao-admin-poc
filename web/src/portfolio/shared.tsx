@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { Button, KpiRow, KpiTile, SkeletonBlock, StatePanel, type Crumb } from '@/design/components'
+import { Button, KpiRow, KpiTile, SkeletonBlock, StatePanel, StatusPill, formatPeriod, type Crumb } from '@/design/components'
 import type { Load } from './data'
-import { commonDealNamePrefix, terms } from './fmt'
+import { commonDealNamePrefix, shortName, terms } from './fmt'
 import { Num } from './Num'
 import type { ShellId } from './nav'
-import type { PortfolioProgram, ProgramAggregate } from './types'
+import type { DealBehind, PortfolioProgram, ProgramAggregate } from './types'
 import './portfolio.css'
 
 export const SHELL_TITLE: Record<ShellId, string> = { admin: 'TAO Admin', investor: 'Investor Portal', manager: 'Manager Portal' }
@@ -98,4 +98,44 @@ export function ProgramTiles({ p, compact = false, field = '' }: { p: AnyProgram
 
 export function crumbs(shell: ShellId, portfolioHref: string, ...rest: Crumb[]): Crumb[] {
   return [{ label: SHELL_TITLE[shell] }, { label: 'Portfolio Executive Summary', href: portfolioHref }, ...rest]
+}
+
+/** A program month lists every deal: a deal whose newest publication is older than the month is in the aggregate at
+ * its own month and listed in `deals_behind`. Absent or empty `deals_behind` means every deal is at `period`. */
+export function behindOf(p: AnyProgram, dealSlug: string): DealBehind | undefined {
+  return (p.deals_behind ?? []).find(b => b.deal_slug === dealSlug)
+}
+
+/** The month to open a deal at from a program view: its own publication month, never the program month when they
+ * differ, because the deal endpoint has nothing for a month the deal was not published in. */
+export function dealMonth(p: AnyProgram, dealSlug: string): string | undefined {
+  return behindOf(p, dealSlug)?.as_of ?? p.period
+}
+
+/** "As of Jul 2026" on a deal row or card that is behind the program month; nothing when the deal is current. */
+export function AsOfPill({ p, dealSlug }: { p: AnyProgram; dealSlug: string }) {
+  const b = behindOf(p, dealSlug)
+  if (!b) return null
+  return <StatusPill tone="blue" size="sm" className="pf-asof" title={`Latest published report: ${formatPeriod(b.as_of)}`}>As of {formatPeriod(b.as_of)}</StatusPill>
+}
+
+/** One line under the program totals naming the deals that are behind, e.g. "Moneda Capital Corp. is as of Jul 2026;
+ * its Aug 2026 report is not published yet." Renders nothing when every deal is current. */
+export function BehindNote({ p }: { p: AnyProgram }) {
+  const list = p.deals_behind ?? []
+  if (!list.length) return null
+  const prefix = commonDealNamePrefix(p.deals.map(d => d.deal_name))
+  const name = (b: DealBehind) => shortName(b.deal_name || p.deals.find(d => d.deal_slug === b.deal_slug)?.deal_name || b.deal_slug, prefix)
+  const month = formatPeriod(p.period)
+  let text: string
+  if (list.length === 1) {
+    text = `${name(list[0])} is as of ${formatPeriod(list[0].as_of)}; its ${month} report is not published yet.`
+  } else {
+    const SHOW = 3
+    const parts = list.slice(0, SHOW).map(b => `${name(b)} (${formatPeriod(b.as_of)})`)
+    const more = list.length - SHOW
+    const joined = more > 0 ? `${parts.join(', ')} and ${more} more` : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+    text = `${joined} are behind; their ${month} reports are not published yet.`
+  }
+  return <p className="pf-behind" role="note">{text}</p>
 }
