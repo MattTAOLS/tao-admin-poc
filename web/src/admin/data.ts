@@ -21,6 +21,10 @@ export type Upload = {
   published_at?: string | null
   /** real API only */
   reject_reason?: string | null
+  /** Corrected re-issue: the published upload this one replaces when approved. */
+  replaces_upload_id?: string | null
+  /** Set on a published upload once a re-issue for its period has been approved. */
+  replaced_by_upload_id?: string | null
 }
 export type Program = {
   slug: string; name: string
@@ -91,10 +95,12 @@ const qs = (params: Record<string, string | undefined>) => {
 export const adminApi = {
   uploads: (f: { status?: string; deal_slug?: string; collection_period?: string } = {}) => api<Upload[]>('/uploads' + qs(f)),
   upload: (id: string) => api<Upload>(`/uploads/${encodeURIComponent(id)}`),
-  createUpload: (deal_slug: string, collection_period: string, file: File) => {
+  /** `replace` uploads a corrected re-issue of a published period (otherwise the API answers 409 already_published). */
+  createUpload: (deal_slug: string, collection_period: string, file: File, replace = false) => {
     const body = new FormData()
     body.set('deal_slug', deal_slug)
     body.set('collection_period', collection_period)
+    if (replace) body.set('replace', 'true')
     body.set('file', file, file.name)
     return api<Upload>('/uploads', { method: 'POST', body })
   },

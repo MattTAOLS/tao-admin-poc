@@ -17,7 +17,8 @@ export function LoadError({ error, onRetry }: { error: ApiError; onRetry?: () =>
 /** Human-readable error for an action (upload, save). */
 export function errorText(e: ApiError): string {
   switch (e.code) {
-    case 'already_published': return 'This deal and collection period are already published. Reject or regenerate instead of uploading again.'
+    case 'already_published': return 'This deal and collection period are already published. Upload the file as a corrected re-issue to replace it.'
+    case 'nothing_to_replace': return 'Nothing is published for this deal and collection period yet, so there is nothing to replace. Upload it as a normal report.'
     case 'upload_in_progress': return 'An upload for this deal and collection period is already in progress. Find it in Upload history.'
     case 'not_a_pdf': return 'The file is not a readable PDF.'
     case 'unknown_deal': return 'The API does not know this deal. Refresh the page and pick it again.'
@@ -66,6 +67,8 @@ export function FindingCountsText({ counts }: { counts?: FindingCounts }) {
 }
 
 export const reviewHref = (id: string) => `/admin/uploads/queue/${id}`
+/** Upload history filtered to one deal and period: shows a re-issue next to the upload it replaces. */
+export const periodHistoryHref = (deal: string, period: string) => `/admin/uploads/history?deal=${encodeURIComponent(deal)}&period=${encodeURIComponent(period)}`
 export const auditHref = (uploadId: string) => `/admin/settings/users/audit?upload_id=${encodeURIComponent(uploadId)}`
 
 export function TextLink({ to, children, label }: { to: string; children: ReactNode; label?: string }) {

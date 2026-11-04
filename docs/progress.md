@@ -2,10 +2,6 @@
 
 Append an entry when a work package lands. Newest first.
 
-- 2026-11-03 — Data & API: the override re-run Context passes `published_periods` as {collection_period: published_at}
-  like worker/validate, so a re-run R12 names the publication date. Test in tests/test_reissue.py; 134 API tests pass on
-  SQLite and PostgreSQL.
-
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
@@ -346,11 +342,6 @@ Append an entry when a work package lands. Newest first.
   the column and stops a `published` upload counting as the period's active upload, so the re-issue can be uploaded while
   one-in-flight still holds. The Upload dict in the override Context carries `replaces_upload_id`. 133 API tests pass on
   SQLite and PostgreSQL (migrations 001-006).
-- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
-  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
-  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
-  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
-  deals do not (see rules tests); two aging conventions exist.
 - 2026-11-03 — UI-Review, corrected re-issues (merged integration/wave3 fbb7d41). Review page: a banner on a re-issue
   ("Corrected re-issue of Moneda Capital Corp. Jul 2026. Publishing replaces the report published …", link to the replaced
   upload's review record) with the later-months warning from R12's `later_periods`; past tense once published; on a
@@ -362,4 +353,22 @@ Append an entry when a work package lands. Newest first.
   the 2026-07 report published … Later published months (2026-08) still carry the earlier figures for 2026-07"; Accept
   as replacement + publish in the browser → old upload `replaced_by_upload_id` = the re-issue, publish audit
   `replaced_upload_id` = the old one. Tests: `cd web && npx vitest run src/review` (62; Reissue.test.tsx on recorded responses).
-
+- 2026-11-03 — UI-Admin, corrected re-issues: Upload report turns 409 `already_published` into a confirm dialog
+  ("{deal} {period} is already published (on {date}). Upload this file as a corrected re-issue? ...") whose primary
+  button resends with `replace=true`; when the chosen deal + period already has a published upload (looked up with
+  `GET /uploads?deal_slug&collection_period&status=published`) the form also offers a "This is a corrected re-issue"
+  checkbox; 422 `nothing_to_replace` reads as a plain sentence; the progress card says what the re-issue replaces.
+  Uploads, Upload history and the Dashboard list tag "Re-issue" (`replaces_upload_id`) and "Replaced by re-issue"
+  (`replaced_by_upload_id`), both linking to Upload history for that deal and period. Live (tao-ui-admin, fresh
+  volumes, seed, `--profile admin`): re-issued Moneda 2026-08 through the UI via the 409 → confirm path; it reached
+  needs_review in about 25 s with `replaces_upload_id` = the published upload and one R12 block ("Corrected re-issue:
+  replaces the 2026-08 report published ..."); after acknowledge + approve over the API the history showed
+  "Re-issue" on the new upload and "Replaced by re-issue" on the old one. Run: `cd web && npx vitest run src/admin` (63).
+- 2026-11-03 — Data & API: the override re-run Context passes `published_periods` as {collection_period: published_at}
+  like worker/validate, so a re-run R12 names the publication date. Test in tests/test_reissue.py; 134 API tests pass on
+  SQLite and PostgreSQL.
+- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
+  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
+  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
+  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
+  deals do not (see rules tests); two aging conventions exist.

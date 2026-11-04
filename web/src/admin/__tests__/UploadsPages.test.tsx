@@ -132,6 +132,31 @@ describe('Upload history', () => {
     expect(table.querySelector('time')!.getAttribute('datetime')).toBe('2026-11-02T10:00:00Z')
     expect(within(table).getByRole('link', { name: /Audit trail/ }).getAttribute('href')).toBe('/admin/settings/users/audit?upload_id=u3')
   })
+  it('tags a re-issue and the upload it replaced, both linking to that deal and period', async () => {
+    const old = upload({ id: 'old1', status: 'published', reporting_period: '2026-07', published_at: '2026-11-03T15:20:00Z', uploaded_at: '2026-11-03T15:10:00Z', replaced_by_upload_id: 'new1' })
+    const reissue = upload({ id: 'new1', status: 'published', reporting_period: '2026-07', published_at: '2026-11-03T16:20:00Z', uploaded_at: '2026-11-03T16:00:00Z', replaces_upload_id: 'old1' })
+    const plain = upload({ id: 'p1', status: 'needs_review', deal_slug: 'f-pil-2-0-stride-capital' })
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [old, reissue, plain] }))
+    renderPage('/admin/uploads/history', historyRoute)
+    const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(4))
+    const re = within(table).getByRole('link', { name: /^Re-issue: replaces the upload of .*published/ })
+    expect(re.textContent).toBe('Re-issue')
+    expect(re.getAttribute('href')).toBe('/admin/uploads/history?deal=f-pil-2-0-moneda-capital-corp&period=2026-08')
+    const by = within(table).getByRole('link', { name: /^Replaced by re-issue uploaded/ })
+    expect(by.textContent).toBe('Replaced by re-issue')
+    expect(within(table).getAllByText(/Re-issue|Replaced by re-issue/)).toHaveLength(2)
+    // The tags sit in the rows they describe.
+    expect(re.closest('tr')!.querySelector('time')!.getAttribute('datetime')).toBe('2026-11-03T16:00:00Z')
+    expect(by.closest('tr')!.querySelector('time')!.getAttribute('datetime')).toBe('2026-11-03T15:10:00Z')
+  })
+  it('shows the re-issue tag on the Uploads recent list too', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [upload({ id: 'n2', status: 'needs_review', replaces_upload_id: 'gone' })] }))
+    renderPage('/admin/uploads', uploadsRoute)
+    const table = await screen.findByRole('table', { name: 'Recent uploads' })
+    // The replaced upload is not in the list: the label still says what it is.
+    expect(await within(table).findByRole('link', { name: 'Re-issue: replaces the upload' })).toBeTruthy()
+  })
   it('reads filters from the URL on first load', async () => {
     const calls: string[] = []
     mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': (p: string) => { calls.push(p); return [] } }))
