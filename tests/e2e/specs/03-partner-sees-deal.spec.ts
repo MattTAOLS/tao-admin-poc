@@ -28,7 +28,7 @@ test('step 3: investor viewer sees the published deal and the numbers match the 
   await expect(pageTitle(page)).toContainText('Xpedite Leasing')
   await expect(page.getByText(`Collection period ${referenceDeal(STEP1.deal).collection_period}`)).toBeVisible()
   await expect(page.locator('[data-field="tranche_balance.closing"]').first()).toBeVisible()
-  await shot(page, '03-deal-page')
+  await shot(page, '03-deal-page', { fullPage: true })
 
   const published = (await new Api('investor_viewer').get(`/published/programs/${PROGRAM}/deals/${slug}`)).body
   expect(published.published_period).toBe(STEP1.period)

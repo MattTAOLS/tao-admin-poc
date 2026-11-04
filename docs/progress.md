@@ -210,3 +210,15 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — QA & Demo: Playwright suite in `tests/e2e/` (own package.json + lockfile, @playwright/test 1.56.1,
+  lighthouse 13.5.0). Projects: `setup` (stack up, seeded, fresh; seeded-error PDF via `scripts/demo_data.py`; May–Jul
+  published for Moneda, Xpedite, Stride through the API), `demo` (steps 1–7 of the build plan's demo script, each
+  switching role through the sidebar user card and asserting on visible text and on API state with the role-header
+  client, plus negatives: analyst 403, publish 409 while R05 is open, partner tenancy by URL and API, partner and analyst
+  on TAO routes, blank PDF → extraction_failed), `wave3` (manager sees both programs, /master/partners, covenant unit,
+  Use ours writes 15,020,071.52 with data_corrections; expected red until merged). Result from `docker compose down -v`
+  on the QA stack: 16/16 green in 8 min (a second clean run lost step 4 to the API page-image crash filed to Data & API, the rest green after an API restart); wave3 4/4 red for the expected reasons. `docs/demo.md` is the walkthrough with
+  27 screenshots in `docs/demo/` and the acceptance table measured (Xpedite deal page: 154 numbers, 0 mismatches against
+  the shared dashboard; upload to needs review 6–32 s; Lighthouse 93–96; full demo 11 min 17 s, over the 10-minute
+  target). Run: see `docs/demo.md` › Run it. Stubbed: step 6's covenant toast (not built, no data) and step 7's
+  re-upload (API refuses, R12). Needs: see `docs/requests.md` › QA & Demo.

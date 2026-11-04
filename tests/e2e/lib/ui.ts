@@ -36,11 +36,11 @@ export async function navTo(page: Page, name: string | RegExp) {
 /** Page title in the top bar (usePageHeader renders the only h1). */
 export const pageTitle = (page: Page) => page.getByRole('heading', { level: 1 })
 
-/** Full-page screenshot into docs/demo/ for the walkthrough. */
-export async function shot(page: Page, name: string) {
+/** Screenshot of the viewport (1440 x 900) into docs/demo/ for the walkthrough; `fullPage` for the long pages. */
+export async function shot(page: Page, name: string, opts: { fullPage?: boolean } = {}) {
   fs.mkdirSync(SHOTS, { recursive: true })
   await page.waitForLoadState('networkidle').catch(() => {})
-  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true, animations: 'disabled' })
+  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: !!opts.fullPage, animations: 'disabled' })
 }
 
 /** Money as the app prints it to the cent (en-CA style with thousands separators). */
