@@ -2,18 +2,6 @@
 
 Append an entry when a work package lands. Newest first.
 
-- 2026-11-04 — Data & API: merged lead/covenants (18 definitions; Stride and Xpedite have their own). `PUT /master/covenants`
-  now accepts a definition with both threshold and threshold_rule null (Stride SLFA 9.1 (g), limit per vintage); the seed
-  test counts the seed files instead of literals. Re-seeding an existing database leaves the 3 retired Stride/Xpedite rows
-  in place (no superseded flag in the model; see requests.md). 135 API tests pass on SQLite and PostgreSQL.
-
-- 2026-11-04 — Lead: Stride and Xpedite covenant definitions replaced (branch lead/covenants). They were copies of
-  Moneda's. Now from each 2026-08 report's covenant page, marked UNVERIFIED: Xpedite ARFA dated 2022-10-14, 9.1 (b)/(c)
-  banded 6%/3% and 4%/2% on NPV ≤ / > $10M, (d) 3.0%, (f) CNL 2.75%, (e) ICR ≥ 1.10, (g) leverage ≤ 10, (h) equity
-  ≥ $3,000,000. Stride SLFA dated 2021-02-05, amended 2026-01-22 (footnote, page 11): (d) 3.50%, (e) 2.50%, (f)
-  3.5%, effective 2026-01-22 (pre-amendment values are not printed); (g) CNL is per vintage (3.50% for Sept 2021 -
-  Aug 2022, 2.75% otherwise), so no scalar threshold; R08 checks it per vintage. R14 now raises nothing on the
-  three F-PIL reference deals (Stride had two false reviews; Xpedite was never compared). 21 -> 18 definitions.
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON
@@ -379,11 +367,6 @@ Append an entry when a work package lands. Newest first.
 - 2026-11-03 — Data & API: the override re-run Context passes `published_periods` as {collection_period: published_at}
   like worker/validate, so a re-run R12 names the publication date. Test in tests/test_reissue.py; 134 API tests pass on
   SQLite and PostgreSQL.
-- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
-  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
-  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
-  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
-  deals do not (see rules tests); two aging conventions exist.
 - 2026-11-03 — QA & Demo, final round on integration/wave3: wave-3 assertions folded into the demo (step 3 manager sees
   the same Xpedite numbers; `specs/03b-master-data.spec.ts` partners and covenant unit; step 5 Use ours publishes
   15,020,071.52 with data_corrections), step 7 rewritten as a corrected re-issue of Moneda 2026-05 (confirm → R12 →
@@ -392,3 +375,23 @@ Append an entry when a work package lands. Newest first.
   18/18 and 18/18, 5 min 16 s and 4 min 43 s including start and seed. Lighthouse 100 / 96 / 100 / 100. docs/demo.md
   and its screenshots are current. Needs: see `docs/requests.md` › QA & Demo (resolved-card contrast, R12 message
   timestamp, five stale screenshots).
+- 2026-11-04 — Rules: merged lead/covenants. With Stride's and Xpedite's own definitions, R14 raises nothing on
+  the 12 reference deals (the Stride pair was the seed copy); Xpedite's ARFA refs are now compared, banded 9.1 (b)/(c)
+  included. R14 skips a definition with no threshold and no threshold_rule (Stride 9.1 (g), per vintage). Fixtures
+  unchanged (r14/r15 are Moneda). Rules 86, worker/validate 19. The Stride/Xpedite seed request in requests.md is resolved.
+- 2026-11-04 — Lead: Stride and Xpedite covenant definitions replaced (branch lead/covenants). They were copies of
+  Moneda's. Now from each 2026-08 report's covenant page, marked UNVERIFIED: Xpedite ARFA dated 2022-10-14, 9.1 (b)/(c)
+  banded 6%/3% and 4%/2% on NPV ≤ / > $10M, (d) 3.0%, (f) CNL 2.75%, (e) ICR ≥ 1.10, (g) leverage ≤ 10, (h) equity
+  ≥ $3,000,000. Stride SLFA dated 2021-02-05, amended 2026-01-22 (footnote, page 11): (d) 3.50%, (e) 2.50%, (f)
+  3.5%, effective 2026-01-22 (pre-amendment values are not printed); (g) CNL is per vintage (3.50% for Sept 2021 -
+  Aug 2022, 2.75% otherwise), so no scalar threshold; R08 checks it per vintage. R14 now raises nothing on the
+  three F-PIL reference deals (Stride had two false reviews; Xpedite was never compared). 21 -> 18 definitions.
+- 2026-11-04 — Data & API: merged lead/covenants (18 definitions; Stride and Xpedite have their own). `PUT /master/covenants`
+  now accepts a definition with both threshold and threshold_rule null (Stride SLFA 9.1 (g), limit per vintage); the seed
+  test counts the seed files instead of literals. Re-seeding an existing database leaves the 3 retired Stride/Xpedite rows
+  in place (no superseded flag in the model; see requests.md). 135 API tests pass on SQLite and PostgreSQL.
+- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
+  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
+  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
+  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
+  deals do not (see rules tests); two aging conventions exist.

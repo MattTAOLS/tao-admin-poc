@@ -466,6 +466,9 @@ def thresholds_match_master(rule, ex, ctx, tol):
     for i, c in enumerate(d.get("covenants") or []):
         m = defs.get(_ref(c.get("legal_ref")))
         if not m or c.get("kind") not in ("ceiling", "floor"): continue
+        # no threshold and no threshold_rule: the master record does not fix one number for this test (Stride SLFA
+        # 9.1 (g) CNL is set per vintage), so there is nothing to compare; skipped, kind included
+        if m.get("threshold") is None and not m.get("threshold_rule"): continue
         ours = resolve_threshold(m, d); theirs = c.get("threshold")
         ctxd = {"legal_ref": c.get("legal_ref"), "effective_from": m["_effective_from"], "description": c.get("description"), "master_description": m.get("description"),
                 "threshold_rule": m.get("threshold_rule"), "master_source": m.get("source")}

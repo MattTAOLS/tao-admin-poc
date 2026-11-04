@@ -94,10 +94,34 @@ def test_reference_deals_with_master_have_no_blocks_beyond_known_gaps():
         else: assert not blocks, (d["deal_slug"], blocks)
 
 def test_reference_review_findings_are_the_documented_ones():
-    """Review findings on real deals: only R14 on Stride, whose seeded covenant definitions are Moneda's copied
-    (docs/requests.md). R19 notes are real status changes."""
+    """Review findings on real deals: none. The earlier R14 pair on Stride came from seed definitions copied from
+    Moneda; since lead/covenants (71c8ca4) Stride and Xpedite have their own, and all three F-PIL deals agree with
+    the master record. R19 notes are real status changes and are not counted here."""
     seen = {(d["deal_slug"], f["rule_id"]) for d, fs, _ in reference_runs() for f in fs if f["severity"] == "review"}
-    assert seen == {("f-pil-2-0-stride-capital", "R14")}, seen
+    assert seen == set(), seen
+
+def test_r14_compares_every_f_pil_deal_against_its_own_definitions():
+    """Each F-PIL deal's master definitions match some of its page-14 refs (Xpedite's ARFA refs are compared now),
+    and a one-number change on a matched covenant fires R14."""
+    for src in (mf.MONEDA, mf.STRIDE, mf.XPEDITE):
+        d = mf.load_deal(src); m = mf.master_for(d["deal_slug"])
+        defs = checks._effective(m["covenants"], checks.period_key(d["collection_period"]))
+        idx = [i for i, c in enumerate(d["covenants"]) if c["kind"] in ("ceiling", "floor") and checks._ref(c["legal_ref"]) in defs
+               and checks.resolve_threshold(defs[checks._ref(c["legal_ref"])], d) is not None]
+        assert idx, src
+        d["covenants"][idx[0]]["threshold"] *= 2
+        fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"})
+        assert [f["context"]["legal_ref"] for f in fs] == [d["covenants"][idx[0]]["legal_ref"]], src
+
+def test_r14_skips_a_definition_with_no_threshold_and_no_rule():
+    """Stride SLFA 9.1 (g) CNL: threshold null, no threshold_rule (set per vintage). The report states 3.50%;
+    R14 must not compare it, nor flag its kind."""
+    d = mf.load_deal(mf.STRIDE); m = mf.master_for(d["deal_slug"])
+    g = next(x for x in m["covenants"] if x["legal_ref"] == "SLFA 9.1 (g)")
+    assert g["threshold"] is None and not g["threshold_rule"]
+    assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"}) == []
+    g["kind"] = "floor"
+    assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"}) == []
 
 def test_r18_reproduces_every_reference_status():
     for d, fs, _ in reference_runs():
