@@ -8,9 +8,15 @@ Conventions:
   keys our_value / report_value / difference (those are top-level finding fields).
 """
 import calendar, datetime as dt, re
-from .engine import finding
+from .engine import finding, load_rules, settings_of
 
 EPS = 1e-9
+
+_RULES_DOC = None
+def _rules_doc():
+    global _RULES_DOC
+    if _RULES_DOC is None: _RULES_DOC = load_rules()
+    return _RULES_DOC
 
 def near(a, b, t): return a is not None and b is not None and abs(a - b) <= t + EPS
 
@@ -108,16 +114,28 @@ def currency_matches_master(rule, ex, ctx, tol):
 
 # ---------- R03 ----------
 RANGES = {"pct": (-1.0, 1.0), "ratio": (-100.0, 100.0)}
+LOSS_RANGE = (-5.0, 1.0)   # loss and CNL ratios: recoveries on a small base drive them well below -100%
+_LOSS_KEY = re.compile(r"(^|_)(loss|cnl|annualized)(_|$)")
+
+def is_loss_ratio(key) -> bool:
+    """Loss and CNL ratios (loss_ratio, rolling_3month_loss_ratio, rolling_12month_loss_ratio, cnl_ratio, any
+    annualized or cumulative-net-loss key) by their financial_ratios key."""
+    return bool(_LOSS_KEY.search((key or "").lower()))
+
+def ratio_range(r):
+    if r.get("format") == "pct" and is_loss_ratio(r.get("key")): return LOSS_RANGE
+    return RANGES.get(r.get("format"))
 
 def plausible_ranges(rule, ex, ctx, tol):
-    """Fractions stored for percentages must lie in [-1, 1] (loss ratios go negative when recoveries exceed losses:
-    Moneda rolling 3-month -0.20%, TPine -72.64%); multiples in [-100, 100]; balances and contract counts >= 0;
-    utilization 0..1.5. Catches 179 read for 1.79%."""
+    """Fractions stored for percentages must lie in [-1, 1], except loss and CNL ratios in [-5, 1] (they go negative
+    when recoveries exceed losses: Moneda rolling 3-month -0.20%, TPine April / May -113.21% / -130.68%); multiples in
+    [-100, 100]; balances and contract counts >= 0; utilization 0..1.5. Catches 179 read for 1.79%, and 113.21 read
+    for -113.21% (not divided by 100)."""
     d = ex["deal"]; out = []
     def bad(field, value, rng, unit):
         out.append(finding(rule, _uid(ex), report_value=value, unit=unit, fields=[field], context={"field": field, "range": rng}))
     for i, r in enumerate(d.get("financial_ratios") or []):
-        lo_hi = RANGES.get(r.get("format")); v = r.get("value")
+        lo_hi = ratio_range(r); v = r.get("value")
         if lo_hi and _num(v) and not (lo_hi[0] <= v <= lo_hi[1]):
             bad(f"/financial_ratios/{i}/value ({r.get('key')})", v, f"{lo_hi[0]} to {lo_hi[1]}", "percent_points" if r.get("format") == "pct" else "ratio")
     for ptr in ("/tranche_balance/opening", "/tranche_balance/closing"):
@@ -131,11 +149,24 @@ def plausible_ranges(rule, ex, ctx, tol):
     return out
 
 # ---------- R04 ----------
+DEFAULT_REPORTING_LAG = 1   # an unknown template_id assumes the F-PIL convention
+
+def reporting_lag(rule, ex, ctx):
+    """Months from meta.reporting_period to collection_period for this extraction's template (rules.yaml
+    reporting_lag_months: F-PIL 1, MOVE Trust 0). The template is meta.template_id, else the master deal's."""
+    lags = (rule.get("settings") or settings_of(_rules_doc())).get("reporting_lag_months") or {}
+    tid = (ex.get("meta") or {}).get("template_id") or ((ctx.master or {}).get("deal") or {}).get("template_id")
+    lag = lags.get(tid)
+    return tid, (lag if isinstance(lag, int) and not isinstance(lag, bool) else DEFAULT_REPORTING_LAG)
+
+def _months(n): return f"{n} month" if n == 1 else f"{n} months"
+
 def periods_line_up(rule, ex, ctx, tol):
-    """collection_period (cover block) and settlement_date parse; collection_period = meta.reporting_period + 1 month
-    when the extractor captured the page-header month; settlement falls in the collection month (F-PIL) or the month
-    after (MOVE Trust); collection_period = prior published period + 1 month (prior from ctx, else the deal's own
-    prior_period field)."""
+    """collection_period (cover block) and settlement_date parse; collection_period = meta.reporting_period + the
+    template's reporting lag (F-PIL 1: the page header names the month before; MOVE Trust 0: "Settlement Date August
+    20, 2026 for Collection Period July 2026") when the extractor captured that month; settlement falls in the
+    collection month (F-PIL) or the month after (MOVE Trust); collection_period = prior published period + 1 month
+    (prior from ctx, else the deal's own prior_period field)."""
     d = ex["deal"]; out = []
     def bad(detail, ours=None, report=None, fields=None):
         out.append(finding(rule, _uid(ex), our_value=ours, report_value=report, unit="months", fields=fields or rule["fields"], context={"detail": detail}))
@@ -144,9 +175,10 @@ def periods_line_up(rule, ex, ctx, tol):
     if sd is None: bad(f"Settlement date '{d.get('settlement_date')}' does not parse as a date", report=d.get("settlement_date"), fields=["/settlement_date"])
     if cp is None: return out
     rp = period_key(ex["meta"].get("reporting_period"))
-    if rp and add_months(rp, 1) != cp:
-        bad(f"Collection period {cp} should be one month after the page-header reporting period {rp} (expected {add_months(rp, 1)})",
-            ours=add_months(rp, 1), report=cp, fields=["/collection_period", "meta:/reporting_period"])
+    tid, lag = reporting_lag(rule, ex, ctx)
+    if rp and add_months(rp, lag) != cp:
+        bad(f"Collection period {cp} should be {_months(lag)} after the reporting period {rp} for template {tid or 'unknown'} (expected {add_months(rp, lag)})",
+            ours=add_months(rp, lag), report=cp, fields=["/collection_period", "meta:/reporting_period"])
     if sd:
         sk = f"{sd.year:04d}-{sd.month:02d}"
         if sk not in (cp, add_months(cp, 1)):
@@ -164,20 +196,24 @@ def tranche_rollforward(rule, ex, ctx, tol):
     opening + new_funded − principal − prepayments − losses − charge_off − ineligible_buyback = closing. All terms
     are positive amounts; absent or null counts as 0. `charge_off` is the NPV adjustment, column i (Meridian OneCap
     closes to the cent in all four months only with it). The deal-level tranche_balance opening/closing must be
-    the same numbers as that row."""
+    the same numbers as that row. MOVE Trust adds two signed-column terms: adjustment_increase (+, the upward part of the
+    page-2 portfolio / NBV adjustment column whose downward part is charge_off; TLFC LP July +2,782.68) and
+    balance_adjustment (signed, Meridian's "Tranche Contract Balance Adjustment")."""
     d = ex["deal"]; period = _current_row(d)
     if not period: return []
     out = []
     opt = lambda k: period[k] if _num(period.get(k)) else 0.0
     nf, co, ib = opt("new_funded"), opt("charge_off"), opt("ineligible_buyback")
-    computed = period["opening_balance"] + nf - period["principal"] - period["principal_prepayments"] - period["losses"] - co - ib
+    up, ba = opt("adjustment_increase"), opt("balance_adjustment")
+    computed = period["opening_balance"] + nf - period["principal"] - period["principal_prepayments"] - period["losses"] - co - ib + up + ba
     if not near(computed, period["closing_balance"], tol["currency"]):
         c = {"opening": period["opening_balance"], "new_funded": nf, "principal": period["principal"], "prepayments": period["principal_prepayments"], "losses": period["losses"],
-             "charge_off": co, "ineligible_buyback": ib, "computed": round(computed, 2), "closing": period["closing_balance"]}
+             "charge_off": co, "ineligible_buyback": ib, "adjustment_increase": up, "balance_adjustment": ba, "computed": round(computed, 2), "closing": period["closing_balance"]}
         kw = {}
-        if nf or co or ib:
+        if nf or co or ib or up or ba:
             kw["message"] = ("Opening {opening}" + (" + new funded {new_funded}" if nf else "") + " − principal {principal} − prepayments {prepayments} − defaults {losses}"
                              + (" − NPV adjustment {charge_off}" if co else "") + (" − ineligible buyback {ineligible_buyback}" if ib else "")
+                             + (" + upward adjustment {adjustment_increase}" if up else "") + (" + balance adjustment {balance_adjustment}" if ba else "")
                              + " = {computed}, report says closing {closing} (difference {difference})")
         i = _current_index(d)
         tg = _targets(d, [f"/period_history/{i}/closing_balance"], ["/tranche_balance/closing", f"/period_history/{i}/closing_amount", "/tranche_amount/closing", "/program/program_amount"], period["closing_balance"])

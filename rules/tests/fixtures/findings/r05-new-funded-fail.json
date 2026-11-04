@@ -27,6 +27,8 @@
     "losses": 12828.68,
     "charge_off": 0.0,
     "ineligible_buyback": 0.0,
+    "adjustment_increase": 0.0,
+    "balance_adjustment": 0.0,
     "computed": 15020971.52,
     "closing": 15019971.52
   },

@@ -10,12 +10,15 @@ def deals():
 
 def test_rules_load(): assert len(load_rules()["rules"]) == 22
 
-# MOVE Trust deals whose tranche roll-forward does NOT close on the fields the current pipeline captures.
-# The MOVE Trust SetRep template evidently has roll-forward columns (adjustments / additional advances) that
-# dashboard.json does not carry; the pipeline already flags Finloc with an unexplained opening gap. The Extraction
-# agent must add those columns to the MOVE Trust mapping; until then these are expected R05 failures, not bugs.
-# Meridian OneCap was on this list at day 0 (-598,714.81); it closes to the cent once R05 subtracts its charge_off
-# (the page-2 NPV adjustment column), in all four months of its period_history.
+# Reference-data gaps, not rule or extraction bugs: the MOVE Trust page-2 roll-forward has a signed "Adjustment to
+# Portfolio (+/-)" column that the reference objects in docs/dashboard-json do not carry (charge_off null on every MOVE
+# reference, no adjustment_increase). R05 reads both terms (+ adjustment_increase, − charge_off, + balance_adjustment),
+# and the fresh MOVE extractions (agent/extraction) carry them, so R05 closes on all 36 MOVE reports; the references
+# still fail by exactly the missing July term: Finloc charge_off 4,163.85, TLFC LP adjustment_increase 2,782.68.
+# test_rules.py::test_r05_move_terms_close_the_documented_reference_gaps and the r05-adjustment-increase /
+# r05-charge-off-move fixtures prove that adding those extracted values closes them. The entries come off this list
+# when the Lead regenerates the references from the extraction.
+# Meridian OneCap was on this list at day 0 (-598,714.81); its reference carries charge_off 598,714.82 and closes.
 KNOWN_ROLLFORWARD_GAPS = {
     "move-trust-finloc-2000-inc.dashboard.json": -4163.85,
     "move-trust-tlfc-lp-leases.dashboard.json": 2782.68,

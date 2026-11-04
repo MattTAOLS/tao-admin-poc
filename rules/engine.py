@@ -4,6 +4,13 @@ RULES_PATH = pathlib.Path(__file__).resolve().parents[1] / "contracts" / "rules.
 def load_rules(path=RULES_PATH) -> dict:
     return yaml.safe_load(pathlib.Path(path).read_text(encoding="utf-8"))
 
+# Top-level rules.yaml maps a check may need besides its own entry and the tolerances. run() hands them to every rule
+# as rule["settings"]; a check called directly with a bare rule entry falls back to settings_of(load_rules()).
+SETTINGS_KEYS = ("reporting_lag_months",)
+
+def settings_of(rules_doc: dict) -> dict:
+    return {k: rules_doc.get(k) or {} for k in SETTINGS_KEYS}
+
 class Context:
     """What a rule may look at besides the extraction.
 
@@ -37,12 +44,12 @@ def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = No
     A rule function returns a list of findings (possibly empty)."""
     from . import checks
     rules_doc = rules_doc or load_rules()
-    tol = rules_doc["tolerances"]; out = []
+    tol = rules_doc["tolerances"]; settings = settings_of(rules_doc); out = []
     for rule in rules_doc["rules"]:
         if only is not None:
             if rule["id"] not in only: continue
         elif rule.get("phase", 1) not in phases: continue
         fn = getattr(checks, rule.get("fn") or "", None)
         if fn is None: continue   # not implemented: skipped so the pipeline runs (R16, R20-R22 in the POC)
-        out.extend(fn(rule, extraction, ctx, tol))
+        out.extend(fn({**rule, "settings": settings}, extraction, ctx, tol))
     return out

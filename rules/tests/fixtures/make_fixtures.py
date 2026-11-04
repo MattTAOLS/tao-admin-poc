@@ -4,7 +4,8 @@
 
 Each rule gets <rule>-pass.json and <rule>-fail.json here: a real deal object, plus at most one deliberate change
 (recorded under "changes", applied to the deal or to the context), the meta and the Context the rule runs with.
-EXTRA adds named fixtures for specific terms (r05-new-funded, r05-ineligible-buyback, r18-reported-triggered).
+EXTRA adds named fixtures for specific terms (r05-new-funded, r05-ineligible-buyback, the MOVE Trust R05 terms
+r05-adjustment-increase / r05-charge-off-move / r05-balance-adjustment, r18-reported-triggered).
 Their failing case is one change; a passing case may need two changes on the same row to stay consistent
 (a new-funded amount offset by principal), and records both.
 The failing case's expected findings are frozen to findings/<name>-fail.json (validated by scripts/check_contracts.py).
@@ -18,6 +19,7 @@ from rules.engine import Context, run  # noqa: E402
 META = {"upload_id": "00000000-0000-4000-8000-000000000000", "pass": 1, "template_id": "fpil-2.0-settrep-v1", "page_count": 16,
         "extracted_at": "2026-10-28T00:00:00Z", "engine": {"text_layer": "pdfplumber", "model": "claude"}}
 MONEDA, STRIDE, XPEDITE, FINLOC = (f"{s}.dashboard.json" for s in ("f-pil-2-0-moneda-capital-corp", "f-pil-2-0-stride-capital", "f-pil-2-0-xpedite-leasing", "move-trust-finloc-2000-inc"))
+TLFC_LP, MERIDIAN = (f"{s}.dashboard.json" for s in ("move-trust-tlfc-lp-leases", "move-trust-meridian-onecap-lp"))
 
 def load_deal(name): return json.loads((ROOT / "docs/dashboard-json" / name).read_text(encoding="utf-8"))
 def seed(name): return json.loads((ROOT / "seed" / name).read_text(encoding="utf-8"))
@@ -89,7 +91,10 @@ SPECS = {
 }
 
 # name -> (rule, source deal, context builder, meta overrides, pass changes, fail changes)
-CUR = "/period_history/3"   # Moneda's current period (August 2026) row
+CUR = "/period_history/3"   # Moneda's current period (August 2026) row; also the current (July 2026) row of every MOVE Trust deal
+# MOVE Trust roll-forward terms the references do not carry (charge_off null, no adjustment_increase): the values are
+# the July 2026 extraction's (agent/extraction, worker/extract/tests/test_move_guarantor.py / test_move_multicurrency.py),
+# and they close the two documented reference gaps (test_engine.py KNOWN_ROLLFORWARD_GAPS) to the cent.
 EXTRA = {
     "r05-new-funded": ("R05", MONEDA, lambda d: {}, {},
         [{"target": "deal", "path": f"{CUR}/new_funded", "value": 1000.0, "why": "a 1,000.00 advance funded in the period"},
@@ -99,6 +104,16 @@ EXTRA = {
         [{"target": "deal", "path": f"{CUR}/ineligible_buyback", "value": 1000.0, "why": "1,000.00 of the principal line was an ineligible buyback"},
          {"target": "deal", "path": f"{CUR}/principal", "value": 645926.71, "why": "offset: principal 1,000.00 lower, closing unchanged"}],
         [{"target": "deal", "path": f"{CUR}/ineligible_buyback", "value": 1000.0, "why": "buyback printed but the closing balance does not reflect it"}]),
+    "r05-adjustment-increase": ("R05", TLFC_LP, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
+        [{"target": "deal", "path": f"{CUR}/adjustment_increase", "value": 2782.68, "why": "July upward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"}],
+        [{"target": "deal", "path": f"{CUR}/charge_off", "value": 2782.68, "why": "the +2,782.68 portfolio adjustment read as a charge-off (sign lost)"}]),
+    "r05-charge-off-move": ("R05", FINLOC, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
+        [{"target": "deal", "path": f"{CUR}/charge_off", "value": 4163.85, "why": "July downward part of page 2 'Adjustment to Portfolio (+/-)', as extracted"}],
+        [{"target": "deal", "path": f"{CUR}/adjustment_increase", "value": 4163.85, "why": "the -4,163.85 portfolio adjustment read as an increase (sign lost)"}]),
+    "r05-balance-adjustment": ("R05", MERIDIAN, lambda d: {}, {"template_id": "move-trust-settrep-v1"},
+        [{"target": "deal", "path": f"{CUR}/balance_adjustment", "value": -1000.0, "why": "a signed -1,000.00 tranche contract balance adjustment"},
+         {"target": "deal", "path": f"{CUR}/principal", "value": 7350226.06, "why": "offset: principal 1,000.00 lower, closing unchanged"}],
+        [{"target": "deal", "path": f"{CUR}/balance_adjustment", "value": 1000.0, "why": "balance adjustment printed but not carried into the closing balance"}]),
     "r12-reissue": ("R12", MONEDA, lambda d: {"upload": {**upload_for(d), "replaces_upload_id": "11111111-1111-4111-8111-111111111111"},
                                                "published_periods": {"2026-07": "2026-07-15T14:02:00Z"}}, {},
         [],
