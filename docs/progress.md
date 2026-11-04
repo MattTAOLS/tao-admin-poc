@@ -390,6 +390,15 @@ Append an entry when a work package lands. Newest first.
   now accepts a definition with both threshold and threshold_rule null (Stride SLFA 9.1 (g), limit per vintage); the seed
   test counts the seed files instead of literals. Re-seeding an existing database leaves the 3 retired Stride/Xpedite rows
   in place (no superseded flag in the model; see requests.md). 135 API tests pass on SQLite and PostgreSQL.
+- 2026-11-04 — Rules, wave 2 (MOVE Trust): merged lead/move-trust. `engine.run` hands top-level rules.yaml settings
+  (`reporting_lag_months`) to every rule as `rule["settings"]`. R04 expects collection_period = reporting_period + the
+  template's lag (F-PIL 1, MOVE Trust 0, unknown 1) and names it in the message. R05 adds + adjustment_increase +
+  balance_adjustment. R03 gives loss and CNL ratios −5..1 (TPine −113.21% / −130.68% pass, 113.21 still blocks). New
+  fixtures cover r05-adjustment-increase, r05-charge-off-move and r05-balance-adjustment. Reference gaps for Finloc and
+  TLFC LP stay documented as reference-data gaps. Over the 36 MOVE extractions from agent/extraction, phases 1+2,
+  with the previous month as prior: R03/R04/R05 0 (was 2/36/7). What remains is R11 ×7 (Finloc FX re-translation,
+  Essex and TLFC LP restatements; see requests.md › Rules) and R19 notes ×8. Tests: rules 104, worker/validate 19,
+  check_contracts green.
 - 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
   data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
