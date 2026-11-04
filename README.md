@@ -10,7 +10,8 @@ The first start runs `npm install` inside the web container, so http://localhost
 answer. A fresh database is empty: run `make seed` for master data, then either upload SetReps from Upload report,
 load demo state with `python scripts/demo_data.py --api http://localhost:8000 --profile review` (Moneda and Xpedite
 history published, a seeded R05 error waiting in the approval queue), or publish the 12 reference deals with
-`make seed-demo`. Reset with `make down` and start again. On Windows, `make` may be missing: run the commands in the
+`make seed-demo`. Reset to a clean demo in one command with `python scripts/reset_demo.py` (master data only; add
+`--profile review`, `admin` or `partner` for demo state; it asks before wiping). On Windows, `make` may be missing: run the commands in the
 `Makefile` directly, with `python` in place of `python3`.
 
 ## End-to-end demo tests
