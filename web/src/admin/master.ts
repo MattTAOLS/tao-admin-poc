@@ -1,18 +1,20 @@
 /** Pure helpers for the master-data pages (partners, programs, deals, covenant definitions). */
 import { formatCurrency, formatNumber, formatPercent } from '@/design/components'
-import type { CovenantDefinition, Program } from './data'
+import { programPartners, type CovenantDefinition, type Partner, type Program, type ThresholdUnit } from './data'
 
-/** The contract has no partner list; partners are the distinct partner_slug values on programs. The display name
- * is the slug title-cased ("investor" → "Investor"), which matches seed/partners.json today. */
+/** Fallback display name when a slug is not in /master/partners ("investor" → "Investor"). */
 export const partnerName = (slug: string) => slug.split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+export const partnerLabel = (partners: Partner[], slug: string) => partners.find(p => p.slug === slug)?.name ?? partnerName(slug)
 
-export type PartnerRow = { slug: string; name: string; programs: Program[]; dealCount: number }
-export function partnerRows(programs: Program[], dealCountByProgram: Record<string, number>): PartnerRow[] {
-  const map = new Map<string, Program[]>()
-  for (const p of programs) map.set(p.partner_slug, [...(map.get(p.partner_slug) ?? []), p])
-  return [...map.entries()].map(([slug, ps]) => ({
-    slug, name: partnerName(slug), programs: ps, dealCount: ps.reduce((n, p) => n + (dealCountByProgram[p.slug] ?? 0), 0),
-  })).sort((a, b) => a.name.localeCompare(b.name))
+export type PartnerRow = { slug: string; name: string; kind: string; status: string; programs: Program[]; dealCount: number }
+/** One row per partner from /master/partners (partners without programs included); a program counts for every
+ * partner in its partner_slugs. */
+export function partnerRows(partners: Partner[], programs: Program[], dealCountByProgram: Record<string, number>): PartnerRow[] {
+  return partners.map(pt => {
+    const ps = programs.filter(p => programPartners(p).includes(pt.slug))
+    return { slug: pt.slug, name: pt.name, kind: pt.kind, status: pt.status, programs: ps,
+      dealCount: ps.reduce((n, p) => n + (dealCountByProgram[p.slug] ?? 0), 0) }
+  }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Sum of limits per currency, e.g. "$2,066,709,163 CAD". */
@@ -22,24 +24,27 @@ export function limitsByCurrency(programs: Program[]) {
   return [...by.entries()].map(([cur, v]) => `${formatCurrency(v, { decimals: 0 })} ${cur}`).join(' · ')
 }
 
-/** Display of a threshold number. The contract stores "fraction (0.035 = 3.5%) or ratio" with no unit, so the page
- * reads a value below 1 as a percentage, 1 000 or more as currency, anything else as a ratio (1.10×). */
-export function formatThreshold(v: number | null | undefined) {
+/** Display of a threshold number by its unit. With no unit (older definitions) the page guesses: below 1 is a
+ * percentage, 1 000 or more is currency, anything else a ratio (1.10×). */
+export function formatThreshold(v: number | null | undefined, unit?: ThresholdUnit | null) {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—'
-  if (Math.abs(v) < 1) return formatPercent(v)
-  if (Math.abs(v) >= 1000) return formatCurrency(v, { decimals: 0 })
+  const u = unit ?? (Math.abs(v) < 1 ? 'fraction' : Math.abs(v) >= 1000 ? 'currency' : 'ratio')
+  if (u === 'fraction') return formatPercent(v)
+  if (u === 'currency') return formatCurrency(v, { decimals: 0 })
   return formatNumber(v, 2) + '×'
 }
 
+/** "≤ 6.00% if ≤ $10,000,000; ≤ 4.00% if > $10,000,000". Band thresholds use the covenant's unit; band bounds are
+ * values of the measured field (the `on` pointer), which has no unit in the contract, so they keep the guess. */
 export function thresholdText(c: CovenantDefinition): string {
   const op = c.kind === 'floor' ? '≥' : '≤'
   if (c.threshold_rule && c.threshold_rule.bands?.length) {
     return c.threshold_rule.bands.map(b => {
       const cond = b.lte !== undefined && b.lte !== null ? `if ≤ ${formatThreshold(b.lte)}` : b.gt !== undefined && b.gt !== null ? `if > ${formatThreshold(b.gt)}` : 'otherwise'
-      return `${op} ${formatThreshold(b.threshold)} ${cond}`
+      return `${op} ${formatThreshold(b.threshold, c.unit)} ${cond}`
     }).join('; ')
   }
-  return `${op} ${formatThreshold(c.threshold)}`
+  return `${op} ${formatThreshold(c.threshold, c.unit)}`
 }
 
 export type VersionState = 'in_force' | 'superseded' | 'scheduled'

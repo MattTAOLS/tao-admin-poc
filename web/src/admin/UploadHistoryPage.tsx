@@ -8,8 +8,8 @@ import { UploadsTable } from './UploadsTable'
 
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/
 
-/** Upload history: every upload, filtered by deal and status (server side) and collection period (client side,
- * the contract has no period filter). Filters live in the URL so a filtered view can be shared. */
+/** Upload history: every upload, filtered by deal, status and collection period on the server. Filters live in the
+ * URL so a filtered view can be shared. A period is sent only once it is a full YYYY-MM. */
 export default function UploadHistoryPage() {
   const nav = useNavigate()
   const role = useRole()
@@ -21,7 +21,9 @@ export default function UploadHistoryPage() {
     actions: <Button variant="primary" onClick={() => nav('/admin/uploads/new')}>Upload report</Button> })
 
   const master = useResource(() => Promise.all([adminApi.deals(), adminApi.programs()]), [role])
-  const list = useResource(() => adminApi.uploads({ deal_slug: deal || undefined, status: status || undefined }), [deal, status, role])
+  const periodFilter = PERIOD.test(period) ? period : ''
+  const list = useResource(() => adminApi.uploads({ deal_slug: deal || undefined, status: status || undefined, collection_period: periodFilter || undefined }),
+    [deal, status, periodFilter, role])
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params)
     if (v) next.set(k, v); else next.delete(k)
@@ -31,8 +33,7 @@ export default function UploadHistoryPage() {
   if (error) return <LoadError error={error} onRetry={() => { master.reload(); list.reload() }} />
 
   const [deals, programs] = master.data ?? [[], []]
-  const periodFilter = PERIOD.test(period) ? period : ''
-  const rows = (list.data ?? []).filter(u => !periodFilter || u.collection_period === periodFilter)
+  const rows = (list.data ?? []).slice()
     .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at))
   const filtered = !!(deal || status || period)
   const loading = (list.loading && !list.data) || (master.loading && !master.data)

@@ -22,7 +22,18 @@ export type Upload = {
   /** real API only */
   reject_reason?: string | null
 }
-export type Program = { slug: string; name: string; partner_slug: string; currency: string; limit: number; warehouse_limit?: number | null }
+export type Program = {
+  slug: string; name: string
+  /** First partner, kept for compatibility. */
+  partner_slug: string
+  /** Every partner who sees the program (a program may be visible to several partners). */
+  partner_slugs?: string[]
+  currency: string; limit: number; warehouse_limit?: number | null
+}
+export type Partner = { slug: string; name: string; kind: 'investor' | 'manager' | string; status: string }
+/** The partners a program is visible to: partner_slugs, or [partner_slug] from an older API. */
+export const programPartners = (p: Program) => (p.partner_slugs?.length ? p.partner_slugs : [p.partner_slug])
+export type ThresholdUnit = 'fraction' | 'ratio' | 'currency'
 export type Deal = { slug: string; name: string; program_slug: string; servicer: string; template_id: string }
 export type Band = { lte?: number; gt?: number; threshold: number }
 export type ThresholdRule = { on: string; bands: Band[] }
@@ -34,6 +45,8 @@ export type CovenantDefinition = {
   description: string
   kind: 'ceiling' | 'floor'
   threshold?: number | null
+  /** fraction: 0.035 = 3.5%; ratio: 1.10 = 1.10x; currency: an amount. Null = unknown (the page guesses). */
+  unit?: ThresholdUnit | null
   threshold_rule?: ThresholdRule | null
   watch_buffer_pct?: number
   effective_from: string
@@ -76,7 +89,7 @@ const qs = (params: Record<string, string | undefined>) => {
 }
 
 export const adminApi = {
-  uploads: (f: { status?: string; deal_slug?: string } = {}) => api<Upload[]>('/uploads' + qs(f)),
+  uploads: (f: { status?: string; deal_slug?: string; collection_period?: string } = {}) => api<Upload[]>('/uploads' + qs(f)),
   upload: (id: string) => api<Upload>(`/uploads/${encodeURIComponent(id)}`),
   createUpload: (deal_slug: string, collection_period: string, file: File) => {
     const body = new FormData()
@@ -85,6 +98,7 @@ export const adminApi = {
     body.set('file', file, file.name)
     return api<Upload>('/uploads', { method: 'POST', body })
   },
+  partners: () => api<Partner[]>('/master/partners'),
   programs: () => api<Program[]>('/master/programs'),
   deals: (program_slug?: string) => api<Deal[]>('/master/deals' + qs({ program_slug })),
   covenants: (deal_slug?: string) => api<CovenantDefinition[]>('/master/covenants' + qs({ deal_slug })),
@@ -92,7 +106,7 @@ export const adminApi = {
   putDeal: (d: Deal) => api<Deal>('/master/deals', { method: 'PUT', body: JSON.stringify(d) }),
   putCovenant: (c: CovenantDefinition) => api<CovenantDefinition>('/master/covenants', { method: 'PUT', body: JSON.stringify(c) }),
   portfolio: () => api<PublishedPortfolio>('/published/portfolio'),
-  audit: (upload_id?: string) => api<AuditEntry[]>('/audit' + qs({ upload_id })),
+  audit: (f: { upload_id?: string; action?: string } = {}) => api<AuditEntry[]>('/audit' + qs(f)),
 }
 
 /** Statuses the upload poller keeps watching (motion.md: 2 s while non-terminal; this page stops once it reaches review). */
