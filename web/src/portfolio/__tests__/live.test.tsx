@@ -65,14 +65,17 @@ describe.skipIf(!API)('live API: screen numbers equal the reference files', () =
       expect(n).toBeGreaterThan(60)
     })
   }
-  it('a partner that does not own a program gets 404 (shown as no access)', async () => {
-    const pf = await get<Portfolio>('/published/portfolio', { 'X-Role': 'manager_viewer', 'X-Partner': 'manager' })
-    const owned = new Set(pf.body.programs.map(p => p.program?.slug))
-    for (const slug of Object.keys(programs).filter(s => !owned.has(s))) {
-      const r = await get(`/published/programs/${slug}`, { 'X-Role': 'manager_viewer', 'X-Partner': 'manager' })
-      expect(r.status).toBe(404)
-      const d = await get(`/published/programs/${slug}/deals/${programs[slug].deals[0].deal_slug}`, { 'X-Role': 'manager_viewer', 'X-Partner': 'manager' })
-      expect(d.status).toBe(404)
+  it('both partners see both programs', async () => {
+    for (const [role, partner] of [['investor_viewer', 'investor'], ['manager_viewer', 'manager']]) {
+      const pf = await get<Portfolio>('/published/portfolio', { 'X-Role': role, 'X-Partner': partner })
+      expect(pf.body.programs.map(p => p.program?.slug).sort()).toEqual(['f-pil-2-0', 'move-trust'])
+      for (const slug of Object.keys(programs)) expect((await get(`/published/programs/${slug}`, { 'X-Role': role, 'X-Partner': partner })).status).toBe(200)
     }
+  })
+  it('an unknown program, or a partner that owns nothing, gets 404 / 403 (shown as no access)', async () => {
+    const h = { 'X-Role': 'manager_viewer', 'X-Partner': 'manager' }
+    expect((await get('/published/programs/no-such-program', h)).status).toBe(404)
+    const stranger = await get('/published/programs/f-pil-2-0', { 'X-Role': 'manager_viewer', 'X-Partner': 'nobody' })
+    expect([403, 404]).toContain(stranger.status)
   })
 })

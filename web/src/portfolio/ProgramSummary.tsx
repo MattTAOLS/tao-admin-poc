@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { Card, CovenantPill, Field, Select, formatPeriod } from '@/design/components'
+import { Card, CovenantPill, Field, Select, formatPeriod, Button } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { paths, usePublished, type Load } from './data'
 import { commonDealNamePrefix, shortName, terms } from './fmt'
 import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
-import { LinkButton, LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
+import { LoadGate, ProgramTiles, crumbs, programName, programSlug } from './shared'
 import type { Portfolio, ProgramAggregate } from './types'
 
 function useProgram() {
@@ -34,9 +34,9 @@ export function ProgramSummary() {
     subtitle: load.state === 'ok' ? <>Collection period {formatPeriod(load.data.period)} · {load.data.deal_count} deals</> : undefined,
     crumbs: crumbs(shell, L.portfolio(), { label: name }),
     actions: programId ? <>
-      {prev && <LinkButton to={L.program(prev.slug)} ariaLabel={`Previous program: ${prev.name}`}>‹ {prev.name}</LinkButton>}
-      {next && <LinkButton to={L.program(next.slug)} ariaLabel={`Next program: ${next.name}`}>{next.name} ›</LinkButton>}
-      {load.state === 'ok' && <LinkButton to={L.dashboard(programId)} variant="primary" size="md">Program dashboard</LinkButton>}
+      {prev && <Button as="link" to={L.program(prev.slug)} aria-label={`Previous program: ${prev.name}`} size="sm">‹ {prev.name}</Button>}
+      {next && <Button as="link" to={L.program(next.slug)} aria-label={`Next program: ${next.name}`} size="sm">{next.name} ›</Button>}
+      {load.state === 'ok' && <Button as="link" to={L.dashboard(programId)} variant="primary" size="md">Program dashboard</Button>}
     </> : undefined,
   })
   return <LoadGate load={load}>{p => <ProgramSummaryView p={p} />}</LoadGate>
@@ -80,7 +80,7 @@ export function ProgramSummaryView({ p }: { p: ProgramAggregate }) {
                 <dt>Utilization</dt><dd><Num v={d.program?.program_utilization_pct} kind="pct" field={`deals.${i}.program.program_utilization_pct`} /></dd>
                 <dt>Covenants</dt><dd>{d.covenant_summary.BREACH} breach · {d.covenant_summary.WATCH} watch · {d.covenant_summary.OK} OK</dd>
               </dl>
-              <div className="pf-cardfoot"><LinkButton to={L.deal(slug, d.deal_slug)} ariaLabel={`Open deal ${d.deal_name}`}>Open deal</LinkButton></div>
+              <div className="pf-cardfoot"><Button as="link" to={L.deal(slug, d.deal_slug)} aria-label={`Open deal ${d.deal_name}`} size="sm">Open deal</Button></div>
             </Card>
           )
         })}

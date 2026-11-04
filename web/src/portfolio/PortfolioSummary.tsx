@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { Card, CovenantPill, DataTable, Field, Select, StatePanel, formatPeriod, type Column } from '@/design/components'
+import { Card, CovenantPill, DataTable, Field, Select, StatePanel, formatPeriod, type Column, Button } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { paths, usePublished } from './data'
 import { commonDealNamePrefix, shortName } from './fmt'
 import { links, useShell } from './nav'
 import { Num } from './Num'
-import { LinkButton, LoadGate, ProgramTiles, SHELL_TITLE, isFlagged, programName, programSlug } from './shared'
+import { LoadGate, ProgramTiles, SHELL_TITLE, isFlagged, programName, programSlug } from './shared'
 import type { DealIndex, Portfolio } from './types'
 
 type FlagRow = DealIndex & { program: string; programName: string; prefix: string }
@@ -40,7 +40,7 @@ export function PortfolioView({ data }: { data: Portfolio }) {
     { key: 'status', header: 'Status', render: r => <CovenantPill status={String(r.worst_status)} size="sm" /> },
     { key: 'tests', header: 'Breach / watch', numeric: true, render: r => <>{r.covenant_summary?.BREACH ?? 0} / {r.covenant_summary?.WATCH ?? 0}</> },
     { key: 'balance', header: 'Balance', numeric: true, render: r => <Num v={r.closing_tranche_balance} kind="money" />, sortValue: r => r.closing_tranche_balance },
-    { key: 'go', header: 'Open', ariaLabel: 'Open deal', render: r => <LinkButton to={L.deal(r.program, r.deal_slug)} ariaLabel={`Open ${r.deal_name}`}>Open</LinkButton> },
+    { key: 'go', header: 'Open', ariaLabel: 'Open deal', render: r => <Button as="link" to={L.deal(r.program, r.deal_slug)} aria-label={`Open ${r.deal_name}`} size="sm">Open</Button> },
   ]
   return (
     <div className="pf-stack">
@@ -53,7 +53,7 @@ export function PortfolioView({ data }: { data: Portfolio }) {
         const slug = programSlug(p)
         return (
           <Card key={slug} title={programName(p)} subtitle={<>Collection period {formatPeriod(p.period)} · {p.deal_count} deals</>}
-            actions={<><LinkButton to={L.program(slug)}>Executive summary</LinkButton><LinkButton to={L.dashboard(slug)} variant="primary">Dashboard</LinkButton></>}>
+            actions={<><Button as="link" to={L.program(slug)} size="sm">Executive summary</Button><Button as="link" to={L.dashboard(slug)} variant="primary" size="sm">Dashboard</Button></>}>
             <ProgramTiles p={p} compact />
           </Card>
         )

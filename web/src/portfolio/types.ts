@@ -51,6 +51,12 @@ export type PeriodRow = {
 
 export type RatioHistoryRow = { month?: string; [k: string]: number | string | undefined }
 
+export type DataCorrection = {
+  period: string; record: string; field: string
+  old_value: number | string | boolean | null; new_value: number | string | boolean | null
+  applied?: string | boolean; reason?: string | null; rule_id?: string; choice?: 'use_ours' | 'use_report' | string; finding_id?: string
+}
+
 export type Terminology = { balance_label?: string; amount_label?: string; unit_label?: string } | null
 
 export type Deal = {
@@ -81,6 +87,7 @@ export type Deal = {
   cnl_by_period: CnlRow[]
   aging_history: AgingRow[]
   period_history: PeriodRow[]
+  data_corrections?: DataCorrection[]
   // Publication metadata and extras the API adds (not in the contract yet; see docs/requests.md, UI-Partner).
   published_at?: string
   published_by?: string
@@ -103,7 +110,7 @@ export type PortfolioTotals = {
   [k: string]: unknown
 }
 
-export type ProgramMaster = { slug: string; name: string; partner_slug?: string; currency?: string; limit?: number | null; warehouse_limit?: number | null }
+export type ProgramMaster = { slug: string; name: string; partner_slug?: string; partner_slugs?: string[]; currency?: string; limit?: number | null; warehouse_limit?: number | null }
 
 type ProgramAggregateBase = {
   period: string
