@@ -116,6 +116,7 @@ components:
         latest_extraction_id: { type: [string, 'null'], format: uuid }
         published_at: { type: [string, 'null'], format: date-time }
         reject_reason: { type: [string, 'null'] }
+        failure_reason: { type: [string, 'null'], description: 'set while status is extraction_failed: why extraction failed (the worker error, or queue unavailable), from the audit row that failed it' }
         replaces_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a corrected re-issue: the upload whose publication this one replaces on approve' }
         replaced_by_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a published upload once a re-issue for its period has been approved' }
     Extraction:
