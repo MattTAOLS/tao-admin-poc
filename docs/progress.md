@@ -2,6 +2,22 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Design System: Help & support built for both shells (`/admin/help`, `/investor/help`, `/manager/help`),
+  registered in pages.ts with `built: true`. Content is data in `web/src/shell/help/content.ts`; `HelpPage.tsx` renders
+  task sections with numbered steps, a glossary ("What the words mean"), a search box (every word must match; kept in
+  `?q=`), an "On this page" list and an anchor link per section (`#publish` scrolls under the top bar and takes focus).
+  Each block can carry `roles`: tao_analyst sees no resolve / re-extract / publish / reject / audit sections and gets
+  "what you cannot do" lines; partner Company Admins get the Team members placeholder note. Page links resolve per
+  shell (partner paths gain /investor or /manager). Every step was walked on a private stack (tao-help, review
+  profile): role switcher, dashboard, upload form and the re-issue note, Moneda Aug R05 Use ours → publish (dialog
+  text, data corrections on the investor deal page), re-extract dialog, Reports library regenerate ("rebuilt from 8
+  published reports"), audit log filters, a blank PDF → Extraction failed with the reason in the Extract row, a MOVE
+  Trust upload (Dynamic Capital 2026-04, reporting period 2026-04, no findings), program record, analyst read-only
+  footer. Known findings listed for testers come from that run and the Rules entries (Xpedite Jun/Jul R11, Moneda May
+  R18 ×2 + R19, Essex May and TLFC LP Jun R11, R19 notes). Tests: `cd web && npx vitest run src/shell` (41; help 22:
+  rendering through the shell, role filtering, search, every link resolves to a built page open to the role, banned
+  words, no invented contact details). Full web suite 369 passed, 1 failed (DashboardPage MOVE OK 83 vs 84, from main
+  01cf274, not this change). Gaps and confusing flows: docs/requests.md › Design System, 2026-11-04.
 - 2026-11-04 — Extraction: MOVE reference corrections (Lead-authorized, nine move-trust-*.dashboard.json files only;
   every value checked against the printed PDF value, formatting byte-stable: json indent=1, only changed lines move).
   TLFC LP rvl_ratio_pct is a real restatement, not a misread: May report p.14 prints RVL Ratio Apr-26 0.000000% and

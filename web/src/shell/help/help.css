@@ -1,0 +1,31 @@
+/* Help & support. Tokens only (contracts/tokens.css). */
+.help { display: grid; gap: var(--gap); max-width: 920px; }
+.help-search { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.help-search .ds-field { flex: 1 1 320px; }
+.help-role { margin: 10px 0 0; font-size: var(--fs-small); color: var(--muted); }
+
+.help-section { scroll-margin-top: calc(var(--ds-sticky-top, var(--topbar-h)) + 12px); }
+.help-section:focus { outline: none; }
+.help-section:focus-visible { box-shadow: var(--focus), var(--sh-card); }
+.help-anchor { font-size: var(--fs-small); color: var(--muted); text-decoration: none; }
+.help-anchor:hover, .help-anchor:focus-visible { color: var(--purple); text-decoration: underline; }
+
+.help-intro { margin: 0 0 10px; color: var(--text); line-height: var(--lh); }
+.help-steps, .help-points { margin: 0; padding-left: 22px; display: grid; gap: 7px; line-height: var(--lh); color: var(--text); }
+.help-steps li::marker { color: var(--indigo); font-weight: 700; font-feature-settings: var(--tabular); }
+.help-steps + .help-points { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-card); }
+.help-points li::marker { color: var(--muted); }
+.help b { color: var(--indigo); font-weight: 600; }
+.help-link { color: var(--purple); text-decoration: underline; text-underline-offset: 2px; }
+.help-link:hover { color: var(--purple-700); }
+
+.help-toc { margin: 0; padding: 0; list-style: none; columns: 2 240px; column-gap: 24px; }
+.help-toc li { padding: 3px 0; break-inside: avoid; }
+
+.help-table { margin-top: 14px; border: 1px solid var(--border-card); border-radius: var(--r-panel); overflow: hidden; }
+
+.help-glossary { margin: 0; display: grid; gap: 8px; }
+.help-glossary > div { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 12px; }
+.help-glossary dt { font-weight: 600; color: var(--indigo); }
+.help-glossary dd { margin: 0; color: var(--text); line-height: var(--lh); }
+@media (max-width: 640px) { .help-glossary > div { grid-template-columns: 1fr; gap: 2px; } }
