@@ -372,3 +372,11 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — QA & Demo, final round on integration/wave3: wave-3 assertions folded into the demo (step 3 manager sees
+  the same Xpedite numbers; `specs/03b-master-data.spec.ts` partners and covenant unit; step 5 Use ours publishes
+  15,020,071.52 with data_corrections), step 7 rewritten as a corrected re-issue of Moneda 2026-05 (confirm → R12 →
+  Accept as replacement → publish → replaced_by → regenerate → partner page), toast clause removed, tenancy negatives
+  add unknown / missing X-Partner, setup publishes 7 history months instead of 9. Two clean runs from `down -v`:
+  18/18 and 18/18, 5 min 16 s and 4 min 43 s including start and seed. Lighthouse 100 / 96 / 100 / 100. docs/demo.md
+  and its screenshots are current. Needs: see `docs/requests.md` › QA & Demo (resolved-card contrast, R12 message
+  timestamp, five stale screenshots).
