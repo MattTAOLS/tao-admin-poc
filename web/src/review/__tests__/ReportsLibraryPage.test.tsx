@@ -70,7 +70,7 @@ describe('Reports library', () => {
   })
 
   it('links to the deepest registered portfolio route', () => {
-    // Only /admin/portfolio is registered in the admin shell today.
-    expect(partnerViewPath({ program_slug: 'f-pil-2-0', deal_slug: 'x', collection_period: '2026-08' })).toBe('/admin/portfolio')
+    // The admin shell registers the deal route since wave 3.
+    expect(partnerViewPath({ program_slug: 'f-pil-2-0', deal_slug: 'x', collection_period: '2026-08' })).toBe('/admin/portfolio/f-pil-2-0/deals/x?period=2026-08')
   })
 })

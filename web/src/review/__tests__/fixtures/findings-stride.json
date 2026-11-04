@@ -1,7 +1,7 @@
 [
  {
-  "id": "c87503ef-42b2-4f3a-abe6-efa659dadf4e",
-  "extraction_id": "5c7ef341-3431-4eb2-80c8-46a7b3d8e076",
+  "id": "123db5a4-5d38-4c35-b5bc-00a29a4f4618",
+  "extraction_id": "f65072c7-d6c2-4959-9027-d80c8bf843fe",
   "rule_id": "R14",
   "layer": "cross_source",
   "severity": "review",
@@ -38,11 +38,11 @@
   },
   "status": "open",
   "resolution": null,
-  "created_at": "2026-11-03T20:10:50.112251+00:00"
+  "created_at": "2026-11-04T00:07:18.385338+00:00"
  },
  {
-  "id": "742ce3b9-bb09-4055-92a0-7d2631e8ac2b",
-  "extraction_id": "5c7ef341-3431-4eb2-80c8-46a7b3d8e076",
+  "id": "58df4bf8-4bd2-434d-a542-7e9be149b7be",
+  "extraction_id": "f65072c7-d6c2-4959-9027-d80c8bf843fe",
   "rule_id": "R14",
   "layer": "cross_source",
   "severity": "review",
@@ -67,6 +67,6 @@
   },
   "status": "open",
   "resolution": null,
-  "created_at": "2026-11-03T20:10:50.112298+00:00"
+  "created_at": "2026-11-04T00:07:18.385431+00:00"
  }
 ]

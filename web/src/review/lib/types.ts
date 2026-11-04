@@ -21,7 +21,8 @@ export type Upload = {
   reject_reason?: string | null
 }
 
-export type Finding = FindingView & { extraction_id?: string; created_at?: string }
+/** `targets`: JSON pointers approve writes to on use_ours / use_report (finding.schema.json). */
+export type Finding = FindingView & { extraction_id?: string; created_at?: string; targets?: string[] }
 
 export type Source = { page: number; raw_text: string; bbox?: number[] | null; confidence?: number | null; pass?: number }
 
@@ -69,4 +70,9 @@ export type AuditEntry = {
 
 export type OverrideChoice = 'use_ours' | 'use_report' | 'restatement' | 'acknowledge'
 
-export type ApiError = Error & { code?: string; status?: number }
+/** 409 conflicting_corrections body item. */
+export type CorrectionConflict = { pointer: string; values: unknown[]; finding_ids: string[]; rule_ids: string[] }
+/** 409 correction_inconsistent body item: a block finding the corrected deal raises. */
+export type KnockOnFinding = { rule_id: string; message: string; fields?: string[]; our_value?: unknown; report_value?: unknown }
+
+export type ApiError = Error & { code?: string; status?: number; conflicts?: CorrectionConflict[]; findings?: KnockOnFinding[] }

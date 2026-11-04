@@ -134,6 +134,14 @@ Append an entry when a work package lands. Newest first.
   carries `all_tranches`, R11 explains them either way. Run: `cd rules && python -m pytest -q` (76),
   `cd worker/validate && python -m pytest -q` (16). Needs: Extraction's `worker/extract/history.py: extend`
   (main has only `chain`) and worker/main.py passing `extend=` to `handle_extraction`.
+- 2026-11-03 — UI-Partner, wave 3: merged integration/wave3. Admin-shell portfolio links now use the nested routes
+  (`/admin/portfolio/:programId`, `/dashboard`, `/deals/:dealId`); tests updated. Router links use `<Button as="link">`;
+  my KPI minimum width is gone (tiles no longer ellipsize). Deal page: "Data corrections" section from `deal.data_corrections`
+  only (six MOVE Trust reference deals carry one each). Ownership per program_partner: both partners see both programs; an
+  unknown program (404) shows "You don't have access". Tests: `cd web && npx vitest run src/portfolio` 60 passed (17 live
+  tests skipped without PF_LIVE_API); live against tao-ui-partner seeded with `--reference-publications`: 17 passed. Browser
+  check on :5176: manager sees MOVE Trust Dynamic Capital with its correction; admin nested dashboard links to nested deal routes.
+  Known red test outside my folder: UI-Review ReportsLibraryPage "deepest registered portfolio route" (see requests).
 - 2026-11-03 — UI-Partner, wave 1: `web/src/portfolio/`. Portfolio Executive Summary (a card per program the caller
   may see: balance with change, utilization, covenant counts, deals flagged; flagged-deals table; Go to deal picker
   grouped by program), Program Executive Summary (tiles, escalations, a card per deal with OK / WATCH / BREACH and a
@@ -277,11 +285,19 @@ Append an entry when a work package lands. Newest first.
   Tests: web 303 passed, 16 skipped, 2 failed — both are UI tests that pin the pre-registration fallback (see
   docs/requests.md, To UI-Partner / To UI-Review). api 112 passed, 1 failed (`/master/partners` parity, pre-existing).
   Not checked in a browser by me; layout fixes rely on container queries (supported in current Chrome, Edge, Firefox, Safari).
-- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
-  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
-  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
-  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
-  deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Review, wave 3 (corrections) on `agent/ui-review`, merged with integration/wave3. Override dialog: Use
+  ours / Use report only when the finding has `targets` (otherwise disabled on the card and in the dialog, with the reason);
+  for a value choice it says what publishing does ("Writes $15,020,071.52 to 5 fields: Roll-forward Aug 2026 · closing
+  balance, Tranche balance · closing, …", pointers as readable labels; "Nothing changes" when the extraction already holds
+  the value); R05 / R07 add the hint that Use report is right when a component was misread. Resolved value choices show
+  "Pending on publish" (then "Published") on the card. Publish dialog lists the corrections approve will write (field,
+  extracted, published, rule and choice) and shows 409 `conflicting_corrections` (field, both values, rules) and
+  `correction_inconsistent` (the new block findings) with "Go to R0x" buttons that close the dialog and focus the card.
+  Page images use `apiBlob`; link-buttons use `<Button as="link">`. Verified live (tao-ui-review, migrations 004/005 on a
+  fresh volume): use ours on the seeded R05 → published closing 15,020,071.52 with five `data_corrections` entries (period
+  history closing balance and amount, tranche balance closing, tranche amount closing, program amount); after a reset, use
+  report → published closing 15,019,971.52, no `data_corrections`, approve audit `corrections: []`; analysts see no buttons;
+  Stride R14 (no targets) shows use ours / use report disabled. Run: `cd web && npx vitest run src/review` (52 tests).
 - 2026-11-03 — UI-Admin, wave 3 follow-ups: Partners and Partner details read `/master/partners` (real names, kind,
   status; a partner without programs shows, with "None yet"); a program counts for every partner in `partner_slugs`
   (older API: `[partner_slug]`). Program record shows "Visible to", and `tao_admin` edits it in the program dialog
@@ -293,3 +309,8 @@ Append an entry when a work package lands. Newest first.
   the API returned `partner_slugs: ["investor"]`, Manager's details page then listed only MOVE Trust and the
   Manager program URL for F-PIL showed "No such program"; restored through the dialog. Lighthouse accessibility 100
   on Upload report and Upload history. Run: `cd web && npx vitest run src/admin` (58 tests).
+- 2026-11-03 — Lead: day-0 scaffold. Contracts (OpenAPI 19 routes, extraction + finding schemas, 22 rules as
+  data, tokens, motion), compose with five services, API role gates with tests, rules engine with R01/R05/R07 and
+  reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
+  Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
+  deals do not (see rules tests); two aging conventions exist.
