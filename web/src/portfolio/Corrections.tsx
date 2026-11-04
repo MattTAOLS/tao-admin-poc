@@ -1,4 +1,5 @@
-import { DataTable, formatPeriod, type Column } from '@/design/components'
+import { useId, useState } from 'react'
+import { Button, DataTable, formatPeriod, type Column } from '@/design/components'
 import type { NumKind } from './fmt'
 import { Num } from './Num'
 import type { DataCorrection } from './types'
@@ -39,24 +40,61 @@ export function correctionKind(c: Pick<DataCorrection, 'record' | 'field'>): Num
 
 const CHOICE: Record<string, string> = { use_ours: 'our recomputation', use_report: 'the report value' }
 
+type Entry = { c: DataCorrection; i: number }
+export type CorrectionGroup = { key: string; primary: Entry; copies: Entry[] }
+
+/** One finding's choice is written to every copy of the value (e.g. tranche_balance/closing and
+ * period_history/<i>/closing_balance), so the API appends one entry per pointer. Group them: by finding_id, or, when
+ * it is absent (the reference deals), by period + reason + old and new value. Order follows the first entry. */
+export function groupCorrections(rows: DataCorrection[]): CorrectionGroup[] {
+  const groups = new Map<string, CorrectionGroup>()
+  rows.forEach((c, i) => {
+    const key = c.finding_id ? `f:${c.finding_id}` : `v:${c.period}|${c.reason ?? ''}|${JSON.stringify(c.old_value)}|${JSON.stringify(c.new_value)}`
+    const g = groups.get(key)
+    if (g) g.copies.push({ c, i }); else groups.set(key, { key, primary: { c, i }, copies: [] })
+  })
+  return [...groups.values()]
+}
+
+function CopiesToggle({ g }: { g: CorrectionGroup }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const n = g.copies.length
+  const same = (e: Entry) => e.c.old_value === g.primary.c.old_value && e.c.new_value === g.primary.c.new_value
+  return (
+    <>
+      <Button size="sm" aria-expanded={open} aria-controls={id} onClick={() => setOpen(o => !o)} className="pf-copies">+{n} {n === 1 ? 'copy' : 'copies'}</Button>
+      {open && (
+        <ul id={id} className="pf-copylist" aria-label="Same correction written to">
+          {g.copies.map(e => (
+            <li key={e.i}>{correctionLabel(e.c)}{!same(e) && <> · <Value e={e} k="old_value" /> → <Value e={e} k="new_value" /></>}</li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
+function Value({ e, k }: { e: Entry; k: 'old_value' | 'new_value' }) {
+  const v = e.c[k]
+  return typeof v === 'number'
+    ? <Num v={v} kind={correctionKind(e.c)} field={`data_corrections.${e.i}.${k}`} />
+    : <span className="pf-num">{v === null || v === undefined ? '—' : String(v)}</span>
+}
+
 /** Data corrections recorded on the published deal (deal.data_corrections), as published; nothing is recomputed. */
 export function CorrectionsTable({ rows }: { rows: DataCorrection[] }) {
-  type R = { c: DataCorrection; i: number }
-  const data: R[] = rows.map((c, i) => ({ c, i }))
-  const val = (x: R, k: 'old_value' | 'new_value') => {
-    const v = x.c[k]
-    return typeof v === 'number' ? <Num v={v} kind={correctionKind(x.c)} field={`data_corrections.${x.i}.${k}`} /> : <span className="pf-num">{v === null || v === undefined ? '—' : String(v)}</span>
-  }
-  const cols: Column<R>[] = [
-    { key: 'period', header: 'Period', render: x => <span className="pf-nowrap">{formatPeriod(x.c.period)}</span> },
-    { key: 'field', header: 'Field', emphasis: true, render: x => correctionLabel(x.c) },
-    { key: 'old', header: 'Was', numeric: true, render: x => val(x, 'old_value') },
-    { key: 'new', header: 'Now', numeric: true, render: x => val(x, 'new_value') },
-    { key: 'reason', header: 'Reason', render: x => <>
-      <div>{x.c.reason || '—'}</div>
-      {(x.c.rule_id || x.c.choice) && <div className="pf-muted pf-small">{[x.c.rule_id, x.c.choice && `kept ${CHOICE[x.c.choice] ?? x.c.choice}`].filter(Boolean).join(' · ')}</div>}
+  const data = groupCorrections(rows)
+  const cols: Column<CorrectionGroup>[] = [
+    { key: 'period', header: 'Period', render: g => <span className="pf-nowrap">{formatPeriod(g.primary.c.period)}</span> },
+    { key: 'field', header: 'Field', emphasis: true, render: g => <>{correctionLabel(g.primary.c)}{g.copies.length > 0 && <> <CopiesToggle g={g} /></>}</> },
+    { key: 'old', header: 'Was', numeric: true, render: g => <Value e={g.primary} k="old_value" /> },
+    { key: 'new', header: 'Now', numeric: true, render: g => <Value e={g.primary} k="new_value" /> },
+    { key: 'reason', header: 'Reason', render: ({ primary: { c } }) => <>
+      <div>{c.reason || '—'}</div>
+      {(c.rule_id || c.choice) && <div className="pf-muted pf-small">{[c.rule_id, c.choice && `kept ${CHOICE[c.choice] ?? c.choice}`].filter(Boolean).join(' · ')}</div>}
     </> },
-    { key: 'applied', header: 'Applied', render: x => <span className="pf-nowrap">{typeof x.c.applied === 'string' ? x.c.applied : '—'}</span> },
+    { key: 'applied', header: 'Applied', render: ({ primary: { c } }) => <span className="pf-nowrap">{typeof c.applied === 'string' ? c.applied : '—'}</span> },
   ]
-  return <DataTable columns={cols} rows={data} rowKey={x => String(x.i)} caption="Data corrections" captionHidden density="compact" />
+  return <DataTable columns={cols} rows={data} rowKey={g => g.key} caption="Data corrections" captionHidden density="compact" />
 }
