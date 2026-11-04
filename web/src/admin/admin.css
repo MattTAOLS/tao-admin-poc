@@ -35,3 +35,6 @@
 .adm-check { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 .adm-check input { width: 16px; height: 16px; accent-color: var(--purple); }
 .adm-check input:focus-visible { outline: none; box-shadow: var(--focus); }
+.adm-status { display: inline-flex; gap: 6px; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
+.adm-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--lav-2); background: var(--lav); color: var(--purple-700); }
+.adm-tag--muted { background: var(--card); color: var(--text); border-color: var(--border); }

@@ -149,14 +149,93 @@ describe('Upload report', () => {
     expect(screen.getByRole('link', { name: 'Open in approval queue →' })).toBeTruthy()
   })
 
-  it('explains a 409 when the period is already published', async () => {
-    mockApi.mockImplementation(fakeApi({ ...master, 'POST /uploads': httpError(409, 'already_published') }))
+  // The published Moneda Aug upload the re-issue replaces (demo profile admin publishes it).
+  const PUBLISHED = upload({ id: '9a1b2c3d-0000-4000-8000-00000000aaaa', status: 'published', reporting_period: '2026-07', published_at: '2026-11-03T15:20:00Z' })
+  const reissue = upload({ id: '9a1b2c3d-0000-4000-8000-00000000bbbb', replaces_upload_id: PUBLISHED.id })
+
+  it('409 already_published: explains, confirms, and resends with replace=true', async () => {
+    const posts: FormData[] = []
+    let lookups = 0
+    mockApi.mockImplementation(fakeApi({
+      ...master,
+      // The lookup finds nothing at first (as if the list loaded before the publication); the 409 triggers a reload.
+      'GET /uploads': () => (lookups++ === 0 ? [] : [PUBLISHED]),
+      'POST /uploads': (_p: string, init?: RequestInit) => {
+        const fd = init!.body as FormData; posts.push(fd)
+        return fd.get('replace') === 'true' ? reissue : httpError(409, 'already_published', 'already published (R12)')
+      },
+      [`GET /uploads/${reissue.id}`]: reissue,
+    }))
     const user = userEvent.setup()
     renderPage('/admin/uploads/new', route)
     await fillAndChoose(user)
     await user.click(screen.getByRole('button', { name: 'Upload report' }))
-    expect(await screen.findByText(/already published/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Upload report' })).toBeTruthy()
+    const dialog = await screen.findByRole('alertdialog', { name: 'Already published' })
+    expect(posts[0].get('replace')).toBeNull()
+    await waitFor(() => expect(within(dialog).getByText(/Moneda Capital Corp\. Aug 2026 is already published \(on .*2026.*\)\. Upload this file as a corrected re-issue\? It goes through review again and replaces the published report when approved\./)).toBeTruthy())
+    await user.click(within(dialog).getByRole('button', { name: 'Upload as corrected re-issue' }))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1].get('replace')).toBe('true')
+    expect(posts[1].get('deal_slug')).toBe('f-pil-2-0-moneda-capital-corp')
+    expect(posts[1].get('collection_period')).toBe('2026-08')
+    expect(await screen.findByText('Corrected re-issue')).toBeTruthy()
+    expect(screen.getByText(/Replaces the report published .*once approved/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Both uploads' }).getAttribute('href')).toBe('/admin/uploads/history?deal=f-pil-2-0-moneda-capital-corp&period=2026-08')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('409 already_published: cancel closes the dialog and sends nothing more', async () => {
+    let n = 0
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [PUBLISHED], 'POST /uploads': () => { n++; return httpError(409, 'already_published') } }))
+    const user = userEvent.setup()
+    renderPage('/admin/uploads/new', route)
+    await user.selectOptions(await screen.findByLabelText(/^Deal/), 'f-pil-2-0-moneda-capital-corp')
+    fireEvent.change(screen.getByLabelText(/^Collection period/), { target: { value: '2026-08' } })
+    await screen.findByRole('checkbox', { name: /This is a corrected re-issue/ })
+    await user.upload(screen.getByTestId('filedrop-input'), pdf())
+    await user.click(screen.getByRole('button', { name: 'Upload report' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(n).toBe(1)
+  })
+
+  it('offers a corrected re-issue checkbox when the chosen deal and period are already published', async () => {
+    const calls: string[] = []
+    let posted: FormData | undefined
+    mockApi.mockImplementation(fakeApi({
+      ...master,
+      'GET /uploads': (p: string) => { calls.push(p); return p.includes('collection_period=2026-08') ? [PUBLISHED] : [] },
+      'POST /uploads': (_p: string, init?: RequestInit) => { posted = init!.body as FormData; return reissue },
+      [`GET /uploads/${reissue.id}`]: reissue,
+    }))
+    const user = userEvent.setup()
+    renderPage('/admin/uploads/new', route)
+    await user.selectOptions(await screen.findByLabelText(/^Deal/), 'f-pil-2-0-moneda-capital-corp')
+    fireEvent.change(screen.getByLabelText(/^Collection period/), { target: { value: '2026-07' } })
+    await waitFor(() => expect(calls).toContain('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp&collection_period=2026-07&status=published'))
+    expect(screen.queryByRole('checkbox', { name: /corrected re-issue/ })).toBeNull()
+    fireEvent.change(screen.getByLabelText(/^Collection period/), { target: { value: '2026-08' } })
+    const box = await screen.findByRole('checkbox', { name: /This is a corrected re-issue/ })
+    expect(screen.getByText(/Moneda Capital Corp\. Aug 2026 is already published \(on/)).toBeTruthy()
+    await user.click(box)
+    await user.upload(screen.getByTestId('filedrop-input'), pdf())
+    await user.click(screen.getByRole('button', { name: 'Upload corrected re-issue' }))
+    await waitFor(() => expect(posted).toBeTruthy())
+    expect(posted!.get('replace')).toBe('true')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('nothing_to_replace: a plain sentence', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [PUBLISHED], 'POST /uploads': httpError(422, 'nothing_to_replace', 'no publication') }))
+    const user = userEvent.setup()
+    renderPage('/admin/uploads/new', route)
+    await user.selectOptions(await screen.findByLabelText(/^Deal/), 'f-pil-2-0-moneda-capital-corp')
+    fireEvent.change(screen.getByLabelText(/^Collection period/), { target: { value: '2026-08' } })
+    await user.click(await screen.findByRole('checkbox', { name: /This is a corrected re-issue/ }))
+    await user.upload(screen.getByTestId('filedrop-input'), pdf())
+    await user.click(screen.getByRole('button', { name: 'Upload corrected re-issue' }))
+    expect(await screen.findByText('Nothing is published for this deal and collection period yet, so there is nothing to replace. Upload it as a normal report.')).toBeTruthy()
   })
 
   it('shows extraction failure and lets the user start again', async () => {

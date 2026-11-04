@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Button, Card, Field, FileDrop, Input, Select, SkeletonBlock, UploadStatusPill, formatNumber, formatPeriod, icons, useToast,
+  Button, Card, Dialog, Field, FileDrop, Input, Select, SkeletonBlock, UploadStatusPill, formatNumber, formatPeriod, icons, useToast,
 } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { adminApi, IN_FLIGHT, type ApiError, type Upload } from './data'
 import { useResource } from './hooks'
-import { FindingCountsText, LoadError, TextLink, dealOptions, errorText, prevMonth, reviewHref, totalFindings } from './ui'
+import { FindingCountsText, LoadError, TextLink, dealOptions, errorText, formatDateTime, periodHistoryHref, prevMonth, reviewHref, totalFindings } from './ui'
 
 export const POLL_MS = 2000
 const DROP_TEXT = 'Drop the settlement report PDF here, or click to choose'
@@ -29,7 +29,20 @@ export default function UploadReportPage() {
   const [periodTouched, setPeriodTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [upload, setUpload] = useState<Upload>()
+  /** "This is a corrected re-issue": sends replace=true. */
+  const [reissue, setReissue] = useState(false)
+  /** Set when the API answered 409 already_published: the confirm dialog is open. */
+  const [conflict, setConflict] = useState(false)
   const { toast } = useToast()
+  const periodValid = PERIOD.test(period)
+  // The published upload for the chosen deal + period, if any (drives the re-issue checkbox and the confirm text).
+  // A failure here only hides the hint; the API's 409 still catches a published period.
+  const published = useResource(
+    () => (deal && periodValid ? adminApi.uploads({ deal_slug: deal, collection_period: period, status: 'published' }) : Promise.resolve([] as Upload[])),
+    [deal, periodValid ? period : ''],
+  )
+  const publishedUpload = (published.data ?? []).find(u => u.deal_slug === deal && u.collection_period === period && u.status === 'published')
+  useEffect(() => { setReissue(false); setConflict(false) }, [deal, period])
 
   if (master.error) return <LoadError error={master.error} onRetry={master.reload} />
   if (master.loading && !master.data) return <Card title="Report details"><SkeletonBlock lines={4} /><span className="ds-visually-hidden">Loading deals</span></Card>
@@ -41,21 +54,25 @@ export default function UploadReportPage() {
   const periodError = periodTouched && period && !periodOk ? 'Use YYYY-MM, e.g. 2026-08.' : undefined
   const dealName = (slug: string) => deals.find(d => d.slug === slug)?.name ?? slug
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  const send = async (replace: boolean) => {
     if (!ready || !file) return
     setBusy(true); setSubmitError(undefined)
     try {
-      const u = await adminApi.createUpload(deal, period, file)
+      const u = await adminApi.createUpload(deal, period, file, replace)
+      setConflict(false)
       setUpload(u)
-      toast({ tone: 'ok', title: 'Report uploaded', message: `${dealName(deal)} · ${formatPeriod(period)}` })
+      toast({ tone: 'ok', title: replace ? 'Corrected re-issue uploaded' : 'Report uploaded', message: `${dealName(deal)} · ${formatPeriod(period)}` })
     } catch (err) {
-      setSubmitError(errorText(err as ApiError))
+      const e = err as ApiError
+      if (e.code === 'already_published' && !replace) { setConflict(true); published.reload() }
+      else { setConflict(false); setSubmitError(errorText(e)) }
     } finally { setBusy(false) }
   }
-  const reset = () => { setUpload(undefined); setFile(null); setSubmitError(undefined); setFileError(undefined) }
+  const submit = (e: FormEvent) => { e.preventDefault(); send(reissue) }
+  const reset = () => { setUpload(undefined); setFile(null); setSubmitError(undefined); setFileError(undefined); setReissue(false); setConflict(false) }
+  const publishedOn = publishedUpload?.published_at ? ` (on ${formatDateTime(publishedUpload.published_at)})` : ''
 
-  if (upload) return <UploadProgress initial={upload} dealName={dealName(upload.deal_slug)} onAnother={reset} />
+  if (upload) return <UploadProgress initial={upload} dealName={dealName(upload.deal_slug)} onAnother={reset} replaced={publishedUpload} />
 
   return (
     <form className="adm-stack" onSubmit={submit} noValidate aria-label="Upload a settlement report">
@@ -77,19 +94,35 @@ export default function UploadReportPage() {
             onFiles={fs => { setFile(fs[0]); setFileError(undefined); setSubmitError(undefined) }}
             onReject={reason => { setFile(null); setFileError(reason) }}
             onClear={() => setFile(null)} />
+          {ready && publishedUpload && (
+            <div className="adm-note" role="status">
+              {dealName(deal)} {formatPeriod(period)} is already published{publishedOn}.{' '}
+              <label className="adm-check" style={{ marginTop: 6, display: 'flex' }}>
+                <input type="checkbox" checked={reissue} onChange={e => setReissue(e.target.checked)} />
+                This is a corrected re-issue. It goes through review again and replaces the published report when approved.
+              </label>
+            </div>
+          )}
           {submitError && <div className="adm-note adm-note--warn" role="alert">{submitError}</div>}
           <div className="adm-actions">
-            <Button type="submit" variant="primary" icon={<icons.IconUpload width={16} height={16} />} disabled={!ready || !file} loading={busy}>
-              Upload report
+            <Button type="submit" variant="primary" icon={<icons.IconUpload width={16} height={16} />} disabled={!ready || !file} loading={busy && !conflict}>
+              {reissue ? 'Upload corrected re-issue' : 'Upload report'}
             </Button>
           </div>
         </div>
       </Card>
+      <Dialog open={conflict} onClose={() => setConflict(false)} role="alertdialog" dismissable={!busy}
+        title="Already published"
+        description={`${dealName(deal)} ${formatPeriod(period)} is already published${publishedOn}. Upload this file as a corrected re-issue? It goes through review again and replaces the published report when approved.`}
+        footer={<>
+          <Button onClick={() => setConflict(false)} disabled={busy}>Cancel</Button>
+          <Button variant="primary" onClick={() => send(true)} loading={busy}>Upload as corrected re-issue</Button>
+        </>} />
     </form>
   )
 }
 
-function UploadProgress({ initial, dealName, onAnother }: { initial: Upload; dealName: string; onAnother: () => void }) {
+function UploadProgress({ initial, dealName, onAnother, replaced }: { initial: Upload; dealName: string; onAnother: () => void; replaced?: Upload }) {
   const [u, setU] = useState(initial)
   const [pollError, setPollError] = useState<string>()
   const timer = useRef<ReturnType<typeof setTimeout>>()
@@ -137,6 +170,11 @@ function UploadProgress({ initial, dealName, onAnother }: { initial: Upload; dea
             <dt>Reporting period</dt>
             <dd>{u.reporting_period ? <>{formatPeriod(u.reporting_period)} <span className="adm-muted">(read from the report’s page header)</span></>
               : <span className="adm-muted">{inFlight ? 'Read from the report once extraction finishes' : 'Not found in the report'}</span>}</dd>
+            {u.replaces_upload_id && <>
+              <dt>Corrected re-issue</dt>
+              <dd>Replaces the report{replaced?.id === u.replaces_upload_id && replaced.published_at ? ` published ${formatDateTime(replaced.published_at)}` : ''} once approved.{' '}
+                <TextLink to={periodHistoryHref(u.deal_slug, u.collection_period)}>Both uploads</TextLink></dd>
+            </>}
             <dt>Findings</dt><dd>{u.status === 'received' || u.status === 'extracting' ? <span className="adm-muted">After extraction</span> : <FindingCountsText counts={u.finding_counts} />}</dd>
           </dl>
           {r04 && (
