@@ -65,7 +65,19 @@ def test_queue_down_marks_upload_failed(client):
         def push(self, job): raise ConnectionError("redis down")
     app.dependency_overrides[jobs.get_queue] = lambda: Down()
     r = upload(client)
-    assert r.status_code == 201 and r.json()["status"] == "extraction_failed"
+    assert r.status_code == 201 and r.json()["status"] == "extraction_failed" and r.json()["failure_reason"] == "queue unavailable"
+    assert client.get(f"/api/v1/uploads/{r.json()['id']}", headers=ANALYST).json()["failure_reason"] == "queue unavailable"
+
+
+def test_worker_failure_reason_is_on_the_upload(client):
+    from worker.validate.adapter import mark_failed
+    u = upload(client).json()
+    assert u["failure_reason"] is None
+    with db.engine().begin() as c:
+        mark_failed(u["id"], "no template matched page 1", conn=c)
+    got = client.get(f"/api/v1/uploads/{u['id']}", headers=ANALYST).json()
+    assert got["status"] == "extraction_failed" and got["failure_reason"] == "no template matched page 1"
+    assert [x["failure_reason"] for x in client.get("/api/v1/uploads", headers=TAO, params={"status": "extraction_failed"}).json()] == [got["failure_reason"]]
 
 
 def test_list_and_filter_uploads(client):

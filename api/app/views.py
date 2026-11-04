@@ -38,6 +38,17 @@ def set_partner_slugs(s: Session, program: Program, slugs: list[str]) -> None:
     s.flush()
 
 
+def failure_reason(s: Session, u: SetrepUpload) -> str | None:
+    """Why an upload is extraction_failed, read from the audit row that failed it. Both writers record the reason
+    there: worker/validate mark_failed (actor 'system', action 'extract', reason = the error) and the API when the
+    queue push fails (action 'extract', reason 'queue unavailable'). No column needed; None unless extraction_failed."""
+    if u.status != "extraction_failed":
+        return None
+    return s.scalars(select(ReviewAction.reason).where(ReviewAction.upload_id == u.id, ReviewAction.action == "extract",
+                                                       ReviewAction.reason.is_not(None))
+                     .order_by(ReviewAction.at.desc())).first()
+
+
 def upload_dict(s: Session, u: SetrepUpload) -> dict:
     deal = s.get(Deal, u.deal_slug)
     program = s.get(Program, deal.program_slug) if deal else None
@@ -56,7 +67,7 @@ def upload_dict(s: Session, u: SetrepUpload) -> dict:
             "reporting_period": reporting, "status": u.status, "file_name": u.file_name, "page_count": u.page_count,
             "uploaded_by": u.uploaded_by, "uploaded_at": iso(u.uploaded_at), "finding_counts": counts,
             "latest_extraction_id": ex.id if ex else None, "published_at": iso(pub.published_at) if pub else None,
-            "reject_reason": u.reject_reason, "replaces_upload_id": u.replaces_upload_id,
+            "reject_reason": u.reject_reason, "failure_reason": failure_reason(s, u), "replaces_upload_id": u.replaces_upload_id,
             "replaced_by_upload_id": s.scalars(select(SetrepUpload.id).where(SetrepUpload.replaces_upload_id == u.id,
                                                                             SetrepUpload.status == "published")).first()}
 
