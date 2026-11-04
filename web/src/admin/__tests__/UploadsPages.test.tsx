@@ -75,6 +75,12 @@ describe('Uploads', () => {
     await screen.findByRole('table', { name: 'Recent uploads' })
     expect(screen.queryAllByRole('link', { name: /Audit trail/ })).toHaveLength(0)
   })
+  it('links a failed upload to its details page, for analysts too', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [upload({ id: 'u9', status: 'extraction_failed' })] }))
+    renderPage('/admin/uploads', uploadsRoute, 'tao_analyst')
+    const link = await screen.findByRole('link', { name: /Details of the failed upload/ })
+    expect(link.getAttribute('href')).toBe('/admin/uploads/queue/u9')
+  })
 })
 
 describe('Upload history', () => {

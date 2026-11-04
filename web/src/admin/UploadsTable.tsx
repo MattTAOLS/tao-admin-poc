@@ -26,6 +26,7 @@ export function UploadsTable({ uploads, deals, programs, loading, caption, empty
       key: 'open', header: 'Open', ariaLabel: 'Open', render: u => (
         <span className="adm-actions">
           {u.status === 'needs_review' && <TextLink to={reviewHref(u.id)} label={`Review ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Review</TextLink>}
+          {u.status === 'extraction_failed' && <TextLink to={reviewHref(u.id)} label={`Details of the failed upload ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Details</TextLink>}
           {showAudit && <TextLink to={auditHref(u.id)} label={`Audit trail for ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Audit</TextLink>}
         </span>
       ),

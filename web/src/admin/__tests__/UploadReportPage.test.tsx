@@ -277,6 +277,7 @@ describe('Upload report', () => {
     await user.click(screen.getByRole('button', { name: 'Upload report' }))
     expect(await screen.findByText(/Extraction failed: the report could not be read/)).toBeTruthy()
     expect(screen.queryByText(/audit log/)).toBeNull()
+    expect(screen.getByRole('link', { name: 'Upload details →' }).getAttribute('href')).toBe(`/admin/uploads/queue/${upload().id}`)
     await user.click(screen.getByRole('button', { name: 'Upload another report' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Upload report' })).toBeTruthy())
   })

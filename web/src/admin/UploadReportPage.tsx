@@ -200,6 +200,7 @@ function UploadProgress({ initial, dealName, onAnother, replaced, lag }: { initi
           {pollError && <div className="adm-note adm-note--warn" role="alert">Status check failed: {pollError} Retrying every 2 seconds.</div>}
           {inFlight && <p className="adm-muted" style={{ margin: 0, fontSize: 13 }}>Checking status every 2 seconds. Extraction usually takes under a minute.</p>}
           <div className="adm-actions">
+            {failed && <TextLink to={reviewHref(u.id)}>Upload details →</TextLink>}
             {canReview && (
               <TextLink to={reviewHref(u.id)}>
                 {findings > 0 ? `Review ${formatNumber(findings)} finding${findings === 1 ? '' : 's'}` : 'Open in approval queue'} →
