@@ -156,7 +156,7 @@
    "losses": 0.0,
    "interest": 1491177.55,
    "recoveries": 426057.97,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -175,7 +175,8 @@
    "losses": 191255.11,
    "interest": 1516651.98,
    "recoveries": 968444.39,
-   "charge_off": null,
+   "charge_off": 0.0,
+   "adjustment_increase": 0.01,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -194,7 +195,7 @@
    "losses": 0.0,
    "interest": 1527748.91,
    "recoveries": 0.0,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -213,7 +214,7 @@
    "losses": 1606019.87,
    "interest": 1371370.0799999998,
    "recoveries": 109005.13,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -1155,9 +1156,9 @@
   {
    "category": "Event of Termination",
    "legal_ref": "MSA 8.1 (j)",
-   "description": "Has the Restructured Contract Ratio for any Renewal Annual Period at any time exceeded 25%?",
+   "description": "Has the Restructured Contract Ratio for any Renewal Annual Period at any time exceeded 15%?",
    "current_value": null,
-   "threshold": 0.25,
+   "threshold": 0.15,
    "kind": "binary",
    "utilization_pct": null,
    "trend": "n/a",
@@ -1179,7 +1180,7 @@
   {
    "category": "Event of Termination",
    "legal_ref": "MSA 8.1 (l)",
-   "description": "Has the Tranche Balance, in respect of any Securitization, at any time been less than the Required Tranche Balance at such time?",
+   "description": "Has the Tranche Balance, in respect of any Securitization, at any time following the OC Rebalancing Date (where applicable) been less than the Required Tranche Balance of such Securitization at such time?",
    "current_value": -0.06,
    "threshold": 0,
    "kind": "binary",
@@ -1198,7 +1199,7 @@
    "utilization_pct": null,
    "trend": "n/a",
    "status": "AVAILABLE",
-   "note": "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 25"
+   "note": "Contractual call option, not a covenant breach. Eligible tranches (per the report's own footnote): 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25"
   }
  ],
  "financial_ratios": [

@@ -157,7 +157,7 @@
    "losses": 334275.26,
    "interest": 281146.29000000004,
    "recoveries": 1576471.14,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -176,7 +176,7 @@
    "losses": 576100.26,
    "interest": 165151.44999999998,
    "recoveries": 1781460.09,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -195,7 +195,7 @@
    "losses": 246900.27,
    "interest": 139060.93,
    "recoveries": 1705724.84,
-   "charge_off": null,
+   "charge_off": 0.0,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -214,7 +214,7 @@
    "losses": 212346.08,
    "interest": 125116.59,
    "recoveries": 868689.99,
-   "charge_off": null,
+   "charge_off": 0.04,
    "by_currency": null,
    "activity_by_currency": null,
    "amount_by_currency": null,
@@ -430,7 +430,7 @@
   "principal": 910269.64,
   "principal_prepayments": 88001.03,
   "losses": 212346.08,
-  "charge_off": null,
+  "charge_off": 0.04,
   "interest": 125116.59,
   "recoveries": 868689.99,
   "activity_by_currency": null
@@ -785,7 +785,7 @@
    "utilization_pct": null,
    "trend": "n/a",
    "status": "BREACH",
-   "note": "Greatest tranche differential (closing minus required, for context): -9,965,355.40"
+   "note": "Greatest tranche differential (closing minus required, for context): -9,875,676.11"
   },
   {
    "category": "Event of Termination",
