@@ -2,6 +2,11 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — Data & API: merged lead/covenants (18 definitions; Stride and Xpedite have their own). `PUT /master/covenants`
+  now accepts a definition with both threshold and threshold_rule null (Stride SLFA 9.1 (g), limit per vintage); the seed
+  test counts the seed files instead of literals. Re-seeding an existing database leaves the 3 retired Stride/Xpedite rows
+  in place (no superseded flag in the model; see requests.md). 135 API tests pass on SQLite and PostgreSQL.
+
 - 2026-11-04 — Lead: Stride and Xpedite covenant definitions replaced (branch lead/covenants). They were copies of
   Moneda's. Now from each 2026-08 report's covenant page, marked UNVERIFIED: Xpedite ARFA dated 2022-10-14, 9.1 (b)/(c)
   banded 6%/3% and 4%/2% on NPV ≤ / > $10M, (d) 3.0%, (f) CNL 2.75%, (e) ICR ≥ 1.10, (g) leverage ≤ 10, (h) equity

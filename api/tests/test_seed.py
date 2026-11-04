@@ -1,3 +1,4 @@
+import json
 from sqlalchemy import select, func
 from app import db, seed
 from app.models import Partner, Program, Deal, CovenantDefinition, Publication
@@ -12,7 +13,9 @@ def test_seed_is_idempotent():
         first = counts(s)
         seed.load(s); seed.load(s)
         assert counts(s) == first
-        assert first == {"Partner": 2, "Program": 2, "Deal": 12, "CovenantDefinition": 21, "Publication": 0}
+        n = {f: len(json.loads((seed.SEED / f"{f}.json").read_text(encoding="utf-8"))) for f in ("partners", "programs", "deals", "covenant_definitions")}
+        assert first == {"Partner": n["partners"], "Program": n["programs"], "Deal": n["deals"],
+                         "CovenantDefinition": n["covenant_definitions"], "Publication": 0}
 
 
 def test_seed_values_round_trip():

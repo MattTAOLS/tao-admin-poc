@@ -416,8 +416,7 @@ def put_covenant(body: CovenantIn, c: Caller = Depends(admin_caller), s: Session
     admin_only(c)
     if s.get(Deal, body.deal_slug) is None:
         raise err(422, "unknown_deal", f"no deal {body.deal_slug}")
-    if body.threshold is None and body.threshold_rule is None:
-        raise err(422, "invalid", "a covenant needs threshold or threshold_rule")
+    # threshold and threshold_rule may both be null: e.g. Stride SLFA 9.1 (g) CNL, whose limit is set per vintage
     if body.id is not None and not _is_uuid(body.id):
         raise err(422, "invalid", "id must be a uuid")
     row = s.get(CovenantDefinition, body.id) if body.id else None
