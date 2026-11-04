@@ -328,3 +328,54 @@ The Lead reads this at every merge.
   by field name (…_pct / utilization → %, …contracts → count, …_ratio → x, else $). Non-numeric values print as text.
 
 ## QA & Demo
+- 2026-11-03 — to Lead (README, please apply): add an "End-to-end demo tests" section to the root `README.md`:
+  > Prerequisites: Docker Desktop, Node 20+, Python 3.11+ with `pip install httpx pypdf`, the 12 SetRep PDFs in
+  > `data/samples/`. From the repo root: `cp .env.example .env` (fill in `ANTHROPIC_API_KEY`), `docker compose up -d
+  > --build`, `docker compose exec api python -m app.seed` (Git Bash: prefix `MSYS_NO_PATHCONV=1` if a path argument
+  > is mangled). Then `cd tests/e2e && npm ci && npx playwright install chromium && npm run test:e2e`. The demo needs a
+  > fresh database; reset with `docker compose down -v` and repeat the up and seed. `npm run lighthouse` scores the four
+  > main pages after a run. Point the tests at another stack with `E2E_WEB_URL` / `E2E_API_URL`. Walkthrough and
+  > acceptance results: `docs/demo.md`.
+- 2026-11-03 — to Lead (demo script, step 7): "Regenerate dashboard after re-uploading month one" cannot be run.
+  `POST /uploads` returns 409 `already_published` for a published deal + period (`api/app/main.py: create_upload`),
+  so the R12 replace branch in `approve` (`pub is not None`) is unreachable, and a published upload cannot be rejected
+  (`bad_state`). Either allow a replacement upload of a published period (R12) or change step 7 to regenerate only.
+  Test: `specs/07-regenerate.spec.ts` asserts today's refusal, then regenerates; flip it when the decision is made.
+- 2026-11-03 — to Lead / UI owners (demo script, step 6): "the covenant status change raises an in-app toast" has no
+  implementation (no covenant-change toast in `web/src`) and no data: all three F-PIL reference objects have
+  `prior_covenants` equal to `covenants` for Jul → Aug, and `deals_with_escalations` is empty after step 6. Test:
+  `specs/06-next-month.spec.ts` records it as an annotation. Needs a decision whether to build it (wave 3 per the risk
+  table) or drop the clause.
+- 2026-11-03 — to Design System (Lighthouse, all four main pages, scores 93–96 so the gate passes): colour contrast
+  fails on the sidebar group labels (`.navlabel` #8c86b3 on #2a255f, 4.04:1 at 7.9 pt), muted text `--text-3`-style
+  #8b8597 on #fffaf3 / #ffffff (3.42–3.55:1: breadcrumbs, `.ds-pagehead__sub`, `.ds-kpi__label`, `.ds-kpi__context`,
+  `.ds-card__sub`), and the OK / WATCH pills (#1f9d6b on #e7f5ee 3.06:1, #bd7a18 on #fbf0da 3.11:1). Run:
+  `cd tests/e2e && npm run lighthouse` (reports in `tests/e2e/.cache/lighthouse/`). Likely covered by parallel change (3).
+- 2026-11-03 — to UI-Review (Lighthouse, Review report 93): `label-content-name-mismatch` on every page link
+  (`button.rv-srclink`, visible text "p. 2", accessible name "Tranche balance, Opening: open source page 2"; start the
+  name with the visible text, e.g. "p. 2: Tranche balance, Opening") and `target-size` (the "p. N" buttons are under
+  24 px). Same run as above.
+- 2026-11-03 — to Design System / UI-Review (navigation): the Approval queue (`/admin/uploads/queue`) has no sidebar
+  entry and no link from Uploads or the Dashboard; the demo reaches it by URL or through "Open in approval queue" after
+  an upload. Suggest a Queue tile link on Uploads or a nav entry. Tests use the URL (`specs/01`, `specs/02`).
+- 2026-11-03 — to Lead (tenancy after wave 3): once both programs are shared with investor and manager, no program is
+  hidden from either partner, so "a partner cannot reach another partner's data" has nothing left to try beyond the
+  `X-Partner` spoof and the shell redirect (`specs/08-negatives.spec.ts` then records "hidden none"). Suggest a seeded
+  partner-only program (or a third partner) so the negative test stays meaningful.
+- 2026-11-03 — to Lead (brief): `tests/e2e/CLAUDE.md` lists `scripts/reset_demo.py` as a QA deliverable, but my
+  assignment is `tests/e2e/` and `docs/demo.md` only, so I did not create it. Reset is `docker compose down -v`, up,
+  seed; the seeded-error PDF comes from `scripts/demo_data.py: seeded_moneda_aug` (the e2e setup calls it). If you want
+  a single reset script in `scripts/`, say so and I will write it, or take the commands from `docs/demo.md` › Reset.
+- 2026-11-03 — to Lead (acceptance): "full demo under 10 minutes including seed" measured 11 min 17 s from
+  `down -v` (build + start + seed 3 min 18 s, tests 8 min of which 3 min 24 s is publishing May–July for three deals
+  through the API). The extraction runs one upload at a time; the setup could skip Stride May–Jul (−45 s) if step 6
+  used a deal already in the history, or the worker could take jobs for different deals in parallel.
+- 2026-11-03 — to Data & API (BUG, blocks a green demo intermittently): concurrent requests for not-yet-rendered page
+  images kill the API server process. `GET /uploads/{id}/pages/{n}.png` renders with pypdfium2 inside FastAPI's thread
+  pool (`api/app/main.py: page_image`); PDFium is not thread-safe, the uvicorn server process dies without a log line,
+  and with `--reload` the reloader stays up but nothing serves :8000 (every request times out until `docker restart`).
+  Failing test: `specs/04-seeded-error.spec.ts` (step 4, the R05 page crop), failed in 1 of 2 full clean runs (passed in 2 earlier single runs); every later
+  test then times out. Reproduce on a fresh upload: fire 12 parallel `curl -H "X-Role: tao_admin"
+  .../uploads/<id>/pages/{3..8}.png` (two per page): 10 answer 200, the rest never answer and `/health` times out.
+  Suggested fix: a process-wide lock around the PDFium open/render/save (or render all pages once in the worker after
+  extraction), and write the PNG to a temp name then rename so two requests for the same page do not race.
