@@ -4,6 +4,8 @@ import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
 import type { ApiError, Extraction, Finding, OverrideChoice, Upload } from '../lib/types'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
+import { isReissueFinding, type ReissueInfo } from '../lib/reissue'
+import { formatDateTime } from '../lib/format'
 
 export const CHOICES: { id: OverrideChoice; label: string; help: string }[] = [
   { id: 'use_ours', label: 'Use ours', help: 'Our value is right; publishing writes it over the report figure.' },
@@ -65,7 +67,7 @@ export function OverrideDialog({ uploadId, finding, ex, initialChoice, onClose, 
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Save and re-run rules</Button></>}>
       <div className="rv-dialog-body">
         <p style={{ margin: 0 }}>{finding.message}</p>
-        {(finding.our_value !== undefined || finding.report_value !== undefined) && (
+        {!isReissueFinding(finding) && (finding.our_value !== undefined || finding.report_value !== undefined) && (
           <dl className="rv-facts">
             <div><dt>Ours</dt><dd>{formatByUnit(finding.our_value, finding.unit)}</dd></div>
             <div><dt>Report</dt><dd>{formatByUnit(finding.report_value, finding.unit)}</dd></div>
@@ -76,11 +78,13 @@ export function OverrideDialog({ uploadId, finding, ex, initialChoice, onClose, 
           <legend className="ds-field__label">Resolution</legend>
           {CHOICES.map(c => {
             const off = isValueChoice(c.id) && !valueOk
+            const label = c.id === 'acknowledge' && isReissueFinding(finding) ? 'Accept as replacement' : c.label
+            const help = c.id === 'acknowledge' && isReissueFinding(finding) ? 'Publishing then replaces the earlier report.' : c.help
             return (
               <label key={c.id} className={'rv-choice' + (off ? ' rv-choice--off' : '')}>
                 <input type="radio" name="override-choice" value={c.id} checked={choice === c.id} disabled={off} onChange={() => setChoice(c.id)}
                   aria-describedby={off ? 'rv-no-target' : undefined} />
-                <span><b>{c.label}</b><small>{c.help}</small></span>
+                <span><b>{label}</b><small>{help}</small></span>
               </label>
             )
           })}
@@ -88,6 +92,10 @@ export function OverrideDialog({ uploadId, finding, ex, initialChoice, onClose, 
         </fieldset>
         {isValueChoice(choice) && valueOk && (
           <p className="rv-effect" data-testid="write-effect"><b>On publish.</b> <WriteEffect ex={ex} finding={finding} choice={choice} /></p>
+        )}
+        {isReissueFinding(finding) && (
+          <p className="rv-hint">This finding marks a corrected re-issue. Acknowledge accepts it as the replacement; publishing then
+            replaces the earlier report. Say who sent the correction and why.</p>
         )}
         {CLOSING_RULES.has(finding.rule_id) && valueOk && (
           <p className="rv-hint">This rule corrects the closing balance. If a component (principal, prepayments, defaults) is what
@@ -129,8 +137,9 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
   )
 }
 
-export function PublishDialog({ upload, open, title, partner, findings, ex, onClose, onDone, onGoTo }: {
+export function PublishDialog({ upload, open, title, partner, findings, ex, reissue, replacedPublishedAt, onClose, onDone, onGoTo }: {
   upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; ex?: Extraction
+  reissue?: ReissueInfo | null; replacedPublishedAt?: string | null
   onClose: () => void; onDone: (u: Upload) => void; onGoTo: (findingId: string) => void
 }) {
   const [busy, setBusy] = useState(false)
@@ -159,6 +168,11 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, onCl
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Approve and publish</Button></>}>
       <ul className="rv-summary">
         <li>Collection period {formatPeriod(upload.collection_period)}{upload.reporting_period && <>, reporting period {formatPeriod(upload.reporting_period)}</>}</li>
+        {reissue && (
+          <li data-testid="publish-replaces"><b>Replaces the report published {(reissue.publishedAt ?? replacedPublishedAt) ? formatDateTime(reissue.publishedAt ?? replacedPublishedAt) : 'earlier'}.</b>{' '}
+            Partners see this re-issue instead; the earlier upload stays in the audit log.
+            {reissue.laterPeriods.length > 0 && <> Later months ({reissue.laterPeriods.map(formatPeriod).join(', ')}) keep the earlier figures for this month.</>}</li>
+        )}
         <li>{resolved} finding{resolved === 1 ? '' : 's'} resolved with a reason</li>
         {openReview > 0 && <li>{openReview} review finding{openReview === 1 ? '' : 's'} still open: publishing accepts {openReview === 1 ? 'it' : 'them'} as shown</li>}
         {openNotes > 0 && <li>{openNotes} note{openNotes === 1 ? '' : 's'} (information only)</li>}

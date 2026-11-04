@@ -15,6 +15,8 @@ import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
 import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, WriteEffect } from './components/Dialogs'
 import { hasTargets, isValueChoice } from './lib/corrections'
+import { isReissueFinding, reissueInfo } from './lib/reissue'
+import { ReissueBanner } from './components/Reissue'
 import { Activity } from './components/Activity'
 import { FindingCountPills } from './QueuePage'
 import './review.css'
@@ -41,6 +43,8 @@ function Review({ uploadId }: { uploadId: string }) {
   const extraction = useLoad(() => reviewApi.extraction(uploadId), [uploadId])
   const audit = useLoad(() => reviewApi.audit(uploadId), [uploadId], admin)
   const { dealName, programName } = useMasterNames()
+  const replacesId = upload.data?.replaces_upload_id ?? null
+  const replaced = useLoad(() => (replacesId ? reviewApi.upload(replacesId) : Promise.resolve(undefined)), [replacesId])
 
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [override, setOverride] = useState<{ finding: Finding; choice: OverrideChoice } | null>(null)
@@ -48,6 +52,7 @@ function Review({ uploadId }: { uploadId: string }) {
 
   const u = upload.data
   const list = findings.data ?? []
+  const reissue = upload.data ? reissueInfo(upload.data, findings.data) : null
   const openBlocks = list.filter(f => f.severity === 'block' && f.status === 'open')
   const status = u?.status
   const reviewable = status === 'needs_review' || status === 'approved'
@@ -116,6 +121,13 @@ function Review({ uploadId }: { uploadId: string }) {
         <WriteEffect ex={ex} finding={f} choice={choice} done={u.status === 'published'} /></p>
     }
     if (!(admin && reviewable && f.status === 'open')) return undefined
+    // R12 on a corrected re-issue: accepting it as the replacement is the expected decision (Acknowledge + reason).
+    if (reissue && isReissueFinding(f)) {
+      return <>
+        <Button size="sm" variant="primary" onClick={() => setOverride({ finding: f, choice: 'acknowledge' })} aria-label={`Accept as replacement for ${f.rule_id}`}>Accept as replacement</Button>
+        <span className="rv-hint">Acknowledges the re-issue with a reason. To refuse it, use Reject below.</span>
+      </>
+    }
     const noTarget = !hasTargets(f)
     return <>{CHOICES.map(c => {
       const off = noTarget && isValueChoice(c.id)
@@ -138,6 +150,7 @@ function Review({ uploadId }: { uploadId: string }) {
 
   return (
     <div className="rv-page">
+      <ReissueBanner upload={u} dealName={dealName(u.deal_slug)} info={reissue} replacedPublishedAt={replaced.data?.published_at} />
       <Card aria-label="Report" title="Report" subtitle={`${u.file_name}${u.page_count ? ` · ${u.page_count} pages` : ''}`}>
         <dl className="rv-facts">
           <div><dt>Deal</dt><dd>{dealName(u.deal_slug)}<small>{programName(u.program_slug)}</small></dd></div>
@@ -191,7 +204,7 @@ function Review({ uploadId }: { uploadId: string }) {
       {admin && <>
         <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnerLabel(u.partner_slug)} findings={list} ex={ex} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
+        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnerLabel(u.partner_slug)} findings={list} ex={ex} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
       </>}
     </div>
@@ -221,6 +234,7 @@ function Footer({ upload: u, admin, openBlocks, onReextract, onReject, onPublish
   const reason = useMemo(() => openBlocks > 0 ? `${openBlocks} block finding${openBlocks === 1 ? ' is' : 's are'} open. Resolve ${openBlocks === 1 ? 'it' : 'them'} before publishing.` : null, [openBlocks])
   let note: ReactNode
   if (u.status === 'received' || u.status === 'extracting') note = 'Extraction is running. This page refreshes every 2 seconds.'
+  else if (u.replaced_by_upload_id) note = <>Replaced by a corrected re-issue; partners no longer see this report. <Link to={`/admin/uploads/queue/${u.replaced_by_upload_id}`}>Open the re-issue</Link></>
   else if (u.status === 'published') note = <>Published {formatDateTime(u.published_at)}. Partners can see it. <Link to="/admin/reports">Reports library</Link></>
   else if (u.status === 'rejected') note = `Rejected${u.reject_reason ? `: ${u.reject_reason}` : ''}.`
   else if (u.status === 'extraction_failed') note = 'Extraction failed. Upload the report again, or reject it with a reason.'

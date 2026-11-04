@@ -6,6 +6,7 @@ import { useLoad } from './lib/useLoad'
 import { useMasterNames } from './lib/master'
 import { formatDateTime } from './lib/format'
 import type { Upload } from './lib/types'
+import { ReissueTag } from './components/Reissue'
 import './review.css'
 
 export const reviewPath = (id: string) => `/admin/uploads/queue/${id}`
@@ -46,7 +47,8 @@ function Queue() {
 
   const columns: Column<Upload>[] = [
     { key: 'deal', header: 'Deal', emphasis: true, sortValue: u => dealName(u.deal_slug),
-      render: u => <Link to={reviewPath(u.id)} className="rv-rowlink" onClick={e => e.stopPropagation()}>{dealName(u.deal_slug)}</Link> },
+      render: u => <span className="rv-dealcell"><Link to={reviewPath(u.id)} className="rv-rowlink" onClick={e => e.stopPropagation()}>{dealName(u.deal_slug)}</Link>
+        {u.replaces_upload_id && <ReissueTag />}</span> },
     { key: 'program', header: 'Program', render: u => programName(u.program_slug) },
     { key: 'period', header: 'Collection period', sortValue: u => u.collection_period,
       render: u => <>{formatPeriod(u.collection_period)}{u.reporting_period && <span className="rv-sub">reporting {formatPeriod(u.reporting_period)}</span>}</> },

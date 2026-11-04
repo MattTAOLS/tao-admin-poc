@@ -1,0 +1,62 @@
+[
+ {
+  "id": "4a8f73be-56ec-492f-a9ec-e81aa225cf42",
+  "extraction_id": "692c128e-f261-40dc-8e96-5416128bef9f",
+  "rule_id": "R12",
+  "layer": "cross_period",
+  "severity": "block",
+  "message": "Corrected re-issue: replaces the 2026-07 report published 2026-11-04T01:33:28.285866+00:00. Later published months (2026-08) still carry the earlier figures for 2026-07.",
+  "fields": [
+   "/deal_slug",
+   "/collection_period"
+  ],
+  "our_value": null,
+  "report_value": "2026-07",
+  "difference": null,
+  "tolerance": null,
+  "unit": "months",
+  "source_page": null,
+  "context": {
+   "deal": "f-pil-2-0-moneda-capital-corp",
+   "period": "2026-07",
+   "reissue": true,
+   "later_list": "2026-08",
+   "published_at": "2026-11-04T01:33:28.285866+00:00",
+   "later_periods": [
+    "2026-08"
+   ],
+   "replaces_upload_id": "15e20f65-797b-44be-bee0-3b6c5defad6c"
+  },
+  "status": "open",
+  "resolution": null,
+  "created_at": "2026-11-04T01:36:34.632941+00:00"
+ },
+ {
+  "id": "427c54c6-31be-4058-a37e-fb062d298726",
+  "extraction_id": "692c128e-f261-40dc-8e96-5416128bef9f",
+  "rule_id": "R19",
+  "layer": "covenant",
+  "severity": "note",
+  "message": "SLFA 9.1 (h) moved WATCH → OK",
+  "fields": [
+   "/covenants/5/status",
+   "prior:/covenants"
+  ],
+  "our_value": "WATCH",
+  "report_value": "OK",
+  "difference": null,
+  "tolerance": null,
+  "unit": "text",
+  "source_page": null,
+  "context": {
+   "value": 1.23,
+   "status": "OK",
+   "legal_ref": "SLFA 9.1 (h)",
+   "prior_value": 1.19,
+   "prior_status": "WATCH"
+  },
+  "status": "open",
+  "resolution": null,
+  "created_at": "2026-11-04T01:36:34.633588+00:00"
+ }
+]
