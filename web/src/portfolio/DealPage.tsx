@@ -10,6 +10,7 @@ import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
 import { PeriodPicker } from './ProgramSummary'
 import { RatioChart } from './RatioChart'
+import { Top10Panel } from './Top10'
 import { AsOfPill, LoadGate, behindOf, crumbs, dealMonth, programName } from './shared'
 import type { AgingRow, CnlRow, Deal, FinancialRatio, PeriodRow, ProgramAggregate } from './types'
 
@@ -137,6 +138,7 @@ export function DealView({ d }: { d: Deal }) {
         <Card title="Borrower and portfolio ratios" padding="flush">
           <RatiosTable ratios={d.financial_ratios} />
         </Card>
+        <Top10Panel d={d} />
         {d.data_corrections && d.data_corrections.length > 0 && (
           <Card title="Data corrections" subtitle="Values corrected after review, as recorded on the published deal" padding="flush">
             <CorrectionsTable rows={d.data_corrections} />

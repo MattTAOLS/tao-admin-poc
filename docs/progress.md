@@ -2,6 +2,18 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-04 — UI-Partner, Top 10 obligor concentration (merged main b40a3f3): new `web/src/portfolio/Top10.tsx` on
+  the deal page (admin and partner routes), after Borrower and portfolio ratios, per the reference top10Panel. A card
+  "Top 10 obligor concentration", collapsed by default ("Show obligors" / "Hide obligors", aria-expanded). Its
+  subtitle reads "N of 10 obligors over the concentration limit" or "10 largest obligors, all within the concentration
+  limit", plus "source page N" from `source_pages.top10_obligor`. Columns: rank, obligor, contract amount,
+  concentration, limit (`concentration_limit_desc` when present, e.g. TPine "max(3%, $800,000)", else the pct), limit
+  per obligor, excess. A row with excess > 0 gets a bad-tone "Over limit" pill. Finloc gets CAD amount and USD amount
+  columns next to "Total contract amount" (the published `aggregate_contract_amount`; concentration is on the total).
+  No card at all when `top10_obligors` is empty (F-PIL deals, Meridian). Tests: new `top10.test.tsx` (6: collapsed
+  and expands, TPine over-limit row, Finloc amounts read back to the reference, none for Moneda, present on admin and
+  investor routes); portfolio 77; full web suite 389 pass, 1 flaky under full-suite load
+  (`src/shell/help/__tests__/help.test.tsx`, passes alone, 22/22). tsc and check_contracts green.
 - 2026-11-04 — UI-Review, polish (merged main b40a3f3). (1) Resolved finding card contrast: the library's
   `.ds-finding--resolved { opacity: .78 }` blended token text under WCAG AA on the Review report (Lighthouse 96).
   `review.css` now sets a resolved card in `.rv-group` to opacity 1 on `--canvas-deep` with a neutral `--border` left

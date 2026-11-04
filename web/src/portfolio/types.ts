@@ -57,6 +57,14 @@ export type DataCorrection = {
   applied?: string | boolean; reason?: string | null; rule_id?: string; choice?: 'use_ours' | 'use_report' | string; finding_id?: string
 }
 
+/** One row of top10_obligors (SCHEMA.md). Finloc also carries the CAD / USD split of the contract amount. */
+export type Obligor = {
+  rank: number; obligor_name: string
+  aggregate_contract_amount?: number | null; aggregate_cad_contract_amount?: number | null; aggregate_usd_contract_amount?: number | null
+  obligor_concentration_pct?: number | null; concentration_limit_pct?: number | null; concentration_limit_desc?: string | null
+  concentration_limit_per_obligor?: number | null; excess_concentration_amount?: number | null
+}
+
 export type Terminology = { balance_label?: string; amount_label?: string; unit_label?: string } | null
 
 export type Deal = {
@@ -88,6 +96,8 @@ export type Deal = {
   aging_history: AgingRow[]
   period_history: PeriodRow[]
   data_corrections?: DataCorrection[]
+  top10_obligors?: Obligor[]
+  source_pages?: Record<string, number | null>
   // Publication metadata and extras the API adds (not in the contract yet; see docs/requests.md, UI-Partner).
   published_at?: string
   published_by?: string
