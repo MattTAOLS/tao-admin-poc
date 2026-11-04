@@ -57,9 +57,12 @@
 .rv-kv__value { text-align: right; font-feature-settings: var(--tabular); color: var(--indigo); font-weight: 600; }
 .rv-kv__group { grid-column: 1 / -1; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 0 2px; }
 .rv-src { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; white-space: nowrap; }
-.rv-srclink { border: 0; background: var(--blue-bg); color: var(--blue); border-radius: var(--r-chip); padding: 1px 7px; font: 600 11px var(--data); cursor: pointer;
+/* The button is the 24 x 24 hit area (WCAG 2.5.8); the small chip inside is what shows. Negative margins keep rows dense. */
+.rv-srclink { border: 0; background: none; padding: 0; margin: -4px 0; min-width: 24px; min-height: 24px; display: inline-flex;
+  align-items: center; justify-content: center; cursor: pointer; border-radius: var(--r-chip); }
+.rv-srclink__chip { background: var(--blue-bg); color: var(--blue); border-radius: var(--r-chip); padding: 1px 7px; font: 600 11px var(--data);
   font-feature-settings: var(--tabular); transition: background var(--t-control) var(--ease); }
-.rv-srclink:hover { background: var(--lav-2); }
+.rv-srclink:hover .rv-srclink__chip { background: var(--lav-2); }
 .rv-carried { color: var(--muted); font-size: var(--fs-small); white-space: nowrap; }
 .rv-desc { max-width: 360px; white-space: normal; }
 

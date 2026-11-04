@@ -17,9 +17,9 @@ export function SourceRef({ ex, pointer, label, onOpen }: { ex: Extraction; poin
     <span className="rv-src">
       {p.pages.map(({ page, source, pointer: ptr }) => (
         <button key={page} type="button" className="rv-srclink" title={source.raw_text}
-          aria-label={`${label}: open source page ${page}`}
+          aria-label={`p. ${page}: ${label}, open source page`}
           onClick={() => onOpen({ page, boxes: ptr === pointer && Array.isArray(source.bbox) && source.bbox.length === 4 ? [source.bbox] : [], tone: 'source', caption: label, raw: ptr === pointer ? source.raw_text : undefined })}>
-          p. {page}
+          <span className="rv-srclink__chip">p. {page}</span>
         </button>
       ))}
     </span>
