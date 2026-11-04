@@ -87,3 +87,30 @@ def test_override_context_carries_replaces_upload_id(client, published):
     with db.session() as s:
         ctx = review.build_context(s, s.get(SetrepUpload, new["id"]))
         assert ctx.upload["replaces_upload_id"] == published and PERIOD in ctx.published_periods
+        pub_at = s.query(Publication).filter_by(deal_slug=DEAL, collection_period=PERIOD).one().published_at
+        assert isinstance(ctx.published_periods, dict) and ctx.published_periods[PERIOD][:10] == pub_at.isoformat()[:10]
+
+
+def test_rerun_r12_message_carries_publication_date(client, published):
+    """Override on a re-issue re-runs the rules with the API's Context; R12 must name the date, not 'earlier'."""
+    new = post(client, replace=True).json()
+    ex_id = worker_writes(new["id"], corrected_deal())
+    published_at = client.get(f"/api/v1/uploads/{published}", headers=TAO).json()["published_at"]
+    # store R12 as an older set-based Context produced it ("published earlier"); the override re-run must replace that
+    from rules import run
+    from rules.engine import Context
+    from app.models import Extraction, Finding
+    with db.session() as s:
+        ex = s.get(Extraction, ex_id)
+        old = [f for f in run({"meta": ex.meta, "deal": ex.deal, "sources": {}},
+                              Context(published_periods={PERIOD}, upload={"replaces_upload_id": published}), phases=(1, 2)) if f["rule_id"] == "R12"]
+        assert len(old) == 1 and "earlier" in old[0]["message"]
+        f = old[0]; f.pop("id"); f.pop("created_at"); f["extraction_id"] = ex_id
+        s.add(Finding(**f)); s.commit()
+    r12 = next(f for f in client.get(f"/api/v1/uploads/{new['id']}/findings", headers=TAO).json() if f["rule_id"] == "R12")
+    r = client.post(f"/api/v1/uploads/{new['id']}/findings/{r12['id']}/override", headers=TAO,
+                    json={"choice": "acknowledge", "reason": "servicer re-issued the month"})
+    assert r.status_code == 200, r.text
+    after = next(f for f in r.json() if f["id"] == r12["id"])
+    assert after["status"] == "overridden" and after["context"]["published_at"] == published_at
+    assert published_at in after["message"] and "earlier" not in after["message"].split("published")[1][:12]

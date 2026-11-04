@@ -2,6 +2,10 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-03 — Data & API: the override re-run Context passes `published_periods` as {collection_period: published_at}
+  like worker/validate, so a re-run R12 names the publication date. Test in tests/test_reissue.py; 134 API tests pass on
+  SQLite and PostgreSQL.
+
 - 2026-11-03 — Lead: wave-3 decisions (branch lead/wave3). Matt chose: (1) a program can be visible to several
   partners; migration 004 adds `program_partner`, Program/Upload gain `partner_slugs`, and both partners see MOVE
   Trust and F-PIL. (2) use_ours / use_report change the published value: findings gain optional `targets` (JSON

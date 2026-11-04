@@ -4,7 +4,7 @@ Context from the database, calls rules.run(), and merges the result into the sto
 Context handed to rules.run (agree changes with the Rules agent, see docs/requests.md):
     prior              last published deal object for this deal with a period before the upload's, or None
     master             {"program": Program, "deal": Deal, "covenants": [CovenantDefinition as of the period end]}
-    published_periods  {collection_period, ...} already published for this deal
+    published_periods  {collection_period: published_at (ISO)} already published for this deal (same keys as worker/validate)
     upload             the Upload dict (deal_slug, program_slug, collection_period, ...)
 
 Merge: a re-run finding is the "same" finding as a stored one when rule_id and fields match. Same -> keep the
@@ -46,7 +46,7 @@ def build_context(s: Session, u: SetrepUpload):
     prior = next((p.deal for p in reversed(pubs) if p.collection_period < u.collection_period), None)
     master = {"program": views.program_dict(s, program), "deal": views.deal_dict(deal),
               "covenants": [views.covenant_dict(c) for c in views.covenants_as_of(s, u.deal_slug, period_end(u.collection_period))]}
-    return Context(prior=prior, master=master, published_periods={p.collection_period for p in pubs},
+    return Context(prior=prior, master=master, published_periods={p.collection_period: views.iso(p.published_at) for p in pubs},
                    upload=views.upload_dict(s, u))
 
 
