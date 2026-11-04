@@ -347,3 +347,14 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Admin, corrected re-issues: Upload report turns 409 `already_published` into a confirm dialog
+  ("{deal} {period} is already published (on {date}). Upload this file as a corrected re-issue? ...") whose primary
+  button resends with `replace=true`; when the chosen deal + period already has a published upload (looked up with
+  `GET /uploads?deal_slug&collection_period&status=published`) the form also offers a "This is a corrected re-issue"
+  checkbox; 422 `nothing_to_replace` reads as a plain sentence; the progress card says what the re-issue replaces.
+  Uploads, Upload history and the Dashboard list tag "Re-issue" (`replaces_upload_id`) and "Replaced by re-issue"
+  (`replaced_by_upload_id`), both linking to Upload history for that deal and period. Live (tao-ui-admin, fresh
+  volumes, seed, `--profile admin`): re-issued Moneda 2026-08 through the UI via the 409 → confirm path; it reached
+  needs_review in about 25 s with `replaces_upload_id` = the published upload and one R12 block ("Corrected re-issue:
+  replaces the 2026-08 report published ..."); after acknowledge + approve over the API the history showed
+  "Re-issue" on the new upload and "Replaced by re-issue" on the old one. Run: `cd web && npx vitest run src/admin` (63).
