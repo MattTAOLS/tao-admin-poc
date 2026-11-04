@@ -12,6 +12,7 @@ import { ProgramSummaryView } from '../ProgramSummary'
 import { PortfolioView } from '../PortfolioSummary'
 import { parseNum } from '../Num'
 import { displayStatus, type NumKind } from '../fmt'
+import { correctionKind, correctionLabel } from '../Corrections'
 import { DEAL_FILES, apiPortfolio, apiProgram, at, deals, programs } from './fixtures'
 
 const TOL: Record<NumKind, number> = { money: 1, 'signed-money': 1, pct: 0.0001, ratio: 0.005, count: 0.5, 'signed-count': 0.5 }
@@ -60,6 +61,7 @@ describe('deal page numbers equal the reference dashboard.json', () => {
         ...d.financial_ratios.map((_, i) => `financial_ratios.${i}.value`),
         ...d.covenants.flatMap((c, i) => [c.current_value !== null ? `covenants.${i}.current_value` : '', c.threshold !== null ? `covenants.${i}.threshold` : '', c.utilization_pct !== null ? `covenants.${i}.utilization_pct` : ''].filter(Boolean)),
         ...(d.program ? ['program.program_utilization_pct', 'program.program_limit', 'program.program_amount'] : []),
+        ...(d.data_corrections ?? []).flatMap((_, i) => [`data_corrections.${i}.old_value`, `data_corrections.${i}.new_value`]),
       ]
       expect(required.filter(p => !seen.has(p))).toEqual([])
       expect(checked.length).toBeGreaterThan(40)
@@ -103,6 +105,52 @@ describe('program pages equal the reference program dashboard.json', () => {
       expect(bad).toEqual([])
       expect(seen.has('portfolio_totals.closing_tranche_balance') && seen.has('portfolio_totals.program_utilization_pct') && seen.has('covenant_totals.BREACH')).toBe(true)
     })
+  })
+})
+
+describe('data corrections', () => {
+  it('six reference deals carry data_corrections and each shows a Data corrections section', () => {
+    const withCorr = Object.values(deals).filter(d => (d.data_corrections ?? []).length > 0)
+    expect(withCorr).toHaveLength(6)
+    for (const d of withCorr) {
+      const { container, unmount } = wrap(<DealView d={d} />)
+      const table = container.querySelector('table caption')
+      const corr = [...container.querySelectorAll('table')].find(t => t.querySelector('caption')?.textContent === 'Data corrections')!
+      expect(table && corr).toBeTruthy()
+      const rows = corr.querySelectorAll('tbody tr')
+      expect(rows).toHaveLength(d.data_corrections!.length)
+      const c = d.data_corrections![0]
+      expect(rows[0].textContent).toContain('Balance history · Interest')
+      expect(rows[0].textContent).toContain(c.applied as string)
+      expect(rows[0].textContent).toContain(String(c.reason).slice(0, 40))
+      unmount()
+    }
+  })
+  it('deals without data_corrections have no section', () => {
+    const d = deals['f-pil-2-0-moneda-capital-corp']
+    const { container } = wrap(<DealView d={d} />)
+    expect([...container.querySelectorAll('caption')].some(c => c.textContent === 'Data corrections')).toBe(false)
+  })
+  it('labels and units for API-written corrections (pointer fields)', () => {
+    expect(correctionLabel({ record: 'period_history', field: '3/closing_balance' })).toBe('Balance history · Closing balance')
+    expect(correctionLabel({ record: 'tranche_balance', field: 'closing' })).toBe('Balance · Closing')
+    expect(correctionLabel({ record: 'covenants', field: '2/current_value' })).toBe('Covenant · Value')
+    expect(correctionLabel({ record: 'something_new', field: 'odd_field' })).toBe('Something new · Odd field')
+    expect(correctionKind({ record: 'cnl_by_period', field: '0/cnl_ratio_pct' })).toBe('pct')
+    expect(correctionKind({ record: 'contracts', field: 'closing' })).toBe('count')
+    expect(correctionKind({ record: 'period_history', field: '1/closing_contracts' })).toBe('count')
+    expect(correctionKind({ record: 'tranche_balance', field: 'closing' })).toBe('money')
+  })
+  it('an API correction shows rule, choice and the values as written', () => {
+    const d = { ...deals['f-pil-2-0-moneda-capital-corp'], data_corrections: [
+      { period: '2026-08', record: 'tranche_balance', field: 'closing', old_value: 15019971.52, new_value: 15019970.52, applied: '2026-11-03', reason: 'Report total off by $1', rule_id: 'R05', choice: 'use_ours', finding_id: 'f1' },
+    ] }
+    const { container } = wrap(<DealView d={d} />)
+    const corr = [...container.querySelectorAll('table')].find(t => t.querySelector('caption')?.textContent === 'Data corrections')!
+    expect(corr.textContent).toContain('R05 · kept our recomputation')
+    expect(corr.textContent).toContain('$15,019,972')
+    expect(corr.textContent).toContain('$15,019,971')
+    expect(checkFields(container, d).bad).toEqual([])
   })
 })
 

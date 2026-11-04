@@ -15,14 +15,15 @@ export const programs: Record<string, ProgramAggregate> = {
   'move-trust': read('program-move-trust.dashboard.json'),
 }
 const NAMES: Record<string, string> = { 'f-pil-2-0': 'F-PIL 2.0', 'move-trust': 'MOVE Trust' }
-const OWNER: Record<string, string> = { 'f-pil-2-0': 'investor', 'move-trust': 'manager' }
+// Matt's decision (wave 3): both partners see both programs (program_partner; Program.partner_slugs).
+const OWNER: Record<string, string[]> = { 'f-pil-2-0': ['investor', 'manager'], 'move-trust': ['investor', 'manager'] }
 
 export function apiProgram(slug: string): ProgramAggregate {
   const p = programs[slug]
-  return { program: { slug, name: NAMES[slug], partner_slug: OWNER[slug] }, available_periods: [p.period], ...p }
+  return { program: { slug, name: NAMES[slug], partner_slugs: OWNER[slug] }, available_periods: [p.period], ...p }
 }
 export function apiPortfolio(partner: string | null): Portfolio {
-  const slugs = Object.keys(programs).filter(s => partner === null || OWNER[s] === partner).sort()
+  const slugs = Object.keys(programs).filter(s => partner === null || OWNER[s].includes(partner)).sort()
   return {
     partner,
     programs: slugs.map(s => {

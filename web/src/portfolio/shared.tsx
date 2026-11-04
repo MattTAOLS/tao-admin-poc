@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { Button, KpiRow, KpiTile, SkeletonBlock, StatePanel, type Crumb } from '@/design/components'
 import type { Load } from './data'
 import { commonDealNamePrefix, terms } from './fmt'
@@ -21,16 +20,11 @@ export function LoadGate<T>({ load, children }: { load: Load<T>; children: (data
 export function PageSkeleton() {
   return (
     <div className="pf-stack" aria-busy="true">
-      <KpiRow className="pf-kpis">{[0, 1, 2, 3].map(i => <KpiTile key={i} label={<SkeletonBlock width="50%" height={10} />} loading />)}</KpiRow>
+      <KpiRow>{[0, 1, 2, 3].map(i => <KpiTile key={i} label={<SkeletonBlock width="50%" height={10} />} loading />)}</KpiRow>
       <div className="ds-card ds-card--pad"><SkeletonBlock lines={6} /></div>
       <span className="ds-visually-hidden">Loading</span>
     </div>
   )
-}
-
-/** A router link with the Design System's button look (Button renders a <button>, not a link). */
-export function LinkButton({ to, children, variant = 'ghost', size = 'sm', ariaLabel }: { to: string; children: ReactNode; variant?: 'ghost' | 'primary'; size?: 'sm' | 'md'; ariaLabel?: string }) {
-  return <Link to={to} aria-label={ariaLabel} className={['ds-btn', `ds-btn--${variant}`, size === 'sm' && 'ds-btn--sm'].filter(Boolean).join(' ')}>{children}</Link>
 }
 
 type AnyProgram = ProgramAggregate | PortfolioProgram
@@ -72,7 +66,7 @@ export function ProgramTiles({ p, compact = false, field = '' }: { p: AnyProgram
   // Compact (portfolio cards): one row of four. Full (program pages): money tiles, then status tiles, so a
   // nine-digit balance never runs out of room in its tile.
   const moneyRow = (
-    <KpiRow className="pf-kpis">
+    <KpiRow>
       <KpiTile label={`Total ${label.balance}`} value={<Num v={t.closing_tranche_balance} kind="money" field={f('portfolio_totals.closing_tranche_balance')} />}
         delta={t.tranche_balance_change_abs === null || t.tranche_balance_change_abs === undefined ? undefined : {
           direction: dirOf(t.tranche_balance_change_abs), label: 'Change vs last period',
@@ -99,7 +93,7 @@ export function ProgramTiles({ p, compact = false, field = '' }: { p: AnyProgram
     </KpiRow>
   )
   if (compact) return moneyRow
-  return <div className="pf-stack">{moneyRow}<KpiRow className="pf-kpis pf-kpi-status">{covTile}{flaggedTile}</KpiRow></div>
+  return <div className="pf-stack">{moneyRow}<KpiRow className="pf-kpi-status">{covTile}{flaggedTile}</KpiRow></div>
 }
 
 export function crumbs(shell: ShellId, portfolioHref: string, ...rest: Crumb[]): Crumb[] {

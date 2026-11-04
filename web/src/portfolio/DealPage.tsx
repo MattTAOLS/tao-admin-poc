@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { Card, CovenantPill, DataTable, KpiRow, KpiTile, StatusPill, formatPeriod, type Column } from '@/design/components'
+import { Card, CovenantPill, DataTable, KpiRow, KpiTile, StatusPill, formatPeriod, type Column, Button } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { AdminStrip } from './AdminStrip'
+import { CorrectionsTable } from './Corrections'
 import { CovenantTable } from './Covenants'
 import { paths, usePublished } from './data'
 import { cnlBaseKey, cnlLossKey, cnlVintage, commonDealNamePrefix, dealPeriod, ratioKind, shortName, terms } from './fmt'
@@ -9,7 +10,7 @@ import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
 import { PeriodPicker } from './ProgramSummary'
 import { RatioChart } from './RatioChart'
-import { LinkButton, LoadGate, crumbs, programName } from './shared'
+import { LoadGate, crumbs, programName } from './shared'
 import type { AgingRow, CnlRow, Deal, FinancialRatio, PeriodRow, ProgramAggregate } from './types'
 
 /** Deal page: Deal Metrics, covenants with legal reference, ratio history, prev / next deal, period picker. */
@@ -34,8 +35,8 @@ export function DealPage() {
     subtitle: deal ? <>Collection period {deal.collection_period}{deal.settlement_date ? ` · settled ${deal.settlement_date}` : ''}{deal.prior_period ? ` · compared with ${formatPeriod(deal.prior_period)}` : ''}</> : undefined,
     crumbs: crumbs(shell, L.portfolio(), { label: pname, href: programId ? L.program(programId) : undefined }, { label: deal ? shortName(deal.deal_name, prefix) : dealId ?? '' }),
     actions: programId ? <>
-      {prev && <LinkButton to={L.deal(programId, prev.deal_slug)} ariaLabel={`Previous deal: ${prev.deal_name}`}>‹ {shortName(prev.deal_name, prefix)}</LinkButton>}
-      {next && <LinkButton to={L.deal(programId, next.deal_slug)} ariaLabel={`Next deal: ${next.deal_name}`}>{shortName(next.deal_name, prefix)} ›</LinkButton>}
+      {prev && <Button as="link" to={L.deal(programId, prev.deal_slug)} aria-label={`Previous deal: ${prev.deal_name}`} size="sm">‹ {shortName(prev.deal_name, prefix)}</Button>}
+      {next && <Button as="link" to={L.deal(programId, next.deal_slug)} aria-label={`Next deal: ${next.deal_name}`} size="sm">{shortName(next.deal_name, prefix)} ›</Button>}
     </> : undefined,
   })
   return (
@@ -65,7 +66,7 @@ export function DealView({ d }: { d: Deal }) {
     <>
       <section aria-labelledby="pf-dm" className="pf-stack">
         <h2 id="pf-dm" className="pf-section">Deal Metrics</h2>
-        <KpiRow className="pf-kpis">
+        <KpiRow>
           <KpiTile label={t.balance} value={<Num v={tb.closing} kind="money" field="tranche_balance.closing" />}
             delta={{ direction: dirOf(tb.change_abs), label: 'Change vs last period', value: <><Num v={tb.change_abs} kind="signed-money" field="tranche_balance.change_abs" /> (<Num v={tb.change_pct} kind="pct" field="tranche_balance.change_pct" />)</> }} context="vs last period" />
           <KpiTile label="Outstanding contracts" value={<Num v={ct.closing} kind="count" field="contracts.closing" />}
@@ -127,6 +128,11 @@ export function DealView({ d }: { d: Deal }) {
         <Card title="Borrower and portfolio ratios" padding="flush">
           <RatiosTable ratios={d.financial_ratios} />
         </Card>
+        {d.data_corrections && d.data_corrections.length > 0 && (
+          <Card title="Data corrections" subtitle="Values corrected after review, as recorded on the published deal" padding="flush">
+            <CorrectionsTable rows={d.data_corrections} />
+          </Card>
+        )}
       </section>
 
       <Card title="Covenant tests" subtitle={`Published status at a ${Math.round(d.watch_buffer_pct * 100)}% watch buffer`} padding="flush">

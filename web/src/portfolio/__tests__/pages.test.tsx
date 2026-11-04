@@ -29,11 +29,11 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
   let m: RegExpMatchArray | null
   if (path === '/published/portfolio') return respond(200, apiPortfolio(partner))
   if ((m = path.match(/^\/published\/programs\/([^/]+)\/deals\/([^/]+)$/))) {
-    if (partner && OWNERS[m[1]] !== partner) return respond(404, { code: 'not_found', message: 'no published program' })
+    if (!OWNERS[m[1]] || (partner && !OWNERS[m[1]].includes(partner))) return respond(404, { code: 'not_found', message: 'no published program' })
     return respond(200, apiDeal(m[2]))
   }
   if ((m = path.match(/^\/published\/programs\/([^/]+)$/))) {
-    if (partner && OWNERS[m[1]] !== partner) return respond(404, { code: 'not_found', message: 'no published program' })
+    if (!OWNERS[m[1]] || (partner && !OWNERS[m[1]].includes(partner))) return respond(404, { code: 'not_found', message: 'no published program' })
     return respond(200, apiProgram(m[1]))
   }
   if (path === '/uploads') {
@@ -62,15 +62,16 @@ afterEach(() => { vi.unstubAllGlobals() })
 const MONEDA = 'f-pil-2-0-moneda-capital-corp'
 
 describe('Portfolio Executive Summary', () => {
-  it('shows one card per program the investor owns, flagged deals and a Go to deal picker', async () => {
+  it('shows one card per program the investor sees, flagged deals and a Go to deal picker', async () => {
     renderAt('/investor/portfolio', 'investor_viewer')
     expect(await screen.findByRole('heading', { level: 2, name: 'F-PIL 2.0' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { level: 2, name: 'MOVE Trust' })).toBeNull()
+    expect(screen.getByRole('heading', { level: 2, name: 'MOVE Trust' })).toBeTruthy()
     expect(calls.every(c => c.headers['X-Partner'] === 'investor' && c.headers['X-Role'] === 'investor_viewer')).toBe(true)
     const flagged = screen.getByRole('table', { name: 'Flagged deals' })
     expect(within(flagged).getByText('Moneda Capital Corp.')).toBeTruthy()
     expect(within(flagged).getByText('Xpedite Leasing')).toBeTruthy()
     expect(within(flagged).queryByText('Stride Capital')).toBeNull() // OK deal
+    expect(within(flagged).getByText('Finloc 2000 Inc.')).toBeTruthy() // MOVE Trust BREACH
     await userEvent.selectOptions(screen.getByLabelText('Go to deal'), `f-pil-2-0|${MONEDA}`)
     expect(screen.getByTestId('where').textContent).toBe(`/investor/portfolio/f-pil-2-0/deals/${MONEDA}`)
   })
@@ -100,20 +101,25 @@ describe('Portfolio Executive Summary', () => {
 })
 
 describe('access', () => {
-  it('a partner that does not own the program sees "You don’t have access"', async () => {
-    renderAt('/manager/portfolio/f-pil-2-0', 'manager_viewer')
-    expect(await screen.findByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
-  })
-  it('the same for the program dashboard and a deal', async () => {
-    const { unmount } = renderAt('/manager/portfolio/f-pil-2-0/dashboard', 'manager_viewer')
-    expect(await screen.findByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
+  it('both partners see both programs', async () => {
+    for (const [role, shell] of [['investor_viewer', 'investor'], ['manager_viewer', 'manager']]) {
+      const { unmount } = renderAt(`/${shell}/portfolio`, role)
+      expect(await screen.findByRole('heading', { level: 2, name: 'F-PIL 2.0' })).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 2, name: 'MOVE Trust' })).toBeTruthy()
+      unmount(); headerStore.clear()
+    }
+    const { unmount } = renderAt('/manager/portfolio/f-pil-2-0', 'manager_viewer')
+    await waitFor(() => expect(h1().textContent).toBe('F-PIL 2.0 Executive Summary'))
     unmount(); headerStore.clear()
-    renderAt(`/manager/portfolio/f-pil-2-0/deals/${MONEDA}`, 'manager_viewer')
-    expect(await screen.findByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
-  })
-  it('the owning partner sees the program', async () => {
-    renderAt('/manager/portfolio/move-trust', 'manager_viewer')
+    renderAt('/investor/portfolio/move-trust', 'investor_viewer')
     await waitFor(() => expect(h1().textContent).toBe('MOVE Trust Executive Summary'))
+  })
+  it('a program the partner may not see (API 404) shows "You don’t have access" on summary, dashboard and deal', async () => {
+    for (const path of ['/manager/portfolio/other-program', '/manager/portfolio/other-program/dashboard', '/manager/portfolio/other-program/deals/other-deal']) {
+      const { unmount } = renderAt(path, 'manager_viewer')
+      expect(await screen.findByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
+      unmount(); headerStore.clear()
+    }
   })
   it('a partner deal page never calls an intake route and shows no admin strip', async () => {
     renderAt(`/investor/portfolio/f-pil-2-0/deals/${MONEDA}`, 'investor_viewer')
@@ -125,7 +131,7 @@ describe('access', () => {
 
 describe('Program Executive Summary', () => {
   it('tiles, a card per deal with status and a link, prev / next program', async () => {
-    renderAt('/admin/portfolio?program=f-pil-2-0', 'tao_admin')
+    renderAt('/admin/portfolio/f-pil-2-0', 'tao_admin')
     await waitFor(() => expect(h1().textContent).toBe('F-PIL 2.0 Executive Summary'))
     const cards = screen.getAllByRole('article')
     expect(cards).toHaveLength(3)
@@ -134,7 +140,7 @@ describe('Program Executive Summary', () => {
     expect(within(cards[1]).getByText('OK')).toBeTruthy()
     const next = await screen.findByRole('link', { name: 'Next program: MOVE Trust' })
     await userEvent.click(next)
-    expect(screen.getByTestId('where').textContent).toBe('/admin/portfolio?program=move-trust')
+    expect(screen.getByTestId('where').textContent).toBe('/admin/portfolio/move-trust')
     await waitFor(() => expect(h1().textContent).toBe('MOVE Trust Executive Summary'))
     expect(screen.getByRole('link', { name: 'Previous program: F-PIL 2.0' })).toBeTruthy()
   })
@@ -221,8 +227,16 @@ describe('Deal page', () => {
     expect(screen.getByTestId('where').textContent).toBe(`/investor/portfolio/f-pil-2-0/deals/${MONEDA}?period=2026-07`)
     await waitFor(() => expect((screen.getByLabelText('Period') as HTMLSelectElement).value).toBe('2026-07'))
   })
+  it('shows the Data corrections section from the published deal', async () => {
+    renderAt('/manager/portfolio/move-trust/deals/move-trust-dynamic-capital', 'manager_viewer')
+    const t = await screen.findByRole('table', { name: 'Data corrections' })
+    expect(within(t).getByText('Balance history · Interest')).toBeTruthy()
+    expect(within(t).getByText('2026-10-09')).toBeTruthy()
+    expect(within(t).getByText('$1,372,329')).toBeTruthy()
+    expect(within(t).getByText('$1,467,812')).toBeTruthy()
+  })
   it('TAO Admin shell: upload strip with status, review link for the period, and a newer upload', async () => {
-    renderAt(`/admin/portfolio?program=f-pil-2-0&deal=${MONEDA}`, 'tao_admin')
+    renderAt(`/admin/portfolio/f-pil-2-0/deals/${MONEDA}`, 'tao_admin')
     const strip = await screen.findByRole('region', { name: 'Upload status' })
     expect(within(strip).getByText('Published')).toBeTruthy()
     const link = within(strip).getByRole('link', { name: 'Open review for Aug 2026' })
