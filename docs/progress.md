@@ -282,3 +282,14 @@ Append an entry when a work package lands. Newest first.
   reference-data tests, web shell with role switcher and every portal-map page routed, seed data, agent briefs.
   Findings from real data: F-PIL and six MOVE Trust deals close their roll-forward to the cent; three MOVE Trust
   deals do not (see rules tests); two aging conventions exist.
+- 2026-11-03 — UI-Admin, wave 3 follow-ups: Partners and Partner details read `/master/partners` (real names, kind,
+  status; a partner without programs shows, with "None yet"); a program counts for every partner in `partner_slugs`
+  (older API: `[partner_slug]`). Program record shows "Visible to", and `tao_admin` edits it in the program dialog
+  (a checkbox per partner, at least one required, `partner_slug` = first checked). Covenant thresholds format by
+  `unit` (fraction / ratio / currency), old guess only when `unit` is null; the covenant dialog has a Unit select
+  and sends `unit`. Upload history sends `collection_period` and the Audit log sends `action` to the API (client-side
+  filtering removed). Live on the tao-ui-admin stack (fresh volumes, seed, `--profile admin`): tao_analyst sees all
+  three Partners pages read-only (note, no edit controls); tao_admin unchecked Manager on F-PIL 2.0 in the dialog,
+  the API returned `partner_slugs: ["investor"]`, Manager's details page then listed only MOVE Trust and the
+  Manager program URL for F-PIL showed "No such program"; restored through the dialog. Lighthouse accessibility 100
+  on Upload report and Upload history. Run: `cd web && npx vitest run src/admin` (58 tests).
