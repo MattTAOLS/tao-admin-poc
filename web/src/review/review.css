@@ -21,6 +21,12 @@
 .rv-group + .rv-group { margin-top: 18px; }
 .rv-group__head { display: flex; align-items: center; gap: 8px; font: 600 12px var(--font); color: var(--indigo); letter-spacing: .02em; }
 .rv-group__head .rv-muted { font-weight: 400; }
+/* A resolved finding reads as done without dimming: the library's `opacity: .78` blended token text below WCAG AA
+   (muted labels 3.40:1, the Block pill 3.34:1, our value 4.23:1). Instead: full-strength tokens on the canvas-deep
+   surface, a neutral left rule and no shadow (muted 5.08:1, Block pill 4.66:1, our value 6.33:1). The Resolved pill
+   and the resolution line still say it in words. */
+.rv-group .ds-finding--resolved { opacity: 1; background: var(--canvas-deep); border-left-color: var(--border); box-shadow: none; }
+.rv-group .ds-finding--resolved .ds-finding__resolution { background: var(--card); }
 .rv-allclear { display: flex; align-items: center; gap: 8px; color: var(--text); }
 
 /* ---- Page crop ---- */
