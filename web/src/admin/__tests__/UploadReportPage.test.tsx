@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { screen, within, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderPage, fakeApi, httpError, never, header, DEALS, PROGRAMS, upload } from './helpers'
+import { renderPage, fakeApi, httpError, never, header, DEALS, PROGRAMS, upload, AUDIT } from './helpers'
 
 vi.mock('@/shell/api', () => ({ api: vi.fn() }))
 import { api } from '@/shell/api'
@@ -258,13 +258,25 @@ describe('Upload report', () => {
     expect(await screen.findByText('Nothing is published for this deal and collection period yet, so there is nothing to replace. Upload it as a normal report.')).toBeTruthy()
   })
 
+  it('shows the failure reason from the audit entry to TAO Admin', async () => {
+    const reason = 'page 1 has no text layer; cover block not found'
+    mockApi.mockImplementation(fakeApi({ ...master, 'POST /uploads': upload({ status: 'extraction_failed' }),
+      'GET /audit': [{ ...AUDIT[0], reason, detail: { status: 'extraction_failed' } }] }))
+    const user = userEvent.setup()
+    renderPage('/admin/uploads/new', route)
+    await fillAndChoose(user)
+    await user.click(screen.getByRole('button', { name: 'Upload report' }))
+    expect(await screen.findByText(`Extraction failed: ${reason}.`, { exact: false })).toBeTruthy()
+  })
+
   it('shows extraction failure and lets the user start again', async () => {
     mockApi.mockImplementation(fakeApi({ ...master, 'POST /uploads': upload({ status: 'extraction_failed' }) }))
     const user = userEvent.setup()
     renderPage('/admin/uploads/new', route)
     await fillAndChoose(user)
     await user.click(screen.getByRole('button', { name: 'Upload report' }))
-    expect(await screen.findByText(/Extraction failed\. Check the audit log/)).toBeTruthy()
+    expect(await screen.findByText(/Extraction failed: the report could not be read/)).toBeTruthy()
+    expect(screen.queryByText(/audit log/)).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Upload another report' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Upload report' })).toBeTruthy())
   })

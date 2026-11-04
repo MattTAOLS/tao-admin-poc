@@ -5,7 +5,7 @@ import {
 } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { adminApi, IN_FLIGHT, type ApiError, type Upload } from './data'
-import { useResource } from './hooks'
+import { useResource, useRole } from './hooks'
 import { FindingCountsText, LoadError, TextLink, addMonths, dealOptions, errorText, formatDateTime, periodHistoryHref, reportingLag, reviewHref, totalFindings } from './ui'
 
 export const POLL_MS = 2000
@@ -153,6 +153,11 @@ function UploadProgress({ initial, dealName, onAnother, replaced, lag }: { initi
   const expectedReporting = addMonths(u.collection_period, -lag)
   const r04 = u.reporting_period && u.reporting_period !== expectedReporting
   const canReview = u.status === 'needs_review' || findings > 0
+  const failed = u.status === 'extraction_failed'
+  // The failure reason is an audit entry (actor: worker). Only tao_admin may read the audit log.
+  const admin = useRole() === 'tao_admin'
+  const failure = useResource(() => (failed && admin ? adminApi.audit({ upload_id: u.id, action: 'extract' }) : Promise.resolve([])), [failed, admin, u.id])
+  const reason = failure.data?.find(e => e.reason)?.reason
 
   return (
     <div className="adm-stack">
@@ -186,7 +191,12 @@ function UploadProgress({ initial, dealName, onAnother, replaced, lag }: { initi
               ({formatPeriod(expectedReporting)}) for this deal’s reports. Rule R04 checks this.
             </div>
           )}
-          {u.status === 'extraction_failed' && <div className="adm-note adm-note--warn" role="alert">Extraction failed. Check the audit log for the reason, then upload the file again.</div>}
+          {failed && (
+            <div className="adm-note adm-note--warn" role="alert">
+              {reason ? `Extraction failed: ${reason}.` : 'Extraction failed: the report could not be read. A scanned or blank PDF, with no text to read, is the usual cause.'}{' '}
+              Upload a readable PDF for the same deal and period; a failed upload does not hold the month.
+            </div>
+          )}
           {pollError && <div className="adm-note adm-note--warn" role="alert">Status check failed: {pollError} Retrying every 2 seconds.</div>}
           {inFlight && <p className="adm-muted" style={{ margin: 0, fontSize: 13 }}>Checking status every 2 seconds. Extraction usually takes under a minute.</p>}
           <div className="adm-actions">
