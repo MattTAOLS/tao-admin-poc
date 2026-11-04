@@ -268,7 +268,7 @@ def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None, exte
         _set_status(c, upload_id, status, ("received", "extracting"))
     if status == "extracting":
         try:
-            (enqueue or redis_enqueue)({"upload_id": upload_id, "pass": 2, "pages": pages})
+            (enqueue or redis_enqueue)({"upload_id": upload_id, "pass": 2, "pages": pages, **({"template_id": job["template_id"]} if job.get("template_id") else {})})
         except Exception as e:   # queue down: the reviewer still gets the pass-1 findings
             log.error("pass-2 enqueue failed for %s: %s", upload_id, e)
             with _tx(conn) as c: _set_status(c, upload_id, "needs_review", ("extracting",))

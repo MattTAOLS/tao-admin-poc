@@ -284,7 +284,7 @@ def test_reextract_queues_pass_two(client, pending, queue):
     assert client.post(f"/api/v1/uploads/{uid}/reextract", headers=TAO, json={"pages": [9]}).status_code == 422
     r = client.post(f"/api/v1/uploads/{uid}/reextract", headers=ANALYST, json={"pages": [2, 2, 3]})
     assert r.status_code == 202 and r.json()["status"] == "extracting"
-    assert queue.jobs[-1] == {"upload_id": uid, "pass": 2, "pages": [2, 3]}
+    assert queue.jobs[-1] == {"upload_id": uid, "pass": 2, "pages": [2, 3], "template_id": "fpil-2.0-settrep-v1"}
     assert client.post(f"/api/v1/uploads/{uid}/reextract", headers=TAO, json={"pages": [2]}).status_code == 409
     audit = client.get("/api/v1/audit", headers=TAO, params={"upload_id": uid}).json()
     assert audit[0]["action"] == "reextract" and audit[0]["detail"]["pages"] == [2, 3]

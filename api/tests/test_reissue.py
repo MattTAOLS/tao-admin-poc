@@ -46,7 +46,7 @@ def test_reissue_links_and_swaps_publication_on_approve(client, published, queue
     assert r.status_code == 201, r.text
     new = r.json()
     assert new["replaces_upload_id"] == published and new["replaced_by_upload_id"] is None and new["status"] == "received"
-    assert queue.jobs[-1] == {"upload_id": new["id"], "pass": 1}
+    assert queue.jobs[-1] == {"upload_id": new["id"], "pass": 1, "template_id": "fpil-2.0-settrep-v1"}
     assert post(client, replace=True).json()["code"] == "upload_in_progress"            # one active upload still holds
     old = client.get(f"/api/v1/uploads/{published}", headers=TAO).json()
     assert old["status"] == "published" and old["replaced_by_upload_id"] is None          # not until approve
