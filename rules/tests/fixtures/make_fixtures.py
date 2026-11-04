@@ -5,7 +5,7 @@
 Each rule gets <rule>-pass.json and <rule>-fail.json here: a real deal object, plus at most one deliberate change
 (recorded under "changes", applied to the deal or to the context), the meta and the Context the rule runs with.
 EXTRA adds named fixtures for specific terms (r05-new-funded, r05-ineligible-buyback, the MOVE Trust R05 terms
-r05-adjustment-increase / r05-charge-off-move / r05-balance-adjustment, r18-reported-triggered).
+r05-adjustment-increase / r05-charge-off-move / r05-balance-adjustment, r11-fx-revaluation, r18-reported-triggered).
 Their failing case is one change; a passing case may need two changes on the same row to stay consistent
 (a new-funded amount offset by principal), and records both.
 The failing case's expected findings are frozen to findings/<name>-fail.json (validated by scripts/check_contracts.py).
@@ -114,6 +114,12 @@ EXTRA = {
         [{"target": "deal", "path": f"{CUR}/balance_adjustment", "value": -1000.0, "why": "a signed -1,000.00 tranche contract balance adjustment"},
          {"target": "deal", "path": f"{CUR}/principal", "value": 7350226.06, "why": "offset: principal 1,000.00 lower, closing unchanged"}],
         [{"target": "deal", "path": f"{CUR}/balance_adjustment", "value": 1000.0, "why": "balance adjustment printed but not carried into the closing balance"}]),
+    # Finloc reports CAD plus USD at the month's spot rate (July 1.4029, June 1.421): the CAD-equivalent opening is
+    # 47,609.31 below June's CAD-equivalent closing, all of it USD revaluation; each currency is continuous in its
+    # own units. A misread USD opening breaks the USD continuity and must still block.
+    "r11-fx-revaluation": ("R11", FINLOC, lambda d: {"prior": prior_from_history(d)}, {"template_id": "move-trust-settrep-v1"},
+        [],
+        [{"target": "deal", "path": "/tranche_balance/by_currency/usd_opening_cad_equivalent", "value": 3691015.67216, "why": "USD opening (CAD equivalent) 3,690,115.67 transposed to 3,691,015.67"}]),
     "r12-reissue": ("R12", MONEDA, lambda d: {"upload": {**upload_for(d), "replaces_upload_id": "11111111-1111-4111-8111-111111111111"},
                                                "published_periods": {"2026-07": "2026-07-15T14:02:00Z"}}, {},
         [],

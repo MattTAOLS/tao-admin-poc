@@ -375,6 +375,58 @@ def enhancement_and_coverage(rule, ex, ctx, tol):
 # ---------- R11 ----------
 _PH_FIELDS = ("opening_balance", "closing_balance", "principal", "principal_prepayments", "losses", "opening_contracts", "closing_contracts")
 
+_BY_CCY_KEY = re.compile(r"^([a-z]{3})_(opening|closing)(?:_(raw)|_([a-z]{3})_equivalent)?$")
+
+def _by_currency(d):
+    """(by_currency, spot_rate) for a deal object: tranche_balance first, else the current period_history row.
+    Keys as the MOVE multicurrency layout writes them: cad_opening / cad_closing (the reporting currency),
+    usd_closing_raw (native), usd_opening_cad_equivalent and usd_closing_cad_equivalent (at the report's spot rate,
+    activity_by_currency.spot_rate)."""
+    tb = d.get("tranche_balance") or {}; row = _current_row(d) or {}
+    bc = tb.get("by_currency") or row.get("by_currency")
+    act = tb.get("activity_by_currency") or row.get("activity_by_currency") or {}
+    return (bc if isinstance(bc, dict) else None), (act.get("spot_rate") if _num(act.get("spot_rate")) and act.get("spot_rate") else None)
+
+def _native(bc, spot, side):
+    """{currency: amount in its own units} for one side ("opening" / "closing"): a plain or _raw key is native; an
+    _<rep>_equivalent key divided by the spot rate when no native key exists."""
+    plain, equiv = {}, {}
+    for k, v in bc.items():
+        m = _BY_CCY_KEY.match(k)
+        if not m or m.group(2) != side or not _num(v): continue
+        ccy = m.group(1).upper()
+        if m.group(4): equiv[ccy] = v
+        else: plain[ccy] = v
+    for ccy, v in equiv.items():
+        if ccy not in plain and spot: plain[ccy] = v / spot
+    return plain
+
+def _equivalent(bc, side):
+    """Reporting-currency amounts for one side: plain keys (the reporting currency) and _<rep>_equivalent keys."""
+    out = {}
+    for k, v in bc.items():
+        m = _BY_CCY_KEY.match(k)
+        if m and m.group(2) == side and _num(v) and not m.group(3): out[m.group(1).upper()] = v
+    return out
+
+def _fx_continuity(d, p, tol):
+    """Per-currency opening vs prior closing when both objects carry by_currency with more than one currency, else
+    None (single-currency deals keep the reporting-currency check). Native amounts compared within tol.currency
+    per currency (absorbs the cent from re-deriving a native opening from its equivalent at the 4-dp spot rate).
+    revaluation = reporting-currency opening − reporting-currency prior closing on currencies that are continuous."""
+    cur, spot = _by_currency(d); prv, pspot = _by_currency(p)
+    if not cur or not prv: return None
+    now, before = _native(cur, spot, "opening"), _native(prv, pspot, "closing")
+    common = sorted(set(now) & set(before))
+    if len(set(now) | set(before)) < 2 or not common: return None
+    breaks = [{"currency": k, "opening": _r(now[k]), "prior_closing": _r(before[k]), "difference": _r(now[k] - before[k])}
+              for k in common if not near(now[k], before[k], tol["currency"])]
+    rep = {m.group(1).upper() for k in cur if (m := _BY_CCY_KEY.match(k)) and not m.group(3) and not m.group(4)}   # reporting currency: plain keys
+    break_in_rep = sum(b["difference"] * (1 if b["currency"] in rep else (spot or 0)) for b in breaks)
+    eq_now, eq_before = _equivalent(cur, "opening"), _equivalent(prv, "closing")
+    reval = sum(eq_now[k] - eq_before[k] for k in common if k in eq_now and k in eq_before and not any(b["currency"] == k for b in breaks))
+    return {"currencies": common, "breaks": breaks, "break_in_reporting_currency": _r(break_in_rep), "revaluation": _r(reval), "spot_rate": spot, "prior_spot_rate": pspot}
+
 def opening_equals_prior_closing(rule, ex, ctx, tol):
     """Needs the prior published deal (ctx.prior); without one (first upload) there is nothing to compare.
     A gap equal to the opening balance of tranches funded since the prior report (present in all_tranches now,
@@ -393,7 +445,19 @@ def opening_equals_prior_closing(rule, ex, ctx, tol):
         explained = (disc or {}).get("explained_by_new_tranches") or 0
     c = {"opening": op, "prior_closing": pc, "opening_contracts": oc, "prior_contracts": pcc, "new_tranches": [t.get("tranche") for t in new], "explained_by_new_tranches": _r(explained),
          "prior_period": p.get("collection_period")}
-    if _num(op) and _num(pc):
+    fx = _fx_continuity(d, p, tol)
+    if fx is not None:   # multi-currency deal: compare each currency in its own units; the reporting-currency gap is revaluation
+        c.update(currencies=fx["currencies"], revaluation=fx["revaluation"])
+        if fx["breaks"] and not (explained and near(fx["break_in_reporting_currency"], explained, tol["currency"] * len(fx["breaks"]))):   # new tranches explain it
+            b = fx["breaks"][0]
+            c.update(currency=b["currency"], native_opening=b["opening"], native_prior_closing=b["prior_closing"], native_difference=b["difference"])
+            out.append(finding(rule, _uid(ex), our_value=b["prior_closing"], report_value=b["opening"], difference=b["difference"], tolerance=tol["currency"], unit="currency",
+                               fields=["/tranche_balance/by_currency", "prior:/tranche_balance/by_currency"], context=c,
+                               message="{currency} opening {native_opening} does not equal the prior period's {currency} closing {native_prior_closing} "
+                                       "(difference {native_difference} {currency}, compared in {currency} so spot-rate revaluation is not counted)"))
+        elif _num(oc) and _num(pcc) and oc != pcc and not (oc > pcc and explained):
+            out.append(finding(rule, _uid(ex), our_value=pcc, report_value=oc, difference=oc - pcc, tolerance=tol["count"], unit="count", fields=["/contracts/opening", "prior:/contracts/closing"], context=c))
+    elif _num(op) and _num(pc):
         residual = op - pc - explained
         balance_ok = near(residual, 0, tol["currency"])
         contracts_ok = not (_num(oc) and _num(pcc)) or oc == pcc or (oc > pcc and explained)

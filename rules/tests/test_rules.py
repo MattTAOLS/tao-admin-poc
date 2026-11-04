@@ -153,13 +153,52 @@ def test_r14_ignores_definitions_not_yet_effective():
     assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"}) == []
 
 def test_r11_new_tranche_explains_opening_gap():
-    """Dynamic Capital opens July with tranche 87 (7,662,419.16) funded since June: explained, no finding.
-    Finloc's -47,609.31 opening gap has no new tranche behind it: R11 blocks."""
+    """Dynamic Capital opens July with tranche 87 (7,662,419.16) funded since June: explained, no finding."""
     dyn = mf.load_deal("move-trust-dynamic-capital.dashboard.json")
     assert run({"meta": mf.META, "deal": dyn, "sources": {}}, Context(prior=mf.prior_from_history(dyn)), only={"R11"}) == []
+
+def _strip_by_currency(d):
+    d = copy.deepcopy(d); d["tranche_balance"].pop("by_currency", None); d["tranche_balance"].pop("activity_by_currency", None)
+    for r in d["period_history"]: r.pop("by_currency", None); r.pop("activity_by_currency", None)
+    return d
+
+def test_r11_fx_revaluation_is_not_a_break():
+    """Finloc July: the CAD-equivalent opening is 47,609.31 below June's CAD-equivalent closing. CAD 48,017,884.01 opens
+    on June's closing to the cent and USD 2,630,348.33 too (3,690,115.67 / 1.4029), so the gap is USD revaluation at
+    the new spot rate: no finding, and the context of a break would carry it. Without per-currency amounts the
+    reporting-currency check still sees the gap."""
     fin = mf.load_deal(mf.FINLOC)
-    fs = run({"meta": mf.META, "deal": fin, "sources": {}}, Context(prior=mf.prior_from_history(fin)), only={"R11"})
+    assert run({"meta": mf.META, "deal": fin, "sources": {}}, Context(prior=mf.prior_from_history(fin)), only={"R11"}) == []
+    fx = checks._fx_continuity(fin, mf.prior_from_history(fin), {"currency": 1.0})
+    assert fx["currencies"] == ["CAD", "USD"] and fx["breaks"] == [] and abs(fx["revaluation"] - (-47609.31)) < 0.01
+    bare = _strip_by_currency(fin)
+    fs = run({"meta": mf.META, "deal": bare, "sources": {}}, Context(prior=mf.prior_from_history(bare)), only={"R11"})
     assert len(fs) == 1 and abs(fs[0]["difference"] - (-47609.31)) < 0.01
+
+def test_r11_fx_absorbs_the_spot_rate_cent_and_blocks_a_cad_break():
+    """May: USD opening 5,084,962.33 / 1.3798 = 3,685,289.41 vs April closing 3,685,289.42 (spot-rate rounding)."""
+    fin = mf.load_deal(mf.FINLOC)
+    def month(i):   # the deal as of period_history row i: that row is its current row, no tranche-level copy
+        r = fin["period_history"][i]
+        return {"deal_slug": fin["deal_slug"], "collection_period": r["collection_period"], "period_history": [r], "tranche_balance": {"opening": r["opening_balance"], "closing": r["closing_balance"]}}
+    prior, may = month(0), month(1)
+    gap = checks._native(*checks._by_currency(may), "opening")["USD"] - checks._native(*checks._by_currency(prior), "closing")["USD"]
+    assert 0.001 < abs(gap) < 0.02
+    assert run({"meta": mf.META, "deal": may, "sources": {}}, Context(prior=prior), only={"R11"}) == []
+    fin["tranche_balance"]["by_currency"]["cad_opening"] = 48071884.01   # 48,017,884.01 transposed
+    fs = run({"meta": mf.META, "deal": fin, "sources": {}}, Context(prior=mf.prior_from_history(fin)), only={"R11"})
+    assert len(fs) == 1 and fs[0]["context"]["currency"] == "CAD" and fs[0]["difference"] == 54000.0 and "CAD opening 48071884.01" in fs[0]["message"]
+    assert abs(fs[0]["context"]["revaluation"] - (-47609.31)) < 0.01   # USD stays continuous: its revaluation is in context
+
+def test_r11_single_currency_restatement_still_blocks():
+    """Essex May restates April interest coverage 1.15 -> 1.12 (the April and May reports as extracted). Essex has
+    no per-currency amounts, so the reporting-currency check runs as before and the restatement blocks."""
+    d = mf.load_deal("move-trust-essex-lease-financial-corp.dashboard.json"); prior = mf.prior_from_history(d)
+    assert checks._fx_continuity(d, prior, {"currency": 1.0}) is None
+    row = next(r for r in prior["ratio_history"] if r["month"] == "Apr-26"); assert row["interest_coverage_ratio"] == 1.12
+    row["interest_coverage_ratio"] = 1.15
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(prior=prior), only={"R11"})
+    assert len(fs) == 1 and fs[0]["context"]["restatement"] and fs[0]["report_value"] == 1.12 and fs[0]["severity"] == "block"
 
 def test_r11_flags_a_restated_prior_month():
     """Xpedite's Jan-26 leverage was 9.23 in the 2026-05 report and 9.30 from 2026-06 on (its own restatements list)."""

@@ -1,0 +1,59 @@
+{
+  "id": "e1754672-6343-5241-9539-89d518df4fd2",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R11",
+  "layer": "cross_period",
+  "severity": "block",
+  "message": "USD opening 2630989.86 does not equal the prior period's USD closing 2630348.33 (difference 641.53 USD, compared in USD so spot-rate revaluation is not counted)",
+  "fields": [
+    "/tranche_balance/by_currency",
+    "prior:/tranche_balance/by_currency"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": 2630348.33,
+  "report_value": 2630989.86,
+  "difference": 641.53,
+  "tolerance": 1.0,
+  "unit": "currency",
+  "source_page": 2,
+  "context": {
+    "opening": 51707999.68216,
+    "prior_closing": 51755608.989999995,
+    "opening_contracts": 344.0,
+    "prior_contracts": 344.0,
+    "new_tranches": [
+      9,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      23,
+      24
+    ],
+    "explained_by_new_tranches": 0,
+    "prior_period": "June 2026",
+    "currencies": [
+      "CAD",
+      "USD"
+    ],
+    "revaluation": 0.0,
+    "currency": "USD",
+    "native_opening": 2630989.86,
+    "native_prior_closing": 2630348.33,
+    "native_difference": 641.53
+  },
+  "resolution": null
+}
