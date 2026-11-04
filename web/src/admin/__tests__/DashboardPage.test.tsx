@@ -35,7 +35,7 @@ describe('Dashboard', () => {
     expect(within(tile('Flagged deals')).getByText('5')).toBeTruthy()
     expect(within(tile('Flagged deals')).getByText('2 breach · 3 watch')).toBeTruthy()
     const move = within(table).getByText('MOVE Trust').closest('tr')!
-    expect(within(move).getAllByRole('cell').map(c => c.textContent)).toEqual(['MOVE Trust', 'Jul 2026', '9', '8', '1', '83', '6'])
+    expect(within(move).getAllByRole('cell').map(c => c.textContent)).toEqual(['MOVE Trust', 'Jul 2026', '9', '8', '1', '84', '6'])
     expect(await screen.findByRole('table', { name: 'Latest uploads' })).toBeTruthy()
     expect(within(tile('Needs review')).getByText('1')).toBeTruthy()
   })
