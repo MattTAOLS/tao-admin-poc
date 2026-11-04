@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react'
-import { Routes, Route, Navigate, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastProvider, PageHeader, StatePanel, Button, SkeletonBlock, icons, type Crumb, type LinkLike } from '@/design/components'
 import { ROLES, loadRole, saveRole, type Role } from './roles'
 import { ADMIN_PAGES, PARTNER_PAGES, type Page } from './pages'
@@ -12,7 +12,7 @@ const SHELL_SUB: Record<ShellId, string> = { admin: 'Operations', investor: 'Por
 
 /** Nav icon per page title (inline SVG from the design icon set). */
 const NAV_ICON: Record<string, ComponentType<{ width?: number; height?: number }>> = {
-  'Dashboard': icons.IconGrid, 'Home': icons.IconGrid, 'Uploads': icons.IconUpload, 'Reports library': icons.IconBook, 'Reports': icons.IconBook,
+  'Dashboard': icons.IconGrid, 'Home': icons.IconGrid, 'Uploads': icons.IconUpload, 'Approval queue': icons.IconInbox, 'Reports library': icons.IconBook, 'Reports': icons.IconBook,
   'Partners': icons.IconBuilding, 'Portfolio Executive Summary': icons.IconChart, 'Notifications': icons.IconBell, 'Help & support': icons.IconHelp,
   'User management': icons.IconUsers, 'Profile': icons.IconUser, 'System settings': icons.IconSettings, 'Data room': icons.IconFolder,
   "What's new": icons.IconSparkle, 'Team members': icons.IconUsers,
@@ -103,7 +103,7 @@ function TopBar({ current, crumbs }: { current: Page | undefined; crumbs: Crumb[
   )
 }
 
-function NavGroup({ label, pages, end }: { label: string; pages: Page[]; end: (p: Page) => boolean }) {
+function NavGroup({ label, pages, isActive }: { label: string; pages: Page[]; isActive: (p: Page) => boolean }) {
   if (pages.length === 0) return null
   return (
     <>
@@ -111,7 +111,8 @@ function NavGroup({ label, pages, end }: { label: string; pages: Page[]; end: (p
       <nav className="nav" aria-labelledby={`nav-${label}`}>
         {pages.map(p => {
           const I = NAV_ICON[p.title] ?? icons.IconFile
-          return <NavLink key={p.path} to={p.path || '/'} end={end(p)}><I width={17} height={17} /><span>{p.title}</span></NavLink>
+          const on = isActive(p)
+          return <Link key={p.path} to={p.path || '/'} className={on ? 'active' : undefined} aria-current={on ? 'page' : undefined}><I width={17} height={17} /><span>{p.title}</span></Link>
         })}
       </nav>
     </>
@@ -128,6 +129,10 @@ function Shell({ shell, role, setRole }: { shell: ShellId; role: Role; setRole: 
   const title = SHELL_TITLE[shell]
   const crumbs = current ? routeCrumbs(pages, loc.pathname, title) : [{ label: title }, { label: 'Page not found' }]
   const end = (p: Page) => p.path === '/admin' || p.path === base || p.path === base + '/portfolio'
+  const navPages = pages.filter(p => p.nav && visible(p))
+  const matches = (p: Page) => toRegex(p.path || '/', end(p)).test(loc.pathname)
+  // A nav item is active on its own subtree, unless a more specific nav item (Approval queue under Uploads) matches.
+  const isActive = (p: Page) => matches(p) && !navPages.some(q => q !== p && q.path.startsWith(p.path + '/') && matches(q))
   return (
     <div className="app">
       <aside className="sidebar">
@@ -135,8 +140,8 @@ function Shell({ shell, role, setRole }: { shell: ShellId; role: Role; setRole: 
           <span className="brand__mark" aria-hidden="true"><icons.IconLayers width={18} height={18} /></span>
           <span><b>{title}</b><small>{SHELL_SUB[shell]}</small></span>
         </div>
-        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && visible(p) && !(shell !== 'admin' && p.path === base))} end={end} />
-        <NavGroup label="Account" pages={pages.filter(p => p.nav === 'account' && visible(p))} end={end} />
+        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && visible(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} />
+        <NavGroup label="Account" pages={pages.filter(p => p.nav === 'account' && visible(p))} isActive={isActive} />
         <div className="foot"><RoleSwitcher role={role} onChange={setRole} /></div>
       </aside>
       <div className="main">
