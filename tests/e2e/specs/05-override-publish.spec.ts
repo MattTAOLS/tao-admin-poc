@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { audit, findings, mustFindUpload, tao } from '../lib/api'
-import { SEEDED, STEP4 } from '../lib/facts'
-import { auditRow, openAuditFor, openReview, shot, signInAs } from '../lib/ui'
+import { Api, audit, findings, mustFindUpload, tao } from '../lib/api'
+import { DEALS, PROGRAM, SEEDED, STEP4 } from '../lib/facts'
+import { auditRow, openAuditFor, openReview, shot, signInAs, switchRole } from '../lib/ui'
 
 /** Demo step 5. As TAO Admin: override with reason "servicer typo, confirmed by email", choosing our value. Rules
- * re-run, the finding closes, approve, publish. Audit log shows the override. (What the published closing becomes is
- * wave-3 behaviour: wave3/use-ours-writes-value.spec.ts.) */
+ * re-run, the finding closes, approve, publish. Audit log shows the override. "Use ours" writes our value into the
+ * published deal: the Moneda 2026-08 closing becomes 15,020,071.52, recorded in data_corrections. */
 test('step 5: admin overrides R05 with our value and a reason, then publishes', async ({ page }) => {
   const u = await mustFindUpload(STEP4.deal, STEP4.period, 'needs_review')
   await signInAs(page, 'tao_admin')
@@ -52,4 +52,21 @@ test('step 5: admin overrides R05 with our value and a reason, then publishes', 
   await expect(row).toContainText(SEEDED.reason)
   await expect(auditRow(page, log, 'Publish')).toBeVisible()
   await shot(page, '05-audit-override')
+
+  // Our value is what partners see: R05's targets carry the closing, the published deal holds ours, data_corrections
+  // records old -> new with the reason, and the deal page prints it.
+  expect(r05.targets, 'R05 targets').toEqual(expect.arrayContaining(['/tranche_balance/closing']))
+  const slug = DEALS[STEP4.deal].slug
+  const deal = (await new Api('investor_viewer').get(`/published/programs/${PROGRAM}/deals/${slug}?period=${STEP4.period}`)).body
+  expect(deal.tranche_balance.closing).toBeCloseTo(SEEDED.ours, 2)
+  const corr = ((deal.data_corrections ?? []) as any[]).filter(c => c.reason === SEEDED.reason)
+  test.info().annotations.push({ type: 'data_corrections', description: JSON.stringify(corr) })
+  const closing = corr.find(c => /closing/.test(`${c.record} ${c.field}`) && Math.abs(c.new_value - SEEDED.ours) < 0.005)
+  expect(closing, 'data_corrections entry for the closing').toBeTruthy()
+  expect(closing.old_value).toBeCloseTo(SEEDED.reportClosing, 2)
+  expect(closing.period).toBe(STEP4.period)
+  await switchRole(page, 'investor_viewer')
+  await page.goto(`/investor/portfolio/${PROGRAM}/deals/${slug}?period=${STEP4.period}`)
+  await expect(page.locator('[data-field="tranche_balance.closing"]').first()).toHaveText('$15,020,072')
+  await shot(page, '05-deal-page-ours')
 })

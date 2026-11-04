@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { Api, audit, tao, waitSettled, type Role } from '../lib/api'
 import { blankPdf } from '../lib/blank-pdf'
+import { API_URL } from '../lib/env'
 import { DEALS } from '../lib/facts'
 import { programPartners } from '../lib/tenancy'
 import { shot, signInAs } from '../lib/ui'
 
-/** Negative tests: partner tenancy by URL and by API, partner roles on TAO routes, and a blank PDF. */
+/** Negative tests: partner tenancy by URL and by API, partner roles on TAO routes, and a blank PDF. Both programs are
+ * shared with both partners, so the hidden-program loop finds nothing today; the X-Partner spoof, an unknown partner,
+ * no partner and the shell redirect still apply. */
 
 const VIEWER: Record<'investor' | 'manager', Role> = { investor: 'investor_viewer', manager: 'manager_viewer' }
 
@@ -47,6 +50,15 @@ for (const partner of ['investor', 'manager'] as const) {
     const spoof = await new Api(role, other).get('/published/portfolio')
     expect(spoof.status).toBe(403)
     expect(spoof.body.code).toBe('bad_partner')
+    // An unknown partner, or none at all, gets nothing.
+    for (const bogus of ['nobody', undefined]) {
+      const h: Record<string, string> = { 'X-Role': role, ...(bogus ? { 'X-Partner': bogus } : {}) }
+      for (const route of ['/published/portfolio', '/published/programs/f-pil-2-0', '/published/programs/f-pil-2-0/deals/f-pil-2-0-xpedite-leasing']) {
+        const r = await fetch(API_URL + route, { headers: h })
+        expect([403, 404], `${role} X-Partner ${bogus ?? '(none)'} GET ${route}`).toContain(r.status)
+        expect(await r.text()).not.toContain('tranche_balance')
+      }
+    }
   })
 }
 
@@ -62,9 +74,10 @@ test('negative: partner roles cannot reach TAO routes, by URL or by API', async 
     await page.goto(url)
     await expect(page).toHaveURL(/\/investor\/portfolio$/)
   }
-  // Partner-admin-only and TAO-admin-only pages inside the admin shell: an analyst gets "no access" on Partners.
+  // TAO-admin-only pages inside the admin shell: an analyst gets "no access" on the Audit log (Partners is read-only
+  // for analysts since wave 3, so it is not a negative case any more).
   await signInAs(page, 'tao_analyst')
-  await page.goto('/admin/partners')
+  await page.goto('/admin/settings/users/audit')
   await expect(page.getByRole('heading', { name: 'You don’t have access' })).toBeVisible()
   expect((await new Api('tao_analyst').get('/audit')).status).toBe(403)
 })
