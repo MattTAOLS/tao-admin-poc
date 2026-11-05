@@ -69,9 +69,33 @@ def query(s: Session, *, scope: str | None = None, month: str | None = None, q: 
     return stmt
 
 
-def entries(s: Session, limit: int, offset: int, **filters) -> list[ReviewAction]:
-    stmt = query(s, **filters).order_by(ReviewAction.at.desc(), ReviewAction.id.desc()).limit(limit).offset(offset)
-    return list(s.scalars(stmt).all())
+JOINED = [ReviewAction, SetrepUpload.deal_slug, SetrepUpload.collection_period, Deal.name]
+
+
+def _with_deal(s: Session, rows) -> list[tuple[ReviewAction, str | None, str | None, str | None]]:
+    """(entry, deal_slug, deal_name, collection_period): the upload's deal and period, else detail.deal_slug /
+    detail.collection_period (deal name looked up); all None for a platform entry that names no deal."""
+    out, names = [], {}
+    for a, slug, period, name in rows:
+        d = a.detail or {}
+        if slug is None and isinstance(d.get("deal_slug"), str):
+            slug = d["deal_slug"]
+            if slug not in names:
+                deal = s.get(Deal, slug)
+                names[slug] = deal.name if deal else None
+            name = names[slug]
+        if period is None and isinstance(d.get("collection_period"), str):
+            period = d["collection_period"]
+        out.append((a, slug, name, period))
+    return out
+
+
+def entries(s: Session, limit: int, offset: int, **filters) -> list[dict]:
+    """AuditEntry dicts, newest first, with deal_slug, deal_name and collection_period."""
+    from .views import audit_dict
+    stmt = query(s, columns=JOINED, **filters).order_by(ReviewAction.at.desc(), ReviewAction.id.desc()).limit(limit).offset(offset)
+    return [{**audit_dict(a), "deal_slug": slug, "deal_name": name, "collection_period": period}
+            for a, slug, name, period in _with_deal(s, s.execute(stmt).all())]
 
 
 def months(s: Session, scope: str, q: str | None = None) -> list[dict]:
@@ -87,22 +111,24 @@ def months(s: Session, scope: str, q: str | None = None) -> list[dict]:
     return [{"month": k, "count": counts[k]} for k in sorted(counts, reverse=True)]
 
 
-CSV_COLUMNS = ["at", "at_toronto", "scope", "action", "actor_role", "actor_label", "deal_slug", "deal_name", "collection_period",
-               "upload_id", "finding_id", "reason", "detail", "id"]
+CSV_COLUMNS = ["at", "at_toronto", "scope", "action", "actor", "deal", "period", "upload_id", "finding_id", "reason", "detail", "id"]
+
+
+def _actor(a: ReviewAction) -> str:
+    return a.actor_role if not a.actor_label or a.actor_label == a.actor_role else f"{a.actor_label} ({a.actor_role})"
 
 
 def export_csv(s: Session, scope: str, month: str) -> tuple[str, int]:
-    """One month of one scope, newest first, one row per entry; detail as compact JSON."""
-    stmt = (query(s, scope=scope, month=month, columns=[ReviewAction, SetrepUpload.deal_slug, SetrepUpload.collection_period, Deal.name])
-            .order_by(ReviewAction.at.desc(), ReviewAction.id.desc()))
+    """One month of one scope, newest first, one row per entry (contract column list); deal = name, else slug; detail as
+    compact JSON. Rows are read before the caller writes its export entry, so an export never lists itself."""
+    stmt = query(s, scope=scope, month=month, columns=JOINED).order_by(ReviewAction.at.desc(), ReviewAction.id.desc())
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow(CSV_COLUMNS)
     n = 0
-    for a, deal_slug, period, deal_name in s.execute(stmt).all():
+    for a, slug, name, period in _with_deal(s, s.execute(stmt).all()):
         at = a.at if a.at.tzinfo else a.at.replace(tzinfo=dt.timezone.utc)
-        w.writerow([at.isoformat(), at.astimezone(TZ).isoformat(), scope_of(a), a.action, a.actor_role, a.actor_label or "",
-                    deal_slug or (a.detail or {}).get("deal_slug") or "", deal_name or "", period or (a.detail or {}).get("collection_period") or "",
+        w.writerow([at.isoformat(), at.astimezone(TZ).isoformat(), scope_of(a), a.action, _actor(a), name or slug or "", period or "",
                     a.upload_id or "", a.finding_id or "", a.reason or "", json.dumps(a.detail or {}, sort_keys=True, default=str), a.id])
         n += 1
     return buf.getvalue(), n

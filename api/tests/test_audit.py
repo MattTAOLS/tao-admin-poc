@@ -131,10 +131,13 @@ def test_export_csv_one_month_one_scope_and_audits_itself(client, log):
     r = client.get(A + "/export.csv", headers=TAO, params={"scope": "reports", "month": "2026-11"})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     assert 'filename="audit-reports-2026-11.csv"' in r.headers["content-disposition"]
+    assert r.text.splitlines()[0] == "at,at_toronto,scope,action,actor,deal,period,upload_id,finding_id,reason,detail,id"   # contract order
     rows = list(csv.DictReader(io.StringIO(r.text)))
     assert [x["action"] for x in rows] == ["regenerate", "publish", "override"]
     assert all(x["scope"] == "reports" for x in rows)
-    assert rows[1]["deal_slug"] == DEAL and rows[1]["upload_id"] == log and rows[1]["collection_period"] == "2026-09"
+    assert rows[1]["deal"] == "Moneda Capital Corp." and rows[1]["upload_id"] == log and rows[1]["period"] == "2026-09"
+    assert rows[1]["actor"] == "tao_admin" and rows[1]["finding_id"] == ""
+    assert rows[0]["deal"] == "" and rows[0]["period"] == "" and rows[0]["upload_id"] == ""            # regenerate: no deal
     assert rows[2]["reason"] == "servicer re-issued" and '"rule_id": "R12"' in rows[2]["detail"]
     assert rows[2]["at_toronto"].startswith("2026-11-01T00:00:00-04:00")
     ex = client.get(A, headers=TAO, params={"action": "export"}).json()
@@ -146,3 +149,31 @@ def test_export_csv_one_month_one_scope_and_audits_itself(client, log):
     assert empty.status_code == 200 and len(list(csv.reader(io.StringIO(empty.text)))) == 1      # header only
     for bad in ({"scope": "reports"}, {"month": "2026-11"}, {"scope": "reports", "month": "2026-1"}):
         assert client.get(A + "/export.csv", headers=TAO, params=bad).status_code == 422, bad
+
+
+def test_entries_carry_deal_and_period(client, log):
+    by = {a["action"]: a for a in client.get(A, headers=TAO, params={"scope": "reports"}).json()}
+    for act in ("upload", "extract", "override", "publish"):
+        assert (by[act]["deal_slug"], by[act]["deal_name"], by[act]["collection_period"]) == (DEAL, "Moneda Capital Corp.", "2026-09"), act
+    assert (by["regenerate"]["deal_slug"], by["regenerate"]["deal_name"], by["regenerate"]["collection_period"]) == (None, None, None)
+    for a in client.get(A, headers=TAO, params={"scope": "platform"}).json():
+        assert a["deal_slug"] is None and a["deal_name"] is None and a["collection_period"] is None
+    paged = client.get(A, headers=TAO, params={"limit": 2, "offset": 3}).json()          # filled on every page, every filter
+    assert all({"deal_slug", "deal_name", "collection_period"} <= set(a) for a in paged)
+
+
+def test_deal_from_detail_when_there_is_no_upload(client, log):
+    add("publish", dt.datetime(2026, 11, 4, 12, 0, tzinfo=UTC), detail={"deal_slug": DEAL, "collection_period": "2026-08"})
+    a = client.get(A, headers=TAO, params={"scope": "reports", "limit": 1}).json()[0]
+    assert a["upload_id"] is None and (a["deal_slug"], a["deal_name"], a["collection_period"]) == (DEAL, "Moneda Capital Corp.", "2026-08")
+    add("publish", dt.datetime(2026, 11, 4, 13, 0, tzinfo=UTC), detail={"deal_slug": "gone-deal"})
+    a = client.get(A, headers=TAO, params={"scope": "reports", "limit": 1}).json()[0]
+    assert (a["deal_slug"], a["deal_name"], a["collection_period"]) == ("gone-deal", None, None)
+    rows = list(csv.DictReader(io.StringIO(client.get(A + "/export.csv", headers=TAO, params={"scope": "reports", "month": "2026-11"}).text)))
+    assert [(x["deal"], x["period"]) for x in rows[:2]] == [("gone-deal", ""), ("Moneda Capital Corp.", "2026-08")]
+
+
+def test_export_lists_actor_label_with_role_when_they_differ(client, log):
+    add("master_change", dt.datetime(2026, 11, 4, 12, 0, tzinfo=UTC), role="tao_admin", label="A. Patel", detail={"entity": "deal"})
+    rows = list(csv.DictReader(io.StringIO(client.get(A + "/export.csv", headers=TAO, params={"scope": "platform", "month": "2026-11"}).text)))
+    assert [x["actor"] for x in rows] == ["tao_admin", "A. Patel (tao_admin)"]          # 30 Nov entry, then 4 Nov

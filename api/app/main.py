@@ -580,9 +580,8 @@ def audit(upload_id: str | None = None, action: str | None = None, scope: Scope 
     if upload_id is not None and not _is_uuid(upload_id):
         raise err(422, "invalid", "upload_id must be a uuid")
     _check_period(month, "month")
-    rows = auditlog.entries(s, limit, offset, scope=scope, month=month, q=q, actor_role=actor_role, deal_slug=deal_slug,
+    return auditlog.entries(s, limit, offset, scope=scope, month=month, q=q, actor_role=actor_role, deal_slug=deal_slug,
                             upload_id=upload_id, action=action)
-    return [views.audit_dict(a) for a in rows]
 
 
 @app.get(API + "/audit/months")
