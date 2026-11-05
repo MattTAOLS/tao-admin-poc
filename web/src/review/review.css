@@ -38,8 +38,9 @@
 .ds-finding__crop .rv-crop img, .rv-crop img { width: 100%; height: auto; display: block; border: 0; border-radius: 0; }
 .rv-crop__hint { position: absolute; right: 6px; bottom: 6px; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-chip);
   padding: 2px 8px; font: 600 10.5px var(--font); color: var(--indigo); box-shadow: var(--sh-hair); }
-.rv-mark { position: absolute; border: 2px solid var(--bad); background: var(--bad-bg); mix-blend-mode: multiply; border-radius: 2px; pointer-events: none; }
-.rv-mark--source { border-color: var(--purple); background: var(--lav); }
+/* A crisp 2 px line drawn outside the cell, no fill, so the number underneath keeps full contrast. */
+.rv-mark { position: absolute; box-sizing: border-box; outline: 2px solid var(--bad); outline-offset: 1px; border-radius: 2px; pointer-events: none; }
+.rv-mark--source { outline-color: var(--purple); }
 .rv-cropstate { height: 170px; display: grid; place-items: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted);
   font-size: var(--fs-small); text-align: center; padding: 8px; }
 
@@ -49,6 +50,8 @@
 .rv-viewer__scroll { max-height: 70vh; overflow: auto; border: 1px solid var(--border-card); border-radius: 8px; background: var(--cream); }
 .rv-viewer__page { position: relative; margin: 0 auto; }
 .rv-viewer__page img { display: block; width: 100%; height: auto; }
+.rv-viewer__page .rv-viewer__layer { position: absolute; inset: 0; height: 100%; }
+.rv-viewer__page .rv-viewer__layer--loading { visibility: hidden; }
 .rv-raw { margin-top: 8px; font: 12px var(--mono); color: var(--text); background: var(--cream); border: 1px solid var(--border-card); border-radius: 8px; padding: 6px 10px; }
 
 /* ---- Extracted values ---- */
