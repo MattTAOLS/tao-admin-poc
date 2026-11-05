@@ -2,6 +2,16 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — UI-Partner (with Design System, Lead-authorized): trend colours, phase 2 wave A item 5. Colour shows
+  whether a move is good or bad for the metric; the arrow shows direction. `KpiTile` delta takes an optional
+  `tone` (good / bad / neutral) separate from `direction`; without it the old up-green / down-red colours stay. A
+  good or bad tone adds "better" / "worse" to the tooltip and screen-reader text only (A2). One polarity file,
+  `web/src/portfolio/polarity.ts`: KPI metric map (delinquency, loss, CNL, leverage lower is better; coverage higher;
+  tranche balance, contracts, warehouse advances neutral) and covenant polarity from `kind` (ceiling lower, floor
+  higher, binary none). Covenant `Trend` cells on the deal page and Program Dashboard colour the published trend word
+  (never recomputed): green better, red worse, flat and n/a grey, binary uncoloured; the word stays Rising / Falling /
+  Flat. Every portfolio KPI delta today is a balance or count, so those deltas are now grey. No Test or Last period
+  columns (A3). Run: `cd web && npx vitest run src/portfolio src/design`. Nothing stubbed; nothing needed from others.
 - 2026-11-05 — UI-Review: sharper page viewer (phase 2 wave A item 4, risk R6). `web/src/review/components/PageImage.tsx`.
   The finding-card crop keeps 110 dpi (no query). The viewer stacks the page images: 110 dpi underneath (usually
   cached from the crop), then `?dpi=200` for Fit and 100%, `?dpi=300` from 200% upward, each shown only once it has

@@ -8,6 +8,7 @@ import { paths, usePublished } from './data'
 import { cnlBaseKey, cnlLossKey, cnlVintage, commonDealNamePrefix, dealPeriod, ratioKind, shortName, terms } from './fmt'
 import { links, usePortfolioParams, useShell } from './nav'
 import { Num } from './Num'
+import { kpiDelta } from './polarity'
 import { PeriodPicker } from './ProgramSummary'
 import { RatioChart } from './RatioChart'
 import { Top10Panel } from './Top10'
@@ -62,8 +63,6 @@ export function DealPage() {
   )
 }
 
-const dirOf = (v: number | null | undefined) => (v ?? 0) > 0 ? 'up' as const : (v ?? 0) < 0 ? 'down' as const : 'flat' as const
-
 /** Everything on the deal page that shows a number. Pure: the reference test renders it with each dashboard.json. */
 export function DealView({ d }: { d: Deal }) {
   const t = terms(d.terminology ?? undefined)
@@ -78,9 +77,9 @@ export function DealView({ d }: { d: Deal }) {
         <h2 id="pf-dm" className="pf-section">Deal Metrics</h2>
         <KpiRow>
           <KpiTile label={t.balance} value={<Num v={tb.closing} kind="money" field="tranche_balance.closing" />}
-            delta={{ direction: dirOf(tb.change_abs), label: 'Change vs last period', value: <><Num v={tb.change_abs} kind="signed-money" field="tranche_balance.change_abs" /> (<Num v={tb.change_pct} kind="pct" field="tranche_balance.change_pct" />)</> }} context="vs last period" />
+            delta={{ ...kpiDelta('tranche_balance', tb.change_abs), label: 'Change vs last period', value: <><Num v={tb.change_abs} kind="signed-money" field="tranche_balance.change_abs" /> (<Num v={tb.change_pct} kind="pct" field="tranche_balance.change_pct" />)</> }} context="vs last period" />
           <KpiTile label="Outstanding contracts" value={<Num v={ct.closing} kind="count" field="contracts.closing" />}
-            delta={{ direction: dirOf(ct.change_abs), label: 'Change vs last period', value: <><Num v={ct.change_abs} kind="signed-count" field="contracts.change_abs" />{ct.change_pct !== null && <> (<Num v={ct.change_pct} kind="pct" field="contracts.change_pct" />)</>}</> }} context="vs last period" />
+            delta={{ ...kpiDelta('contracts', ct.change_abs), label: 'Change vs last period', value: <><Num v={ct.change_abs} kind="signed-count" field="contracts.change_abs" />{ct.change_pct !== null && <> (<Num v={ct.change_pct} kind="pct" field="contracts.change_pct" />)</>}</> }} context="vs last period" />
           {pg && <KpiTile label="Facility utilization" value={<Num v={pg.program_utilization_pct} kind="pct" field="program.program_utilization_pct" />}
             context={<><Num v={pg.program_amount} kind="money" field="program.program_amount" /> of <Num v={pg.program_limit} kind="money" field="program.program_limit" /></>} />}
           {d.total_enhancement && <KpiTile label="Total enhancement" value={<Num v={d.total_enhancement.total_enhancement_amount} kind="money" field="total_enhancement.total_enhancement_amount" />}

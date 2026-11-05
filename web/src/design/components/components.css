@@ -73,6 +73,8 @@ a.ds-btn:hover, a.ds-btn:visited { text-decoration: none; }
 .ds-kpi__context { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--data); }
 .ds-kpi__delta { font-weight: 600; font-variant-numeric: tabular-nums; }
 .ds-kpi__delta--up { color: var(--ok); } .ds-kpi__delta--down { color: var(--bad); } .ds-kpi__delta--flat { color: var(--muted); }
+/* Tone (good / bad for this metric) overrides the direction colour; the arrow still shows the direction. */
+.ds-kpi__delta--good { color: var(--ok); } .ds-kpi__delta--bad { color: var(--bad); } .ds-kpi__delta--neutral { color: var(--muted); }
 .ds-kpi-row { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
 /* ---------- DataTable ---------- */

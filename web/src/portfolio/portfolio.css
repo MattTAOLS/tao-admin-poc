@@ -14,6 +14,10 @@
 .pf-nowrap { white-space: nowrap; }
 .pf-clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pf-trend { white-space: nowrap; color: var(--text); }
+/* Trend colour = good or bad for the covenant (polarity.ts); the arrow and word carry the direction. */
+.pf-trend--good { color: var(--ok); font-weight: 600; }
+.pf-trend--bad { color: var(--bad); font-weight: 600; }
+.pf-trend--flat { color: var(--muted); }
 .pf-link { color: inherit; text-decoration: none; }
 .pf-link:hover { color: var(--purple); text-decoration: underline; }
 .pf-kpi-status.ds-kpi-row { grid-template-columns: repeat(auto-fit, minmax(200px, 320px)); }

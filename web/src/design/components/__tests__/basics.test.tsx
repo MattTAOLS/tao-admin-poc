@@ -67,6 +67,33 @@ describe('KpiTile', () => {
     expect(screen.getByText(/exact tie-out/)).toBeTruthy()
     expect(screen.getByText(/^Up/)).toBeTruthy()
   })
+  it('a delta without a tone keeps the direction colours (up green, down red, flat grey)', () => {
+    const { container, rerender } = render(<KpiTile label="Balance" value="$10" delta={{ value: '+1', direction: 'up' }} />)
+    const cls = () => container.querySelector('.ds-kpi__delta')!.className
+    expect(cls()).toBe('ds-kpi__delta ds-kpi__delta--up')
+    rerender(<KpiTile label="Balance" value="$10" delta={{ value: '-1', direction: 'down' }} />)
+    expect(cls()).toBe('ds-kpi__delta ds-kpi__delta--down')
+    rerender(<KpiTile label="Balance" value="$10" delta={{ value: '0', direction: 'flat' }} />)
+    expect(cls()).toBe('ds-kpi__delta ds-kpi__delta--flat')
+    expect(container.querySelector('.ds-kpi__delta')!.getAttribute('title')).toBeNull()
+    expect(screen.queryByText(/better|worse/)).toBeNull()
+  })
+  it('a delta tone sets the colour apart from the arrow and says better or worse', () => {
+    const { container, rerender } = render(<KpiTile label="Delinquency" value="2.1%" delta={{ value: '+0.3 pp', direction: 'up', tone: 'bad' }} />)
+    const el = () => container.querySelector('.ds-kpi__delta')!
+    expect(el().className).toBe('ds-kpi__delta ds-kpi__delta--bad')
+    expect(el().textContent).toContain('▲')
+    expect(el().getAttribute('title')).toBe('Up: worse')
+    expect(el().textContent).toMatch(/, worse$/)
+    rerender(<KpiTile label="Delinquency" value="1.8%" delta={{ value: '-0.3 pp', direction: 'down', tone: 'good' }} />)
+    expect(el().className).toBe('ds-kpi__delta ds-kpi__delta--good')
+    expect(el().textContent).toContain('▼')
+    expect(el().getAttribute('title')).toBe('Down: better')
+    rerender(<KpiTile label="Balance" value="$10" delta={{ value: '+1', direction: 'up', tone: 'neutral' }} />)
+    expect(el().className).toBe('ds-kpi__delta ds-kpi__delta--neutral')
+    expect(el().getAttribute('title')).toBeNull()
+    expect(el().textContent).not.toMatch(/better|worse/)
+  })
   it('shows an em dash when there is no value and a skeleton when loading', () => {
     const { rerender, container } = render(<KpiTile label="Deals" />)
     expect(screen.getByText('—')).toBeTruthy()
