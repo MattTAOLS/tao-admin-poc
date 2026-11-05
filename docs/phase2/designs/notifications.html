@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications and comments · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Page-local layout for this mockup. Tokens only. */
+  .pg-jump { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px var(--gutter); background: var(--indigo-2); }
+  .pg-jump a { color: var(--text-on-indigo); font: 600 12px var(--font); text-decoration: none; padding: 5px 10px; border-radius: var(--r-chip); background: var(--line-on-indigo); }
+  .pg-screen { border-top: 6px solid var(--canvas-deep); }
+  .pg-screenhead { padding: 12px var(--gutter); background: var(--lav); color: var(--indigo); font: 700 13px var(--font); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .pg-screenhead code { font: 500 12px var(--mono); color: var(--text); }
+  .pg-screen .mk-app { min-height: 0; }
+  .pg-screen .mk-side { position: static; height: auto; }
+  .pg-screen .mk-top { position: static; }
+
+  /* Notification list */
+  .pg-list { list-style: none; margin: 0; padding: 0; }
+  .pg-item { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; padding: 13px 18px; border-bottom: 1px solid var(--border-table); align-items: start; }
+  .pg-item:last-child { border-bottom: 0; }
+  .pg-item--unread { background: color-mix(in srgb, var(--lav) 45%, var(--card)); }
+  .pg-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--purple); }
+  .pg-dot--read { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border); }
+  .pg-item__title { color: var(--indigo); font-weight: 500; }
+  .pg-item--unread .pg-item__title { font-weight: 700; }
+  .pg-item__ctx { font-size: 12.5px; color: var(--text); margin-top: 3px; font-family: var(--data); }
+  .pg-item__meta { font-size: var(--fs-small); color: var(--muted); margin-top: 5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pg-item__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; white-space: nowrap; font-size: var(--fs-small); color: var(--muted); }
+  .pg-day { padding: 8px 18px; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); background: var(--canvas-deep); border-bottom: 1px solid var(--border-table); }
+  .pg-tabcount { font: 600 10.5px var(--data); background: var(--lav); color: var(--purple); border-radius: var(--r-chip); padding: 1px 6px; margin-left: 4px; }
+  .pg-quote { border-left: 3px solid var(--purple); background: var(--canvas-deep); border-radius: 0 var(--r-control) var(--r-control) 0; padding: 8px 12px; margin-top: 8px; font-size: 12.5px; color: var(--text); }
+  .pg-quote b { display: block; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+
+  /* Comment thread */
+  .pg-thread { display: flex; flex-direction: column; }
+  .pg-anchor { padding: 10px 16px; background: var(--canvas-deep); border-bottom: 1px solid var(--border-card); font-size: 12.5px; }
+  .pg-anchor code { font: 600 11.5px var(--mono); color: var(--indigo); background: var(--lav); border-radius: 5px; padding: 1px 6px; }
+  .pg-c { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-table); }
+  .pg-c__who { font-weight: 700; color: var(--indigo); font-size: 12.5px; }
+  .pg-c__when { color: var(--muted); font-size: var(--fs-small); font-weight: 400; margin-left: 6px; }
+  .pg-c__text { margin-top: 3px; font-size: 13px; }
+  .pg-mention { color: var(--purple); background: var(--lav); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+  .pg-compose { padding: 12px 16px; position: relative; }
+  .pg-ac { margin-bottom: 8px; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-panel); box-shadow: var(--sh-panel); overflow: hidden; z-index: 2; }
+  .pg-ac__head { padding: 7px 12px; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border-table); }
+  .pg-ac__row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 7px 12px; font-size: 12.5px; }
+  .pg-ac__row--on { background: var(--lav); }
+  .pg-ac__row small { color: var(--muted); }
+  .pg-av { width: 26px; height: 26px; border-radius: 50%; background: var(--lav-2); color: var(--indigo); display: grid; place-items: center; font: 700 10.5px var(--font); }
+  .pg-av--lg { width: 30px; height: 30px; font-size: 11.5px; }
+  .pg-cbtn { display: inline-flex; align-items: center; gap: 5px; font: 600 12px var(--font); color: var(--purple); background: var(--lav); border: 1px solid var(--lav-2); border-radius: var(--r-chip); padding: 4px 10px; }
+  .pg-cbtn svg { width: 13px; height: 13px; }
+  .pg-resolved { padding: 10px 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border-card); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .mk-stage .ds-dialog { max-height: none; }
+  .pg-sum { margin: 0; padding-left: 18px; font-size: 13px; }
+  .pg-sum li { margin: 3px 0; }
+  .pg-h3 { font: 700 12.5px var(--font); color: var(--indigo); margin: 0 0 6px; }
+  .pg-count { font: 500 var(--fs-small) var(--data); color: var(--muted); text-align: right; }
+  .pg-email { max-width: 520px; border: 1px solid var(--border-card); border-radius: var(--r-panel); background: var(--card); }
+  .pg-email__head { padding: 10px 14px; border-bottom: 1px solid var(--border-card); font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+  .pg-email__body { padding: 14px; font-size: 13px; }
+  .pg-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+  .pg-check input { margin-top: 3px; accent-color: var(--purple); }
+  @media (max-width: 900px) { .pg-item { grid-template-columns: 14px minmax(0, 1fr); } .pg-item__side { grid-column: 2; align-items: flex-start; flex-direction: row; } }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D7 · Notifications and comments</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Deal names, periods and figures from docs/dashboard-json; people, comments and notes are sample.</span></div>
+<nav class="pg-jump" aria-label="Screens on this page">
+  <a href="#scr-a">(a) TAO Notifications inbox</a>
+  <a href="#scr-b">(b) Comments on a report</a>
+  <a href="#scr-c">(c) Publish dialog: note and recipients</a>
+  <a href="#scr-d">(d) Partner Notifications and email</a>
+</nav>
+
+<!-- ============================ (a) TAO inbox ============================ -->
+<section class="pg-screen" id="scr-a">
+<div class="pg-screenhead">(a) TAO Admin › Notifications <code>/admin/notifications</code><span class="mk-muted" style="font-weight:500">Signed in as A. Patel · TAO Admin (sample user)</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#" class="on">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">AP</div><div><b>A. Patel</b><small>TAO Admin</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Notifications</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Notifications</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">Mentions, reports that need you and platform events. 3 unread.</div>
+        </div>
+        <div class="ds-pagehead__actions"><a class="ds-btn ds-btn--ghost" href="#">Notification preferences</a><button class="ds-btn ds-btn--primary">Mark all read</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b>New page at <code>/admin/notifications</code> (today a placeholder). Both TAO roles have it. Each person sees only their own notifications; the sidebar badge is their unread count.</div>
+      <div class="mk-note"><b class="mk-n">2</b>Four tabs. <b>Mentions</b>: someone @mentioned you, or replied in a thread you are in. <b>Reports</b>: needs review, published, correction published, covenant changed, rejected, for the deals you receive (set in D8). <b>System</b>: user changes, invites, failed uploads.</div>
+
+      <div class="mk-split">
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head" style="padding-bottom:0;border-bottom:0">
+            <nav class="mk-tabs" aria-label="Filter" style="flex:1">
+              <a href="#" class="on">All<span class="pg-tabcount">8</span></a>
+              <a href="#">Mentions<span class="pg-tabcount">2</span></a>
+              <a href="#">Reports<span class="pg-tabcount">5</span></a>
+              <a href="#">System<span class="pg-tabcount">1</span></a>
+            </nav>
+            <label class="pg-check mk-small" style="margin-left:12px"><input type="checkbox"> Unread only</label>
+          </div>
+          <div class="pg-day">Today · 5 Nov 2026</div>
+          <ul class="pg-list">
+            <li class="pg-item pg-item--unread">
+              <span class="pg-dot" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title"><span class="pg-mention">@J. Moreau</span> mentioned you on Essex Lease Financial Corp. · May 2026, finding R11</div>
+                <div class="pg-item__ctx">&ldquo;R11 gap is 7,624,234.31. Page 2 shows new tranche 52 for exactly that amount. I think we acknowledge rather than use ours.&rdquo; <span class="mk-muted">(Sample comment)</span></div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--dpv"><span class="ds-pill__dot"></span>Mention</span><span>MOVE Trust</span><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Unread</span></div>
+              </div>
+              <div class="pg-item__side">10:42<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#scr-b">Open thread</a></div>
+            </li>
+            <li class="pg-item pg-item--unread">
+              <span class="pg-dot" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Report needs review: Moneda Capital Corp. · August 2026</div>
+                <div class="pg-item__ctx">Moneda-202608 -SETTREP.pdf. Extraction finished; waiting in the approval queue. Uploaded by P. Nguyen.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span><span>F-PIL 2.0</span><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Unread</span></div>
+              </div>
+              <div class="pg-item__side">09:15<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open review</a></div>
+            </li>
+            <li class="pg-item pg-item--unread">
+              <span class="pg-dot" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Covenant changed: Essex Lease Financial Corp. · Interest Coverage Ratio, OK to Watch</div>
+                <div class="pg-item__ctx">MSA 8.1 (h), floor 1.00. June 2026: 1.12 (OK). July 2026: 1.11 (Watch, utilisation 90.1%).</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Watch</span><span>MOVE Trust</span><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Unread</span></div>
+              </div>
+              <div class="pg-item__side">08:02<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open covenant</a></div>
+            </li>
+          </ul>
+          <div class="pg-day">Earlier this week</div>
+          <ul class="pg-list">
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Correction published: Essex Lease Financial Corp. · July 2026</div>
+                <div class="pg-item__ctx">Interest 1,290,661.69 → 1,371,370.08. Version 2 sent to the Investor and Manager portals. By K. Lindqvist.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span>MOVE Trust</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Tue 3 Nov, 16:20<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open report</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title"><span class="pg-mention">@K. Lindqvist</span> mentioned you on Finloc 2000 Inc. · July 2026, value FX rate (page 3)</div>
+                <div class="pg-item__ctx">&ldquo;Can you check this rate against the one we used in June?&rdquo; <span class="mk-muted">(Sample comment)</span></div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--dpv"><span class="ds-pill__dot"></span>Mention</span><span>MOVE Trust</span><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Thread resolved</span></div>
+              </div>
+              <div class="pg-item__side">Tue 3 Nov, 11:05<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open thread</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Report published: Stride Capital · July 2026</div>
+                <div class="pg-item__ctx">Sent to the Investor and Manager portals by K. Lindqvist, with a note to partners.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span>F-PIL 2.0</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Mon 2 Nov, 14:48<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open report</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Report rejected: TLFC (Loans) · July 2026</div>
+                <div class="pg-item__ctx">Reason: wrong period selected at upload. By A. Patel. <span class="mk-muted">(Sample reason)</span></div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Rejected</span><span>MOVE Trust</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Mon 2 Nov, 10:30<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open upload</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">User added: T. Brooks, TAO Analyst (invite sent)</div>
+                <div class="pg-item__ctx">By K. Lindqvist. Receives MOVE Trust, all deals, in-app.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>System</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Mon 2 Nov, 09:12<a class="ds-btn ds-btn--sm ds-btn--ghost" href="user-management.html">Open user</a></div>
+            </li>
+          </ul>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="ds-card">
+            <div class="ds-card__head"><div><h2>How you are notified</h2><div class="ds-card__sub">Your own setting. Change it in Profile › Notification preferences.</div></div></div>
+            <div class="ds-card__body">
+              <table class="ds-table ds-table--compact" aria-label="Your channels">
+                <thead><tr><th>Type</th><th>In-app</th><th>Email</th></tr></thead>
+                <tbody>
+                  <tr><td>Mentions and replies</td><td>On</td><td>On</td></tr>
+                  <tr><td>Needs review</td><td>On</td><td>On</td></tr>
+                  <tr><td>Published / correction</td><td>On</td><td>Off</td></tr>
+                  <tr><td>Covenant changed</td><td>On</td><td>On</td></tr>
+                  <tr><td>System</td><td>On</td><td>Off</td></tr>
+                </tbody>
+              </table>
+              <p class="mk-small mk-muted" style="margin:10px 0 0">Report types arrive only for the deals you receive: all deals in MOVE Trust and F-PIL 2.0 (set by a TAO Admin in User management).</p>
+            </div>
+          </div>
+          <div class="mk-note"><b class="mk-n">3</b>Unread rows are tinted, bold, with a purple dot and the word "Unread". Opening a row marks it read. <b>Mark all read</b> applies to the tab you are on.</div>
+          <div class="mk-note"><b class="mk-n">4</b>Each row opens where it happened: a mention opens the Review page with that thread open and scrolled to; a covenant change opens the deal's covenant detail. If you no longer have access, you get the "You don't have access" page.</div>
+          <div class="mk-note"><b class="mk-n">5</b>In-app is always on. Email is optional per type, per person. A TAO Admin sets which deals a person receives (D8); the person sets their own channels.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============================ (b) Comments on a report ============================ -->
+<section class="pg-screen" id="scr-b">
+<div class="pg-screenhead">(b) TAO Admin › Review report, with a comment thread <code>/admin/uploads/queue/:uploadId</code><span class="mk-muted" style="font-weight:500">Signed in as A. Patel · TAO Admin</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#" class="on">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">2</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">AP</div><div><b>A. Patel</b><small>TAO Admin</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><a href="#">Uploads</a></li><li><a href="#">Approval queue</a></li><li><span aria-current="page">Essex Lease Financial Corp. · May 2026</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Essex Lease Financial Corp.</h1><span class="ds-pill ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span></div>
+          <div class="ds-pagehead__sub">MOVE Trust · Essex_-_202605_-_SETTREP.pdf</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Comments <span class="pg-tabcount">3</span><span class="mk-tag">New</span></button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">6</b>A thread attaches to one finding or one extracted value. The finding card and the value row show a speech-bubble count. "Comments" in the header opens the panel listing every thread on this upload, open ones first.</div>
+
+      <div class="mk-split">
+        <div style="display:flex;flex-direction:column;gap:var(--gap);min-width:0">
+          <div class="ds-card">
+            <div class="ds-card__head"><div><h2>Findings</h2><div class="ds-card__sub">1 open · 0 resolved</div></div></div>
+            <div class="ds-card__body">
+              <div class="mk-row" style="margin-bottom:10px"><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block <span class="ds-pill__count">1</span></span><span class="mk-muted mk-small">1 open</span></div>
+              <article class="ds-finding ds-finding--block" style="box-shadow:0 0 0 2px var(--lav-2)">
+                <div class="ds-finding__layout">
+                  <div class="ds-finding__main">
+                    <div class="ds-finding__head"><span class="ds-finding__rule">R11</span><span class="ds-finding__title">Opening equals prior period closing</span><span class="ds-finding__layer">cross period</span>
+                      <span class="ds-finding__status"><span class="pg-cbtn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/></svg>2 comments</span><span class="mk-tag">New</span></span></div>
+                    <p class="ds-finding__msg">Tranche balance opening 185,691,159.05 does not equal the April 2026 published closing 178,066,924.74.</p>
+                    <div class="ds-finding__values">
+                      <div class="ds-finding__cell"><span class="ds-finding__vlabel">Ours (prior closing)</span><span class="ds-finding__v ds-finding__v--ours">178,066,924.74</span></div>
+                      <div class="ds-finding__cell"><span class="ds-finding__vlabel">Report (opening)</span><span class="ds-finding__v">185,691,159.05</span></div>
+                      <div class="ds-finding__cell"><span class="ds-finding__vlabel">Difference</span><span class="ds-finding__v ds-finding__v--diff-bad">7,624,234.31</span></div>
+                    </div>
+                    <dl class="ds-finding__ctx"><dt>New tranches</dt><dd>1 (id 52)</dd><dt>Explained by new tranches</dt><dd>7,624,234.31</dd><dt>Residual</dt><dd>0.00</dd></dl>
+                    <div class="ds-finding__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost">Use ours</button><button class="ds-btn ds-btn--sm ds-btn--ghost">Use report</button><button class="ds-btn ds-btn--sm ds-btn--ghost">Accept as restatement</button><button class="ds-btn ds-btn--sm ds-btn--ghost">Acknowledge</button></div>
+                  </div>
+                  <div class="ds-finding__crop"><span class="ds-finding__croplabel">Page 2</span><div class="ds-finding__cropempty">Page crop: tranche balance table</div></div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div class="ds-card ds-card--flush">
+            <div class="ds-card__head"><div><h2>Extracted values</h2><div class="ds-card__sub">Balances · page 2 (excerpt)</div></div></div>
+            <div class="ds-card__body">
+              <table class="ds-table ds-table--compact" aria-label="Extracted balances">
+                <thead><tr><th>Field</th><th class="ds-num">Value</th><th>Source</th><th>Comments <span class="mk-tag">New</span></th></tr></thead>
+                <tbody>
+                  <tr><td>Tranche balance, opening</td><td class="ds-num">185,691,159.05</td><td><a href="#">p. 2</a></td><td><span class="pg-cbtn">R11 thread</span></td></tr>
+                  <tr><td>Tranche balance, closing</td><td class="ds-num">178,681,479.26</td><td><a href="#">p. 2</a></td><td class="mk-muted">Add comment</td></tr>
+                  <tr><td>Principal prepayments</td><td class="ds-num">2,297,862.06</td><td><a href="#">p. 2</a></td><td><span class="pg-cbtn" style="color:var(--muted);background:var(--canvas-deep);border-color:var(--border-card)">1 · resolved</span></td></tr>
+                  <tr><td>Recoveries</td><td class="ds-num">968,444.39</td><td><a href="#">p. 2</a></td><td class="mk-muted">Add comment</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="mk-note"><b class="mk-n">7</b>Both TAO Admin and TAO Analyst can comment and @mention. This is the Analyst's way to raise a value; only a TAO Admin changes it. Authors can edit their own comment (shown "edited", old text kept in the audit log); comments cannot be deleted.</div>
+          <div class="mk-note"><b class="mk-n">8</b>Comments are internal to TAO. Partners never see them, in the portal or in email. To tell partners something, use "Note to partners" when publishing (screen c).</div>
+        </div>
+
+        <div class="ds-card ds-card--flush" aria-label="Comment thread">
+          <div class="ds-card__head"><div><h2>Thread <span class="mk-tag">New</span></h2><div class="ds-card__sub">2 comments · open</div></div><div class="ds-card__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost">Resolve thread</button></div></div>
+          <div class="pg-thread">
+            <div class="pg-anchor">On finding <code>R11</code> Opening equals prior period closing · value Tranche balance, opening (p. 2)</div>
+            <div class="pg-c"><span class="pg-av pg-av--lg">JM</span><div><div class="pg-c__who">J. Moreau <span class="ds-pill ds-pill--sm ds-pill--neutral">TAO Analyst</span><span class="pg-c__when">10:42</span></div>
+              <div class="pg-c__text"><span class="pg-mention">@A. Patel</span> R11 gap is 7,624,234.31. Page 2 shows new tranche 52 for exactly that amount. I think we acknowledge rather than use ours.</div></div></div>
+            <div class="pg-c"><span class="pg-av pg-av--lg">KL</span><div><div class="pg-c__who">K. Lindqvist <span class="ds-pill ds-pill--sm ds-pill--neutral">TAO Admin</span><span class="pg-c__when">10:51</span></div>
+              <div class="pg-c__text">Agree. Same pattern as tranche 53 in June.</div></div></div>
+            <div class="pg-compose">
+              <div class="pg-ac" role="listbox" aria-label="Mention a user">
+                <div class="pg-ac__head">Mention a TAO user · &ldquo;@p&rdquo;</div>
+                <div class="pg-ac__row pg-ac__row--on" role="option" aria-selected="true"><span class="pg-av">PN</span><span>P. Nguyen<br><small>p.nguyen@example.com</small></span><small>TAO Analyst</small></div>
+                <div class="pg-ac__row" role="option"><span class="pg-av">AP</span><span>A. Patel<br><small>a.patel@example.com</small></span><small>TAO Admin</small></div>
+                <div class="pg-ac__row" role="option" style="color:var(--muted)"><span class="pg-av">+</span><span>Partner users and deactivated users are not listed</span><small></small></div>
+              </div>
+              <label class="ds-field"><span class="ds-field__label ds-visually-hidden">Reply</span>
+                <textarea class="ds-textarea" style="min-height:64px">Thanks both, acknowledging. @p</textarea></label>
+              <div class="mk-row" style="margin-top:8px"><span class="mk-small mk-muted">@ to mention · Enter to send</span><span class="mk-spacer"></span><button class="ds-btn ds-btn--sm ds-btn--primary">Reply</button></div>
+            </div>
+            <div class="pg-resolved"><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Resolved</span>Principal prepayments (p. 2) · 1 comment · resolved by K. Lindqvist, 09:58<a href="#" class="mk-spacer">Show</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mk-grid2">
+        <div class="mk-note"><b class="mk-n">9</b>Typing @ lists active TAO users only (name, email, role), filtered as you type. The mentioned person gets a Mentions notification, and an email if they chose email for mentions.</div>
+        <div class="mk-note"><b class="mk-n">10</b><b>Resolve thread</b>: any TAO Admin, or the person who started the thread. It folds into "Resolved" with who and when, and can be reopened. Resolving does not change the finding; the finding still needs its own decision.</div>
+      </div>
+
+      <div class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>Reports audit log · this upload</h2><div class="ds-card__sub">Comments sit next to overrides and publishes. Sample entries.</div></div><span class="mk-tag mk-tag--changed">Changed</span></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact" aria-label="Audit entries">
+            <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>
+            <tbody>
+              <tr><td>5 Nov 10:51</td><td>K. Lindqvist</td><td>Comment added</td><td>R11 thread: &ldquo;Agree. Same pattern as tranche 53 in June.&rdquo;</td></tr>
+              <tr><td>5 Nov 10:42</td><td>J. Moreau</td><td>Comment added · mention</td><td>R11 thread, mentioned A. Patel</td></tr>
+              <tr><td>5 Nov 09:58</td><td>K. Lindqvist</td><td>Thread resolved</td><td>Principal prepayments (p. 2)</td></tr>
+              <tr><td>5 Nov 09:31</td><td>P. Nguyen</td><td>Comment added</td><td>Principal prepayments (p. 2)</td></tr>
+              <tr><td>5 Nov 09:15</td><td>system</td><td>Extraction finished</td><td>Pass 1 · R11 block</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">11</b>Every comment, edit, mention, resolve and reopen writes a row to the Reports side of the audit log (D3) for this upload, with the full text. Threads stay on the upload after publish and stay readable on the Review page.</div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============================ (c) Publish dialog ============================ -->
+<section class="pg-screen" id="scr-c">
+<div class="pg-screenhead">(c) Review report › Publish to partner (pop-up) <span class="mk-muted" style="font-weight:500">State after clicking "Publish to partner…" on Essex Lease Financial Corp. · May 2026</span></div>
+<div class="mk-body">
+  <div class="mk-note"><b class="mk-n">12</b>The current dialog, unchanged at the top, gains two sections: <b>Note to partners</b> (optional) and <b>Who gets notified</b>. Only a TAO Admin sees this dialog.</div>
+  <div class="mk-stage">
+    <div class="ds-dialog ds-dialog--lg" role="dialog" aria-labelledby="pub-title">
+      <div class="ds-dialog__head"><div><h2 id="pub-title">Publish to partner</h2><div class="ds-dialog__desc">Essex Lease Financial Corp. · May 2026 goes to the Investor and Manager portals. Partner portals show it straight away and the program roll-up regenerates.</div></div><button class="ds-iconbtn ds-dialog__close" aria-label="Close">&times;</button></div>
+      <div class="ds-dialog__body">
+        <ul class="pg-sum">
+          <li>Collection period May 2026, reporting period April 2026</li>
+          <li>1 finding resolved with a reason</li>
+        </ul>
+        <p class="mk-small mk-muted" style="margin:0">No values change: the published deal is the extraction as shown.</p>
+
+        <label class="ds-field"><span class="ds-field__label">Note to partners <span class="mk-muted" style="font-weight:400">(optional)</span><span class="mk-tag">New</span></span>
+          <textarea class="ds-textarea">Opening balance includes new tranche 52 (7,624,234.31) added in May. No other changes from April.</textarea>
+          <span class="ds-field__hint">Shown on the partner notification, in the email and at the top of the report. Plain text, up to 500 characters. 96 / 500. (Sample note)</span></label>
+
+        <div>
+          <div class="mk-row" style="margin-bottom:6px"><h3 class="pg-h3" style="margin:0">Who gets notified <span class="mk-tag">New</span></h3><span class="mk-spacer pg-count">4 people at 2 partners</span></div>
+          <table class="ds-table ds-table--compact" aria-label="Recipients">
+            <thead><tr><th>Partner</th><th>User</th><th>Role</th><th>Because they receive</th><th>Channel</th></tr></thead>
+            <tbody>
+              <tr><td>Investor</td><td>R. Okafor</td><td>Company Admin</td><td>MOVE Trust, all deals</td><td>In-app · Email</td></tr>
+              <tr><td>Investor</td><td>L. Chen</td><td>Viewer</td><td>Essex Lease Financial Corp.</td><td>In-app · Email</td></tr>
+              <tr><td>Manager</td><td>D. Novak</td><td>Company Admin</td><td>MOVE Trust, all deals</td><td>In-app</td></tr>
+              <tr><td>Manager</td><td>S. Haddad</td><td>Viewer</td><td>MOVE Trust, all deals</td><td>In-app · Email</td></tr>
+            </tbody>
+          </table>
+          <details style="margin-top:8px" open>
+            <summary class="mk-small" style="cursor:pointer;color:var(--indigo);font-weight:600">Not notified (2)</summary>
+            <ul class="pg-sum mk-small" style="margin-top:4px">
+              <li>M. Silva · Investor · Viewer: receives F-PIL 2.0 only. Can still open the report in the portal.</li>
+              <li>E. Varga · Manager · Viewer: deactivated.</li>
+            </ul>
+          </details>
+          <p class="mk-small mk-muted" style="margin:6px 0 0">Names are sample. The 2 internal comment threads on this upload are not sent.</p>
+        </div>
+      </div>
+      <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Approve and publish</button></div>
+    </div>
+  </div>
+  <div class="mk-grid2">
+    <div class="mk-note"><b class="mk-n">13</b>The list is worked out from partner users' report subscriptions (D8): active users at a partner the program is shared with, who receive this deal or "all deals in this program". "Not notified" says why each other person is left out, so the admin can fix a gap before publishing.</div>
+    <div class="mk-note"><b class="mk-n">14</b>Channel comes from each person's own setting: in-app always, email only if they turned it on. The note is stored with this published version and written to the Reports audit log with the recipient list.</div>
+  </div>
+  <div class="mk-note"><b class="mk-n">15</b>A correction after publish (D1) uses the same dialog titled "Publish correction". The note is required there, pre-filled with the changed fields (for example "Interest 1,290,661.69 → 1,371,370.08"), so partners see what changed.</div>
+</div>
+</section>
+
+<!-- ============================ (d) Partner notifications ============================ -->
+<section class="pg-screen" id="scr-d">
+<div class="pg-screenhead">(d) Investor Portal › Notifications <code>/investor/notifications</code><span class="mk-muted" style="font-weight:500">Signed in as L. Chen · Investor · Viewer (sample user)</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">I</div><div><b>Investor Portal</b><span>Portfolio monitoring</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Reports</a>
+      <a href="#">Data room</a>
+      <a href="#" class="on">Notifications <span class="mk-badge">1</span></a>
+      <a href="#">What's new</a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">Profile</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">LC</div><div><b>L. Chen</b><small>Investor · Viewer</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">Investor Portal</a></li><li><span aria-current="page">Notifications</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Notifications</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">New reports, corrections and covenant changes for the deals you receive. 1 unread.</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Mark all read</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-split">
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head" style="padding-bottom:0;border-bottom:0">
+            <nav class="mk-tabs" aria-label="Filter" style="flex:1">
+              <a href="#" class="on">All<span class="pg-tabcount">4</span></a>
+              <a href="#">Reports<span class="pg-tabcount">3</span></a>
+              <a href="#">Covenants<span class="pg-tabcount">1</span></a>
+            </nav>
+          </div>
+          <div class="pg-day">Today · 5 Nov 2026</div>
+          <ul class="pg-list">
+            <li class="pg-item pg-item--unread">
+              <span class="pg-dot" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">New report published: MOVE Trust · Essex Lease Financial Corp. · May 2026</div>
+                <div class="pg-item__ctx">Collection period May 2026. Published by TAO Solutions at 11:20.</div>
+                <div class="pg-quote"><b>Note from TAO</b>Opening balance includes new tranche 52 (7,624,234.31) added in May. No other changes from April. <span class="mk-muted">(Sample note)</span></div>
+                <div class="mk-row" style="margin-top:10px"><a class="ds-btn ds-btn--sm ds-btn--primary" href="#">Open report</a><a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open deal page</a></div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Unread</span><span>Also sent by email</span></div>
+              </div>
+              <div class="pg-item__side">11:20</div>
+            </li>
+          </ul>
+          <div class="pg-day">Earlier this week</div>
+          <ul class="pg-list">
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Covenant changed: MOVE Trust · Essex Lease Financial Corp. · Interest Coverage Ratio, OK to Watch</div>
+                <div class="pg-item__ctx">Floor 1.00. June 2026: 1.12. July 2026: 1.11.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Watch</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Wed 4 Nov, 08:05<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open covenant</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">Correction published: MOVE Trust · Essex Lease Financial Corp. · July 2026 (version 2)</div>
+                <div class="pg-quote"><b>Note from TAO</b>Interest 1,290,661.69 → 1,371,370.08: interest now includes prepayment penalties, as the report's yield formula counts them.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Correction</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Tue 3 Nov, 16:21<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open report</a></div>
+            </li>
+            <li class="pg-item">
+              <span class="pg-dot pg-dot--read" aria-hidden="true"></span>
+              <div>
+                <div class="pg-item__title">New report published: MOVE Trust · Essex Lease Financial Corp. · July 2026</div>
+                <div class="pg-item__ctx">No note from TAO.</div>
+                <div class="pg-item__meta"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Replaced by version 2</span><span>Read</span></div>
+              </div>
+              <div class="pg-item__side">Fri 30 Oct, 15:02<a class="ds-btn ds-btn--sm ds-btn--ghost" href="#">Open report</a></div>
+            </li>
+          </ul>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="ds-card">
+            <div class="ds-card__head"><div><h2>How you are notified <span class="mk-tag">New</span></h2><div class="ds-card__sub">Also in Profile › Notification preferences</div></div></div>
+            <div class="ds-card__body" style="display:flex;flex-direction:column;gap:10px">
+              <label class="pg-check"><input type="checkbox" checked disabled> <span><b>In-app</b><br><span class="mk-small mk-muted">Always on.</span></span></label>
+              <label class="pg-check"><input type="checkbox" checked> <span><b>Email</b> to l.chen@example.com<br><span class="mk-small mk-muted">New reports, corrections and covenant changes.</span></span></label>
+              <p class="mk-small mk-muted" style="margin:0">You receive: MOVE Trust · Essex Lease Financial Corp. Your Company Admin sets which deals you receive.</p>
+            </div>
+          </div>
+          <div class="ds-card">
+            <div class="ds-card__head"><div><h2>The email</h2><div class="ds-card__sub">Same event, email channel. Sample.</div></div></div>
+            <div class="ds-card__body">
+              <div class="pg-email">
+                <div class="pg-email__head"><span>From: TAO Solutions &lt;no-reply@example.com&gt;</span><span>To: l.chen@example.com</span><span><b style="color:var(--indigo)">New report published: MOVE Trust · Essex Lease Financial Corp. · May 2026</b></span></div>
+                <div class="pg-email__body">
+                  <p style="margin:0 0 8px">A new monthly report is ready in the Investor Portal.</p>
+                  <div class="pg-quote" style="margin:0 0 12px"><b>Note from TAO</b>Opening balance includes new tranche 52 (7,624,234.31) added in May. No other changes from April.</div>
+                  <a class="ds-btn ds-btn--sm ds-btn--primary" href="#">Open report</a>
+                  <p class="mk-small mk-muted" style="margin:12px 0 0">You get this because you receive Essex Lease Financial Corp. reports. Turn off email in Notification preferences.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mk-grid2">
+        <div class="mk-note"><b class="mk-n">16</b>Partner page at <code>/notifications</code> in both partner portals (placeholder today). It lists only events for deals the person receives (D8), filtered to their partner in the same place as every partner read.</div>
+        <div class="mk-note"><b class="mk-n">17</b>The TAO note shows exactly as typed, labelled "Note from TAO", signed by the company, not the TAO person who published. No note: "No note from TAO".</div>
+        <div class="mk-note"><b class="mk-n">18</b><b>Open report</b> goes to the Report viewer for that version. A replaced version says so ("Replaced by version 2") and its button opens the latest.</div>
+        <div class="mk-note"><b class="mk-n">19</b>Email is optional per person: they set it here or in Profile; a Company Admin can set it for their team (D8). The email carries the title, the note and a sign-in link, and no other figures.</div>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+</body>
+</html>

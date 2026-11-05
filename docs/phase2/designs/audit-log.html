@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit log · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Page-local layout only. Tokens only, no raw colours. */
+  .al-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .al-searchbox { position: relative; }
+  .al-searchbox .ds-input { padding-left: 36px; font-size: 14px; }
+  .al-searchbox svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+  .al-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+  .al-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+  .al-tabs a { padding: 9px 14px; font: 600 13px var(--font); color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; gap: 8px; align-items: center; }
+  .al-tabs a.on { color: var(--purple); border-bottom-color: var(--purple); }
+  .al-count { font: 600 11px/1 var(--data); background: var(--lav); color: var(--indigo); border-radius: var(--r-chip); padding: 3px 7px; font-variant-numeric: tabular-nums; }
+  .al-tabs a:not(.on) .al-count { background: var(--canvas-deep); color: var(--muted); }
+  .al-scroll { overflow-x: auto; }
+  .al-scroll .ds-table { min-width: 860px; }
+  .al-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .al-actor small { display: block; color: var(--muted); font-size: var(--fs-small); }
+  .al-report { white-space: nowrap; }
+  .al-report small { display: block; color: var(--muted); font-size: var(--fs-small); }
+  .al-detail { color: var(--text); }
+  .al-arrow { color: var(--muted); padding: 0 4px; }
+  .al-before { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+  .al-after { color: var(--indigo); font-weight: 600; }
+  .al-mono { font-family: var(--mono); font-size: 11.5px; }
+  .al-sample { font: 600 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); border-radius: 5px; padding: 3px 6px; margin-left: 6px; vertical-align: middle; }
+  .al-real { font: 600 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); background: var(--ok-bg); border-radius: 5px; padding: 3px 6px; margin-left: 6px; vertical-align: middle; }
+  /* Expanded entry */
+  .al-exp { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+  .al-ba { width: 100%; border-collapse: collapse; font: 13px var(--data); }
+  .al-ba th { position: static; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border-card); background: transparent; }
+  .al-ba td { padding: 7px 10px; border-bottom: 1px solid var(--border-table); }
+  .al-ba .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .al-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 14px; margin: 0; font: 12.5px var(--data); }
+  .al-dl dt { color: var(--muted); }
+  .al-dl dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+  .al-reason { margin-top: 10px; padding: 9px 12px; border-radius: var(--r-control); background: var(--canvas-deep); font-size: 12.5px; }
+  .al-reason b { color: var(--indigo); }
+  /* History */
+  .al-hist { list-style: none; margin: 0; padding: 0; }
+  .al-hist > li { border-bottom: 1px solid var(--border-table); }
+  .al-hist > li:last-child { border-bottom: 0; }
+  .al-hist details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 12px 18px; font: 600 13.5px var(--font); color: var(--indigo); }
+  .al-hist details > summary::-webkit-details-marker { display: none; }
+  .al-hist details > summary::before { content: "\25B8"; color: var(--muted); font-size: 12px; width: 12px; transition: transform var(--t-control) var(--ease); }
+  .al-hist details[open] > summary::before { transform: rotate(90deg); }
+  .al-hist details > summary:hover { background: color-mix(in srgb, var(--lav) 45%, var(--card)); }
+  .al-hist details > summary:focus-visible { outline: none; box-shadow: inset var(--focus); }
+  .al-hist summary .al-n { font: 500 12.5px var(--data); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .al-hist summary .mk-spacer a { font: 600 12px var(--font); }
+  .al-more { padding: 10px 18px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border-table); }
+  /* Search results */
+  mark.al-hit { background: var(--lav-2); color: var(--indigo); border-radius: 3px; padding: 0 2px; font-weight: 700; }
+  .al-group { padding: 12px 18px 6px; font: 700 12px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border-card); background: color-mix(in srgb, var(--cream) 55%, var(--card)); }
+  .al-group:first-child { border-top: 0; }
+  .al-tabchip { font: 600 10.5px/1 var(--data); border-radius: var(--r-chip); padding: 3px 8px; background: var(--blue-bg); color: var(--blue); white-space: nowrap; }
+  .al-tabchip--platform { background: var(--dpv-bg); color: var(--dpv); }
+  .al-stateh { font: 700 12px var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--purple); margin: 10px 0 -6px; }
+  .al-csv { font: 11.5px/1.5 var(--mono); background: var(--canvas-deep); border: 1px solid var(--border-card); border-radius: var(--r-control); padding: 10px 12px; overflow-x: auto; white-space: pre; color: var(--text); margin: 0; }
+  @media (max-width: 1100px) { .al-exp { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 900px) { .al-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D3 · Audit log</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Deal names, periods and correction values from docs/dashboard-json; users, times, counts and comments are sample content.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#" class="on">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Audit log</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Audit log</h1><span class="mk-tag mk-tag--changed">Changed</span></div>
+          <div class="ds-pagehead__sub">Everything that happens to a report, and every change to the platform. This month first; earlier months under History.</div>
+        </div>
+      </div>
+    </header>
+    <div class="mk-body">
+
+      <div class="mk-note"><b class="mk-n">1</b>The log is split into two tabs. <b>Reports</b>: upload, extract, re-extract, override, restatement accepted, value edited (new), correction (new), approve, reject, publish, comment (new). <b>Platform</b>: covenant change (new), user change (new), role change (new), settings change (new), master data, regenerate. Every entry belongs to exactly one tab. Only TAO Admin sees this page (as today, route <code>/admin/settings/users/audit</code>).</div>
+
+      <!-- Search + filters -->
+      <section class="ds-card ds-card--pad" aria-label="Search and filter the audit log">
+        <form class="al-search" role="search" onsubmit="return false">
+          <div class="al-searchbox">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4" stroke-linecap="round"/></svg>
+            <input class="ds-input" type="search" aria-label="Search every month and both tabs" placeholder="Search every month and both tabs: deal, person, field, value, reason or upload id">
+          </div>
+          <div class="al-filters">
+            <label class="ds-field"><span class="ds-field__label">Action</span>
+              <select class="ds-select">
+                <option>All actions</option>
+                <optgroup label="Reports">
+                  <option>Upload</option><option>Extract</option><option>Re-extract</option><option>Override</option><option>Restatement accepted</option>
+                  <option>Value edited</option><option>Correction</option><option>Approve</option><option>Reject</option><option>Publish</option><option>Comment</option>
+                </optgroup>
+                <optgroup label="Platform">
+                  <option>Covenant change</option><option>User change</option><option>Role change</option><option>Settings change</option><option>Master data change</option><option>Regenerate</option>
+                </optgroup>
+              </select>
+            </label>
+            <label class="ds-field"><span class="ds-field__label">User</span>
+              <select class="ds-select"><option>Everyone</option><option>A. Patel (TAO Admin)</option><option>J. Moreau (TAO Analyst)</option><option>System (extraction worker)</option></select>
+            </label>
+            <label class="ds-field"><span class="ds-field__label">Deal</span>
+              <select class="ds-select">
+                <option>All deals</option>
+                <optgroup label="F-PIL 2.0"><option>Moneda Capital Corp.</option><option>Stride Capital</option><option>Xpedite Leasing</option></optgroup>
+                <optgroup label="MOVE Trust"><option>Dynamic Capital</option><option>Essex Lease Financial Corp.</option><option>Finloc 2000 Inc.</option><option>Meridian OneCap LP</option><option>TLFC (Leases)</option><option>TLFC (Loans)</option><option>TLFC LP (Leases)</option><option>TPine Leasing Capital Corporation</option><option>VCC IV LP</option></optgroup>
+              </select>
+            </label>
+            <button class="ds-btn ds-btn--ghost" type="button" disabled>Clear filters</button>
+          </div>
+        </form>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">2</b>Search looks through <b>every month and both tabs</b> at once: deal name, person, action, field name, before and after values, reason, comment text and upload id. Results replace the month view (see the "Essex" state further down). The three filters (action, user, deal) narrow the current month, each History month and search results alike, and live in the URL so a filtered view can be bookmarked or linked. The Audit link on an upload still opens this page filtered to that one upload, across all months.</div>
+
+      <!-- Tabs -->
+      <nav class="al-tabs" aria-label="Audit log sections">
+        <a href="#" class="on" aria-current="page">Reports <span class="al-count">11</span></a>
+        <a href="#state-platform">Platform <span class="al-count">6</span></a>
+        <span class="mk-tag">New</span>
+      </nav>
+
+      <!-- Current month: Reports -->
+      <section class="ds-card ds-card--flush" aria-labelledby="cur-h">
+        <div class="ds-card__head">
+          <div><h2 id="cur-h">November 2026 <span class="mk-tag">New</span></h2><div class="ds-card__sub">Reports · 1–5 Nov 2026 · 11 entries, newest first <span class="al-sample">Sample entries</span></div></div>
+          <div class="ds-card__actions"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Export CSV</button></div>
+        </div>
+        <div class="al-scroll">
+        <table class="ds-table ds-table--compact" aria-label="Reports entries, November 2026">
+          <thead><tr><th class="ds-table__expcell"><span class="ds-visually-hidden">Expand</span></th><th>When</th><th>Action</th><th>Actor</th><th>Report <span class="mk-tag mk-tag--changed">Changed</span></th><th>Reason</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">5 Nov 2026, 10:42</td><td class="ds-key">Publish</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>—</td><td class="al-detail">Version 2 published; partners notified</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Version</dt><dd>1 → 2 (corrected re-issue)</dd><dt>Notified</dt><dd>MOVE Trust investor and manager users</dd><dt>Upload id</dt><dd class="al-mono">8c1f2a90-4be3-4f0e-9d61-7a2c55e01b3d</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">5 Nov 2026, 10:41</td><td class="ds-key">Approve</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>All findings resolved</td><td class="al-detail">0 block · 0 review open</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Findings</dt><dd>R12 block overridden; 2 review findings resolved</dd><dt>Upload id</dt><dd class="al-mono">8c1f2a90-4be3-4f0e-9d61-7a2c55e01b3d</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">5 Nov 2026, 09:58</td><td class="ds-key">Comment <span class="mk-tag">New</span></td><td class="al-actor">J. Moreau<small>TAO Analyst</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>—</td><td class="al-detail">"@A. Patel closing contracts on page 3 reads 826, the extraction shows 862."</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Mentions</dt><dd>A. Patel</dd><dt>On</dt><dd>Field: closing contracts</dd><dt>Upload id</dt><dd class="al-mono">8c1f2a90-4be3-4f0e-9d61-7a2c55e01b3d</dd></dl></div></td></tr>
+
+            <!-- Expanded example -->
+            <tr class="ds-row ds-row--open"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="true" aria-label="Hide details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">5 Nov 2026, 09:55</td><td class="ds-key">Value edited <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>Misread on page 3; matches the contract table</td><td class="al-detail">Closing contracts <span class="al-before">862</span><span class="al-arrow">→</span><span class="al-after">826</span></td></tr>
+            <tr class="ds-table__detail"><td colspan="7"><div class="ds-table__detailinner">
+              <div class="al-exp">
+                <div>
+                  <table class="al-ba" aria-label="Before and after">
+                    <thead><tr><th>Field</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead>
+                    <tbody>
+                      <tr><td>Closing contracts <span class="al-mono mk-muted">period_history.closing_contracts</span></td><td class="num al-before">862 <span class="al-sample">Sample</span></td><td class="num al-after">826</td><td class="num">−36</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="al-reason"><b>Reason</b> (required): Misread on page 3; matches the contract table.</div>
+                  <div class="al-reason"><b>Rules re-run on the edited value</b>: R11 opening equals prior closing passed; no new findings.</div>
+                </div>
+                <dl class="al-dl">
+                  <dt>Report</dt><dd><a href="#">MOVE Trust - Essex Lease Financial Corp.</a></dd>
+                  <dt>Collection period</dt><dd>Jul 2026 (reporting period Jul 2026, settled 24 Aug 2026)</dd>
+                  <dt>File</dt><dd>Essex_-_202607_-_SETTREP.pdf, page 3</dd>
+                  <dt>State</dt><dd>In review (free edit, before publish)</dd>
+                  <dt>Upload id</dt><dd class="al-mono">8c1f2a90-4be3-4f0e-9d61-7a2c55e01b3d</dd>
+                  <dt>Entry id</dt><dd class="al-mono">e41b07c2-93d5-4a8a-b1f6-0c7d2e9a4f18</dd>
+                  <dt>Trail</dt><dd><a href="#">All entries for this upload</a></dd>
+                </dl>
+              </div>
+            </div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">4 Nov 2026, 16:20</td><td class="ds-key">Override</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>Servicer re-issued the report; replaces the published one</td><td class="al-detail">R12 re-issue · block → accepted</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Finding</dt><dd>R12: this upload replaces the published Jul 2026 report</dd><dt>Status</dt><dd><span class="al-before">open</span><span class="al-arrow">→</span><span class="al-after">overridden</span></dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">4 Nov 2026, 16:02</td><td class="ds-key">Extract</td><td class="al-actor">System<small>Extraction worker</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>—</td><td class="al-detail">needs_review · 1 block · 2 review · 3 note</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Status</dt><dd>extracting → needs_review</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">4 Nov 2026, 16:01</td><td class="ds-key">Upload</td><td class="al-actor">J. Moreau<small>TAO Analyst</small></td>
+              <td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026 · re-issue</small></td><td>—</td><td class="al-detail">Essex_-_202607_-_SETTREP.pdf · Jul 2026 · replaces published</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>File</dt><dd>Essex_-_202607_-_SETTREP.pdf</dd><dt>Replace</dt><dd>yes (corrected re-issue)</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">4 Nov 2026, 11:15</td><td class="ds-key">Reject</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">TPine Leasing Capital Corporation</a><small>MOVE Trust · Jul 2026</small></td><td>Wrong deal chosen at upload</td><td class="al-detail">needs_review → rejected</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Status</dt><dd>needs_review → rejected</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">3 Nov 2026, 14:31</td><td class="ds-key">Re-extract</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Xpedite Leasing</a><small>F-PIL 2.0 · Aug 2026</small></td><td>Re-run after the page 4 table split</td><td class="al-detail">needs_review · 1 block · 2 review · 1 note</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>File</dt><dd>Xpedite_Leasing_-_202608_-_SETTREP.pdf</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">3 Nov 2026, 11:03</td><td class="ds-key">Extract</td><td class="al-actor">System<small>Extraction worker</small></td>
+              <td class="al-report"><a href="#">Meridian OneCap LP</a><small>MOVE Trust · Jul 2026</small></td><td>—</td><td class="al-detail">extraction_failed · cover block not found</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>File</dt><dd>MOCLP_-_202607_-_Servicer_Report.pdf</dd><dt>Status</dt><dd>extracting → extraction_failed</dd></dl></div></td></tr>
+
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">3 Nov 2026, 11:02</td><td class="ds-key">Upload</td><td class="al-actor">J. Moreau<small>TAO Analyst</small></td>
+              <td class="al-report"><a href="#">Meridian OneCap LP</a><small>MOVE Trust · Jul 2026</small></td><td>—</td><td class="al-detail">MOCLP_-_202607_-_Servicer_Report.pdf · Jul 2026</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>File</dt><dd>MOCLP_-_202607_-_Servicer_Report.pdf</dd></dl></div></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">3</b>Each tab opens on the <b>current month only</b> (here 1–5 Nov 2026). The Report column <span class="mk-tag mk-tag--changed">Changed</span> shows the deal and collection period as a link to the report, instead of today's short upload id; the full upload id moves into the expanded entry.</div>
+      <div class="mk-note"><b class="mk-n">4</b>Click the chevron (or press Enter on the row) to expand an entry. Every change shows <b>before → after</b> per field with the difference, the reason the person typed (required for value edits, corrections, overrides, rejects, covenant and settings changes), the rules re-run result where it applies, the source file and page, and the upload and entry ids. Value edited = a free edit while the report is in review; Correction = an edit after publish that creates a new version (locked decision 3).</div>
+
+      <!-- History -->
+      <section class="ds-card ds-card--flush" aria-labelledby="hist-h">
+        <div class="ds-card__head">
+          <div><h2 id="hist-h">History <span class="mk-tag">New</span></h2><div class="ds-card__sub">Earlier months of the Reports tab. Click a month to open it. <span class="al-sample">Sample counts</span></div></div>
+        </div>
+        <ul class="al-hist">
+          <li><details open>
+            <summary>October 2026 <span class="al-n">64 entries</span><span class="mk-spacer"><a href="#" onclick="event.stopPropagation()">Export CSV</a></span></summary>
+            <div class="al-scroll">
+            <table class="ds-table ds-table--compact" aria-label="Reports entries, October 2026">
+              <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Report</th><th>Reason</th><th>Detail <span class="al-real">Values from data</span></th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:20</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">VCC IV LP</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$343,083.22</span><span class="al-arrow">→</span><span class="al-after">$381,977.15</span></td></tr>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:18</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">TPine Leasing Capital Corporation</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$118,546.94</span><span class="al-arrow">→</span><span class="al-after">$125,116.59</span></td></tr>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:16</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">TLFC (Leases)</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$54,780.62</span><span class="al-arrow">→</span><span class="al-after">$54,989.53</span></td></tr>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:14</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">Finloc 2000 Inc.</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$351,570.80</span><span class="al-arrow">→</span><span class="al-after">$361,800.90</span></td></tr>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:12</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">Essex Lease Financial Corp.</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$1,290,661.69</span><span class="al-arrow">→</span><span class="al-after">$1,371,370.08</span></td></tr>
+                <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:10</td><td class="ds-key">Correction <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td><td class="al-report"><a href="#">Dynamic Capital</a><small>MOVE Trust · Jul 2026</small></td><td>Interest now equals the income counted by the report effective-yield formula</td><td class="al-detail">Interest <span class="al-before">$1,372,328.67</span><span class="al-arrow">→</span><span class="al-after">$1,467,812.11</span></td></tr>
+              </tbody>
+            </table>
+            </div>
+            <div class="al-more">Showing 6 of 64. <a href="#">Show all October entries</a> · Times and actor are sample; the six corrections, their values and the date 9 Oct 2026 are the real <code>data_corrections</code> in the published objects.</div>
+          </details></li>
+          <li><details><summary>September 2026 <span class="al-n">58 entries</span><span class="mk-spacer"><a href="#" onclick="event.stopPropagation()">Export CSV</a></span></summary><div class="al-more">Opens the same table for September.</div></details></li>
+          <li><details><summary>August 2026 <span class="al-n">71 entries</span><span class="mk-spacer"><a href="#" onclick="event.stopPropagation()">Export CSV</a></span></summary><div class="al-more">Opens the same table for August.</div></details></li>
+          <li><details><summary>July 2026 <span class="al-n">49 entries</span><span class="mk-spacer"><a href="#" onclick="event.stopPropagation()">Export CSV</a></span></summary><div class="al-more">Opens the same table for July.</div></details></li>
+          <li><details><summary>June 2026 <span class="al-n">37 entries</span><span class="mk-spacer"><a href="#" onclick="event.stopPropagation()">Export CSV</a></span></summary><div class="al-more">Opens the same table for June. First month of the log.</div></details></li>
+        </ul>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">5</b>History lists every earlier month, newest first, with its entry count (after filters). A month opens in place and loads its first 50 entries, with "Show all" for the rest. Months follow calendar months in Toronto time, so an entry at 23:30 on 31 October stays in October.</div>
+      <div class="mk-note"><b class="mk-n">6</b><b>Export CSV</b> downloads one month of the open tab, with the current filters applied (file name <code>audit-reports-2026-11.csv</code>). One row per field changed, so an entry that changed two values gives two rows. Columns below. Times are written with their offset. Whether an export is itself logged is an open question.</div>
+      <pre class="al-csv">when,tab,action,actor,actor_role,program,deal,collection_period,field,before,after,reason,upload_id,entry_id
+2026-11-05T09:55:12-05:00,Reports,Value edited,A. Patel,tao_admin,MOVE Trust,MOVE Trust - Essex Lease Financial Corp.,2026-07,closing_contracts,862,826,"Misread on page 3; matches the contract table",8c1f2a90-...,e41b07c2-...</pre>
+
+      <!-- State: Platform tab -->
+      <h2 class="al-stateh" id="state-platform">State after clicking the Platform tab</h2>
+      <nav class="al-tabs" aria-label="Audit log sections (Platform selected)">
+        <a href="#">Reports <span class="al-count">11</span></a>
+        <a href="#state-platform" class="on" aria-current="page">Platform <span class="al-count">6</span></a>
+      </nav>
+      <section class="ds-card ds-card--flush" aria-labelledby="plat-h">
+        <div class="ds-card__head">
+          <div><h2 id="plat-h">November 2026</h2><div class="ds-card__sub">Platform · 1–5 Nov 2026 · 6 entries, newest first <span class="al-sample">Sample entries</span></div></div>
+          <div class="ds-card__actions"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Export CSV</button></div>
+        </div>
+        <div class="al-scroll">
+        <table class="ds-table ds-table--compact" aria-label="Platform entries, November 2026">
+          <thead><tr><th class="ds-table__expcell"><span class="ds-visually-hidden">Expand</span></th><th>When</th><th>Action</th><th>Actor</th><th>Subject</th><th>Reason</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr class="ds-row ds-row--open"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="true" aria-label="Hide details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">5 Nov 2026, 08:30</td><td class="ds-key">Covenant change <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report"><a href="#">Xpedite Leasing</a><small>F-PIL 2.0 · ARFA 9.1 (e)</small></td><td>Amendment to the ARFA <span class="al-sample">Sample</span></td><td class="al-detail">Interest coverage minimum <span class="al-before">1.10x</span><span class="al-arrow">→</span><span class="al-after">1.05x</span></td></tr>
+            <tr class="ds-table__detail"><td colspan="7"><div class="ds-table__detailinner">
+              <div class="al-exp">
+                <div>
+                  <table class="al-ba" aria-label="Before and after">
+                    <thead><tr><th>Field</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+                    <tbody>
+                      <tr><td>Threshold</td><td class="num al-before">1.10x</td><td class="num al-after">1.05x <span class="al-sample">Sample</span></td></tr>
+                      <tr><td>Description</td><td class="num al-before">… at least 1.10:1?</td><td class="num al-after">… at least 1.05:1?</td></tr>
+                      <tr><td>Effective from</td><td class="num al-before">—</td><td class="num al-after">Collection period Nov 2026</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="al-reason"><b>Reason</b>: Amendment to the ARFA signed 30 Oct 2026. <span class="al-sample">Sample</span></div>
+                </div>
+                <dl class="al-dl">
+                  <dt>Covenant</dt><dd>ARFA 9.1 (e): Interest Coverage Ratio, floor</dd>
+                  <dt>Version</dt><dd>3 → 4 (see D2 covenant history)</dd>
+                  <dt>Published periods</dt><dd>Unchanged; applies from the next upload</dd>
+                  <dt>Entry id</dt><dd class="al-mono">5a7d3e11-0c42-4f9b-8e2a-91b6c0d4e7a2</dd>
+                </dl>
+              </div>
+            </div></td></tr>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">4 Nov 2026, 15:10</td><td class="ds-key">Regenerate</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report">MOVE Trust<small>Program</small></td><td>—</td><td class="al-detail">move-trust · 9 publications</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Program</dt><dd>move-trust</dd><dt>Publications</dt><dd>9</dd></dl></div></td></tr>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">3 Nov 2026, 10:05</td><td class="ds-key">Role change <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report">K. Osei<small>Partner user · MOVE Trust</small></td><td>Took over as company admin</td><td class="al-detail">Role <span class="al-before">Investor user</span><span class="al-arrow">→</span><span class="al-after">Investor admin</span></td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>User</dt><dd>k.osei@example.com</dd></dl></div></td></tr>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">2 Nov 2026, 16:40</td><td class="ds-key">User change <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report">L. Novak<small>Partner user · MOVE Trust</small></td><td>—</td><td class="al-detail">User added · Manager user · receives MOVE Trust reports</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>User</dt><dd>l.novak@example.com</dd><dt>Reports</dt><dd>— → MOVE Trust (all deals)</dd></dl></div></td></tr>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">2 Nov 2026, 11:00</td><td class="ds-key">Settings change <span class="mk-tag">New</span></td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report">System settings<small>Covenants</small></td><td>Partner request</td><td class="al-detail">Default watch buffer <span class="al-before">10%</span><span class="al-arrow">→</span><span class="al-after">15%</span></td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Setting</dt><dd>watch_buffer_pct</dd></dl></div></td></tr>
+            <tr class="ds-row"><td class="ds-table__expcell"><button class="ds-table__exp" aria-expanded="false" aria-label="Show details" data-exp><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg></button></td>
+              <td class="al-when">1 Nov 2026, 09:20</td><td class="ds-key">Master data change</td><td class="al-actor">A. Patel<small>TAO Admin</small></td>
+              <td class="al-report">TLFC (Loans)<small>Deal · MOVE Trust</small></td><td>—</td><td class="al-detail">deal move-trust-tlfc-loans · servicer contact</td></tr>
+            <tr class="ds-table__detail" hidden><td colspan="7"><div class="ds-table__detailinner"><dl class="al-dl"><dt>Entity</dt><dd>deal</dd><dt>Key</dt><dd>move-trust-tlfc-loans</dd></dl></div></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">7</b>The Platform tab has the same layout: this month, History, Export CSV, expandable entries. The fourth column reads <b>Subject</b> (deal and covenant, user, setting, or program) because many platform changes are not tied to a report. A covenant change links to the covenant's version history (D2); user and role changes link to the user (D8).</div>
+
+      <!-- State: search -->
+      <h2 class="al-stateh" id="state-search">State after typing "Essex" in search</h2>
+      <section class="ds-card ds-card--pad" aria-label="Search (with a query)">
+        <div class="al-searchbox">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4" stroke-linecap="round"/></svg>
+          <input class="ds-input" type="search" value="Essex" aria-label="Search every month and both tabs">
+        </div>
+        <div class="mk-row" style="margin-top:10px"><span class="mk-small mk-muted">36 results in 6 months · both tabs · no filters</span><span class="mk-spacer"></span><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Clear search</button></div>
+      </section>
+      <section class="ds-card ds-card--flush" aria-label="Search results for Essex">
+        <div class="al-scroll">
+        <div class="al-group">November 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">7 results</span></div>
+        <table class="ds-table ds-table--compact" aria-label="Results in November 2026">
+          <thead><tr><th>When</th><th>Tab</th><th>Action</th><th>Actor</th><th>Report or subject</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="al-when">5 Nov 2026, 10:42</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Publish</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>Jul 2026 · re-issue</small></td><td>Version 2 published; partners notified</td></tr>
+            <tr class="ds-row"><td class="al-when">5 Nov 2026, 09:58</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Comment</td><td class="al-actor">J. Moreau</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>Jul 2026 · re-issue</small></td><td>"@A. Patel closing contracts on page 3 reads 826 …"</td></tr>
+            <tr class="ds-row"><td class="al-when">5 Nov 2026, 09:55</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Value edited</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>Jul 2026 · re-issue</small></td><td>Closing contracts <span class="al-before">862</span><span class="al-arrow">→</span><span class="al-after">826</span></td></tr>
+            <tr class="ds-row"><td class="al-when">4 Nov 2026, 16:01</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Upload</td><td class="al-actor">J. Moreau</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>Jul 2026 · re-issue</small></td><td><mark class="al-hit">Essex</mark>_-_202607_-_SETTREP.pdf · replaces published</td></tr>
+          </tbody>
+        </table>
+        <div class="al-more">3 more in November. <a href="#">Show all 7</a></div>
+
+        <div class="al-group">October 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">6 results</span></div>
+        <table class="ds-table ds-table--compact" aria-label="Results in October 2026">
+          <thead><tr><th>When</th><th>Tab</th><th>Action</th><th>Actor</th><th>Report or subject</th><th>Detail <span class="al-real">Values from data</span></th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="al-when">9 Oct 2026, 15:12</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Correction</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>Jul 2026</small></td><td>Interest <span class="al-before">$1,290,661.69</span><span class="al-arrow">→</span><span class="al-after">$1,371,370.08</span></td></tr>
+          </tbody>
+        </table>
+        <div class="al-more">5 more in October. <a href="#">Show all 6</a></div>
+
+        <div class="al-group">September 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">6 results</span></div>
+        <table class="ds-table ds-table--compact" aria-label="Results in September 2026">
+          <thead><tr><th>When</th><th>Tab</th><th>Action</th><th>Actor</th><th>Report or subject</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="al-when">14 Sep 2026, 11:30</td><td><span class="al-tabchip al-tabchip--platform">Platform</span></td><td class="ds-key">Covenant change</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>MSA 8.1 (h)</small></td><td>Note added: "Watch closely: coverage near the 1:1 floor" <span class="al-sample">Sample</span></td></tr>
+          </tbody>
+        </table>
+        <div class="al-more">5 more in September. <a href="#">Show all 6</a></div>
+
+        <div class="al-group">August 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">5 results</span> <a href="#" style="text-transform:none;letter-spacing:0;font-weight:600">Open</a></div>
+        <div class="al-group">July 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">5 results</span> <a href="#" style="text-transform:none;letter-spacing:0;font-weight:600">Open</a></div>
+
+        <div class="al-group">June 2026 <span class="al-n" style="text-transform:none;letter-spacing:0;font-weight:500">7 results</span></div>
+        <table class="ds-table ds-table--compact" aria-label="Results in June 2026">
+          <thead><tr><th>When</th><th>Tab</th><th>Action</th><th>Actor</th><th>Report or subject</th><th>Detail <span class="al-real">Values from data</span></th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="al-when">26 Jun 2026, 10:05</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Restatement accepted</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>May 2026</small></td><td>Apr-26 interest coverage <span class="al-before">1.15x</span><span class="al-arrow">→</span><span class="al-after">1.12x</span> · Apr-26 debt / equity <span class="al-before">6.35x</span><span class="al-arrow">→</span><span class="al-after">6.22x</span></td></tr>
+            <tr class="ds-row"><td class="al-when">26 Jun 2026, 09:48</td><td><span class="al-tabchip">Reports</span></td><td class="ds-key">Override</td><td class="al-actor">A. Patel</td><td class="al-report"><a href="#"><mark class="al-hit">Essex</mark> Lease Financial Corp.</a><small>May 2026</small></td><td>R11 prior closing $178,066,924.74 vs opening $185,691,159.05 · gap $7,624,234.31 explained by new tranche 52 · finding <span class="al-before">open</span><span class="al-arrow">→</span><span class="al-after">overridden</span></td></tr>
+          </tbody>
+        </table>
+        <div class="al-more">5 more in June. <a href="#">Show all 7</a> · Times and actor are sample; the restated values and the R11 balance gap are the real <code>restatements</code> and <code>balance_discontinuities</code> in the Essex published object.</div>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">8</b>Search results are grouped by month, newest first, with a count per month; the first months open, older ones open on click. Each result shows which tab it came from (Reports or Platform chip). Matches are highlighted in every column, including file names and comment text. Filters still apply on top of the search. Clearing the search returns to the current month.</div>
+      <div class="mk-note"><b class="mk-n">9</b>New audit actions need a contract change: <code>AuditEntry.action</code> in <code>contracts/openapi.yaml</code> today allows upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change. Add value_edit, correction, comment, covenant_change, user_change, role_change, settings_change, and a <code>before</code> / <code>after</code> pair per field in <code>detail</code>. "Restate" is shown as "Restatement accepted". The API also needs <code>month</code>, <code>tab</code>, <code>q</code> (search), <code>actor</code> and <code>deal</code> query parameters and a per-month count endpoint for History.</div>
+    </div>
+  </main>
+</div>
+<script>
+  // Expand / collapse an entry: the detail row is the next sibling row.
+  document.querySelectorAll('[data-exp]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var row = b.closest('tr'); var det = row.nextElementSibling;
+      var open = b.getAttribute('aria-expanded') === 'true';
+      b.setAttribute('aria-expanded', open ? 'false' : 'true');
+      b.setAttribute('aria-label', open ? 'Show details' : 'Hide details');
+      row.classList.toggle('ds-row--open', !open);
+      if (det && det.classList.contains('ds-table__detail')) det.hidden = open;
+    });
+  });
+</script>
+</body>
+</html>

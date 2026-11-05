@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D9 · Profile (all portals)</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Recommendations. People, times and activity are sample content.</span></div>
+
+<!-- Variant switch. With JavaScript off both variants show, one under the other. -->
+<div style="padding:12px var(--gutter);background:var(--cream);border-bottom:1px solid var(--border)">
+  <div class="mk-row">
+    <b style="color:var(--indigo)">Show variant:</b>
+    <button type="button" class="ds-btn ds-btn--sm ds-btn--primary" data-variant="admin" id="btn-admin">TAO Admin · /admin/settings/profile</button>
+    <button type="button" class="ds-btn ds-btn--sm ds-btn--ghost" data-variant="partner" id="btn-partner">Partner · /settings/profile</button>
+    <span class="mk-muted mk-small">One page component, two shells. Sections differ by role, listed in note 1.</span>
+  </div>
+</div>
+
+<!-- ===================== Variant A: TAO Admin ===================== -->
+<section id="variant-admin" aria-label="TAO Admin variant">
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#" class="on">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">AP</div><div><b>A. Patel</b><small>TAO Admin · TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Profile</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Profile</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">Your details, how the portal shows dates and numbers, what you are told about, and your sign-in.</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Discard changes</button><button class="ds-btn ds-btn--primary">Save changes</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b>Today this route shows a placeholder. Recommendation: one Profile page for every role, in every shell. All roles get Personal details, Display, Notifications, Security and My activity. Report subscriptions show only to partner roles (TAO staff see every report through the Approval queue and Reports library). Nothing here changes another user or any deal data.</div>
+
+      <div class="mk-tabs" role="tablist">
+        <a href="#a-details" class="on">Personal details</a><a href="#a-display">Display</a><a href="#a-notif">Notifications</a><a href="#a-security">Security</a><a href="#a-activity">My activity</a>
+      </div>
+
+      <div class="mk-grid2">
+        <div class="ds-card" id="a-details">
+          <div class="ds-card__head"><div><h2>Personal details</h2><div class="ds-card__sub">Shown on comments, @mentions and audit entries.</div></div></div>
+          <div class="ds-card__body" style="display:flex;flex-direction:column;gap:14px">
+            <div class="mk-grid2">
+              <label class="ds-field"><span class="ds-field__label">Full name<span class="ds-field__req">*</span></span><input class="ds-input" value="Anika Patel"></label>
+              <label class="ds-field"><span class="ds-field__label">Display name</span><input class="ds-input" value="A. Patel"><span class="ds-field__hint">Used in @mentions and the sidebar.</span></label>
+            </div>
+            <label class="ds-field"><span class="ds-field__label">Email</span><input class="ds-input" value="a.patel@example.com" disabled><span class="ds-field__hint">Your sign-in. Only a TAO Admin can change it, in User management.</span></label>
+            <div class="mk-grid2">
+              <label class="ds-field"><span class="ds-field__label">Job title</span><input class="ds-input" value="Portfolio operations lead"></label>
+              <label class="ds-field"><span class="ds-field__label">Phone (optional)</span><input class="ds-input" placeholder="+1 416 555 0100"></label>
+            </div>
+            <div class="mk-row">
+              <span class="ds-field__label">Role</span><span class="ds-pill ds-pill--dpv"><span class="ds-pill__dot"></span>TAO Admin</span>
+              <span class="ds-field__label" style="margin-left:12px">Company</span><span class="mk-muted">TAO Solutions Inc.</span>
+            </div>
+            <div class="mk-note"><b class="mk-n">2</b>Role and company are read-only here. Only a TAO Admin changes them in User management (D8); a Company Admin changes partner roles in Team members. Email is the sign-in key, so it is not self-editable.</div>
+          </div>
+        </div>
+
+        <div class="ds-card" id="a-display">
+          <div class="ds-card__head"><div><h2>Display</h2><div class="ds-card__sub">Applies to your screens and your emails. Stored figures do not change.</div></div></div>
+          <div class="ds-card__body" style="display:flex;flex-direction:column;gap:14px">
+            <label class="ds-field"><span class="ds-field__label">Time zone</span>
+              <select class="ds-select"><option>America/Toronto (Eastern, UTC−05:00)</option><option>America/Vancouver</option><option>Europe/London</option><option>UTC</option></select>
+              <span class="ds-field__hint">Audit times, quiet hours and the daily digest use this zone. Audit entries are stored in UTC.</span></label>
+            <div class="mk-grid2">
+              <label class="ds-field"><span class="ds-field__label">Date format</span>
+                <select class="ds-select"><option>7 Aug 2026</option><option>2026-08-07</option><option>08/07/2026</option><option>07/08/2026</option></select></label>
+              <label class="ds-field"><span class="ds-field__label">Number format</span>
+                <select class="ds-select"><option>1,916,709,163.00</option><option>1 916 709 163,00</option></select></label>
+            </div>
+            <label class="ds-field"><span class="ds-field__label">Large amounts in tables</span>
+              <select class="ds-select"><option>Full (150,000,000)</option><option>Short (150.0M)</option></select>
+              <span class="ds-field__hint">The review page always shows full amounts, so a $1 difference stays visible.</span></label>
+            <label class="ds-field"><span class="ds-field__label">Landing page after sign-in</span>
+              <select class="ds-select"><option>Dashboard</option><option>Approval queue</option><option>Portfolio Executive Summary</option></select></label>
+            <div class="mk-note"><b class="mk-n">3</b>Format choices change display only. Period names stay fixed: collection period 2026-08 is always shown as "Aug 2026" or "2026-08" so it never reads as a day. Example: F-PIL 2.0 program limit shows as 150,000,000.00 or 150 000 000,00.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-card ds-card--flush" id="a-notif">
+        <div class="ds-card__head"><div><h2>Notifications</h2><div class="ds-card__sub">Per event: in the portal, by email, or both. Events come from the notification list in docs/portal-map.md plus the new ones from D7.</div></div>
+          <div class="ds-card__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost">Reset to defaults</button></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Event</th><th>Who gets it by default</th><th class="ds-center">In-app</th><th class="ds-center">Email</th><th>Delivery</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Report waiting for approval</td><td class="mk-muted">TAO reviewers</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Upload failed validation or extraction</td><td class="mk-muted">The uploader</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Report rejected</td><td class="mk-muted">The uploader</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Report published</td><td class="mk-muted">TAO team, partners</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Daily digest</option><option>Instant</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Correction re-published <span class="mk-tag">New</span></td><td class="mk-muted">TAO team, partners</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Covenant status changed (WATCH or BREACH)</td><td class="mk-muted">TAO team, partner admins</td><td class="ds-center"><input type="checkbox" checked disabled aria-label="In-app, always on"></td><td class="ds-center"><input type="checkbox" checked disabled aria-label="Email, always on"></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Always instant</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Report overdue <span class="mk-tag">New</span></td><td class="mk-muted">TAO team</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Daily digest</option><option>Instant</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Dashboard regenerated</td><td class="mk-muted">Partner viewers</td><td class="ds-center"><input type="checkbox" aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Daily digest</option><option>Instant</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">@mention or reply to my comment <span class="mk-tag">New</span></td><td class="mk-muted">The person mentioned</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Partner asked a question on a report</td><td class="mk-muted">TAO analysts</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Instant</option><option>Daily digest</option></select></td></tr>
+              <tr class="ds-row"><td class="ds-key">Adverse media on a lending company <span class="mk-tag">New</span></td><td class="mk-muted">TAO team</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>Daily digest</option><option>Instant</option></select></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:14px 18px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));border-top:1px solid var(--border-card)">
+            <label class="ds-field"><span class="ds-field__label">Daily digest time</span><select class="ds-select"><option>07:30</option><option>08:00</option><option>17:00</option></select><span class="ds-field__hint">One email with everything set to "Daily digest". Sent only when there is something in it.</span></label>
+            <div class="ds-field"><span class="ds-field__label">Quiet hours (email only)</span>
+              <div class="mk-row"><input class="ds-input" value="20:00" style="width:90px"><span class="mk-muted">to</span><input class="ds-input" value="07:00" style="width:90px"><label class="mk-small"><input type="checkbox" checked> Weekends</label></div>
+              <span class="ds-field__hint">Instant emails wait until quiet hours end. In-app items still arrive.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">4</b>Each person picks in-app and email per event, and instant or daily digest. Covenant BREACH and WATCH cannot be switched off: missing one is the costliest failure in the system. Default rows come from System settings › Notifications (D10); "Reset to defaults" brings them back. Saving writes a "Profile: notification preferences" entry to the Platform audit log (who, before, after). Teams / chat delivery for "Report waiting for approval" is set by a TAO Admin in System settings › Integrations, not here.</div>
+
+      <div class="mk-grid2">
+        <div class="ds-card" id="a-security">
+          <div class="ds-card__head"><div><h2>Security</h2><div class="ds-card__sub">Sign-in, 2-step verification and where you are signed in.</div></div></div>
+          <div class="ds-card__body" style="display:flex;flex-direction:column;gap:14px">
+            <div class="ds-finding ds-finding--review" style="animation:none"><div class="ds-finding__main">
+              <div class="ds-finding__head"><span class="ds-finding__title">The POC has no sign-in</span><span class="ds-finding__status"><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>POC</span></span></div>
+              <p class="ds-finding__msg">Today anyone who opens the app picks a role in <b>Sign in as (POC role switcher)</b>, and the API trusts the <code>X-Role</code> header. There is no password, no 2-step verification and no session to list. The controls below are placeholders for the production sign-in and do nothing in the POC.</p>
+            </div></div>
+            <div class="mk-row"><div><b style="color:var(--indigo)">Password</b><div class="mk-small mk-muted">Placeholder · Last changed: not applicable in the POC</div></div><button class="ds-btn ds-btn--sm ds-btn--ghost mk-spacer" disabled>Change password</button></div>
+            <div class="mk-row"><div><b style="color:var(--indigo)">2-step verification</b><div class="mk-small mk-muted">Placeholder · Authenticator app or SMS</div></div><span class="ds-pill ds-pill--sm ds-pill--neutral mk-spacer"><span class="ds-pill__dot"></span>Off</span><button class="ds-btn ds-btn--sm ds-btn--ghost" disabled>Turn on</button></div>
+            <div>
+              <b style="color:var(--indigo)">Active sessions</b> <span class="mk-small mk-muted">Sample</span>
+              <table class="ds-table ds-table--compact" style="margin-top:6px">
+                <thead><tr><th>Device</th><th>Location</th><th>Last active</th><th></th></tr></thead>
+                <tbody>
+                  <tr class="ds-row"><td>Chrome · Windows</td><td>Toronto, CA</td><td>Now <span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>This device</span></td><td></td></tr>
+                  <tr class="ds-row"><td>Safari · iPhone</td><td>Toronto, CA</td><td>4 Nov 2026 18:12</td><td><button class="ds-btn ds-btn--sm ds-btn--ghost" disabled>Sign out</button></td></tr>
+                </tbody>
+              </table>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost" style="margin-top:8px" disabled>Sign out of all other sessions</button>
+            </div>
+            <div class="mk-note"><b class="mk-n">5</b>Recommendation for production: password plus 2-step verification required for TAO roles (they approve and publish), optional but encouraged for partners, set by a TAO Admin in System settings. Until then this card says plainly that the role switcher stands in for sign-in, so nobody thinks the POC is protected.</div>
+          </div>
+        </div>
+
+        <div class="ds-card ds-card--flush" id="a-activity">
+          <div class="ds-card__head"><div><h2>My activity</h2><div class="ds-card__sub">Your last 30 days from the audit log. Sample entries; deal names are real.</div></div><div class="ds-card__actions"><a class="ds-btn ds-btn--sm ds-btn--ghost" href="audit-log.html">Open in Audit log</a></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>When</th><th>Action</th><th>What</th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td class="mk-muted">5 Nov 2026 09:14</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Publish</span></td><td>Moneda Capital Corp. · 2026-08</td></tr>
+                <tr class="ds-row"><td class="mk-muted">5 Nov 2026 09:13</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Approve</span></td><td>Moneda Capital Corp. · 2026-08</td></tr>
+                <tr class="ds-row"><td class="mk-muted">5 Nov 2026 09:02</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Override</span></td><td>R05 · Moneda Capital Corp. · 2026-08</td></tr>
+                <tr class="ds-row"><td class="mk-muted">4 Nov 2026 16:40</td><td><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Master data change</span></td><td>F-PIL 2.0 covenant definition</td></tr>
+                <tr class="ds-row"><td class="mk-muted">4 Nov 2026 11:05</td><td><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Regenerate</span></td><td>MOVE Trust roll-up</td></tr>
+                <tr class="ds-row"><td class="mk-muted">3 Nov 2026 10:21</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Profile change</span></td><td>Notification preferences</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">6</b>My activity is a read-only filter of the audit log on "actor = me". It needs no new storage. A TAO Admin can jump to the full Audit log; a TAO Analyst sees the same list (their uploads and comments) but no link, since the Audit log is Admin-only today.</div>
+
+      <div class="mk-stage">
+        <div class="ds-dialog" role="dialog" aria-labelledby="unsaved-a">
+          <div class="ds-dialog__head"><div><h2 id="unsaved-a">State after clicking another page with unsaved changes</h2><div class="ds-dialog__desc">You changed 2 settings on Profile and have not saved them.</div></div></div>
+          <div class="ds-dialog__body"><div class="mk-small">Notifications: "Report published" email on · Display: date format 2026-08-07.</div></div>
+          <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Discard</button><button class="ds-btn ds-btn--primary">Save and continue</button></div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">7</b>Reuses the "Unsaved changes" pop-up already listed in docs/portal-map.md. No reason is asked for profile changes: they only affect the person making them.</div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ===================== Variant B: Partner ===================== -->
+<section id="variant-partner" aria-label="Partner variant">
+<div class="mk-page-title" style="background:var(--indigo-2)"><span>Partner variant · Investor Portal · signed in as Investor · Viewer</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">I</div><div><b>Investor Portal</b><span>Portfolio monitoring</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Reports</a>
+      <a href="#">Data room</a>
+      <a href="#">Notifications <span class="mk-badge">1</span></a>
+      <a href="#">What's new</a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#" class="on">Profile</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">JM</div><div><b>J. Moreau</b><small>Investor · Viewer</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">Investor Portal</a></li><li><span aria-current="page">Profile</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Profile</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">Your details, display, notifications and the reports you receive.</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Discard changes</button><button class="ds-btn ds-btn--primary">Save changes</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">8</b>Same page, partner shell. Personal details, Display and Security are identical to the TAO variant. Differences: fewer notification events (no approval queue, uploads or adverse media), a read-only Report subscriptions card, and My activity limited to sign-ins, downloads and comments. A Company Admin sees one extra line linking to Team members.</div>
+
+      <div class="mk-tabs"><a href="#">Personal details</a><a href="#">Display</a><a href="#" class="on">Notifications</a><a href="#">Report subscriptions</a><a href="#">Security</a><a href="#">My activity</a></div>
+
+      <div class="mk-grid2">
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head"><div><h2>Notifications</h2><div class="ds-card__sub">Events a partner can receive.</div></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>Event</th><th class="ds-center">In-app</th><th class="ds-center">Email</th><th>Delivery</th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td class="ds-key">New report published</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td>Instant</td></tr>
+                <tr class="ds-row"><td class="ds-key">Correction re-published <span class="mk-tag">New</span></td><td class="ds-center"><input type="checkbox" checked disabled aria-label="In-app, always on"></td><td class="ds-center"><input type="checkbox" checked disabled aria-label="Email, always on"></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Always instant</span></td></tr>
+                <tr class="ds-row"><td class="ds-key">Covenant status changed</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td>Instant</td></tr>
+                <tr class="ds-row"><td class="ds-key">Dashboard regenerated</td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" aria-label="Email"></td><td>Daily digest</td></tr>
+                <tr class="ds-row"><td class="ds-key">Reply from TAO to my question <span class="mk-tag">New</span></td><td class="ds-center"><input type="checkbox" checked aria-label="In-app"></td><td class="ds-center"><input type="checkbox" checked aria-label="Email"></td><td>Instant</td></tr>
+              </tbody>
+            </table>
+            <div class="mk-small mk-muted" style="padding:10px 18px">Daily digest 08:00 · Quiet hours 20:00–07:00 · Time zone America/Toronto</div>
+          </div>
+        </div>
+
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head"><div><h2>Report subscriptions</h2><div class="ds-card__sub">The reports you receive. Managed by your admin.</div></div><div class="ds-card__actions"><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Read-only</span></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>Program</th><th>Deals</th><th>Sent by</th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td class="ds-key">MOVE Trust</td><td>All 9 deals</td><td class="mk-muted">Email + in-app</td></tr>
+                <tr class="ds-row"><td class="ds-key">F-PIL 2.0</td><td>Moneda Capital Corp., Stride Capital, Xpedite Leasing</td><td class="mk-muted">Email + in-app</td></tr>
+              </tbody>
+            </table>
+            <div style="padding:12px 18px" class="mk-small">To add or remove a report, ask your Company Admin (Team members) or TAO. <a href="#">Who is my admin?</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">9</b>Subscriptions are set per user by the partner's Company Admin in Team members, or by TAO in User management (D8). The partner user sees them here but cannot change them, so what a firm receives stays under its admin's control. Partner data is still filtered in one place (partner_filter); a subscription can narrow what is sent, never widen what is visible.</div>
+      <div class="mk-note"><b class="mk-n">10</b>Correction re-published is always on for partners: under locked decision 3 a post-publish edit re-issues the deal, and a partner must not miss that the numbers they hold changed.</div>
+
+      <div class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>My activity</h2><div class="ds-card__sub">Sample entries. Deal names are real.</div></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>When</th><th>Action</th><th>What</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="mk-muted">5 Nov 2026 10:05</td><td>Printed / saved as PDF</td><td>F-PIL 2.0 Program Dashboard</td></tr>
+              <tr class="ds-row"><td class="mk-muted">5 Nov 2026 10:02</td><td>Viewed</td><td>Moneda Capital Corp. · Deal page · 2026-08</td></tr>
+              <tr class="ds-row"><td class="mk-muted">2 Nov 2026 14:30</td><td>Asked a question</td><td>Finloc 2000 Inc. · 2026-07</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">11</b>"Viewed" and "Printed" are new events (today the audit log records only TAO actions). Open question for the operator: whether to record partner views at all, or only downloads and questions.</div>
+    </div>
+  </main>
+</div>
+</section>
+
+<script>
+(function () {
+  var a = document.getElementById('variant-admin'), p = document.getElementById('variant-partner');
+  var ba = document.getElementById('btn-admin'), bp = document.getElementById('btn-partner');
+  function show(v) {
+    a.hidden = v !== 'admin'; p.hidden = v !== 'partner';
+    ba.className = 'ds-btn ds-btn--sm ' + (v === 'admin' ? 'ds-btn--primary' : 'ds-btn--ghost');
+    bp.className = 'ds-btn ds-btn--sm ' + (v === 'partner' ? 'ds-btn--primary' : 'ds-btn--ghost');
+  }
+  ba.addEventListener('click', function () { show('admin'); });
+  bp.addEventListener('click', function () { show('partner'); });
+  show('admin');
+})();
+</script>
+</body>
+</html>

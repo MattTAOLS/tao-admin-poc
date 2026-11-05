@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companies · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+/* Page-only layout for D5/D6. Tokens only. */
+.p-chart { width: 100%; height: auto; display: block; }
+.p-grid { stroke: var(--border-table); stroke-width: 1; }
+.p-zero { stroke: var(--border); stroke-width: 1.5; }
+.p-axis { fill: var(--muted); font: 10px var(--data); font-variant-numeric: tabular-nums; }
+.p-endlab { fill: var(--text); font: 600 10.5px var(--data); }
+.p-endlab--ref { fill: var(--bad); font-weight: 500; }
+.p-endlab--muted { fill: var(--muted); font-weight: 500; }
+.p-endlab--sample { fill: var(--blue); font-weight: 500; }
+.p-l-main { fill: none; stroke: var(--purple); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.p-l-alt { fill: none; stroke: var(--dpv); stroke-width: 1.8; stroke-dasharray: 2 3; stroke-linejoin: round; }
+.p-l-med { fill: none; stroke: var(--indigo); stroke-width: 1.8; stroke-dasharray: 6 4; stroke-linejoin: round; }
+.p-l-mean { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 1 3; stroke-linecap: round; }
+.p-l-sample { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-dasharray: 8 4 2 4; opacity: .8; }
+.p-l-limit { stroke: var(--bad); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.p-l-watch { stroke: var(--warn); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.p-dot { fill: var(--card); stroke: var(--purple); stroke-width: 1.5; }
+.p-bar { fill: var(--purple); opacity: .85; }
+.p-bar-empty { fill: var(--border); }
+.p-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 0; padding: 0; list-style: none; font: 11.5px var(--data); color: var(--muted); }
+.p-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.p-key { width: 22px; height: 0; border-top: 2.5px solid var(--purple); display: inline-block; }
+.p-key--med { border-top: 2px dashed var(--indigo); }
+.p-key--mean { border-top: 2px dotted var(--muted); }
+.p-key--sample { border-top: 2px dashed var(--blue); }
+.p-key--limit { border-top: 1.5px dashed var(--bad); }
+.p-key--watch { border-top: 1.5px dotted var(--warn); }
+.p-key--alt { border-top: 2px dotted var(--dpv); }
+.p-sample { display: inline-flex; align-items: center; gap: 4px; font: 700 9.5px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); background: var(--blue-bg); border-radius: 5px; padding: 3px 6px; vertical-align: middle; }
+.p-tao { display: inline-flex; align-items: center; gap: 4px; font: 700 9.5px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--indigo); background: var(--lav-2); border-radius: 5px; padding: 3px 6px; vertical-align: middle; }
+.p-num { font-family: var(--data); font-variant-numeric: tabular-nums; font-feature-settings: var(--tabular); white-space: nowrap; }
+.p-dl { display: grid; grid-template-columns: max-content 1fr; gap: 7px 18px; margin: 0; font: 12.5px/1.4 var(--data); }
+.p-dl dt { color: var(--muted); }
+.p-dl dd { margin: 0; color: var(--text); }
+.p-headcard { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+.p-watch { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.p-watch li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; font-size: 13px; }
+.p-watch small { grid-column: 2; color: var(--muted); font: 11.5px var(--data); }
+.p-feed { margin: 0; padding: 0; list-style: none; }
+.p-feed li { padding: 11px 18px; border-bottom: 1px solid var(--border-table); display: grid; grid-template-columns: 74px 1fr auto; gap: 4px 14px; align-items: start; }
+.p-feed li:last-child { border-bottom: 0; }
+.p-feed time { font: 11.5px var(--data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.p-feed b { font-weight: 600; color: var(--indigo); font-size: 13px; }
+.p-feed small { grid-column: 2; color: var(--muted); font: 11.5px var(--data); }
+.p-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.p-chip { font: 600 11.5px var(--data); border: 1px solid var(--border-card); background: var(--card); color: var(--text); border-radius: var(--r-chip); padding: 4px 10px; cursor: pointer; }
+.p-chip[aria-pressed="true"] { background: var(--lav); border-color: var(--lav-2); color: var(--purple); }
+.p-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 6px 0; }
+.p-check input { accent-color: var(--purple); margin-top: 3px; }
+.p-check small { display: block; color: var(--muted); font: 11.5px var(--data); }
+.p-cell { font: 600 10px/1 var(--data); text-align: center; padding: 4px 0; border-radius: var(--r-cell); }
+.p-cell--ok { color: var(--ok); background: var(--ok-bg); }
+.p-cell--warn { color: var(--warn); background: var(--warn-bg); }
+.p-cell--bad { color: var(--bad); background: var(--bad-bg); }
+.p-cell--none { color: var(--muted); background: var(--canvas-deep); }
+.p-cell--pub { box-shadow: inset 0 0 0 1.5px currentColor; }
+.p-hist td { padding: 5px 4px; }
+.p-hist td:first-child, .p-hist th:first-child { padding-left: 14px; }
+.p-hist th { padding: 8px 4px; text-align: center; }
+.p-hist th:first-child { text-align: left; }
+.p-obl { display: grid; grid-template-columns: 82px 1fr 52px; gap: 6px 10px; align-items: center; font: 12px var(--data); }
+.p-obl__track { position: relative; height: 10px; background: var(--canvas-deep); border-radius: var(--r-cell); box-shadow: inset 0 0 0 1px var(--border-card); }
+.p-obl__fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--purple); border-radius: var(--r-cell); opacity: .8; }
+.p-obl__limit { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--bad); }
+.p-note { display: flex; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border-table); }
+.p-note:last-child { border-bottom: 0; }
+.p-note p { margin: 3px 0 0; font-size: 13px; }
+.p-note small { color: var(--muted); font: 11.5px var(--data); }
+.p-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.p-toolbar .ds-field { margin: 0; min-width: 160px; }
+.p-toolbar .ds-field--grow { flex: 1; min-width: 220px; }
+.p-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r-panel); background: var(--blue-bg); color: var(--blue); font: 600 12px var(--data); }
+.p-banner b { color: var(--indigo); }
+.p-screen { padding: 22px var(--gutter) 10px; background: var(--indigo); color: var(--text-on-purple); font: 700 15px var(--font); border-top: 6px solid var(--canvas-deep); }
+.p-screen span { display: block; font: 500 12px var(--data); color: var(--text-on-indigo); margin-top: 4px; }
+.p-star { font-size: 15px; color: var(--purple); }
+.p-mini { margin: 0; font: 11.5px var(--data); color: var(--muted); }
+.p-ideas td:first-child { font-weight: 600; color: var(--indigo); }
+.p-row-link { color: var(--indigo); font-weight: 600; text-decoration: none; }
+.p-row-link:hover { color: var(--purple); text-decoration: underline; }
+.p-viewas { display: inline-flex; border: 1px solid var(--border-card); border-radius: var(--r-control); overflow: hidden; background: var(--card); }
+.p-viewas button { font: 600 12px var(--font); border: 0; background: none; color: var(--muted); padding: 7px 12px; cursor: pointer; }
+.p-viewas button[aria-pressed="true"] { background: var(--lav); color: var(--purple); }
+body.p-partner .p-tao-only { display: none !important; }
+@media (max-width: 1100px) { .p-headcard { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .p-feed li { grid-template-columns: 1fr; } .p-feed small { grid-column: 1; } }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D5 · Companies</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Deal data real from docs/dashboard-json; industry, HQ, news and adverse media are sample.</span></div>
+<div class="p-screen">Screen A · Portfolio Executive Summary (TAO Admin)<span>The existing page, with a new Companies section between the program cards and Flagged deals.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav"><a href="#">Dashboard</a><a href="#">Uploads</a><a href="#">Approval queue</a><a href="#">Reports library</a><a href="#">Partners</a><a href="companies.html" class="on">Portfolio Executive Summary</a><a href="companies.html#companies">Companies <span class="mk-tag">New</span></a><a href="#">Notifications <span class="mk-badge">3</span></a><a href="#">Help &amp; support</a></nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav"><a href="#">User management</a><a href="#">Audit log</a><a href="#">Profile</a><a href="#">System settings</a></nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top"><div class="ds-pagehead"><div class="ds-pagehead__text">
+      <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Portfolio Executive Summary</span></li></ol></nav>
+      <div class="ds-pagehead__titlerow"><h1>Portfolio Executive Summary</h1></div>
+    </div></div></header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b><b>New Companies section.</b> One row per lending company, not per deal. A company with several deals (TLFC has three in MOVE Trust) is one row; its status is the worst status across its deals, and its delinquency shows the range across them. Clicking a row opens the company profile (D6).</div>
+      <div class="pf-toolbar" style="display:flex;gap:16px"><label class="ds-field" style="min-width:260px;margin:0"><span class="ds-field__label">Go to deal</span><select class="ds-select"><option>Choose a deal</option></select></label></div>
+      <section class="ds-card">
+  <div class="ds-card__head"><div><h2>F-PIL 2.0</h2><div class="ds-card__sub">Collection period August 2026 · 3 deals</div></div>
+    <div class="ds-card__actions"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Executive summary</a><a class="ds-btn ds-btn--primary ds-btn--sm" href="#">Dashboard</a></div></div>
+  <div class="ds-card__body"><div class="ds-kpi-row">
+    <div class="ds-kpi"><div class="ds-kpi__label">Closing balance</div><div class="ds-kpi__value">$62.2M</div><div class="ds-kpi__context">&minus;4.9% vs prior period</div></div>
+    <div class="ds-kpi"><div class="ds-kpi__label">Utilization</div><div class="ds-kpi__value">40.9%</div><div class="ds-kpi__context">of program limits</div></div>
+    <div class="ds-kpi"><div class="ds-kpi__label">Covenants</div><div class="ds-kpi__value">0 <span class="ds-kpi__unit">breach</span> · 3 <span class="ds-kpi__unit">watch</span></div><div class="ds-kpi__context">22 OK</div></div>
+  </div></div>
+</section>
+      <section class="ds-card">
+  <div class="ds-card__head"><div><h2>MOVE Trust</h2><div class="ds-card__sub">Collection period July 2026 · 9 deals</div></div>
+    <div class="ds-card__actions"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Executive summary</a><a class="ds-btn ds-btn--primary ds-btn--sm" href="#">Dashboard</a></div></div>
+  <div class="ds-card__body"><div class="ds-kpi-row">
+    <div class="ds-kpi"><div class="ds-kpi__label">Closing balance</div><div class="ds-kpi__value">$852.4M</div><div class="ds-kpi__context">&minus;4.7% vs prior period</div></div>
+    <div class="ds-kpi"><div class="ds-kpi__label">Utilization</div><div class="ds-kpi__value">47.0%</div><div class="ds-kpi__context">of program limits</div></div>
+    <div class="ds-kpi"><div class="ds-kpi__label">Covenants</div><div class="ds-kpi__value">8 <span class="ds-kpi__unit">breach</span> · 1 <span class="ds-kpi__unit">watch</span></div><div class="ds-kpi__context">84 OK</div></div>
+  </div></div>
+</section>
+      <section class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>Companies <span class="mk-tag">New</span></h2><div class="ds-card__sub">10 lending companies across 2 programs · each in its latest published month</div></div>
+          <div class="ds-card__actions"><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#companies">All companies</a></div></div>
+        <div class="ds-card__body"><div class="ds-table-wrap" style="overflow-x:auto"><table class="ds-table">
+          <caption class="ds-visually-hidden">Lending companies</caption>
+          <thead><tr><th>Company</th><th>Program(s)</th><th>Industry <span class="p-sample">Sample</span></th><th>Latest month</th><th>Covenant status</th><th class="ds-num">Delinquency</th><th class="ds-num">News this week <span class="p-sample">Sample</span></th><th>Adverse media <span class="p-sample">Sample</span></th></tr></thead>
+          <tbody><tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-dynamic-capital'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-dynamic-capital">Dynamic Capital</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span></td>
+  <td class="ds-num">0.19% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html">Essex Lease Financial Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+  <td class="ds-num">1.31% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">3</span> new</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>1 to review</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-finloc-2000-inc'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-finloc-2000-inc">Finloc 2000 Inc.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span></td>
+  <td class="ds-num">8.83% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-meridian-onecap-lp'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-meridian-onecap-lp">Meridian OneCap LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Vehicle and equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span></td>
+  <td class="ds-num">0.52% <span class="mk-small"><span class="trend-flat">&mdash;</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=f-pil-2-0-moneda-capital-corp'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-moneda-capital-corp">Moneda Capital Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Equipment finance</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+  <td class="ds-num">1.79% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=f-pil-2-0-stride-capital'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-stride-capital">Stride Capital</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Small-ticket equipment finance</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span></td>
+  <td class="ds-num">2.33% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-tlfc-leases'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tlfc-leases">TLFC</a><div class="p-mini">3 deals</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span></td>
+  <td class="ds-num">0.35%&ndash;0.43% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-tpine-leasing-capital-corporation'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tpine-leasing-capital-corporation">TPine Leasing Capital Corporation</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span></td>
+  <td class="ds-num">2.14% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=move-trust-vcc-iv-lp'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-vcc-iv-lp">VCC IV LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Commercial lending</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span></td>
+  <td class="ds-num">0.42% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--neutral ds-pill--sm"><span class="ds-pill__dot"></span>Not screened</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" onclick="location.href='company-profile.html?company=f-pil-2-0-xpedite-leasing'">
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-xpedite-leasing">Xpedite Leasing</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Transportation equipment leasing</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+  <td class="ds-num">0.55% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+</tr></tbody></table></div></div>
+      </section>
+      <div class="mk-note"><b class="mk-n">2</b><b>Columns.</b> Covenant status and Latest month come from the published deal objects (real). Delinquency is the latest reported ratio with an arrow for direction and a colour for good or bad (rising delinquency is red), per locked decision 2. Industry, News this week and Adverse media are sample until a source is chosen (see D6 note 15).</div>
+      <section class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>Flagged deals</h2><div class="ds-card__sub">Deals at WATCH or BREACH in their latest published period</div></div></div>
+        <div class="ds-card__body"><div class="ds-table-wrap" style="overflow-x:auto"><table class="ds-table"><thead><tr><th>Deal</th><th>Program</th><th>Status</th><th class="ds-num">Breach / watch</th><th class="ds-num">Balance</th><th>Open</th></tr></thead><tbody><tr><td><b>Moneda Capital Corp.</b></td><td>F-PIL 2.0</td><td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+<td class="ds-num">0 / 1</td><td class="ds-num">$15,019,972</td><td><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Open</a></td></tr>
+<tr><td><b>Xpedite Leasing</b></td><td>F-PIL 2.0</td><td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+<td class="ds-num">0 / 2</td><td class="ds-num">$39,651,581</td><td><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Open</a></td></tr>
+<tr><td><b>Essex Lease Financial Corp.</b></td><td>MOVE Trust</td><td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span></td>
+<td class="ds-num">0 / 1</td><td class="ds-num">$179,272,568</td><td><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Open</a></td></tr>
+<tr><td><b>Finloc 2000 Inc.</b></td><td>MOVE Trust</td><td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span></td>
+<td class="ds-num">6 / 0</td><td class="ds-num">$48,386,889</td><td><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Open</a></td></tr>
+<tr><td><b>TPine Leasing Capital Corporation</b></td><td>MOVE Trust</td><td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span></td>
+<td class="ds-num">2 / 0</td><td class="ds-num">$15,313,944</td><td><a class="ds-btn ds-btn--ghost ds-btn--sm" href="#">Open</a></td></tr></tbody></table></div></div>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="p-screen" id="companies">Screen B · Companies page (TAO Admin)<span>New sidebar entry. Search and filter every lending company; a row opens its profile.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav"><a href="#">Dashboard</a><a href="#">Uploads</a><a href="#">Approval queue</a><a href="#">Reports library</a><a href="#">Partners</a><a href="companies.html">Portfolio Executive Summary</a><a href="companies.html#companies" class="on">Companies <span class="mk-tag">New</span></a><a href="#">Notifications <span class="mk-badge">3</span></a><a href="#">Help &amp; support</a></nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav"><a href="#">User management</a><a href="#">Audit log</a><a href="#">Profile</a><a href="#">System settings</a></nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top"><div class="ds-pagehead"><div class="ds-pagehead__text">
+      <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Companies</span></li></ol></nav>
+      <div class="ds-pagehead__titlerow"><h1>Companies</h1><span class="mk-tag">New</span></div>
+      <div class="ds-pagehead__sub">The lending companies behind each deal. Monthly report performance, covenant status, news and adverse media in one place.</div>
+    </div><div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Export CSV</button><button class="ds-btn ds-btn--ghost">Manage alerts</button></div></div></header>
+    <div class="mk-body">
+      <div class="ds-kpi-row">
+        <div class="ds-kpi"><div class="ds-kpi__label">Companies</div><div class="ds-kpi__value">10</div><div class="ds-kpi__context">12 deals in 2 programs</div></div>
+        <div class="ds-kpi"><div class="ds-kpi__label">Breach</div><div class="ds-kpi__value ds-kpi__value--bad">2</div><div class="ds-kpi__context">companies with a deal in breach</div></div>
+        <div class="ds-kpi"><div class="ds-kpi__label">Watch</div><div class="ds-kpi__value ds-kpi__value--warn">3</div><div class="ds-kpi__context">worst status is watch</div></div>
+        <div class="ds-kpi"><div class="ds-kpi__label">Adverse media to review <span class="p-sample">Sample</span></div><div class="ds-kpi__value">1</div><div class="ds-kpi__context">screened 06:00 today</div></div>
+      </div>
+      <div class="p-toolbar" role="search">
+  <label class="ds-field ds-field--grow"><span class="ds-field__label">Search</span><input id="q" class="ds-input" type="search" placeholder="Company or deal name"></label>
+  <label class="ds-field"><span class="ds-field__label">Program</span><select id="f-program" class="ds-select"><option value="">All programs</option><option>F-PIL 2.0</option><option>MOVE Trust</option></select></label>
+  <label class="ds-field"><span class="ds-field__label">Industry</span><select id="f-industry" class="ds-select"><option value="">All industries</option><option>Commercial lending</option><option>Equipment finance</option><option>Equipment leasing</option><option>Small-ticket equipment finance</option><option>Transportation equipment leasing</option><option>Truck and trailer finance</option><option>Truck and trailer leasing</option><option>Vehicle and equipment leasing</option></select></label>
+  <label class="ds-field"><span class="ds-field__label">Status</span><select id="f-status" class="ds-select"><option value="">Any status</option><option value="BREACH">Breach</option><option value="WATCH">Watch</option><option value="OK">OK</option><option value="FLAG">Breach or watch</option></select></label>
+  <label class="ds-field"><span class="ds-field__label">Adverse media</span><select id="f-adverse" class="ds-select"><option value="">Any</option><option>To review</option><option>Clear</option><option>Not screened</option></select></label>
+  <label class="p-check" style="padding-bottom:8px"><input id="f-follow" type="checkbox"> Only companies I follow</label>
+</div>
+      <div class="mk-note"><b class="mk-n">3</b><b>Search and filters.</b> Search matches company and deal names. Filters: program, industry, status (Breach, Watch, OK, or Breach or watch) and adverse media. Filters live in the URL so a filtered list can be bookmarked or shared. Every column sorts. The star marks companies you follow (watchlist, D6 note 12); the checkbox narrows to them.</div>
+      <section class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>All companies</h2><div class="ds-card__sub" id="count">10 of 10 companies</div></div></div>
+        <div class="ds-card__body"><div class="ds-table-wrap" style="overflow-x:auto"><table class="ds-table" id="ctable">
+          <caption class="ds-visually-hidden">All lending companies</caption>
+          <thead><tr><th><span class="ds-visually-hidden">Following</span></th><th>Company</th><th>Program(s)</th><th>Industry <span class="p-sample">Sample</span></th><th>Latest month</th><th>Status</th><th class="ds-num">Balance</th><th class="ds-num">Delinquency</th><th class="ds-num">News 7 days</th><th>Adverse media</th><th class="ds-num p-tao-col">Notes <span class="p-tao">TAO</span></th></tr></thead>
+          <tbody><tr class="ds-row ds-row--clickable" data-name="dynamic capital move trust - dynamic capital" data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Equipment leasing" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-dynamic-capital">Dynamic Capital</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$188,962,360</td>
+  <td class="ds-num">0.19% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="essex lease financial corp. move trust - essex lease financial corp." data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Equipment leasing" data-status="WATCH" data-adverse="1 to review">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html">Essex Lease Financial Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 1 watch</div></td>
+  <td class="ds-num">$179,272,568</td>
+  <td class="ds-num">1.31% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">3</span> new</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>1 to review</span></td>
+  <td class="ds-num p-tao-col">2</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="finloc 2000 inc. move trust - finloc 2000 inc." data-program="MOVE Trust" data-hq="Montreal, QC" data-industry="Equipment finance" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-finloc-2000-inc">Finloc 2000 Inc.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">6 breach · 0 watch</div></td>
+  <td class="ds-num">$48,386,889</td>
+  <td class="ds-num">8.83% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col">4</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="meridian onecap lp move trust - meridian onecap lp" data-program="MOVE Trust" data-hq="Vaughan, ON" data-industry="Vehicle and equipment leasing" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-meridian-onecap-lp">Meridian OneCap LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Vehicle and equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$217,522,568</td>
+  <td class="ds-num">0.52% <span class="mk-small"><span class="trend-flat">&mdash;</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="moneda capital corp. f-pil 2.0 - moneda capital corp." data-program="F-PIL 2.0" data-hq="Calgary, AB" data-industry="Equipment finance" data-status="WATCH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-moneda-capital-corp">Moneda Capital Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Equipment finance</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 1 watch</div></td>
+  <td class="ds-num">$15,019,972</td>
+  <td class="ds-num">1.79% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="stride capital f-pil 2.0 - stride capital" data-program="F-PIL 2.0" data-hq="Vancouver, BC" data-industry="Small-ticket equipment finance" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-stride-capital">Stride Capital</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Small-ticket equipment finance</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$7,487,265</td>
+  <td class="ds-num">2.33% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="tlfc move trust - tlfc (leases) move trust - tlfc (loans) move trust - tlfc lp (leases)" data-program="MOVE Trust" data-hq="Mississauga, ON" data-industry="Truck and trailer finance" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tlfc-leases">TLFC</a><div class="p-mini">3 deals</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$160,909,907</td>
+  <td class="ds-num">0.35%&ndash;0.43% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="tpine leasing capital corporation move trust - tpine leasing capital corporation" data-program="MOVE Trust" data-hq="Mississauga, ON" data-industry="Truck and trailer leasing" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tpine-leasing-capital-corporation">TPine Leasing Capital Corporation</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">2 breach · 0 watch</div></td>
+  <td class="ds-num">$15,313,944</td>
+  <td class="ds-num">2.14% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col">1</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="vcc iv lp move trust - vcc iv lp" data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Commercial lending" data-status="OK" data-adverse="Not screened">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-vcc-iv-lp">VCC IV LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Commercial lending</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$42,003,551</td>
+  <td class="ds-num">0.42% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--neutral ds-pill--sm"><span class="ds-pill__dot"></span>Not screened</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="xpedite leasing f-pil 2.0 - xpedite leasing" data-program="F-PIL 2.0" data-hq="Edmonton, AB" data-industry="Transportation equipment leasing" data-status="WATCH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-xpedite-leasing">Xpedite Leasing</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Transportation equipment leasing</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 2 watch</div></td>
+  <td class="ds-num">$39,651,581</td>
+  <td class="ds-num">0.55% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr></tbody></table></div></div>
+      </section>
+      <div class="mk-note"><b class="mk-n">4</b><b>Balance and status are real.</b> Balance is the sum of each deal's closing tranche balance in its latest published month (F-PIL 2.0 is at August 2026, MOVE Trust at July 2026, so Latest month says which). The line under the status counts breach and watch covenants across the company's deals.</div>
+      <div class="mk-note"><b class="mk-n">5</b><b>Notes column is TAO only.</b> It counts internal analyst notes on the profile. Partners never see the column or the notes. No other column differs between TAO and partners.</div>
+      <div class="mk-note"><b class="mk-n">6</b><b>Company record (new).</b> A company is a new record that groups deals. TAO Admin creates it once, links deals to it and fills industry, HQ, website and relationship start. Edits are audited (Platform audit log, D3). Until linked, a new deal appears as its own company named after the deal.</div>
+      <div class="mk-stage" style="display:block;min-width:0;place-items:normal">
+        <p class="mk-small" style="margin:0 0 10px;color:var(--indigo)"><b>State after choosing Status = &ldquo;Breach or watch&rdquo;</b> (static copy for review with JavaScript off)</p>
+        <section class="ds-card ds-card--flush"><div class="ds-card__head"><div><h2>All companies</h2><div class="ds-card__sub">5 of 10 companies · Status: Breach or watch <a href="#">Clear filters</a></div></div></div>
+        <div class="ds-card__body"><div class="ds-table-wrap" style="overflow-x:auto"><table class="ds-table"><thead><tr><th><span class="ds-visually-hidden">Following</span></th><th>Company</th><th>Program(s)</th><th>Industry <span class="p-sample">Sample</span></th><th>Latest month</th><th>Status</th><th class="ds-num">Balance</th><th class="ds-num">Delinquency</th><th class="ds-num">News 7 days</th><th>Adverse media</th><th class="ds-num p-tao-col">Notes <span class="p-tao">TAO</span></th></tr></thead><tbody><tr class="ds-row ds-row--clickable" data-name="essex lease financial corp. move trust - essex lease financial corp." data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Equipment leasing" data-status="WATCH" data-adverse="1 to review">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html">Essex Lease Financial Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 1 watch</div></td>
+  <td class="ds-num">$179,272,568</td>
+  <td class="ds-num">1.31% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">3</span> new</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>1 to review</span></td>
+  <td class="ds-num p-tao-col">2</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="finloc 2000 inc. move trust - finloc 2000 inc." data-program="MOVE Trust" data-hq="Montreal, QC" data-industry="Equipment finance" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-finloc-2000-inc">Finloc 2000 Inc.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">6 breach · 0 watch</div></td>
+  <td class="ds-num">$48,386,889</td>
+  <td class="ds-num">8.83% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col">4</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="moneda capital corp. f-pil 2.0 - moneda capital corp." data-program="F-PIL 2.0" data-hq="Calgary, AB" data-industry="Equipment finance" data-status="WATCH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-moneda-capital-corp">Moneda Capital Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Equipment finance</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 1 watch</div></td>
+  <td class="ds-num">$15,019,972</td>
+  <td class="ds-num">1.79% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="tpine leasing capital corporation move trust - tpine leasing capital corporation" data-program="MOVE Trust" data-hq="Mississauga, ON" data-industry="Truck and trailer leasing" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tpine-leasing-capital-corporation">TPine Leasing Capital Corporation</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">2 breach · 0 watch</div></td>
+  <td class="ds-num">$15,313,944</td>
+  <td class="ds-num">2.14% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col">1</td>
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="xpedite leasing f-pil 2.0 - xpedite leasing" data-program="F-PIL 2.0" data-hq="Edmonton, AB" data-industry="Transportation equipment leasing" data-status="WATCH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=f-pil-2-0-xpedite-leasing">Xpedite Leasing</a><div class="p-mini">1 deal</div></td>
+  <td>F-PIL 2.0</td>
+  <td>Transportation equipment leasing</td>
+  <td class="p-num">August 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 2 watch</div></td>
+  <td class="ds-num">$39,651,581</td>
+  <td class="ds-num">0.55% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  <td class="ds-num p-tao-col"><span class=mk-muted>0</span></td>
+</tr></tbody></table></div></div></section>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="p-screen">Screen C · Companies page, partner view (Investor Portal)<span>Same page and columns. A partner sees only the programs shared with it; here an investor in MOVE Trust only.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">I</div><div><b>Investor Portal</b><span>Portfolio monitoring</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav"><a href="#">Portfolio Executive Summary</a><a href="#" class="on">Companies <span class="mk-tag">New</span></a><a href="#">Reports</a><a href="#">Data room</a><a href="#">Notifications</a><a href="#">What's new</a><a href="#">Help &amp; support</a></nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav"><a href="#">Profile</a><a href="#">Team members</a></nav>
+    <div class="mk-foot"><div class="mk-avatar">IA</div><div><b>Investor Admin</b><small>Sample Investor LP</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top"><div class="ds-pagehead"><div class="ds-pagehead__text">
+      <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">Investor Portal</a></li><li><span aria-current="page">Companies</span></li></ol></nav>
+      <div class="ds-pagehead__titlerow"><h1>Companies</h1><span class="mk-tag">New</span></div>
+      <div class="ds-pagehead__sub">Lending companies in the programs shared with Sample Investor LP.</div>
+    </div><div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Export CSV</button><button class="ds-btn ds-btn--ghost">Manage alerts</button></div></div></header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">7</b><b>Partner scope.</b> The list comes through the same partner filter as every /published/* read (api/app/main.py: partner_filter), so a partner only sees companies with a deal in a shared program, and a company in two programs shows only its shared deals. The Program filter lists shared programs only. No Notes column. Adverse media shows the status word; flagged item detail follows D6 note 11.</div>
+      <div class="p-toolbar"><label class="ds-field ds-field--grow"><span class="ds-field__label">Search</span><input class="ds-input" type="search" placeholder="Company or deal name"></label>
+        <label class="ds-field"><span class="ds-field__label">Program</span><select class="ds-select"><option>All shared programs</option><option>MOVE Trust</option></select></label>
+        <label class="ds-field"><span class="ds-field__label">Status</span><select class="ds-select"><option>Any status</option></select></label>
+        <label class="ds-field"><span class="ds-field__label">Adverse media</span><select class="ds-select"><option>Any</option></select></label></div>
+      <section class="ds-card ds-card--flush">
+        <div class="ds-card__head"><div><h2>All companies</h2><div class="ds-card__sub">7 companies · MOVE Trust · July 2026</div></div></div>
+        <div class="ds-card__body"><div class="ds-table-wrap" style="overflow-x:auto"><table class="ds-table"><thead><tr><th><span class="ds-visually-hidden">Following</span></th><th>Company</th><th>Program(s)</th><th>Industry <span class="p-sample">Sample</span></th><th>Latest month</th><th>Status</th><th class="ds-num">Balance</th><th class="ds-num">Delinquency</th><th class="ds-num">News 7 days</th><th>Adverse media</th></tr></thead><tbody><tr class="ds-row ds-row--clickable" data-name="dynamic capital move trust - dynamic capital" data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Equipment leasing" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-dynamic-capital">Dynamic Capital</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$188,962,360</td>
+  <td class="ds-num">0.19% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="essex lease financial corp. move trust - essex lease financial corp." data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Equipment leasing" data-status="WATCH" data-adverse="1 to review">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html">Essex Lease Financial Corp.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>Watch</span><div class="p-mini">0 breach · 1 watch</div></td>
+  <td class="ds-num">$179,272,568</td>
+  <td class="ds-num">1.31% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">3</span> new</td>
+  <td><span class="ds-pill ds-pill--warn ds-pill--sm"><span class="ds-pill__dot"></span>1 to review</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="finloc 2000 inc. move trust - finloc 2000 inc." data-program="MOVE Trust" data-hq="Montreal, QC" data-industry="Equipment finance" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Following" title="Following">&#9733;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-finloc-2000-inc">Finloc 2000 Inc.</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Equipment finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">6 breach · 0 watch</div></td>
+  <td class="ds-num">$48,386,889</td>
+  <td class="ds-num">8.83% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">2</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="meridian onecap lp move trust - meridian onecap lp" data-program="MOVE Trust" data-hq="Vaughan, ON" data-industry="Vehicle and equipment leasing" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-meridian-onecap-lp">Meridian OneCap LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Vehicle and equipment leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$217,522,568</td>
+  <td class="ds-num">0.52% <span class="mk-small"><span class="trend-flat">&mdash;</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="tlfc move trust - tlfc (leases) move trust - tlfc (loans) move trust - tlfc lp (leases)" data-program="MOVE Trust" data-hq="Mississauga, ON" data-industry="Truck and trailer finance" data-status="OK" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tlfc-leases">TLFC</a><div class="p-mini">3 deals</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer finance</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$160,909,907</td>
+  <td class="ds-num">0.35%&ndash;0.43% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="tpine leasing capital corporation move trust - tpine leasing capital corporation" data-program="MOVE Trust" data-hq="Mississauga, ON" data-industry="Truck and trailer leasing" data-status="BREACH" data-adverse="Clear">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-tpine-leasing-capital-corporation">TPine Leasing Capital Corporation</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Truck and trailer leasing</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--bad ds-pill--sm"><span class="ds-pill__dot"></span>Breach</span><div class="p-mini">2 breach · 0 watch</div></td>
+  <td class="ds-num">$15,313,944</td>
+  <td class="ds-num">2.14% <span class="mk-small"><span class="trend-good">&darr; Down</span></span></td>
+  <td class="ds-num"><span class="p-num">1</span> new</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Clear</span></td>
+  
+</tr>
+<tr class="ds-row ds-row--clickable" data-name="vcc iv lp move trust - vcc iv lp" data-program="MOVE Trust" data-hq="Toronto, ON" data-industry="Commercial lending" data-status="OK" data-adverse="Not screened">
+  <td><span class="p-star" aria-label="Not following" title="Follow">&#9734;</span></td>
+  <td style="min-width:200px"><a class="p-row-link" href="company-profile.html?company=move-trust-vcc-iv-lp">VCC IV LP</a><div class="p-mini">1 deal</div></td>
+  <td>MOVE Trust</td>
+  <td>Commercial lending</td>
+  <td class="p-num">July 2026</td>
+  <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span><div class="p-mini">0 breach · 0 watch</div></td>
+  <td class="ds-num">$42,003,551</td>
+  <td class="ds-num">0.42% <span class="mk-small"><span class="trend-bad">&uarr; Up</span></span></td>
+  <td class="ds-num"><span class="mk-muted">0</span></td>
+  <td><span class="ds-pill ds-pill--neutral ds-pill--sm"><span class="ds-pill__dot"></span>Not screened</span></td>
+  
+</tr></tbody></table></div></div>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+(function () {
+  var q = document.getElementById('q'), fp = document.getElementById('f-program'), fi = document.getElementById('f-industry'),
+      fs = document.getElementById('f-status'), fa = document.getElementById('f-adverse'), ff = document.getElementById('f-follow');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#ctable tbody tr'));
+  function apply() {
+    var n = 0, s = (q.value || '').toLowerCase();
+    rows.forEach(function (r) {
+      var st = r.getAttribute('data-status'), ad = r.getAttribute('data-adverse');
+      var ok = (!s || r.getAttribute('data-name').indexOf(s) >= 0)
+        && (!fp.value || r.getAttribute('data-program').split('|').indexOf(fp.value) >= 0)
+        && (!fi.value || r.getAttribute('data-industry') === fi.value)
+        && (!fs.value || (fs.value === 'FLAG' ? (st === 'BREACH' || st === 'WATCH') : st === fs.value))
+        && (!fa.value || (fa.value === 'To review' ? /to review/.test(ad) : ad === fa.value))
+        && (!ff.checked || r.querySelector('.p-star').textContent === '\u2605');
+      r.style.display = ok ? '' : 'none'; if (ok) n++;
+    });
+    document.getElementById('count').textContent = n + ' of ' + rows.length + ' companies';
+  }
+  [q, fp, fi, fs, fa, ff].forEach(function (el) { el.addEventListener('input', apply); el.addEventListener('change', apply); });
+  rows.forEach(function (r) { r.addEventListener('click', function (ev) { if (ev.target.tagName !== 'A') location.href = r.querySelector('a').getAttribute('href'); }); });
+})();
+</script>
+</body>
+</html>

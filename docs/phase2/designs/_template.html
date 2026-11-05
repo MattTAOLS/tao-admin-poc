@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAGE TITLE · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+</head>
+<body>
+<!-- Strip above the app: which design this is and a link back to the index. Keep it. -->
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D0 · PAGE TITLE</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Real data from docs/dashboard-json where shown.</span></div>
+<div class="mk-app">
+  <!-- TAO Admin sidebar, matching web/src/shell/pages.ts nav. For a partner page use: brand "Investor Portal" / "Portfolio monitoring",
+       Workspace: Portfolio Executive Summary, Reports, Data room, Notifications, What's new, Help & support; Account: Profile, Team members (company admin). -->
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">PAGE TITLE</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>PAGE TITLE</h1></div>
+          <div class="ds-pagehead__sub">One line on what this page is for.</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--ghost">Secondary</button><button class="ds-btn ds-btn--primary">Primary</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b>Design note: what is new or changed here and why. Number every note so the operator can say "change note 3".</div>
+      <!-- page content: ds-card, ds-table, ds-kpi-row, ds-pill, ds-finding, ds-field ... from assets/mockup.css -->
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User management · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Page-local layout for this mockup. Tokens only. */
+  .pg-jump { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px var(--gutter); background: var(--indigo-2); }
+  .pg-jump a { color: var(--text-on-indigo); font: 600 12px var(--font); text-decoration: none; padding: 5px 10px; border-radius: var(--r-chip); background: var(--line-on-indigo); }
+  .pg-screen { border-top: 6px solid var(--canvas-deep); }
+  .pg-screenhead { padding: 12px var(--gutter); background: var(--lav); color: var(--indigo); font: 700 13px var(--font); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .pg-screenhead code { font: 500 12px var(--mono); color: var(--text); }
+  .pg-screen .mk-app { min-height: 0; }
+  .pg-screen .mk-side { position: static; height: auto; }
+  .pg-screen .mk-top { position: static; }
+
+  .pg-who { display: flex; gap: 10px; align-items: center; }
+  .pg-who small { display: block; color: var(--muted); font-size: var(--fs-small); }
+  .pg-av { width: 28px; height: 28px; border-radius: 50%; background: var(--lav-2); color: var(--indigo); display: grid; place-items: center; font: 700 11px var(--font); flex: none; }
+  .pg-subs { font-size: 12px; color: var(--text); line-height: 1.4; }
+  .pg-subs small { color: var(--muted); display: block; }
+  .pg-filters { display: flex; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--border-card); }
+  .pg-filters .ds-input { max-width: 260px; }
+  .pg-filters .ds-select { max-width: 170px; }
+  .pg-scroll { overflow-x: auto; }
+
+  /* Drawer, drawn statically on a dimmed stage */
+  .pg-drawerstage { background: color-mix(in srgb, var(--indigo) 22%, var(--cream)); border-radius: var(--r-card); display: flex; justify-content: flex-end; min-height: 400px; overflow: hidden; }
+  .pg-drawer { width: min(620px, 100%); background: var(--card); box-shadow: var(--sh-frame); display: flex; flex-direction: column; }
+  .pg-drawer__head { padding: 18px 20px 12px; border-bottom: 1px solid var(--border-card); display: flex; gap: 12px; align-items: flex-start; }
+  .pg-drawer__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+  .pg-drawer__foot { padding: 14px 20px; border-top: 1px solid var(--border-card); display: flex; gap: 9px; background: color-mix(in srgb, var(--cream) 55%, var(--card)); }
+  .pg-sec { display: flex; flex-direction: column; gap: 10px; }
+  .pg-sec__title { font: 700 13px var(--font); color: var(--indigo); margin: 0; display: flex; gap: 8px; align-items: center; }
+  .pg-grid2 { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pg-radio { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 10px 12px; border: 1px solid var(--border-card); border-radius: var(--r-control); }
+  .pg-radio--on { border-color: var(--purple); background: color-mix(in srgb, var(--lav) 50%, var(--card)); }
+  .pg-radio input, .pg-tree input { accent-color: var(--purple); margin-top: 2px; }
+  .pg-radio small { display: block; color: var(--muted); font-size: var(--fs-small); }
+
+  .pg-tree { border: 1px solid var(--border-card); border-radius: var(--r-panel); overflow: hidden; font-size: 13px; }
+  .pg-tree__row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 70px; gap: 8px; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border-table); }
+  .pg-tree__row:last-child { border-bottom: 0; }
+  .pg-tree__head { background: var(--canvas-deep); font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .pg-tree__prog { background: color-mix(in srgb, var(--lav) 45%, var(--card)); font-weight: 700; color: var(--indigo); }
+  .pg-tree__all { padding-left: 34px; font-size: 12.5px; }
+  .pg-tree__deal { padding-left: 34px; }
+  .pg-tree__deal--off { color: var(--muted); }
+  .pg-tree label { display: flex; gap: 8px; align-items: flex-start; }
+  .pg-tree .pg-c { text-align: center; }
+  .pg-cnt { font: 500 var(--fs-small) var(--data); color: var(--muted); font-weight: 400; margin-left: 4px; }
+
+  .pg-matrix td.pg-cell, .pg-matrix th.pg-cell { text-align: center; }
+  .pg-matrix .pg-grp td { background: var(--canvas-deep); font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .pg-yes, .pg-no, .pg-ltd { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px var(--data); white-space: nowrap; }
+  .pg-yes::before, .pg-no::before, .pg-ltd::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pg-yes { color: var(--ok); } .pg-no { color: var(--muted); } .pg-no::before { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; } .pg-ltd { color: var(--blue); }
+  .pg-diff { font: 500 12px var(--data); }
+  .pg-diff del { color: var(--bad); } .pg-diff ins { color: var(--ok); text-decoration: none; }
+  @media (max-width: 900px) { .pg-grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D8 · User management</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Programs and deals are the real 12 in seed/deals.json; people, emails and dates are sample.</span></div>
+<nav class="pg-jump" aria-label="Screens on this page">
+  <a href="#scr-a">(a) TAO User management</a>
+  <a href="#scr-b">(b) Add / edit user drawer</a>
+  <a href="#scr-c">(c) Partner Team members</a>
+  <a href="#scr-d">(d) Roles &amp; permissions</a>
+  <a href="#scr-e">Platform audit log</a>
+</nav>
+
+<!-- ============================ (a) TAO users ============================ -->
+<section class="pg-screen" id="scr-a">
+<div class="pg-screenhead">(a) TAO Admin › User management <code>/admin/settings/users</code><span class="mk-muted" style="font-weight:500">Signed in as A. Patel · TAO Admin (sample user)</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="notifications.html">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#" class="on">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">AP</div><div><b>A. Patel</b><small>TAO Admin</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">User management</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>User management</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">TAO Solutions staff who sign in to TAO Admin: their role, status and which reports they receive.</div>
+        </div>
+        <div class="ds-pagehead__actions"><a class="ds-btn ds-btn--ghost" href="#scr-d">Roles &amp; permissions</a><button class="ds-btn ds-btn--ghost">Invite by email</button><button class="ds-btn ds-btn--primary">Add user</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b>New page at <code>/admin/settings/users</code> (placeholder today), TAO Admin only. Partner users are not managed here; they belong to each partner's Team members page (c), and TAO sees them read-only on Partner details.</div>
+
+      <div class="ds-kpi-row" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)">
+        <div class="ds-card ds-card--pad ds-kpi"><div class="ds-kpi__label">Users</div><div class="ds-kpi__value">6</div><div class="ds-kpi__context">2 TAO Admin · 4 TAO Analyst</div></div>
+        <div class="ds-card ds-card--pad ds-kpi"><div class="ds-kpi__label">Active</div><div class="ds-kpi__value ds-kpi__value--ok">4</div><div class="ds-kpi__context">Signed in within 30 days</div></div>
+        <div class="ds-card ds-card--pad ds-kpi"><div class="ds-kpi__label">Invited</div><div class="ds-kpi__value ds-kpi__value--warn">1</div><div class="ds-kpi__context">Invite not yet accepted</div></div>
+        <div class="ds-card ds-card--pad ds-kpi"><div class="ds-kpi__label">Deactivated</div><div class="ds-kpi__value">1</div><div class="ds-kpi__context">Cannot sign in; history kept</div></div>
+      </div>
+
+      <div class="ds-card ds-card--flush">
+        <div class="pg-filters">
+          <input class="ds-input" placeholder="Search name or email">
+          <select class="ds-select"><option>All roles</option><option>TAO Admin</option><option>TAO Analyst</option></select>
+          <select class="ds-select"><option>All statuses</option><option>Active</option><option>Invited</option><option>Deactivated</option></select>
+        </div>
+        <div class="pg-scroll">
+        <table class="ds-table" aria-label="TAO users">
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Last active</th><th>Reports received <span class="mk-tag">New</span></th><th></th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">AP</span><div><span class="ds-key">A. Patel</span><small>a.patel@example.com</small></div></div></td><td>TAO Admin</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 10:55</td><td class="pg-subs">Both programs, all 12 deals<small>In-app · Email</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">KL</span><div><span class="ds-key">K. Lindqvist</span><small>k.lindqvist@example.com</small></div></div></td><td>TAO Admin</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 10:51</td><td class="pg-subs">MOVE Trust, all 9 deals<small>In-app · Email</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">JM</span><div><span class="ds-key">J. Moreau</span><small>j.moreau@example.com</small></div></div></td><td>TAO Analyst</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 10:42</td><td class="pg-subs">MOVE Trust, all 9 deals<small>In-app</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            <tr class="ds-row ds-row--selected"><td><div class="pg-who"><span class="pg-av">PN</span><div><span class="ds-key">P. Nguyen</span><small>p.nguyen@example.com</small></div></div></td><td>TAO Analyst</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 09:31</td><td class="pg-subs">F-PIL 2.0, all 3 deals; MOVE Trust, 2 of 9<small>In-app · Email (some deals)</small></td><td><button class="ds-btn ds-btn--sm ds-btn--primary">Edit</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">TB</span><div><span class="ds-key">T. Brooks</span><small>t.brooks@example.com</small></div></div></td><td>TAO Analyst</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Invited</span></td><td class="mk-muted">Invite sent 2 Nov · expires 9 Nov</td><td class="pg-subs">MOVE Trust, all 9 deals<small>In-app</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Resend invite</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">MD</span><div><span class="ds-key" style="color:var(--muted)">M. Duarte</span><small>m.duarte@example.com</small></div></div></td><td>TAO Analyst</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Deactivated</span></td><td>12 Sep 2026</td><td class="pg-subs mk-muted">None (deactivated)</td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Reactivate</button></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <div class="mk-grid2">
+        <div class="mk-note"><b class="mk-n">2</b><b>Add user</b> opens the drawer (b): the admin sets details, role and reports, and the person gets a sign-in email. <b>Invite by email</b> is the short form: email and role only, and the person fills in their own name on first sign-in; reports default to none until an admin sets them.</div>
+        <div class="mk-note"><b class="mk-n">3</b>"Reports received" summarises the subscription tree from (b): program, how many deals, and channels. It decides who gets Reports notifications in D7. Mentions reach a person whatever they receive.</div>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============================ (b) Drawer ============================ -->
+<section class="pg-screen" id="scr-b">
+<div class="pg-screenhead">(b) User management › Edit user (drawer) <span class="mk-muted" style="font-weight:500">State after clicking "Edit" on P. Nguyen. "Add user" opens the same drawer empty, titled "Add user".</span></div>
+<div class="mk-body">
+  <div class="mk-split" style="grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)">
+    <div style="display:flex;flex-direction:column;gap:var(--gap)">
+      <div class="mk-note"><b class="mk-n">4</b>A drawer from the right, so the table stays in view. Details and role: name, email (unique; changing it sends a confirmation to the new address), role TAO Admin or TAO Analyst. A TAO Admin cannot change their own role or deactivate themselves; there must always be at least one active TAO Admin.</div>
+      <div class="mk-note"><b class="mk-n">5</b>Status is Active or Deactivated. There is no hard delete: "Remove" deactivates. The person is signed out and cannot sign in; their uploads, overrides, comments and audit rows keep their name. Reactivate restores the same account.</div>
+      <div class="mk-note"><b class="mk-n">6</b>"Reports this user receives" is a tree of the 2 programs and their 12 deals. "All deals in this program, including new ones" ticks every deal and keeps any deal added later. Unticking it leaves the deals chosen one by one; new deals then are not added.</div>
+      <div class="mk-note"><b class="mk-n">7</b>Channel per program or per deal: in-app and email. In-app is ticked whenever the deal is. On a program row, the channels apply to all its deals unless a deal row says otherwise.</div>
+      <div class="mk-note"><b class="mk-n">8</b>Save writes one Platform audit row per change, with before and after (see the audit section below). History in the drawer shows this user's last changes.</div>
+
+      <div class="mk-stage">
+        <div class="ds-dialog ds-dialog--sm" role="dialog" aria-labelledby="deact-title">
+          <div class="ds-dialog__head"><div><h2 id="deact-title">Deactivate P. Nguyen?</h2><div class="ds-dialog__desc">State after clicking "Deactivate user".</div></div></div>
+          <div class="ds-dialog__body">
+            <ul style="margin:0;padding-left:18px;font-size:13px">
+              <li>Signed out now; cannot sign in.</li>
+              <li>Stops receiving notifications.</li>
+              <li>Uploads, comments and audit history stay, under their name.</li>
+              <li>1 upload they started is still in review; it stays in the queue.</li>
+            </ul>
+            <label class="ds-field"><span class="ds-field__label">Reason<span class="ds-field__req">*</span></span><input class="ds-input" value="Left TAO Solutions (sample)"></label>
+          </div>
+          <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--danger">Deactivate</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pg-drawerstage">
+      <div class="pg-drawer" role="dialog" aria-labelledby="dr-title">
+        <div class="pg-drawer__head"><span class="pg-av" style="width:36px;height:36px">PN</span><div><h2 id="dr-title">Edit user</h2><div class="ds-dialog__desc">P. Nguyen · last active today, 09:31</div></div><button class="ds-iconbtn ds-dialog__close" aria-label="Close">&times;</button></div>
+        <div class="pg-drawer__body">
+          <div class="pg-sec">
+            <h3 class="pg-sec__title">Details and role</h3>
+            <div class="pg-grid2">
+              <label class="ds-field"><span class="ds-field__label">Full name<span class="ds-field__req">*</span></span><input class="ds-input" value="P. Nguyen"></label>
+              <label class="ds-field"><span class="ds-field__label">Email<span class="ds-field__req">*</span></span><input class="ds-input" value="p.nguyen@example.com"></label>
+            </div>
+            <label class="ds-field"><span class="ds-field__label">Role<span class="ds-field__req">*</span></span>
+              <select class="ds-select"><option>TAO Analyst</option><option>TAO Admin</option></select>
+              <span class="ds-field__hint">TAO Analyst: uploads, reads every report, comments. TAO Admin: also edits values and covenants, resolves findings, publishes, manages users. <a href="#scr-d">Compare roles</a></span></label>
+          </div>
+
+          <div class="pg-sec">
+            <h3 class="pg-sec__title">Status</h3>
+            <div class="pg-grid2">
+              <label class="pg-radio pg-radio--on"><input type="radio" name="st" checked><span><b>Active</b><small>Can sign in and gets notifications.</small></span></label>
+              <label class="pg-radio"><input type="radio" name="st"><span><b>Deactivated</b><small>Cannot sign in. History is kept.</small></span></label>
+            </div>
+          </div>
+
+          <div class="pg-sec">
+            <h3 class="pg-sec__title">Reports this user receives <span class="mk-tag">New</span></h3>
+            <div class="pg-tree" role="tree" aria-label="Programs and deals">
+              <div class="pg-tree__row pg-tree__head"><span>Program / deal</span><span class="pg-c">In-app</span><span class="pg-c">Email</span></div>
+
+              <div class="pg-tree__row pg-tree__prog" role="treeitem" aria-expanded="true"><label><input type="checkbox" checked>F-PIL 2.0 <span class="pg-cnt">3 of 3 deals</span></label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__all"><label><input type="checkbox" checked><span><b>All deals in this program, including new ones</b></span></label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox" checked disabled>Moneda Capital Corp.</label><span class="pg-c"><input type="checkbox" checked disabled aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked disabled aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox" checked disabled>Stride Capital</label><span class="pg-c"><input type="checkbox" checked disabled aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked disabled aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox" checked disabled>Xpedite Leasing</label><span class="pg-c"><input type="checkbox" checked disabled aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked disabled aria-label="Email"></span></div>
+
+              <div class="pg-tree__row pg-tree__prog" role="treeitem" aria-expanded="true"><label><input type="checkbox" class="pg-indet">MOVE Trust <span class="pg-cnt">2 of 9 deals</span></label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" class="pg-indet" aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__all"><label><input type="checkbox"><span><b>All deals in this program, including new ones</b></span></label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">Dynamic Capital</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal"><label><input type="checkbox" checked>Essex Lease Financial Corp.</label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__deal"><label><input type="checkbox" checked>Finloc 2000 Inc.</label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">Meridian OneCap LP</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">TLFC (Leases)</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">TLFC (Loans)</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">TLFC LP (Leases)</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">TPine Leasing Capital Corporation</label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><label><input type="checkbox">VCC IV LP</label><span></span><span></span></div>
+            </div>
+            <span class="ds-field__hint">Receives: needs review, published, correction published, covenant changed and rejected, for the ticked deals. 5 of 12 deals.</span>
+          </div>
+
+          <div class="pg-sec">
+            <h3 class="pg-sec__title">History</h3>
+            <table class="ds-table ds-table--compact" aria-label="Changes to this user">
+              <tbody>
+                <tr><td>2 Nov 09:40</td><td>A. Patel</td><td class="pg-diff">Reports: added MOVE Trust · Finloc 2000 Inc. (in-app)</td></tr>
+                <tr><td>14 Oct 15:02</td><td>K. Lindqvist</td><td class="pg-diff">Role: <del>TAO Admin</del> → <ins>TAO Analyst</ins></td></tr>
+                <tr><td>1 Oct 08:30</td><td>K. Lindqvist</td><td class="pg-diff">User added, invite sent</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pg-drawer__foot"><button class="ds-btn ds-btn--danger">Deactivate user</button><span class="mk-spacer"></span><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Save changes</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============================ (c) Partner Team members ============================ -->
+<section class="pg-screen" id="scr-c">
+<div class="pg-screenhead">(c) Investor Portal › Team members <code>/investor/settings/team</code><span class="mk-muted" style="font-weight:500">Signed in as R. Okafor · Investor · Company Admin (sample user)</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">I</div><div><b>Investor Portal</b><span>Portfolio monitoring</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Reports</a>
+      <a href="#">Data room</a>
+      <a href="notifications.html#scr-d">Notifications</a>
+      <a href="#">What's new</a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">Profile</a>
+      <a href="#" class="on">Team members</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">RO</div><div><b>R. Okafor</b><small>Investor · Company Admin</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">Investor Portal</a></li><li><span aria-current="page">Team members</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Team members</h1><span class="mk-tag">New</span></div>
+          <div class="ds-pagehead__sub">People at Investor who can sign in to this portal, and which reports each one receives.</div>
+        </div>
+        <div class="ds-pagehead__actions"><button class="ds-btn ds-btn--primary">Invite teammate</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">9</b>Company Admins only (Investor · Company Admin, Manager · Company Admin). Same table and drawer as TAO's, scoped to their own company. Roles offered: Company Admin or Viewer. They never see TAO users or the other partner's users.</div>
+      <div class="ds-card ds-card--flush">
+        <div class="pg-scroll">
+        <table class="ds-table" aria-label="Team members">
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Last active</th><th>Reports received</th><th></th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">RO</span><div><span class="ds-key">R. Okafor</span><small>r.okafor@example.com · you</small></div></div></td><td>Company Admin</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 11:02</td><td class="pg-subs">MOVE Trust, all 9 deals<small>In-app · Email</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            <tr class="ds-row ds-row--selected"><td><div class="pg-who"><span class="pg-av">LC</span><div><span class="ds-key">L. Chen</span><small>l.chen@example.com</small></div></div></td><td>Viewer</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>Today, 11:24</td><td class="pg-subs">MOVE Trust, 1 of 9 (Essex Lease Financial Corp.)<small>In-app · Email</small></td><td><button class="ds-btn ds-btn--sm ds-btn--primary">Edit</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">MS</span><div><span class="ds-key">M. Silva</span><small>m.silva@example.com</small></div></div></td><td>Viewer</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Active</span></td><td>3 Nov 2026</td><td class="pg-subs">F-PIL 2.0, all 3 deals<small>In-app</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            <tr class="ds-row"><td><div class="pg-who"><span class="pg-av">HB</span><div><span class="ds-key">H. Berg</span><small>h.berg@example.com</small></div></div></td><td>Viewer</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Invited</span></td><td class="mk-muted">Invite sent 4 Nov</td><td class="pg-subs">Both programs, all deals<small>In-app</small></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Resend invite</button></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="mk-split">
+        <div class="ds-card">
+          <div class="ds-card__head"><div><h2>Edit L. Chen</h2><div class="ds-card__sub">Drawer content, shown inline. Same layout as (b).</div></div></div>
+          <div class="ds-card__body" style="display:flex;flex-direction:column;gap:14px">
+            <div class="pg-grid2">
+              <label class="ds-field"><span class="ds-field__label">Role</span><select class="ds-select"><option>Viewer</option><option>Company Admin</option></select></label>
+              <label class="ds-field"><span class="ds-field__label">Status</span><select class="ds-select"><option>Active</option><option>Deactivated</option></select></label>
+            </div>
+            <div class="pg-tree" role="tree" aria-label="Programs shared with Investor">
+              <div class="pg-tree__row pg-tree__head"><span>Programs shared with Investor</span><span class="pg-c">In-app</span><span class="pg-c">Email</span></div>
+              <div class="pg-tree__row pg-tree__prog"><label><input type="checkbox" class="pg-indet">MOVE Trust <span class="pg-cnt">1 of 9 deals</span></label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__all"><label><input type="checkbox"><b>All deals in this program, including new ones</b></label><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__deal"><label><input type="checkbox" checked>Essex Lease Financial Corp.</label><span class="pg-c"><input type="checkbox" checked aria-label="In-app"></span><span class="pg-c"><input type="checkbox" checked aria-label="Email"></span></div>
+              <div class="pg-tree__row pg-tree__deal pg-tree__deal--off"><span class="mk-small">+ 8 more deals, unticked</span><span></span><span></span></div>
+              <div class="pg-tree__row pg-tree__prog"><label><input type="checkbox">F-PIL 2.0 <span class="pg-cnt">0 of 3 deals</span></label><span></span><span></span></div>
+            </div>
+            <div class="mk-row"><button class="ds-btn ds-btn--danger ds-btn--sm">Remove from team</button><span class="mk-spacer"></span><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Save changes</button></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="mk-note"><b class="mk-n">10</b>The tree lists only programs TAO has shared with this partner (today both MOVE Trust and F-PIL 2.0 are shared with Investor and Manager). If TAO stops sharing a program, it drops out of every teammate's tree and they stop receiving it.</div>
+          <div class="mk-note"><b class="mk-n">11</b>"Receives" sets notifications only. Every teammate can still open every report for the shared programs. Hiding programs from a teammate is not in this design (open question).</div>
+          <div class="mk-note"><b class="mk-n">12</b>"Remove from team" deactivates (as in note 5). A Company Admin cannot remove or demote themselves; each partner keeps at least one active Company Admin. TAO Admin can do all of this on Partner details if the partner is locked out.</div>
+          <div class="mk-note"><b class="mk-n">13</b>Partner changes go to the same Platform audit log, marked with the partner. TAO sees them; the Company Admin sees their own team's history in the drawer.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</section>
+
+<!-- ============================ (d) Roles & permissions ============================ -->
+<section class="pg-screen" id="scr-d">
+<div class="pg-screenhead">(d) User management › Roles &amp; permissions <code>/admin/settings/users/roles</code><span class="mk-muted" style="font-weight:500">Read only</span></div>
+<div class="mk-body">
+  <div class="ds-pagehead">
+    <div class="ds-pagehead__text">
+      <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><a href="#scr-a">User management</a></li><li><span aria-current="page">Roles &amp; permissions</span></li></ol></nav>
+      <div class="ds-pagehead__titlerow"><h1>Roles &amp; permissions</h1><span class="mk-tag">New</span></div>
+      <div class="ds-pagehead__sub">What each of the six roles can do. Fixed in this release; not editable.</div>
+    </div>
+  </div>
+  <div class="mk-note"><b class="mk-n">14</b>Read-only matrix of the six roles in <code>roles.ts</code>. Each cell is a dot plus a word: Yes, No, or Limited (with the limit in the row). Rows marked New are the phase 2 abilities from D1, D2, D7 and D8.</div>
+  <div class="ds-card ds-card--flush">
+    <div class="pg-scroll">
+    <table class="ds-table ds-table--compact pg-matrix" aria-label="Permissions by role">
+      <thead><tr><th>Ability</th><th class="pg-cell">TAO Admin</th><th class="pg-cell">TAO Analyst</th><th class="pg-cell">Investor · Company Admin</th><th class="pg-cell">Investor · Viewer</th><th class="pg-cell">Manager · Company Admin</th><th class="pg-cell">Manager · Viewer</th></tr></thead>
+      <tbody>
+        <tr class="pg-grp"><td colspan="7">Reports</td></tr>
+        <tr><td>Upload a report</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Open the approval queue and Review page</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Comment and @mention on a report <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Resolve a comment thread <span class="mk-tag">New</span><br><span class="mk-small mk-muted">Analyst: threads they started</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Resolve findings (use ours / report, restatement, acknowledge)</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Edit extracted values before publish <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Publish, reject, re-extract</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Publish a correction after publish <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Write a note to partners when publishing <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Open published reports and dashboards<br><span class="mk-small mk-muted">Partners: programs shared with their company</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td></tr>
+
+        <tr class="pg-grp"><td colspan="7">Programs</td></tr>
+        <tr><td>Open program / facility record</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Edit covenant definitions <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+
+        <tr class="pg-grp"><td colspan="7">Notifications</td></tr>
+        <tr><td>Receive report notifications <span class="mk-tag">New</span><br><span class="mk-small mk-muted">For the deals set in "Reports this user receives"</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td></tr>
+        <tr><td>Choose own channels (in-app, email) <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td></tr>
+
+        <tr class="pg-grp"><td colspan="7">Users and audit</td></tr>
+        <tr><td>Manage TAO users (add, invite, role, deactivate) <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Set which reports a TAO user receives <span class="mk-tag">New</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>Manage own company's team and what they receive <span class="mk-tag">New</span><br><span class="mk-small mk-muted">Own company, shared programs only; TAO Admin for any partner</span></td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-ltd">Limited</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>View audit log (Reports and Platform)</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+        <tr><td>System settings</td><td class="pg-cell"><span class="pg-yes">Yes</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td><td class="pg-cell"><span class="pg-no">No</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="mk-note"><b class="mk-n">15</b>Matches today's rules: only TAO Admin resolves, publishes and rejects; partners read <code>/published/*</code> only. New TAO Admin powers: edit values (D1), edit covenants (D2), manage users. TAO Analyst gains comments only.</div>
+</div>
+</section>
+
+<!-- ============================ Platform audit log ============================ -->
+<section class="pg-screen" id="scr-e">
+<div class="pg-screenhead">Where user changes land: Audit log › Platform <code>/admin/settings/users/audit</code><span class="mk-muted" style="font-weight:500">Platform side of D3. Sample entries.</span></div>
+<div class="mk-body">
+  <div class="ds-card ds-card--flush">
+    <div class="ds-card__head"><div><h2>Platform audit log · November 2026</h2><div class="ds-card__sub">User and team changes, newest first</div></div><span class="mk-tag mk-tag--changed">Changed</span></div>
+    <div class="pg-scroll">
+    <table class="ds-table ds-table--compact" aria-label="Platform audit entries">
+      <thead><tr><th>When</th><th>Who</th><th>Where</th><th>Action</th><th>User</th><th>Before → after</th></tr></thead>
+      <tbody>
+        <tr><td>5 Nov 11:30</td><td>R. Okafor</td><td>Investor</td><td>Reports changed</td><td>L. Chen</td><td class="pg-diff">MOVE Trust: <del>none</del> → <ins>Essex Lease Financial Corp. (in-app, email)</ins></td></tr>
+        <tr><td>4 Nov 16:10</td><td>R. Okafor</td><td>Investor</td><td>Invite sent</td><td>H. Berg</td><td class="pg-diff">Role Viewer · both programs, all deals</td></tr>
+        <tr><td>2 Nov 09:40</td><td>A. Patel</td><td>TAO</td><td>Reports changed</td><td>P. Nguyen</td><td class="pg-diff">MOVE Trust: <del>Essex</del> → <ins>Essex, Finloc 2000 Inc.</ins></td></tr>
+        <tr><td>2 Nov 09:12</td><td>K. Lindqvist</td><td>TAO</td><td>User added, invite sent</td><td>T. Brooks</td><td class="pg-diff">Role TAO Analyst · MOVE Trust, all deals</td></tr>
+        <tr><td>1 Nov 08:05</td><td>system</td><td>Manager</td><td>User deactivated</td><td>E. Varga</td><td class="pg-diff">Status <del>Active</del> → <ins>Deactivated</ins> · reason: invite link expired twice (sample)</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="mk-note"><b class="mk-n">16</b>Every user change, by TAO or by a partner Company Admin, writes one Platform row: who, which company, what, before and after, reason where asked. Rows are never edited or removed. Email and in-app channel changes a person makes for themselves are logged too.</div>
+</div>
+</section>
+<script>
+  // Visual only: show the "some deals ticked" state on program checkboxes. Without JS they show unticked with the "n of 9 deals" count.
+  document.querySelectorAll('.pg-indet').forEach(function (el) { el.indeterminate = true; });
+</script>
+</body>
+</html>

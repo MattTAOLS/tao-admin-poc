@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review report: edit values · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Page-local helpers. Tokens only. */
+  .pg-sec { display: flex; align-items: baseline; gap: 10px; margin-top: 18px; padding-bottom: 6px; border-bottom: 2px solid var(--lav-2); }
+  .pg-sec h2 { font-size: 17px; }
+  .pg-sec span { color: var(--muted); font-size: 12.5px; }
+  .pg-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; margin: 0; }
+  .pg-facts dt { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .pg-facts dd { margin: 3px 0 0; font-family: var(--data); font-feature-settings: var(--tabular); color: var(--indigo); font-weight: 600; }
+  .pg-facts dd small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-small); }
+  .pg-subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pg-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0 28px; }
+  .pg-kv__group { grid-column: 1 / -1; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 0 2px; }
+  .pg-kv__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-table); font-family: var(--data); font-size: var(--fs-table); }
+  .pg-kv__row--ro { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .pg-kv__row--edited { background: color-mix(in srgb, var(--blue-bg) 55%, var(--card)); padding: 6px 8px; border-radius: 6px; }
+  .pg-kv__value { text-align: right; font-feature-settings: var(--tabular); color: var(--indigo); font-weight: 600; }
+  .pg-kv__value small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+  .pg-src { background: var(--blue-bg); color: var(--blue); border-radius: var(--r-chip); padding: 1px 7px; font: 600 11px var(--data); text-decoration: none; white-space: nowrap; }
+  .pg-edit { font-size: 11.5px; padding: 4px 9px; }
+  .pg-callout { border-radius: var(--r-control); background: var(--canvas-deep); border: 1px solid var(--border-card); padding: 10px 12px; font-size: 12.5px; }
+  .pg-callout ul { margin: 4px 0 0; padding-left: 18px; }
+  .pg-callout li { margin: 2px 0; }
+  .pg-cur { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; }
+  .pg-big { font: 700 22px var(--data); color: var(--indigo); font-feature-settings: var(--tabular); }
+  /* Illustration of a SetRep page. The real viewer shows the rendered PDF page image. */
+  .pg-paper { position: relative; background: var(--card); border: 1px solid var(--border-card); border-radius: 6px; padding: 14px 16px; font-family: var(--data); color: var(--indigo); box-shadow: var(--sh-hair); }
+  .pg-paper h4 { margin: 0 0 6px; font: 700 12px var(--data); text-transform: uppercase; letter-spacing: .04em; }
+  .pg-paper table { font-size: 11.5px; }
+  .pg-paper td { padding: 4px 6px; border-bottom: 1px solid var(--border-table); }
+  .pg-paper td.n { text-align: right; font-feature-settings: var(--tabular); white-space: nowrap; }
+  .pg-paper__cap { position: absolute; right: 8px; top: 8px; font: 600 10px var(--font); color: var(--muted); }
+  .pg-mark-new { outline: 2px solid var(--purple); outline-offset: 2px; border-radius: 2px; }
+  .pg-mark-old { box-shadow: inset 0 0 0 2px var(--bad); background: var(--bad-bg); mix-blend-mode: multiply; }
+  .pg-crop { height: 150px; overflow: hidden; border-radius: 8px; border: 1px solid var(--border-card); background: var(--cream); display: grid; place-items: center; }
+  .pg-crop .pg-paper { transform: scale(1.25); }
+  .pg-viewer { border: 1px solid var(--border-card); border-radius: 8px; background: var(--cream); padding: 22px; overflow: auto; max-height: 460px; }
+  .pg-viewer .pg-paper { width: max-content; margin: 0 auto; font-size: 13px; }
+  .mk-stage { overflow-x: auto; }
+  .pg-viewer .pg-paper table { font-size: 15px; }
+  .pg-lens { position: absolute; width: 168px; height: 168px; border-radius: 50%; border: 3px solid var(--purple); background: var(--card); box-shadow: var(--sh-panel); display: grid; place-items: center; text-align: center; left: 460px; top: 40px; }
+  .pg-lens b { font: 700 30px var(--data); color: var(--indigo); font-feature-settings: var(--tabular); }
+  .pg-lens small { display: block; font: 600 10px var(--font); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+  .pg-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pg-sample { border-radius: 8px; border: 1px solid var(--border-card); background: var(--card); height: 120px; display: grid; place-items: center; overflow: hidden; position: relative; }
+  .pg-sample span { font: 600 46px var(--data); color: var(--indigo); font-feature-settings: var(--tabular); padding: 2px 8px; }
+  .pg-sample--old span { filter: blur(1.6px); color: color-mix(in srgb, var(--indigo) 70%, var(--card)); }
+  .pg-sample--old span.pg-mark-old { filter: blur(1.6px); }
+  .pg-sample label { position: absolute; left: 8px; top: 6px; font: 600 10.5px var(--font); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+  .pg-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pg-toolbar .pg-sep { width: 1px; height: 22px; background: var(--border-card); }
+  .pg-libactions { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pg-notify { border: 1px solid var(--lav-2); background: color-mix(in srgb, var(--lav) 45%, var(--card)); border-radius: var(--r-control); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .pg-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-card); box-shadow: var(--sh-card); }
+  .pg-footer__note { color: var(--muted); font-size: var(--fs-small); margin-right: auto; }
+  .pg-sampletag { display: inline-block; font: 700 9.5px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); border-radius: 4px; padding: 3px 5px; vertical-align: middle; margin-left: 4px; }
+  .pg-toast { max-width: 380px; }
+  .pg-scroll { overflow-x: auto; }
+  @media (max-width: 900px) { .pg-cur, .pg-compare { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D1 · Review report: edit values, sharper page viewer, correction after publish</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Real data from docs/dashboard-json where shown.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#" class="on">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><a href="#">Uploads</a></li><li><a href="#">Approval queue</a></li><li><span aria-current="page">Moneda Capital Corp. · Aug 2026</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Moneda Capital Corp.</h1><span class="ds-pill ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span></div>
+          <div class="ds-pagehead__sub">F-PIL 2.0 · Moneda-202608 -SETTREP.pdf</div>
+        </div>
+      </div>
+    </header>
+    <div class="mk-body">
+
+      <!-- ================= A. EDIT BEFORE PUBLISH ================= -->
+      <div class="pg-sec"><h2>A. Report in review: TAO Admin edits an extracted value</h2><span>Report and Findings cards unchanged; shown short.</span></div>
+
+      <section class="ds-card" aria-label="Report">
+        <div class="ds-card__head"><div><h2>Report</h2><div class="ds-card__sub">Moneda-202608 -SETTREP.pdf</div></div></div>
+        <div class="ds-card__body">
+          <dl class="pg-facts">
+            <div><dt>Deal</dt><dd>Moneda Capital Corp.<small>F-PIL 2.0</small></dd></div>
+            <div><dt>Collection period</dt><dd>Aug 2026<small>settlement August 7, 2026</small></dd></div>
+            <div><dt>Reporting period</dt><dd>Jul 2026<small>page-header month</small></dd></div>
+            <div><dt>Uploaded</dt><dd>4 Nov 2026 09:12 <span class="pg-sampletag">Sample</span><small>by A. Patel</small></dd></div>
+            <div><dt>Edited values</dt><dd>1 <span class="mk-tag">New</span><small>original kept</small></dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">1</b><b>Edit any extracted value while the report is in review.</b> TAO Admin sees an <i>Edit</i> button on every value in "Extracted values" (statuses Needs review and Approved). TAO Analyst sees the same values and source links with no Edit button (see A4). Editing does not touch the PDF or the extraction record: the edit is stored next to it, and publishing writes the edited value.</div>
+
+      <section class="ds-card ds-card--flush" aria-label="Extracted values">
+        <div class="ds-card__head">
+          <div><h2>Extracted values <span class="mk-tag mk-tag--changed">Changed</span></h2><div class="ds-card__sub">The deal object as read from the report. Every value links to its source page. TAO Admin can edit a value; the original stays on record.</div></div>
+        </div>
+        <div class="ds-card__body" style="padding:14px 18px">
+          <div class="pg-subtabs" role="toolbar" aria-label="Sections">
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">All</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Balances</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Trend</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Contracts</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Aging</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Losses</button>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Covenants</button>
+            <button class="ds-btn ds-btn--sm ds-btn--primary" aria-pressed="true">Ratios</button>
+            <span class="mk-spacer"></span>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Show edited only (0)</button>
+          </div>
+
+          <div class="pg-kv">
+            <div class="pg-kv__group">Tranche balance · page 2</div>
+            <div class="pg-kv__row"><span>Opening</span><span class="pg-kv__value">15,792,784.34</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit" aria-label="Edit Tranche balance, Opening">Edit</button></div>
+            <div class="pg-kv__row"><span>Principal</span><span class="pg-kv__value">646,926.71</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Principal prepayments</span><span class="pg-kv__value">113,057.43</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Defaults / losses</span><span class="pg-kv__value">12,828.68</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Recoveries</span><span class="pg-kv__value">64,170.00</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Closing</span><span class="pg-kv__value">15,019,971.52</span><a class="pg-src" href="#">p. 2</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+
+            <div class="pg-kv__group">Portfolio performance · page 12</div>
+            <div class="pg-kv__row"><span>Delinquency Ratio</span><span class="pg-kv__value">1.79%</span><a class="pg-src" href="#">p. 12</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Rolling 3-Month Loss Ratio</span><span class="pg-kv__value">-0.20%</span><a class="pg-src" href="#">p. 12</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Rolling 12-Month Loss Ratio</span><span class="pg-kv__value">0.45%</span><a class="pg-src" href="#">p. 12</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>CNL Ratio (worst vintage)</span><span class="pg-kv__value">3.30%</span><a class="pg-src" href="#">p. 12</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__group">Borrower data and financial ratios · page 13</div>
+            <div class="pg-kv__row"><span>Interest Coverage Ratio</span><span class="pg-kv__value">1.27&times;</span><a class="pg-src" href="#">p. 13</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Leverage Ratio</span><span class="pg-kv__value">7.57&times;</span><a class="pg-src" href="#">p. 13</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            <div class="pg-kv__row"><span>Total Equity</span><span class="pg-kv__value">6,755,120</span><a class="pg-src" href="#">p. 13</a><button class="ds-btn ds-btn--primary pg-edit" aria-label="Edit Total Equity">Edit</button></div>
+          </div>
+          <p class="mk-small mk-muted" style="margin:12px 0 0">Tables (Trend, Aging, Losses, Covenants) get the same control: each number cell shows a small Edit button on hover and on keyboard focus, and opens the same dialog.</p>
+        </div>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">2</b><b>The Edit dialog</b> shows the current value with its page crop, the new value, and a required reason (at least 10 characters). It names the rules that read this value so the reviewer knows what re-runs. <i>Save and re-run rules</i> is disabled until the new value parses and differs from the current one, and the reason is filled.</div>
+
+      <div class="mk-stage" aria-label="State after clicking Edit on Total Equity">
+        <div class="mk-small mk-muted" style="justify-self:start;margin-bottom:10px">State after clicking <b>Edit</b> on Total Equity</div>
+        <div class="ds-dialog ds-dialog--lg" role="dialog" aria-labelledby="dlg-edit-t">
+          <div class="ds-dialog__head">
+            <div><h2 id="dlg-edit-t">Edit Total Equity <span class="mk-tag">New</span></h2>
+              <div class="ds-dialog__desc">Moneda Capital Corp. · Aug 2026. The original value stays on record. The rules re-run after you save, and the edit goes in the Reports audit log.</div></div>
+            <button class="ds-iconbtn ds-dialog__close" aria-label="Close">&times;</button>
+          </div>
+          <div class="ds-dialog__body">
+            <div class="pg-cur">
+              <div class="ds-field">
+                <span class="ds-field__label">Current value</span>
+                <span class="pg-big">6,755,120</span>
+                <span class="ds-field__hint">Extracted from <a href="#">page 13</a>, Borrower data and financial ratios, row Jul-26. Pass 1.</span>
+                <span class="ds-field__hint">Raw text on the page: <code>6,755,120</code></span>
+              </div>
+              <div class="ds-field">
+                <span class="ds-field__label">Page 13 crop <span class="mk-muted" style="font-weight:400">(opens the page viewer)</span></span>
+                <div class="pg-crop">
+                  <div class="pg-paper" style="width:280px">
+                    <table><tbody>
+                      <tr><td><b>Month</b></td><td class="n"><b>Total Equity</b></td><td class="n"><b>Leverage</b></td></tr>
+                      <tr><td>Jul-26</td><td class="n"><span class="pg-mark-new">6,755,120</span></td><td class="n">7.57</td></tr>
+                      <tr><td>Jun-26</td><td class="n">6,839,888</td><td class="n">7.53</td></tr>
+                    </tbody></table>
+                  </div>
+                </div>
+                <span class="ds-field__hint">Illustration of the crop. The live crop is the rendered PDF page.</span>
+              </div>
+            </div>
+            <div class="mk-grid2">
+              <label class="ds-field">
+                <span class="ds-field__label">New value<span class="ds-field__req">*</span></span>
+                <input class="ds-input ds-input--num" value="6,755,210">
+                <span class="ds-field__hint">Currency amount, CAD. Type it as printed; separators are optional. <span class="pg-sampletag">Sample input</span></span>
+              </label>
+              <div class="ds-field">
+                <span class="ds-field__label">Change</span>
+                <span class="pg-big" style="font-size:16px">+90 <span class="mk-muted" style="font-weight:500;font-size:12.5px">(0.001%)</span></span>
+                <span class="ds-field__hint">New minus current.</span>
+              </div>
+            </div>
+            <label class="ds-field">
+              <span class="ds-field__label">Reason<span class="ds-field__req">*</span></span>
+              <textarea class="ds-textarea" rows="2">Page 13 prints 6,755,210; extraction swapped two digits. Checked at 400% in the page viewer.</textarea>
+              <span class="ds-field__hint">Goes in the audit log and on the value's Edited marker. <span class="pg-sampletag">Sample</span></span>
+            </label>
+            <div class="pg-callout">
+              <b>When you save</b>
+              <ul>
+                <li>The value shows as <i>Edited</i>, with the original 6,755,120 next to it.</li>
+                <li>All rules re-run on the edited report. Rules that read this value: R17 Covenant values recompute from components, R18 Covenant status matches our derivation (SLFA 9.1 (j) Minimum Total Equity).</li>
+                <li>A Reports audit entry records who, when, old &rarr; new, and the reason.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Save and re-run rules</button></div>
+        </div>
+      </div>
+
+      <div class="mk-note"><b class="mk-n">3</b><b>After saving</b> the row reads <i>Edited</i> (blue dot plus word) and shows the original value under the new one. Hover or focus on the marker shows who, when and the reason. A toast reports the re-run result. <i>Revert</i> restores the original, with its own reason and audit entry. An edited value can be edited again; every step is kept.</div>
+
+      <div class="mk-grid2">
+        <section class="ds-card" aria-label="Extracted values after save">
+          <div class="ds-card__head"><div><h2>Extracted values</h2><div class="ds-card__sub">State after saving · Ratios</div></div><div class="ds-card__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost">Show edited only (1)</button></div></div>
+          <div class="ds-card__body">
+            <div class="pg-kv" style="grid-template-columns:1fr">
+              <div class="pg-kv__row"><span>Leverage Ratio</span><span class="pg-kv__value">7.57&times;</span><a class="pg-src" href="#">p. 13</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+              <div class="pg-kv__row pg-kv__row--edited">
+                <span>Total Equity <span class="ds-pill ds-pill--blue ds-pill--sm" title="Edited by TAO Admin, 5 Nov 2026 10:41: Page 13 prints 6,755,210; extraction swapped two digits."><span class="ds-pill__dot"></span>Edited</span></span>
+                <span class="pg-kv__value">6,755,210 <span class="pg-sampletag">Sample</span><small>original 6,755,120</small></span>
+                <a class="pg-src" href="#">p. 13</a>
+                <span class="mk-row" style="gap:6px"><button class="ds-btn ds-btn--ghost pg-edit">Edit</button><button class="ds-btn ds-btn--ghost pg-edit">Revert</button></span>
+              </div>
+              <div class="pg-kv__row"><span>Interest Coverage Ratio</span><span class="pg-kv__value">1.27&times;</span><a class="pg-src" href="#">p. 13</a><button class="ds-btn ds-btn--ghost pg-edit">Edit</button></div>
+            </div>
+          </div>
+        </section>
+        <div style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="ds-toast ds-toast--ok pg-toast" style="animation:none">
+            <span class="ds-toast__dot"></span>
+            <div><div class="ds-toast__kind">Saved</div><div class="ds-toast__title">Total Equity edited</div><div class="ds-toast__msg">Rules re-ran. No new findings. SLFA 9.1 (j) stays OK (floor 2,500,000). <span class="pg-sampletag">Sample</span></div></div>
+            <button class="ds-iconbtn" aria-label="Dismiss">&times;</button>
+          </div>
+          <section class="ds-card ds-card--flush" aria-label="Activity">
+            <div class="ds-card__head"><div><h2>Activity</h2><div class="ds-card__sub">Audit log entries for this upload, newest first</div></div></div>
+            <div class="pg-scroll"><table class="ds-table ds-table--compact">
+              <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th><th>Reason</th></tr></thead>
+              <tbody>
+                <tr><td>5 Nov 10:41</td><td>TAO Admin</td><td><b>Value edited</b> <span class="mk-tag">New</span></td><td>Total Equity (p. 13): 6,755,120 &rarr; 6,755,210</td><td>Page 13 prints 6,755,210; extraction swapped two digits.</td></tr>
+                <tr><td>5 Nov 10:41</td><td>System</td><td>Rules re-run <span class="mk-tag">New</span></td><td>after value edit · 0 findings opened, 0 closed</td><td>—</td></tr>
+                <tr><td>4 Nov 09:13</td><td>System</td><td>Extracted</td><td>pass 1</td><td>—</td></tr>
+                <tr><td>4 Nov 09:12</td><td>A. Patel</td><td>Uploaded</td><td>16 pages</td><td>—</td></tr>
+              </tbody>
+            </table></div>
+            <div class="mk-small mk-muted" style="padding:8px 14px">Times, people and reasons are sample content.</div>
+          </section>
+        </div>
+      </div>
+
+      <div class="mk-note"><b class="mk-n">4</b><b>Publish shows the edits.</b> The Publish dialog lists every edited value (old &rarr; new, who, reason) next to the use-ours / use-report changes it already lists, so nothing reaches partners unseen. The footer note reads "1 value edited" while edits are pending.</div>
+
+      <div class="pg-footer" role="region" aria-label="Decision">
+        <span class="pg-footer__note">All block findings are resolved. 1 value edited <span class="mk-tag mk-tag--changed">Changed</span>. Ready to publish.</span>
+        <button class="ds-btn ds-btn--ghost">Re-extract pages…</button>
+        <button class="ds-btn ds-btn--danger">Reject…</button>
+        <button class="ds-btn ds-btn--primary">Publish to partner…</button>
+      </div>
+
+      <div class="mk-note"><b class="mk-n">5</b><b>Re-extract after an edit.</b> If TAO Admin re-extracts a page that holds an edited value, the Re-extract dialog warns: "Page 12 has 1 edited value. The edit is kept and applied over the new extraction; check it after the second pass." The edit is never silently dropped.</div>
+
+      <div class="pg-sec"><h2>A4. Same page as TAO Analyst</h2><span>Read only. No Edit, Revert, Re-extract, Reject or Publish.</span></div>
+      <section class="ds-card" aria-label="Extracted values, analyst view">
+        <div class="ds-card__head"><div><h2>Extracted values</h2><div class="ds-card__sub">Read only. Only TAO Admin can edit a value.</div></div></div>
+        <div class="ds-card__body">
+          <div class="pg-kv" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+            <div class="pg-kv__row pg-kv__row--ro"><span>Leverage Ratio</span><span class="pg-kv__value">7.57&times;</span><a class="pg-src" href="#">p. 13</a></div>
+            <div class="pg-kv__row pg-kv__row--ro pg-kv__row--edited"><span>Total Equity <span class="ds-pill ds-pill--blue ds-pill--sm"><span class="ds-pill__dot"></span>Edited</span></span><span class="pg-kv__value">6,755,210 <span class="pg-sampletag">Sample</span><small>original 6,755,120</small></span><a class="pg-src" href="#">p. 13</a></div>
+            <div class="pg-kv__row pg-kv__row--ro"><span>Interest Coverage Ratio</span><span class="pg-kv__value">1.27&times;</span><a class="pg-src" href="#">p. 13</a></div>
+            <div class="pg-kv__row pg-kv__row--ro"><span>Delinquency Ratio</span><span class="pg-kv__value">1.79%</span><a class="pg-src" href="#">p. 12</a></div>
+          </div>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">6</b><b>Analysts see edits, not controls.</b> The Edited marker, the original value and the reason (on hover or focus) are visible to TAO Analyst, so a reviewer who reads the page later knows the number was changed by hand. The API refuses an edit from any role except tao_admin (403), the same guard as overrides.</div>
+
+      <!-- ================= B. SHARPER PAGE VIEWER ================= -->
+      <div class="pg-sec"><h2>B. The sharper page viewer</h2><span>Opened from a source link, a finding crop, or the crop in the Edit dialog.</span></div>
+
+      <div class="mk-note"><b class="mk-n">7</b><b>The fix is in how page images are rendered, not in extraction.</b> Today every page is rendered once at 110 dpi (<code>PAGE_DPI = 110</code> in api/app/main.py, <code>pdf.render_page</code> in api/app/pdf.py) and the browser stretches that image when you zoom, so 200% is blurry. Moneda pages make it worse: they are 1,440 &times; 1,113 pt (20 &times; 15.5 in, a spreadsheet printed to one sheet), so the type is small on the page to begin with. The new viewer asks for an image at the resolution the zoom needs: the whole page at about 150 dpi for Fit and 100%, and only the visible area at 300 dpi (200%) or 600 dpi (400%). Each image is rendered on first request and cached. Extraction, its speed and its output stay exactly as they are.</div>
+
+      <div class="mk-stage" aria-label="State after clicking a source link, then Zoom to value">
+        <div class="mk-small mk-muted" style="justify-self:start;margin-bottom:10px">State after clicking <b>p. 13</b> on Total Equity, then <b>Zoom to value</b></div>
+        <div class="ds-dialog ds-dialog--lg" role="dialog" aria-labelledby="dlg-view-t">
+          <div class="ds-dialog__head">
+            <div><h2 id="dlg-view-t">Report page 13 of 16 <span class="mk-tag mk-tag--changed">Changed</span></h2><div class="ds-dialog__desc">Borrower data and financial ratios, Total Equity</div></div>
+            <button class="ds-iconbtn ds-dialog__close" aria-label="Close">&times;</button>
+          </div>
+          <div class="ds-dialog__body">
+            <div class="pg-toolbar" role="toolbar" aria-label="Page view">
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">Fit</button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">100%</button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">200%</button>
+              <button class="ds-btn ds-btn--sm ds-btn--primary" aria-pressed="true">400%</button>
+              <span class="pg-sep"></span>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">Zoom to value <span class="mk-tag">New</span></button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost" aria-pressed="true">Magnifier: on <span class="mk-tag">New</span></button>
+              <span class="pg-sep"></span>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">Previous page</button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost">Next page</button>
+              <span class="mk-spacer mk-small mk-muted">This area rendered at 600 dpi · Outlined: the cell this value came from</span>
+            </div>
+            <div class="pg-viewer" tabindex="0" aria-label="Page 13 image, scrollable">
+              <div class="pg-paper">
+                <span class="pg-paper__cap">Illustration of page 13</span>
+                <h4>Borrower Data, and Financial Ratios</h4>
+                <table><tbody>
+                  <tr><td><b>Month</b></td><td class="n"><b>Borrower Indebtedness</b></td><td class="n"><b>Borrower Total Equity</b></td><td class="n"><b>Leverage Ratio</b></td><td class="n"><b>Required Total Equity</b></td></tr>
+                  <tr><td>Jul-26</td><td class="n">51,158,588</td><td class="n"><span class="pg-mark-new">6,755,120</span></td><td class="n">7.57</td><td class="n">2,500,000</td></tr>
+                  <tr><td>Jun-26</td><td class="n">51,526,935</td><td class="n">6,839,888</td><td class="n">7.53</td><td class="n">2,500,000</td></tr>
+                  <tr><td>May-26</td><td class="n">51,687,248</td><td class="n">6,516,467</td><td class="n">7.93</td><td class="n">2,500,000</td></tr>
+                  <tr><td>Apr-26</td><td class="n">52,380,462</td><td class="n">6,443,671</td><td class="n">8.13</td><td class="n">2,500,000</td></tr>
+                  <tr><td>Mar-26</td><td class="n">53,798,532</td><td class="n">6,820,984</td><td class="n">7.89</td><td class="n">2,500,000</td></tr>
+                </tbody></table>
+                <div class="pg-lens" aria-hidden="true"><div><small>Magnifier</small><b>6,755,120</b></div></div>
+              </div>
+            </div>
+            <div class="pg-callout mk-small">Raw text: <code>6,755,120</code>. Keyboard: <kbd>+</kbd> / <kbd>-</kbd> change zoom, <kbd>Z</kbd> zooms to the value, <kbd>M</kbd> toggles the magnifier, arrow keys pan.</div>
+          </div>
+          <div class="ds-dialog__foot"><button class="ds-btn ds-btn--primary">Close</button></div>
+        </div>
+      </div>
+
+      <div class="mk-note"><b class="mk-n">8</b><b>Zoom steps and Zoom to value.</b> Steps become Fit, 100%, 200%, 400% (today Fit, 100%, 150%, 200%). <i>Zoom to value</i> jumps to 400% and centres the outlined cell, so the exact number fills the middle of the view. When the viewer opens from a value or a finding it starts at 200% centred on that cell, not at Fit.</div>
+      <div class="mk-note"><b class="mk-n">9</b><b>Magnifier.</b> When on, a round lens follows the pointer (or sits on the outlined cell when using the keyboard) and shows that spot at twice the current zoom, read from the next sharper image. It is off by default and the choice is remembered per browser.</div>
+      <div class="mk-note"><b class="mk-n">10</b><b>No fading.</b> Today the outline is filled with a tinted colour blended over the number (<code>.rv-mark</code> uses a fill with <code>mix-blend-mode: multiply</code>), which washes out the digits it is meant to point at. The new outline is a 2 px purple line drawn outside the cell with no fill, so the number keeps full contrast. Finding outlines keep red, source outlines purple.</div>
+
+      <section class="ds-card" aria-label="Before and after">
+        <div class="ds-card__head"><div><h2>Same number at 400%: before and after</h2><div class="ds-card__sub">Illustration. Left simulates a 110 dpi image stretched 4&times; with the tinted fill; right is a 600 dpi render with the outline only.</div></div></div>
+        <div class="ds-card__body">
+          <div class="pg-compare">
+            <div class="pg-sample pg-sample--old"><label>Today · 110 dpi stretched · filled mark</label><span class="pg-mark-old">6,755,120</span></div>
+            <div class="pg-sample"><label>New · rendered for the zoom · outline only</label><span class="pg-mark-new">6,755,120</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">11</b><b>What changes in the code (for the build, not this design).</b> (a) The page image route takes a resolution and an optional area, e.g. <code>/uploads/{id}/pages/13.png?dpi=600&amp;clip=x0,y0,x1,y1</code> (PDF points), with dpi limited to 150, 300 and 600; renders stay locked and atomic as today. A whole Moneda page at 600 dpi would be 12,000 &times; 9,275 px, which is why 200% and 400% fetch the visible area only. (b) The viewer and crops stop assuming 110 dpi (<code>PX_PER_PT = 110 / 72</code> in PageImage.tsx) and work out the scale from the image's pixel size and the page size in points, so outlines stay on the right cell at every resolution. (c) Finding-card crops request the area around the outlined cells at 300 dpi. The alternative is vector rendering in the browser (pdf.js): sharp at any zoom, but it sends the PDF itself to the browser and adds a large library; see open questions.</div>
+
+      <!-- ================= C. CORRECTION AFTER PUBLISH ================= -->
+      <div class="pg-sec"><h2>C. Correcting a value after publish</h2><span>Reports library and the published report's review record.</span></div>
+
+      <div class="mk-note"><b class="mk-n">12</b><b>"Correct a value" on a published report.</b> In the Reports library, TAO Admin gets <i>Correct a value…</i> on each current (not replaced) published report. On the published report's review record, each extracted value shows <i>Correct…</i> in place of <i>Edit</i>. Both open the same dialog. TAO Analyst sees neither.</div>
+
+      <section class="ds-card ds-card--flush" aria-label="Reports library">
+        <div class="ds-card__head"><div><h2>Reports library</h2><div class="ds-card__sub">Published reports by deal and period</div></div></div>
+        <div class="pg-scroll"><table class="ds-table">
+          <thead><tr><th>Program</th><th>Deal</th><th>Collection period</th><th>Status</th><th class="ds-num">Published</th><th>File</th><th style="text-align:right">Open</th></tr></thead>
+          <tbody>
+            <tr class="ds-row">
+              <td>F-PIL 2.0</td><td class="ds-key">Moneda Capital Corp.</td><td>Aug 2026<br><span class="mk-small mk-muted">reporting Jul 2026</span></td>
+              <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Published</span> <span class="mk-small mk-muted">v1</span></td>
+              <td class="ds-num">5 Nov 2026 11:02 <span class="pg-sampletag">Sample</span></td><td class="mk-muted">Moneda-202608 -SETTREP.pdf</td>
+              <td style="text-align:right"><span class="pg-libactions"><a href="#">Partner view</a><a href="#">Review record</a><button class="ds-btn ds-btn--sm ds-btn--ghost">Correct a value… <span class="mk-tag">New</span></button></span></td>
+            </tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <div class="mk-stage" aria-label="State after clicking Correct a value">
+        <div class="mk-small mk-muted" style="justify-self:start;margin-bottom:10px">State after clicking <b>Correct a value…</b> and choosing Leverage Ratio</div>
+        <div class="ds-dialog ds-dialog--lg" role="dialog" aria-labelledby="dlg-corr-t">
+          <div class="ds-dialog__head">
+            <div><h2 id="dlg-corr-t">Correct a published value <span class="mk-tag">New</span></h2>
+              <div class="ds-dialog__desc">Moneda Capital Corp. · Aug 2026 · published version 1. A correction creates version 2 and re-publishes the deal. Partners are notified.</div></div>
+            <button class="ds-iconbtn ds-dialog__close" aria-label="Close">&times;</button>
+          </div>
+          <div class="ds-dialog__body">
+            <label class="ds-field">
+              <span class="ds-field__label">Value<span class="ds-field__req">*</span></span>
+              <select class="ds-select"><option>Leverage Ratio · Borrower data and financial ratios · p. 13</option></select>
+              <span class="ds-field__hint">Any extracted value. Search by name or page.</span>
+            </label>
+            <div class="pg-cur">
+              <div class="ds-field">
+                <span class="ds-field__label">Published value</span>
+                <span class="pg-big">7.57&times;</span>
+                <span class="ds-field__hint">From <a href="#">page 13</a>, row Jul-26. Feeds SLFA 9.1 (i) Leverage Ratio, ceiling 10.00&times;, status OK.</span>
+              </div>
+              <div class="ds-field">
+                <span class="ds-field__label">Page 13 crop</span>
+                <div class="pg-crop" style="height:110px">
+                  <div class="pg-paper" style="width:240px"><table><tbody>
+                    <tr><td>Interest Coverage Ratio</td><td class="n">1.27 : 1</td></tr>
+                    <tr><td>Leverage Ratio</td><td class="n"><span class="pg-mark-new">7.57 : 1</span></td></tr>
+                  </tbody></table></div>
+                </div>
+              </div>
+            </div>
+            <div class="mk-grid2">
+              <label class="ds-field">
+                <span class="ds-field__label">New value<span class="ds-field__req">*</span></span>
+                <input class="ds-input ds-input--num" value="7.75">
+                <span class="ds-field__hint">Ratio, e.g. 7.57. <span class="pg-sampletag">Sample input</span></span>
+              </label>
+              <div class="ds-field">
+                <span class="ds-field__label">Effect on covenants</span>
+                <span><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>OK</span> <span class="mk-small">SLFA 9.1 (i) stays OK (7.75&times; against 10.00&times;)</span> <span class="pg-sampletag">Sample</span></span>
+              </div>
+            </div>
+            <label class="ds-field">
+              <span class="ds-field__label">Reason<span class="ds-field__req">*</span></span>
+              <textarea class="ds-textarea" rows="2">Servicer confirmed by email that page 13 should read 7.75.</textarea>
+              <span class="ds-field__hint">Goes in the Reports audit log and in version 2's change list. Partners do not see this text. <span class="pg-sampletag">Sample</span></span>
+            </label>
+            <div class="pg-notify">
+              <span class="mk-row"><span class="ds-pill ds-pill--blue ds-pill--sm"><span class="ds-pill__dot"></span>Notify</span><b style="color:var(--indigo)">Partners will be notified</b></span>
+              <span class="mk-small">Investor portal and Manager portal (the F-PIL 2.0 visibility list). Each partner gets a notification "Moneda Capital Corp. Aug 2026 corrected" with the changed value, old &rarr; new.</span>
+              <label class="ds-field">
+                <span class="ds-field__label">Note to partners <span class="mk-muted" style="font-weight:400">(optional)</span></span>
+                <textarea class="ds-textarea" rows="2" placeholder="Shown to partners with the correction, e.g. what changed and why."></textarea>
+              </label>
+            </div>
+            <div class="pg-callout">
+              <b>What happens when you correct</b>
+              <ul>
+                <li>Version 2 of this report is created with the new value. Version 1 stays in the Reports library as <i>Replaced</i>, with its numbers unchanged.</li>
+                <li>The rules re-run on version 2. If a block finding opens, nothing is published: version 2 goes to the Approval queue as Needs review, and the dialog says so.</li>
+                <li>If no block finding opens, version 2 is published straight away, the program roll-up regenerates, and partner portals show the corrected numbers.</li>
+                <li>One Reports audit entry for the correction, one for the re-publish.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Correct and re-publish</button></div>
+        </div>
+      </div>
+
+      <div class="mk-note"><b class="mk-n">13</b><b>A correction works like today's corrected re-issue,</b> without a new PDF upload: the library shows version 2 as <i>Published</i> with a <i>Corrected</i> tag and version 1 as <i>Replaced</i>, each linking to the other. Partners see the correction in their Notifications (D7) and a "Corrected" marker on the deal page for that period.</div>
+
+      <section class="ds-card ds-card--flush" aria-label="Reports library after correction">
+        <div class="ds-card__head"><div><h2>Reports library</h2><div class="ds-card__sub">State after correcting</div></div></div>
+        <div class="pg-scroll"><table class="ds-table">
+          <thead><tr><th>Program</th><th>Deal</th><th>Collection period</th><th>Status</th><th class="ds-num">Published</th><th style="text-align:right">Open</th></tr></thead>
+          <tbody>
+            <tr class="ds-row">
+              <td>F-PIL 2.0</td><td class="ds-key">Moneda Capital Corp.</td><td>Aug 2026</td>
+              <td><span class="ds-pill ds-pill--ok ds-pill--sm"><span class="ds-pill__dot"></span>Published</span> <span class="mk-small mk-muted">v2</span> <span class="ds-pill ds-pill--blue ds-pill--sm"><span class="ds-pill__dot"></span>Corrected</span></td>
+              <td class="ds-num">5 Nov 2026 14:20 <span class="pg-sampletag">Sample</span></td>
+              <td style="text-align:right"><span class="pg-libactions"><a href="#">Partner view</a><a href="#">Review record</a><a href="#">Replaces v1</a><button class="ds-btn ds-btn--sm ds-btn--ghost">Correct a value…</button></span></td>
+            </tr>
+            <tr class="ds-row">
+              <td>F-PIL 2.0</td><td class="ds-key">Moneda Capital Corp.</td><td>Aug 2026</td>
+              <td><span class="ds-pill ds-pill--neutral ds-pill--sm"><span class="ds-pill__dot"></span>Replaced</span> <span class="mk-small mk-muted">v1</span></td>
+              <td class="ds-num">5 Nov 2026 11:02 <span class="pg-sampletag">Sample</span></td>
+              <td style="text-align:right"><span class="pg-libactions"><a href="#">Review record</a><a href="#">Replaced by v2</a></span></td>
+            </tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">14</b><b>Who and what is audited, in one place.</b> Edit before publish: TAO Admin only, Reports audit entry "Value edited", rules re-run, no partner sees anything until publish. Correction after publish: TAO Admin only, Reports audit entries "Value corrected" and "Published (version 2)", partners notified with the optional note. TAO Analyst and partner roles can never edit; the API enforces it, not just the UI.</div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

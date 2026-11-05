@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2 designs · TAO Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .ix { max-width: 1100px; margin: 0 auto; padding: 36px 24px 64px; display: flex; flex-direction: column; gap: var(--gap); }
+  .ix-grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .ix-card { display: block; text-decoration: none; color: inherit; padding: 18px 20px; }
+  .ix-card h2 { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  .ix-card p { margin: 8px 0 0; font-size: 13px; color: var(--text); }
+  .ix-id { font: 700 11px var(--data); color: var(--purple); background: var(--lav); border-radius: 6px; padding: 2px 7px; }
+  .ix-ask { margin-top: 10px; font-size: var(--fs-small); color: var(--muted); }
+  .ix ul { margin: 6px 0 0; padding-left: 18px; }
+  .ix li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div class="ix">
+  <div>
+    <div class="ds-crumb">TAO Admin POC · Phase 2</div>
+    <h1 style="margin-top:8px">Phase 2 designs</h1>
+    <p class="mk-muted" style="margin:10px 0 0">Static mockups of every new or changed page, built from the portal's own design tokens and components. Nothing here is live code.
+      Each page carries numbered design notes; reply with the design ID and note number to change something, for example "D6 note 4: drop the industry average line".</p>
+  </div>
+
+  <div class="ds-card ds-card--pad">
+    <h2>Decisions already locked</h2>
+    <ul>
+      <li><b>TAO Admin is the manager.</b> It edits extracted values and covenants and manages users. TAO Analyst stays read-only and can comment. On the partner side, Company Admin manages its own team.</li>
+      <li><b>Trend colour shows good or bad</b> for that metric; the arrow shows direction. Delinquency rising is red, coverage rising is green.</li>
+      <li><b>Edits before publish are free</b> (audited, rules re-run). After publish, an edit is a correction: new version, re-published, partners notified.</li>
+      <li><b>Extraction does not change.</b> Sharper page images come from rendering, not from reading the PDF differently.</li>
+    </ul>
+  </div>
+
+  <div class="ix-grid">
+    <a class="ds-card ds-card--interactive ix-card" href="review-edit.html"><h2><span class="ix-id">D1</span>Edit extracted values and sharper page viewer</h2>
+      <p>Review report page with editable values, the high-resolution page viewer, and the post-publish correction.</p><div class="ix-ask">Asks: manager edits numbers · fuzzy zoom</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="covenants.html"><h2><span class="ix-id">D2</span>Edit covenants</h2>
+      <p>Program / facility record with covenant edits, effective dates and version history.</p><div class="ix-ask">Asks: manager updates covenants</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="audit-log.html"><h2><span class="ix-id">D3</span>Audit log: Reports and Platform</h2>
+      <p>Two logs, current month first, History by month, search across every month.</p><div class="ix-ask">Asks: audit split · monthly history · search</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="quick-fixes.html"><h2><span class="ix-id">D4</span>Quick fixes</h2>
+      <p>Latest uploads rows open the report; trend arrows coloured good or bad.</p><div class="ix-ask">Asks: clickable rows · trend colours</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="companies.html"><h2><span class="ix-id">D5</span>Companies</h2>
+      <p>Lending companies listed on the Portfolio Executive Summary and on their own page.</p><div class="ix-ask">Asks: list the companies</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="company-profile.html"><h2><span class="ix-id">D6</span>Company profile</h2>
+      <p>Performance against program averages, daily news, adverse media, what to watch.</p><div class="ix-ask">Asks: profile page · news · adverse media · charts</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="notifications.html"><h2><span class="ix-id">D7</span>Notifications and comments</h2>
+      <p>Inbox, comments with @mentions on reports, publish notes to partners, partner notifications.</p><div class="ix-ask">Asks: in-house chat · partner notifications</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="user-management.html"><h2><span class="ix-id">D8</span>User management</h2>
+      <p>TAO users and partner team members, roles, and which reports each user receives.</p><div class="ix-ask">Asks: add / edit / delete users · report subscriptions</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="profile.html"><h2><span class="ix-id">D9</span>Profile</h2>
+      <p>Recommended profile page for every user, admin and partner.</p><div class="ix-ask">Asks: recommend profile content</div></a>
+    <a class="ds-card ds-card--interactive ix-card" href="system-settings.html"><h2><span class="ix-id">D10</span>System settings</h2>
+      <p>Recommended TAO system settings; extraction settings stay read-only.</p><div class="ix-ask">Asks: recommend system settings</div></a>
+  </div>
+
+  <p class="mk-small mk-muted">The build plan with strategy, phases and risks is <code>docs/phase2/tao-admin-poc_Architecture_v1.md</code>.</p>
+</div>
+</body>
+</html>

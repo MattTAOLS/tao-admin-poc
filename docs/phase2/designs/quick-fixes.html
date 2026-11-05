@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick fixes · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  /* Page-local layout only. Tokens only, no raw colours. */
+  .qf-h { font: 700 16px var(--font); color: var(--indigo); margin: 14px 0 -4px; display: flex; gap: 10px; align-items: center; }
+  .qf-h .qf-id { font: 700 11px var(--data); color: var(--purple); background: var(--lav); border-radius: 6px; padding: 2px 7px; }
+  .qf-ba { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; border-radius: 5px; padding: 4px 7px; }
+  .qf-ba--before { background: var(--canvas-deep); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border-card); }
+  .qf-ba--after { background: var(--purple); color: var(--text-on-purple); }
+  .qf-scroll { overflow-x: auto; }
+  .qf-scroll .ds-table { min-width: 940px; }
+  .qf-nowrap { white-space: nowrap; }
+  .qf-actions { display: inline-flex; gap: 12px; align-items: center; white-space: nowrap; }
+  .qf-tag { font: 600 10px/1 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--blue); background: var(--blue-bg); border-radius: 5px; padding: 3px 6px; margin-left: 6px; }
+  .qf-sample { font: 600 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); border-radius: 5px; padding: 3px 6px; margin-left: 6px; vertical-align: middle; }
+  .qf-real { font: 600 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); background: var(--ok-bg); border-radius: 5px; padding: 3px 6px; margin-left: 6px; vertical-align: middle; }
+  /* After: whole-row link */
+  .qf-rowlink { cursor: pointer; }
+  .qf-rowlink td:first-child a { color: var(--indigo); font-weight: 600; text-decoration: none; }
+  .qf-rowlink:hover, .qf-rowlink.is-hover { background: color-mix(in srgb, var(--lav) 70%, var(--card)); }
+  .qf-rowlink:hover td:first-child a, .qf-rowlink.is-hover td:first-child a { color: var(--purple); text-decoration: underline; }
+  .qf-rowlink:focus-within, .qf-rowlink.is-focus { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--purple) 45%, transparent); }
+  .qf-rowlink td:first-child a:focus-visible { outline: none; box-shadow: none; }
+  .qf-open { display: inline-flex; align-items: center; gap: 4px; font: 600 12px var(--font); color: var(--purple); border: 1px solid var(--lav-2); background: var(--card); border-radius: var(--r-control); padding: 4px 9px; white-space: nowrap; }
+  .qf-rowlink:hover .qf-open, .qf-rowlink.is-hover .qf-open { background: var(--lav); }
+  .qf-secondary { font-size: 12px; color: var(--muted); }
+  .qf-secondary:hover { color: var(--purple); }
+  .qf-state { font: 600 10.5px var(--data); color: var(--purple); margin-left: 8px; white-space: nowrap; }
+  /* Trend cell */
+  .qf-trend { white-space: nowrap; font-weight: 600; }
+  .qf-trend--grey { color: var(--text); font-weight: 400; }
+  .qf-trend .ds-visually-hidden { position: absolute; }
+  .qf-desc small { display: block; color: var(--muted); font-size: var(--fs-small); }
+  .qf-swatch { display: inline-flex; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D4 · Quick fixes</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Deals, periods and covenant rows from docs/dashboard-json; upload times, people and finding counts are sample.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#" class="on">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">Quick fixes</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>Quick fixes</h1></div>
+          <div class="ds-pagehead__sub">Two small changes, each shown before and after: Latest uploads rows open the report; trend arrows coloured good or bad.</div>
+        </div>
+      </div>
+    </header>
+    <div class="mk-body">
+
+      <!-- ============ Fix 1 ============ -->
+      <h2 class="qf-h"><span class="qf-id">Fix 1</span>Dashboard · Latest uploads: the row opens the upload <span class="mk-tag mk-tag--changed">Changed</span></h2>
+
+      <div class="mk-row"><span class="qf-ba qf-ba--before">Before</span><span class="mk-small mk-muted">Today (web/src/admin/UploadsTable.tsx, compact). Only the links in the last column are clickable. A published row has just "Audit", so nothing on the row opens the deal.</span></div>
+      <section class="ds-card ds-card--flush" aria-label="Latest uploads, before">
+        <div class="ds-card__head"><div><h2>Latest uploads</h2></div><div class="ds-card__actions"><a href="#" style="font-weight:600;font-size:12.5px">Upload history →</a></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Deal</th><th>Program</th><th>Collection period</th><th>Reporting period</th><th>Status</th><th class="ds-num">Block</th><th class="ds-num">Review</th><th class="ds-num">Note</th><th>Uploaded by</th><th>Uploaded</th><th><span class="ds-visually-hidden">Open</span></th></tr></thead>
+          <tbody>
+            <tr class="ds-row"><td class="ds-key qf-nowrap">MOVE Trust - Essex Lease Financial Corp.</td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td class="qf-nowrap"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span class="qf-tag">Re-issue</span></td><td class="ds-num">0</td><td class="ds-num">0</td><td class="ds-num">3</td><td>J. Moreau</td><td class="qf-nowrap">4 Nov 2026, 16:01</td><td><span class="qf-actions"><a href="#">Audit</a></span></td></tr>
+            <tr class="ds-row"><td class="ds-key qf-nowrap">F-PIL 2.0 - Xpedite Leasing</td><td>F-PIL 2.0</td><td>Aug 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span></td><td class="ds-num">1</td><td class="ds-num">2</td><td class="ds-num">1</td><td>J. Moreau</td><td class="qf-nowrap">3 Nov 2026, 14:28</td><td><span class="qf-actions"><a href="#">Review</a><a href="#">Audit</a></span></td></tr>
+            <tr class="ds-row"><td class="ds-key qf-nowrap">MOVE Trust - Meridian OneCap LP</td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Extraction failed</span></td><td class="ds-num">—</td><td class="ds-num">—</td><td class="ds-num">—</td><td>J. Moreau</td><td class="qf-nowrap">3 Nov 2026, 11:02</td><td><span class="qf-actions"><a href="#">Details</a><a href="#">Audit</a></span></td></tr>
+            <tr class="ds-row"><td class="ds-key qf-nowrap">MOVE Trust - TPine Leasing Capital Corporation</td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Rejected</span></td><td class="ds-num">0</td><td class="ds-num">1</td><td class="ds-num">2</td><td>J. Moreau</td><td class="qf-nowrap">2 Nov 2026, 09:40</td><td><span class="qf-actions"><a href="#">Audit</a></span></td></tr>
+            <tr class="ds-row"><td class="ds-key qf-nowrap">F-PIL 2.0 - Moneda Capital Corp.</td><td>F-PIL 2.0</td><td>Aug 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span></td><td class="ds-num">0</td><td class="ds-num">0</td><td class="ds-num">2</td><td>A. Patel</td><td class="qf-nowrap">28 Oct 2026, 10:12</td><td><span class="qf-actions"><a href="#">Audit</a></span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <div class="mk-row"><span class="qf-ba qf-ba--after">After</span><span class="mk-small mk-muted">The whole row is the link. Row 2 is shown in its hover state, row 3 with keyboard focus. <span class="qf-sample">Sample times, people, counts</span></span></div>
+      <section class="ds-card ds-card--flush" aria-label="Latest uploads, after">
+        <div class="ds-card__head"><div><h2>Latest uploads</h2><div class="ds-card__sub">Click a row to open it.</div></div><div class="ds-card__actions"><a href="#" style="font-weight:600;font-size:12.5px">Upload history →</a></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Deal</th><th>Program</th><th>Collection period</th><th>Reporting period</th><th>Status</th><th class="ds-num">Block</th><th class="ds-num">Review</th><th class="ds-num">Note</th><th>Uploaded by</th><th>Uploaded</th><th>Open <span class="mk-tag mk-tag--changed">Changed</span></th></tr></thead>
+          <tbody>
+            <tr class="qf-rowlink" data-href="#deal"><td class="qf-nowrap"><a href="#deal?period=2026-07" aria-label="Open the published deal MOVE Trust - Essex Lease Financial Corp., Jul 2026">MOVE Trust - Essex Lease Financial Corp.</a></td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td class="qf-nowrap"><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span><span class="qf-tag">Re-issue</span></td><td class="ds-num">0</td><td class="ds-num">0</td><td class="ds-num">3</td><td>J. Moreau</td><td class="qf-nowrap">4 Nov 2026, 16:01</td><td><span class="qf-actions"><span class="qf-open" aria-hidden="true">Open deal ›</span><a class="qf-secondary" href="#">Audit</a></span></td></tr>
+            <tr class="qf-rowlink is-hover" data-href="#review"><td class="qf-nowrap"><a href="#review" aria-label="Review F-PIL 2.0 - Xpedite Leasing, Aug 2026">F-PIL 2.0 - Xpedite Leasing</a></td><td>F-PIL 2.0</td><td>Aug 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span></td><td class="ds-num">1</td><td class="ds-num">2</td><td class="ds-num">1</td><td>J. Moreau</td><td class="qf-nowrap">3 Nov 2026, 14:28</td><td><span class="qf-actions"><span class="qf-open" aria-hidden="true">Review ›</span><a class="qf-secondary" href="#">Audit</a></span><span class="qf-state">hover</span></td></tr>
+            <tr class="qf-rowlink is-focus" data-href="#details"><td class="qf-nowrap"><a href="#details" aria-label="Details of the failed upload MOVE Trust - Meridian OneCap LP, Jul 2026">MOVE Trust - Meridian OneCap LP</a></td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Extraction failed</span></td><td class="ds-num">—</td><td class="ds-num">—</td><td class="ds-num">—</td><td>J. Moreau</td><td class="qf-nowrap">3 Nov 2026, 11:02</td><td><span class="qf-actions"><span class="qf-open" aria-hidden="true">Details ›</span><a class="qf-secondary" href="#">Audit</a></span><span class="qf-state">focus</span></td></tr>
+            <tr class="qf-rowlink" data-href="#details"><td class="qf-nowrap"><a href="#details" aria-label="Details of the rejected upload MOVE Trust - TPine Leasing Capital Corporation, Jul 2026">MOVE Trust - TPine Leasing Capital Corporation</a></td><td>MOVE Trust</td><td>Jul 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Rejected</span></td><td class="ds-num">0</td><td class="ds-num">1</td><td class="ds-num">2</td><td>J. Moreau</td><td class="qf-nowrap">2 Nov 2026, 09:40</td><td><span class="qf-actions"><span class="qf-open" aria-hidden="true">Details ›</span><a class="qf-secondary" href="#">Audit</a></span></td></tr>
+            <tr class="qf-rowlink" data-href="#deal"><td class="qf-nowrap"><a href="#deal?period=2026-08" aria-label="Open the published deal F-PIL 2.0 - Moneda Capital Corp., Aug 2026">F-PIL 2.0 - Moneda Capital Corp.</a></td><td>F-PIL 2.0</td><td>Aug 2026</td><td>Jul 2026</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span></td><td class="ds-num">0</td><td class="ds-num">0</td><td class="ds-num">2</td><td>A. Patel</td><td class="qf-nowrap">28 Oct 2026, 10:12</td><td><span class="qf-actions"><span class="qf-open" aria-hidden="true">Open deal ›</span><a class="qf-secondary" href="#">Audit</a></span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <section class="ds-card ds-card--flush" aria-label="Where a row goes">
+        <div class="ds-card__head"><div><h2>Where a row goes, by upload status <span class="mk-tag">New</span></h2></div></div>
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Status</th><th>Opens</th><th>Route</th><th>Affordance</th></tr></thead>
+          <tbody>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Needs review</span></td><td>Review page</td><td><code>/admin/uploads/queue/:uploadId</code></td><td>Review ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--dpv"><span class="ds-pill__dot"></span>Approved</span></td><td>Review page (ready to publish)</td><td><code>/admin/uploads/queue/:uploadId</code></td><td>Review ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Published</span></td><td>The published deal page at this upload's own period (also for an older period)</td><td><code>/admin/portfolio/:programId/deals/:dealId?period=YYYY-MM</code></td><td>Open deal ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Published</span> <span class="qf-tag">Replaced by re-issue</span></td><td>The deal page at that period, which now shows the re-issue that replaced it</td><td><code>/admin/portfolio/:programId/deals/:dealId?period=YYYY-MM</code></td><td>Open deal ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Extraction failed</span></td><td>Upload details (error and retry)</td><td><code>/admin/uploads/queue/:uploadId</code></td><td>Details ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Rejected</span></td><td>Upload details (read only, with the reject reason)</td><td><code>/admin/uploads/queue/:uploadId</code></td><td>Details ›</td></tr>
+            <tr><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Received</span> <span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Extracting</span></td><td>Upload details (progress)</td><td><code>/admin/uploads/queue/:uploadId</code></td><td>Details ›</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div class="mk-note"><b class="mk-n">1</b>Clicking anywhere on a row opens the upload: the Review page when it is in review or approved, the published deal page at the upload's own period when published (<code>?period=YYYY-MM</code>, which the deal page already takes on main, e.g. <code>?period=2026-07</code> for a MOVE Trust 202607 file), the upload details when it failed, was rejected or is still extracting (table above). An older or replaced publication opens at its own period, not the latest. The same behaviour applies to Upload history and the Uploads page, which share this table component.</div>
+      <div class="mk-note"><b class="mk-n">2</b>Hover tints the whole row lavender and underlines the deal name. The last column shows the destination as a small button ("Review ›", "Open deal ›", "Details ›") so the row says where it goes before the click.</div>
+      <div class="mk-note"><b class="mk-n">3</b>Keyboard: the deal name is a real link and the row's only tab stop for opening; when it has focus the whole row gets the focus ring. Enter opens; Ctrl / Cmd-click and middle-click open a new tab. Screen readers hear "Review F-PIL 2.0 - Xpedite Leasing, Aug 2026".</div>
+      <div class="mk-note"><b class="mk-n">4</b>Audit stays as a secondary text link (TAO Admin only, as today). Clicking it, or the Re-issue tag, goes to its own target and does not trigger the row.</div>
+
+      <!-- ============ Fix 2 ============ -->
+      <h2 class="qf-h"><span class="qf-id">Fix 2</span>Trend arrows coloured by good or bad <span class="mk-tag mk-tag--changed">Changed</span></h2>
+
+      <div class="mk-row"><span class="qf-ba qf-ba--before">Before</span><span class="mk-small mk-muted">Today (web/src/portfolio/Covenants.tsx Trend, class pf-trend): every arrow is the body text colour. Rising delinquency and rising equity look the same.</span></div>
+      <section class="ds-card ds-card--flush" aria-label="Covenant tests, before">
+        <div class="ds-card__head"><div><h2>Covenant tests</h2><div class="ds-card__sub">F-PIL 2.0 - Xpedite Leasing · Aug 2026 <span class="qf-real">Real rows</span></div></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Legal ref</th><th>Covenant</th><th class="ds-num">Value</th><th class="ds-num">Threshold</th><th class="ds-num">Utilization</th><th>Trend</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="qf-nowrap">ARFA 9.1 (b)</td><td class="qf-desc">Has the Rolling Three Month Loss Ratio at any time exceeded:<small>Event of Termination</small></td><td class="ds-num">−0.30%</td><td class="ds-num">3.00%</td><td class="ds-num">−10.00%</td><td class="qf-trend qf-trend--grey">▼ Falling</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (c)</td><td class="qf-desc">Has the Rolling Twelve Month Loss Ratio at any time exceeded:<small>Event of Termination</small></td><td class="ds-num">0.58%</td><td class="ds-num">2.00%</td><td class="ds-num">29.00%</td><td class="qf-trend qf-trend--grey">▼ Falling</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (d)</td><td class="qf-desc">Has the Delinquency Ratio at any time exceeded 3.0%?<small>Event of Termination</small></td><td class="ds-num">0.55%</td><td class="ds-num">3.00%</td><td class="ds-num">18.33%</td><td class="qf-trend qf-trend--grey">▲ Rising</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (e)</td><td class="qf-desc">… failed at any time to maintain an Interest Coverage Ratio of at least 1.10:1?<small>Event of Termination</small></td><td class="ds-num">1.11x</td><td class="ds-num"><span class="mk-muted mk-small">min </span>1.10x</td><td class="ds-num">99.10%</td><td class="qf-trend qf-trend--grey">■ Flat</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>WATCH</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (g)</td><td class="qf-desc">… failed at any time to maintain a Leverage Ratio of less than or equal to 10:1?<small>Event of Termination</small></td><td class="ds-num">9.52x</td><td class="ds-num">10.00x</td><td class="ds-num">95.20%</td><td class="qf-trend qf-trend--grey">▲ Rising</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>WATCH</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (h)</td><td class="qf-desc">… failed at any time to maintain a minimum Total Equity equal to or greater than $3,000,000<small>Event of Termination</small></td><td class="ds-num">$6,078,566</td><td class="ds-num"><span class="mk-muted mk-small">min </span>$3,000,000</td><td class="ds-num">49.35%</td><td class="qf-trend qf-trend--grey">▲ Rising</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <div class="mk-row"><span class="qf-ba qf-ba--after">After</span><span class="mk-small mk-muted">Same rows. The arrow still shows the direction; the colour shows whether that move is good or bad for this covenant.</span></div>
+      <section class="ds-card ds-card--flush" aria-label="Covenant tests, after">
+        <div class="ds-card__head"><div><h2>Covenant tests</h2><div class="ds-card__sub">F-PIL 2.0 - Xpedite Leasing · Aug 2026 <span class="qf-real">Real rows</span></div></div>
+          <div class="ds-card__actions"><span class="qf-swatch mk-small"><span class="trend-good qf-trend">▲▼ Better</span><span class="trend-bad qf-trend">▲▼ Worse</span><span class="trend-flat qf-trend">■ Flat</span></span></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Legal ref</th><th>Covenant</th><th>Test</th><th class="ds-num">Last period</th><th class="ds-num">Value</th><th class="ds-num">Threshold</th><th class="ds-num">Utilization</th><th>Trend <span class="mk-tag mk-tag--changed">Changed</span></th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="qf-nowrap">ARFA 9.1 (b)</td><td class="qf-desc">Has the Rolling Three Month Loss Ratio at any time exceeded:<small>Event of Termination</small></td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">−0.13%</td><td class="ds-num">−0.30%</td><td class="ds-num">3.00%</td><td class="ds-num">−10.00%</td><td class="qf-trend trend-good" title="Falling: better for this covenant">▼ Falling<span class="ds-visually-hidden">, better</span></td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (c)</td><td class="qf-desc">Has the Rolling Twelve Month Loss Ratio at any time exceeded:<small>Event of Termination</small></td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">0.60%</td><td class="ds-num">0.58%</td><td class="ds-num">2.00%</td><td class="ds-num">29.00%</td><td class="qf-trend trend-good" title="Falling: better for this covenant">▼ Falling<span class="ds-visually-hidden">, better</span></td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (d)</td><td class="qf-desc">Has the Delinquency Ratio at any time exceeded 3.0%?<small>Event of Termination</small></td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">0.36%</td><td class="ds-num">0.55%</td><td class="ds-num">3.00%</td><td class="ds-num">18.33%</td><td class="qf-trend trend-bad" title="Rising: worse for this covenant">▲ Rising<span class="ds-visually-hidden">, worse</span></td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (f)</td><td class="qf-desc">Has any Cumulative Net Loss Ratio at any time exceeded 2.75%?<small>Event of Termination · worst vintage Jan-23 ‒ Dec-23</small></td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">1.89%</td><td class="ds-num">1.89%</td><td class="ds-num">2.75%</td><td class="ds-num">68.73%</td><td class="mk-muted">n/a</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (e)</td><td class="qf-desc">… failed at any time to maintain an Interest Coverage Ratio of at least 1.10:1?<small>Event of Termination</small></td><td class="mk-small mk-muted">floor</td><td class="ds-num mk-muted">1.11x</td><td class="ds-num">1.11x</td><td class="ds-num"><span class="mk-muted mk-small">min </span>1.10x</td><td class="ds-num">99.10%</td><td class="qf-trend trend-flat" title="Flat">■ Flat</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>WATCH</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (g)</td><td class="qf-desc">… failed at any time to maintain a Leverage Ratio of less than or equal to 10:1?<small>Event of Termination</small></td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">9.23x</td><td class="ds-num">9.52x</td><td class="ds-num">10.00x</td><td class="ds-num">95.20%</td><td class="qf-trend trend-bad" title="Rising: worse for this covenant">▲ Rising<span class="ds-visually-hidden">, worse</span></td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>WATCH</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 9.1 (h)</td><td class="qf-desc">… failed at any time to maintain a minimum Total Equity equal to or greater than $3,000,000<small>Event of Termination</small></td><td class="mk-small mk-muted">floor</td><td class="ds-num mk-muted">$5,999,143</td><td class="ds-num">$6,078,566</td><td class="ds-num"><span class="mk-muted mk-small">min </span>$3,000,000</td><td class="ds-num">49.35%</td><td class="qf-trend trend-good" title="Rising: better for this covenant">▲ Rising<span class="ds-visually-hidden">, better</span></td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">ARFA 3.5</td><td class="qf-desc">From and after the Commitment Expiry Date, is the Outstanding Principal Balance less than or equal to 10% of the Term Facility Limit?<small>Event of Termination · reported directly by the servicer</small></td><td class="mk-small mk-muted">binary</td><td class="ds-num mk-muted">—</td><td class="ds-num">—</td><td class="ds-num">10.00%</td><td class="ds-num">—</td><td class="mk-muted">n/a</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">5</b>The colour comes from each covenant's own <code>kind</code> field, which every covenant object already carries: <code>ceiling</code> (a max test, lower is better), <code>floor</code> (a min test, higher is better) or <code>binary</code> (yes / no, no trend). The data has no field called "direction"; <code>kind</code> is it. Ceiling + rising = red, ceiling + falling = green, floor + rising = green, floor + falling = red, flat = grey, n/a = grey "n/a". No metric-name lists, no new data.</div>
+      <div class="mk-note"><b class="mk-n">6</b>The word stays "Rising" / "Falling" / "Flat"; colour is never the only signal. Screen readers and the tooltip add "better" or "worse". The "Test" and "Last period" columns <span class="mk-tag">New</span> are optional: they show why a colour was chosen (last period values are the real <code>prior_covenants</code>). Drop them if the table gets too wide; the colour rule does not need them.</div>
+
+      <section class="ds-card ds-card--flush" aria-label="Edge cases">
+        <div class="ds-card__head"><div><h2>Edge cases: trend colour and status are separate</h2><div class="ds-card__sub">MOVE Trust · Jul 2026 <span class="qf-real">Real rows</span></div></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Deal</th><th>Legal ref</th><th>Covenant</th><th>Test</th><th class="ds-num">Last period</th><th class="ds-num">Value</th><th class="ds-num">Threshold</th><th>Trend</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="qf-nowrap">Finloc 2000 Inc.</td><td class="qf-nowrap">MSA 8.1 (b)</td><td class="qf-desc">Has the Delinquency Ratio exceeded 8%?</td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">10.47%</td><td class="ds-num">8.83%</td><td class="ds-num">8.00%</td><td class="qf-trend trend-good" title="Falling: better for this covenant">▼ Falling<span class="ds-visually-hidden">, better</span></td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>BREACH</span></td></tr>
+            <tr><td class="qf-nowrap">Finloc 2000 Inc.</td><td class="qf-nowrap">MSA 8.1 (e)</td><td class="qf-desc">Has Finloc failed at any time to maintain an Interest Coverage Ratio of at least 1.20:1?</td><td class="mk-small mk-muted">floor</td><td class="ds-num mk-muted">0.91x</td><td class="ds-num">0.93x</td><td class="ds-num"><span class="mk-muted mk-small">min </span>1.20x</td><td class="qf-trend trend-good" title="Rising: better for this covenant">▲ Rising<span class="ds-visually-hidden">, better</span></td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>BREACH</span></td></tr>
+            <tr><td class="qf-nowrap">TPine Leasing Capital Corporation</td><td class="qf-nowrap">MLA 7.1 (j)</td><td class="qf-desc">Has the Rolling Three Month Loss Ratio exceeded 4.50%?</td><td class="mk-small mk-muted">ceiling</td><td class="ds-num mk-muted">−78.91%</td><td class="ds-num">−72.64%</td><td class="ds-num">4.50%</td><td class="qf-trend trend-bad" title="Rising: worse for this covenant">▲ Rising<span class="ds-visually-hidden">, worse</span></td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>OK</span></td></tr>
+            <tr><td class="qf-nowrap">Essex Lease Financial Corp.</td><td class="qf-nowrap">MSA 8.1 (h)</td><td class="qf-desc">Has the Originator failed at any time to maintain an Interest Coverage Ratio of at least 1:1?</td><td class="mk-small mk-muted">floor</td><td class="ds-num mk-muted">1.12x</td><td class="ds-num">1.11x</td><td class="ds-num"><span class="mk-muted mk-small">min </span>1.00x</td><td class="qf-trend trend-flat" title="Flat">■ Flat</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>WATCH</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">7</b>Trend colour says whether this period's move helped; the status pill says where the value stands against the threshold. So a breached covenant can carry a green arrow (Finloc delinquency 10.47% → 8.83%, still above 8%). A ceiling ratio that is negative and rising toward zero (TPine net recoveries shrinking) is red. The colour follows the published <code>trend</code> word and never recomputes it: Essex coverage moved 1.12x → 1.11x but is published as Flat, so it stays grey.</div>
+
+      <section class="ds-card ds-card--flush" aria-label="Legend">
+        <div class="ds-card__head"><div><h2>Legend: favourable direction by metric family <span class="mk-tag">New</span></h2><div class="ds-card__sub">Shown as a help popover next to the Trend column header, and in Help &amp; support.</div></div></div>
+        <div class="qf-scroll">
+        <table class="ds-table ds-table--compact">
+          <thead><tr><th>Metric family</th><th>Examples in the data</th><th>Test (<code>kind</code>)</th><th>Better when</th><th>Rising</th><th>Falling</th><th>Flat</th></tr></thead>
+          <tbody>
+            <tr><td class="ds-key">Delinquency ratios</td><td>Delinquency Ratio, Portfolio Delinquency Ratio (3-month rolling)</td><td>ceiling</td><td>lower</td><td class="qf-trend trend-bad">▲ Rising</td><td class="qf-trend trend-good">▼ Falling</td><td class="qf-trend trend-flat">■ Flat</td></tr>
+            <tr><td class="ds-key">Loss ratios</td><td>Rolling 3- and 12-month Loss Ratio, Loss Ratio, RVL Ratio, Charge-Off Ratio, Deemed Default Ratio</td><td>ceiling</td><td>lower</td><td class="qf-trend trend-bad">▲ Rising</td><td class="qf-trend trend-good">▼ Falling</td><td class="qf-trend trend-flat">■ Flat</td></tr>
+            <tr><td class="ds-key">CNL ratios</td><td>CNL Ratio (worst vintage)</td><td>ceiling</td><td>lower</td><td class="qf-trend trend-bad">▲ Rising</td><td class="qf-trend trend-good">▼ Falling</td><td class="qf-trend trend-flat">■ Flat</td></tr>
+            <tr><td class="ds-key">Coverage and other floors</td><td>Interest Coverage Ratio, Total Equity, Tangible Net Worth</td><td>floor</td><td>higher</td><td class="qf-trend trend-good">▲ Rising</td><td class="qf-trend trend-bad">▼ Falling</td><td class="qf-trend trend-flat">■ Flat</td></tr>
+            <tr><td class="ds-key">Leverage and other max tests</td><td>Leverage Ratio, Debt / Equity Ratio</td><td>ceiling</td><td>lower</td><td class="qf-trend trend-bad">▲ Rising</td><td class="qf-trend trend-good">▼ Falling</td><td class="qf-trend trend-flat">■ Flat</td></tr>
+            <tr><td class="ds-key">Yes / no tests</td><td>Tranche balance below zero, clean-up provision, servicer termination events</td><td>binary</td><td>—</td><td class="mk-muted" colspan="3">no trend: shown as grey "n/a"</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+      <div class="mk-note"><b class="mk-n">8</b>The legend lists families for people; the code reads only <code>kind</code>. CNL rows carry <code>trend: "n/a"</code> in every published deal today, so they show grey "n/a" until a trend is published for them. The change is one place: the <code>Trend</code> component in <code>web/src/portfolio/Covenants.tsx</code>, used by the deal page and the Program Dashboard covenant table, so both portals pick it up. Colours are the existing status tokens (<code>--ok</code>, <code>--bad</code>, <code>--muted</code>), already in the kit as <code>.trend-good / .trend-bad / .trend-flat</code>.</div>
+    </div>
+  </main>
+</div>
+<script>
+  // Whole-row navigation: a click anywhere on the row follows the row's link, unless the click was on another link.
+  document.querySelectorAll('.qf-rowlink').forEach(function (tr) {
+    tr.addEventListener('click', function (e) {
+      if (e.target.closest('a')) return;
+      var a = tr.querySelector('td:first-child a'); if (a) a.click();
+    });
+  });
+</script>
+</body>
+</html>

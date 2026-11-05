@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System settings · TAO Admin phase 2 design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mockup.css">
+</head>
+<body>
+<div class="mk-page-title"><a href="index.html">&larr; All designs</a><span>D10 · System settings (TAO Admin only)</span><span class="mk-muted" style="color:var(--text-on-indigo-muted)">Static mockup. Programs, deals, templates and rules are real (seed/, contracts/rules.yaml). Providers, senders and retention periods are sample proposals.</span></div>
+<div class="mk-app">
+  <aside class="mk-side">
+    <div class="mk-brand"><div class="mk-mark">T</div><div><b>TAO Admin</b><span>Operations</span></div></div>
+    <div class="mk-navlabel">Workspace</div>
+    <nav class="mk-nav">
+      <a href="#">Dashboard</a>
+      <a href="#">Uploads</a>
+      <a href="#">Approval queue</a>
+      <a href="#">Reports library</a>
+      <a href="#">Partners</a>
+      <a href="#">Portfolio Executive Summary</a>
+      <a href="#">Notifications <span class="mk-badge">3</span></a>
+      <a href="#">Help &amp; support</a>
+    </nav>
+    <div class="mk-navlabel">Account</div>
+    <nav class="mk-nav">
+      <a href="#">User management</a>
+      <a href="#">Audit log</a>
+      <a href="#">Profile</a>
+      <a href="#" class="on">System settings</a>
+    </nav>
+    <div class="mk-foot"><div class="mk-avatar">TA</div><div><b>TAO Admin</b><small>TAO Solutions Inc.</small></div></div>
+  </aside>
+  <main class="mk-main">
+    <header class="mk-top">
+      <div class="ds-pagehead">
+        <div class="ds-pagehead__text">
+          <nav class="ds-crumb" aria-label="Breadcrumb"><ol><li><a href="#">TAO Admin</a></li><li><span aria-current="page">System settings</span></li></ol></nav>
+          <div class="ds-pagehead__titlerow"><h1>System settings</h1><span class="mk-tag">New</span><span class="ds-pill ds-pill--sm ds-pill--dpv"><span class="ds-pill__dot"></span>TAO Admin only</span></div>
+          <div class="ds-pagehead__sub">How the platform is set up: what it reads, what it checks, when reports are due, who is told, and how long things are kept.</div>
+        </div>
+        <div class="ds-pagehead__actions"><a class="ds-btn ds-btn--ghost" href="audit-log.html">Settings history</a><button class="ds-btn ds-btn--primary">Save changes</button></div>
+      </div>
+    </header>
+    <div class="mk-body">
+      <div class="mk-note"><b class="mk-n">1</b>Today this route shows a placeholder and is hidden from TAO Analyst (roles: tao_admin in web/src/shell/pages.ts). Recommendation: keep it Admin-only. Every section is marked either <span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Shows what exists</span> (read-only view of today's config, no new behaviour) or <span class="mk-tag">New</span> (a setting the platform does not have yet). Extraction is never editable here (locked decision 4).</div>
+      <div class="mk-note"><b class="mk-n">2</b>Every save, in every section, writes one "Settings change" entry to the Platform audit log (D3): who, when, section, field, before, after, and a reason of at least three characters. The reason dialog is shown at the bottom of this page.</div>
+
+      <nav class="mk-row" aria-label="Sections">
+        <a class="ds-pill ds-pill--neutral" href="#s-programs">1 Programs and deals</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-rules">2 Validation rules</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-calendar">3 Reporting calendar</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-notif">4 Notifications</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-feeds">5 Company data feeds</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-retention">6 Retention and audit</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-brand">7 Partner branding</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-integrations">8 Integrations</a>
+        <a class="ds-pill ds-pill--neutral" href="#s-maint">9 Maintenance</a>
+      </nav>
+
+      <!-- 1. Programs and deals -->
+      <div class="ds-card ds-card--flush" id="s-programs">
+        <div class="ds-card__head"><div><h2>1 · Programs and deals</h2><div class="ds-card__sub">From seed/programs.json and seed/deals.json. Limits and covenants are edited on the Program / facility record (D2), not here.</div></div>
+          <div class="ds-card__actions"><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Shows what exists</span></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Program</th><th>Partners</th><th>Currency</th><th class="ds-num">Program limit</th><th class="ds-num">Warehouse limit</th><th class="ds-num">Deals</th><th>Extraction template</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">MOVE Trust</td><td>Investor, Manager</td><td>CAD</td><td class="ds-num">1,916,709,163.00</td><td class="ds-num mk-muted">none</td><td class="ds-num">9</td><td><code>move-trust-settrep-v1</code></td></tr>
+              <tr class="ds-row"><td class="ds-key">F-PIL 2.0</td><td>Investor, Manager</td><td>CAD</td><td class="ds-num">150,000,000.00</td><td class="ds-num">5,000,000.00</td><td class="ds-num">3</td><td><code>fpil-2.0-settrep-v1</code></td></tr>
+            </tbody>
+          </table>
+          <table class="ds-table ds-table--compact" style="margin-top:10px">
+            <caption>Deals and the template each uses</caption>
+            <thead><tr><th>Deal</th><th>Program</th><th>Servicer</th><th>template_id</th><th>Template</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Dynamic Capital</td><td>MOVE Trust</td><td>Dynamic Capital</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Essex Lease Financial Corp.</td><td>MOVE Trust</td><td>Essex Lease Financial Corp.</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Finloc 2000 Inc.</td><td>MOVE Trust</td><td>Finloc 2000 Inc.</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Meridian OneCap LP</td><td>MOVE Trust</td><td>Meridian OneCap LP</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">TLFC (Leases)</td><td>MOVE Trust</td><td>TLFC (Leases)</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">TLFC (Loans)</td><td>MOVE Trust</td><td>TLFC (Loans)</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">TLFC LP (Leases)</td><td>MOVE Trust</td><td>TLFC LP (Leases)</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">TPine Leasing Capital Corporation</td><td>MOVE Trust</td><td>TPine Leasing Capital Corporation</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">VCC IV LP</td><td>MOVE Trust</td><td>VCC IV LP</td><td><code>move-trust-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Moneda Capital Corp.</td><td>F-PIL 2.0</td><td>Moneda Capital Corp.</td><td><code>fpil-2.0-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Stride Capital</td><td>F-PIL 2.0</td><td>Stride Capital</td><td><code>fpil-2.0-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Xpedite Leasing</td><td>F-PIL 2.0</td><td>Xpedite Leasing</td><td><code>fpil-2.0-settrep-v1</code></td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Locked</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:12px 18px" class="mk-small mk-muted">Extraction settings (read-only): two templates; a failed structural or arithmetic check retries pass 2, then goes to review (on_failure in rules.yaml); re-extract pages is on the Review page. None of this can be changed on this screen.</div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">3</b>Programs, deals and template_id are shown, not edited. A template decides how the PDF is read, so changing it would change extraction; adding a deal or a template stays a developer task (seed/ and worker/extract/) and is logged as a Master data change when loaded. Program limits and covenant definitions keep their existing edit path on the Program / facility record.</div>
+
+      <!-- 2. Validation rules -->
+      <div class="ds-card ds-card--flush" id="s-rules">
+        <div class="ds-card__head"><div><h2>2 · Validation rules</h2><div class="ds-card__sub">contracts/rules.yaml version 1. Severity: Block = cannot publish · Review = goes to the approval queue with the finding · Note = shown only.</div></div>
+          <div class="ds-card__actions"><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Shows what exists</span><button class="ds-btn ds-btn--sm ds-btn--ghost">Request a change</button></div></div>
+        <div class="ds-card__body">
+          <div style="padding:14px 18px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+            <div>
+              <table class="ds-table ds-table--compact">
+                <caption>Tolerances</caption>
+                <thead><tr><th>Unit</th><th class="ds-num">Value</th><th>Means</th></tr></thead>
+                <tbody>
+                  <tr class="ds-row"><td>currency</td><td class="ds-num">1.00</td><td>$1 per line</td></tr>
+                  <tr class="ds-row"><td>percent_points</td><td class="ds-num">0.0001</td><td>0.01 pp</td></tr>
+                  <tr class="ds-row"><td>count</td><td class="ds-num">0</td><td>exact</td></tr>
+                  <tr class="ds-row"><td>ratio</td><td class="ds-num">0.005</td><td>leverage, coverage</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <table class="ds-table ds-table--compact">
+                <caption>Reporting lag (R04) and watch margin</caption>
+                <thead><tr><th>Setting</th><th class="ds-num">Value</th></tr></thead>
+                <tbody>
+                  <tr class="ds-row"><td><code>fpil-2.0-settrep-v1</code> lag</td><td class="ds-num">1 month</td></tr>
+                  <tr class="ds-row"><td><code>move-trust-settrep-v1</code> lag</td><td class="ds-num">0 months</td></tr>
+                  <tr class="ds-row"><td>Unknown template lag</td><td class="ds-num">1 month</td></tr>
+                  <tr class="ds-row"><td>WATCH margin (watch_buffer_pct, all 12 deals)</td><td class="ds-num">10%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <table class="ds-table ds-table--compact">
+            <caption>Rule catalogue, R01–R22</caption>
+            <thead><tr><th>Rule</th><th>Title</th><th>Layer</th><th>Severity</th><th>Tolerance</th><th class="ds-num">Phase</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">R01</td><td>Required fields present</td><td>Structural</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td class="mk-muted">none</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R02</td><td>Currency matches the facility</td><td>Structural</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td class="mk-muted">none</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R03</td><td>Values in plausible ranges</td><td>Structural</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td class="mk-muted">ranges</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R04</td><td>Dates parse and periods line up</td><td>Structural</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>months (lag)</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R05</td><td>Tranche balance roll-forward</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>currency</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R06</td><td>Contract count roll-forward</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>count</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R07</td><td>Aging buckets sum to the closing balance</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>currency</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R08</td><td>Losses, recoveries and cumulative net losses tie out</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>currency</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R09</td><td>Facility utilization recomputes</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>currency</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R10</td><td>Enhancement and coverage recompute</td><td>Arithmetic</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>ratio</td><td class="ds-num">2</td></tr>
+              <tr class="ds-row"><td class="ds-key">R11</td><td>Opening equals prior period closing</td><td>Cross-period</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td>currency</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R12</td><td>Period not already published</td><td>Cross-period</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td class="mk-muted">none</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R13</td><td>Deal and program match the upload</td><td>Cross-period</td><td><span class="ds-pill ds-pill--sm ds-pill--bad"><span class="ds-pill__dot"></span>Block</span></td><td class="mk-muted">none</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R14</td><td>Covenant thresholds equal the master record</td><td>Cross-source</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td class="mk-muted">none</td><td class="ds-num">2</td></tr>
+              <tr class="ds-row"><td class="ds-key">R15</td><td>Program and warehouse limits equal the master record</td><td>Cross-source</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>currency</td><td class="ds-num">2</td></tr>
+              <tr class="ds-row"><td class="ds-key">R16</td><td>Sum of deal balances equals the program total</td><td>Cross-source</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>currency</td><td class="ds-num">3</td></tr>
+              <tr class="ds-row"><td class="ds-key">R17</td><td>Covenant values recompute from components</td><td>Covenant</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>percent_points</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R18</td><td>Covenant status matches our derivation</td><td>Covenant</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td class="mk-muted">none</td><td class="ds-num">1</td></tr>
+              <tr class="ds-row"><td class="ds-key">R19</td><td>Covenant status changed since the prior period</td><td>Covenant</td><td><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Note</span></td><td class="mk-muted">none</td><td class="ds-num">2</td></tr>
+              <tr class="ds-row"><td class="ds-key">R20</td><td>Month-on-month movement within the deal's historical band</td><td>Reasonableness</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td>3 sigma, 12 months</td><td class="ds-num">3</td></tr>
+              <tr class="ds-row"><td class="ds-key">R21</td><td>Report is not a copy of the prior period</td><td>Reasonableness</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Review</span></td><td class="mk-muted">none</td><td class="ds-num">3</td></tr>
+              <tr class="ds-row"><td class="ds-key">R22</td><td>Provenance and second-pass agreement</td><td>Reasonableness</td><td><span class="ds-pill ds-pill--sm ds-pill--blue"><span class="ds-pill__dot"></span>Note</span></td><td>sample 12</td><td class="ds-num">3</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">4</b>Rules, severities and tolerances are read-only on screen. A change is a change to the controls, so it follows the existing path: "Request a change" records the rule, the proposed value and the reason in the Platform audit log and notifies the Lead; the Lead edits contracts/rules.yaml, <code>make check</code> and the rules tests run, and the new version shows here with its date. Phase 3 rules are listed so the catalogue is complete; they do not run in the POC.</div>
+      <div class="mk-note"><b class="mk-n">5</b>The WATCH margin shown is the published 10% from each deal's dashboard object. Partners can still try another margin on their own screen with "Watch threshold"; that never changes a published status.</div>
+
+      <!-- 3. Reporting calendar -->
+      <div class="ds-card ds-card--flush" id="s-calendar">
+        <div class="ds-card__head"><div><h2>3 · Reporting calendar <span class="mk-tag">New</span></h2><div class="ds-card__sub">When each deal's SetRep is expected, and when to raise "Report overdue".</div></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Deal</th><th>Program</th><th class="ds-num">Last settlement date seen</th><th class="ds-num">Expected report day</th><th class="ds-num">Overdue after</th><th>Status for 2026-11</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Stride Capital</td><td>F-PIL 2.0</td><td class="ds-num">5 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="5" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Received</span> <span class="mk-small mk-muted">sample</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Xpedite Leasing</td><td>F-PIL 2.0</td><td class="ds-num">5 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="5" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Received</span> <span class="mk-small mk-muted">sample</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Moneda Capital Corp.</td><td>F-PIL 2.0</td><td class="ds-num">7 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="7" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Due 7 Nov</span> <span class="mk-small mk-muted">sample</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Finloc 2000 Inc.</td><td>MOVE Trust</td><td class="ds-num">13 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="13" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not due</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">TLFC (Leases), TLFC (Loans), TLFC LP (Leases)</td><td>MOVE Trust</td><td class="ds-num">17 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="17" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not due</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Dynamic Capital, VCC IV LP</td><td>MOVE Trust</td><td class="ds-num">20 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="20" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not due</span></td></tr>
+              <tr class="ds-row"><td class="ds-key">Essex Lease Financial Corp., Meridian OneCap LP, TPine Leasing Capital Corporation</td><td>MOVE Trust</td><td class="ds-num">24 Aug 2026</td><td class="ds-num"><input class="ds-input ds-input--num" value="24" style="width:64px;padding:5px 8px"></td><td class="ds-num">+3 business days</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not due</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:14px 18px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));border-top:1px solid var(--border-card)">
+            <label class="ds-field"><span class="ds-field__label">Overdue grace period</span><select class="ds-select"><option>3 business days</option><option>5 business days</option><option>1 business day</option></select></label>
+            <label class="ds-field"><span class="ds-field__label">Holiday calendar</span><select class="ds-select"><option>Ontario (TSX)</option><option>Canada federal</option><option>None</option></select></label>
+            <label class="ds-field"><span class="ds-field__label">Who is told when overdue</span><select class="ds-select"><option>TAO team (in-app + email)</option><option>TAO Admins only</option></select><span class="ds-field__hint">Partners are not told; TAO chases the servicer.</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">6</b>New behaviour. The expected day is pre-filled from the real settlement dates in the August 2026 reports (docs/dashboard-json); TAO Admin confirms or edits it per deal (one row per deal in the build; grouped here for space). A daily check raises "Report overdue" when no upload exists for the expected collection period after the grace period, shown on the Dashboard and in Notifications. Statuses in the last column are sample.</div>
+
+      <!-- 4. Notifications -->
+      <div class="mk-grid2" id="s-notif">
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head"><div><h2>4 · Notifications: default subscriptions <span class="mk-tag">New</span></h2><div class="ds-card__sub">What a new user gets before they change their Profile.</div></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>Event</th><th>TAO Admin</th><th>TAO Analyst</th><th>Partner admin</th><th>Partner viewer</th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td class="ds-key">Report waiting for approval</td><td>App</td><td>App</td><td class="mk-muted">n/a</td><td class="mk-muted">n/a</td></tr>
+                <tr class="ds-row"><td class="ds-key">Upload failed / rejected</td><td>App</td><td>App + email</td><td class="mk-muted">n/a</td><td class="mk-muted">n/a</td></tr>
+                <tr class="ds-row"><td class="ds-key">Report published</td><td>Digest</td><td>Digest</td><td>App + email</td><td>App + email</td></tr>
+                <tr class="ds-row"><td class="ds-key">Correction re-published</td><td>App + email</td><td>App</td><td>Always</td><td>Always</td></tr>
+                <tr class="ds-row"><td class="ds-key">Covenant WATCH / BREACH</td><td>Always</td><td>Always</td><td>Always</td><td>App</td></tr>
+                <tr class="ds-row"><td class="ds-key">Report overdue</td><td>Digest</td><td>Digest</td><td class="mk-muted">n/a</td><td class="mk-muted">n/a</td></tr>
+                <tr class="ds-row"><td class="ds-key">@mention</td><td>App + email</td><td>App + email</td><td>App + email</td><td>App + email</td></tr>
+                <tr class="ds-row"><td class="ds-key">Adverse media</td><td>App</td><td>Digest</td><td class="mk-muted">n/a</td><td class="mk-muted">n/a</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__head"><div><h2>Email sender and publish notes <span class="mk-tag">New</span></h2><div class="ds-card__sub">Sample values.</div></div></div>
+          <div class="ds-card__body" style="display:flex;flex-direction:column;gap:14px">
+            <div class="mk-grid2">
+              <label class="ds-field"><span class="ds-field__label">Sender name</span><input class="ds-input" value="TAO Portfolio Reporting"></label>
+              <label class="ds-field"><span class="ds-field__label">Sender address</span><input class="ds-input" value="reports@example.com"><span class="ds-field__hint">Domain must pass SPF/DKIM before switching on.</span></label>
+            </div>
+            <label class="ds-field"><span class="ds-field__label">Reply-to</span><input class="ds-input" value="portfolio-ops@example.com"></label>
+            <label class="ds-field"><span class="ds-field__label">Publish note template: new report</span>
+              <textarea class="ds-textarea">The {collection_period} settlement report for {deal_name} ({program_name}) is now available in your portal. Covenant summary: {covenant_summary}.</textarea></label>
+            <label class="ds-field"><span class="ds-field__label">Publish note template: correction</span>
+              <textarea class="ds-textarea">We have corrected the {collection_period} report for {deal_name}. What changed: {change_list}. Reason: {reason}. The earlier version stays in your history.</textarea>
+              <span class="ds-field__hint">Fields in braces are filled at publish. The reviewer can edit the note before sending (D7).</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">7</b>New behaviour. Defaults apply to new users and to "Reset to defaults" on Profile; changing a default does not overwrite choices people already made. "Always" rows cannot be switched off by the user (covenant status, and corrections for partners). Teams / chat delivery is under Integrations. The POC sends no email today.</div>
+
+      <!-- 5. Company data feeds -->
+      <div class="ds-card" id="s-feeds">
+        <div class="ds-card__head"><div><h2>5 · Company data feeds <span class="mk-tag">New</span></h2><div class="ds-card__sub">Feeds the Company profile (D6): daily news, adverse media, industry. Provider names are placeholders; none is contracted.</div></div></div>
+        <div class="ds-card__body" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+          <label class="ds-field"><span class="ds-field__label">News source</span><select class="ds-select"><option>Not chosen (sample: licensed news API)</option><option>RSS list (free, lower coverage)</option></select></label>
+          <label class="ds-field"><span class="ds-field__label">Daily refresh time</span><input class="ds-input" value="06:00 America/Toronto"><span class="ds-field__hint">Runs before the team starts; results are ready for the morning.</span></label>
+          <label class="ds-field"><span class="ds-field__label">Screening provider (adverse media)</span><select class="ds-select"><option>Not chosen (sample: screening vendor)</option></select></label>
+          <div class="ds-field"><span class="ds-field__label">Adverse media categories</span>
+            <div class="mk-small" style="display:flex;flex-direction:column;gap:4px">
+              <label><input type="checkbox" checked> Fraud and financial crime</label>
+              <label><input type="checkbox" checked> Insolvency, receivership, CCAA</label>
+              <label><input type="checkbox" checked> Regulatory or enforcement action</label>
+              <label><input type="checkbox" checked> Litigation over $1M (sample threshold)</label>
+              <label><input type="checkbox" checked> Sanctions</label>
+              <label><input type="checkbox"> Senior management change</label>
+            </div></div>
+          <label class="ds-field"><span class="ds-field__label">Companies watched</span><input class="ds-input" value="12 lending companies (one per deal servicer)" disabled><span class="ds-field__hint">Taken from the deal list; not editable here.</span></label>
+          <label class="ds-field"><span class="ds-field__label">Industry classification</span><select class="ds-select"><option>NAICS 2022</option><option>GICS</option></select></label>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">8</b>New behaviour, depends on D6 being approved and a provider being chosen. Feed results are shown to TAO only, labelled with source and date, and never change deal numbers or covenant statuses. A match in a checked category raises "Adverse media" for the TAO team.</div>
+
+      <!-- 6. Retention and audit -->
+      <div class="ds-card ds-card--flush" id="s-retention">
+        <div class="ds-card__head"><div><h2>6 · Data retention and audit <span class="mk-tag">New</span></h2><div class="ds-card__sub">Proposed periods for operator review. Today nothing is deleted until reset_demo wipes the stack.</div></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Data</th><th>Kept for (proposed)</th><th>After that</th><th>Today</th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Uploaded SetRep PDFs and page images</td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>7 years</option><option>10 years</option></select></td><td>Deleted; the published deal object stays</td><td class="mk-muted">Kept until reset</td></tr>
+              <tr class="ds-row"><td class="ds-key">Rejected and failed uploads</td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>1 year</option><option>7 years</option></select></td><td>Deleted with their findings</td><td class="mk-muted">Kept until reset</td></tr>
+              <tr class="ds-row"><td class="ds-key">Published deal objects and versions</td><td>Always</td><td class="mk-muted">n/a</td><td class="mk-muted">Kept until reset</td></tr>
+              <tr class="ds-row"><td class="ds-key">Audit log entries (Reports and Platform)</td><td>Always <span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Cannot be shortened</span></td><td class="mk-muted">n/a</td><td class="mk-muted">Kept until reset</td></tr>
+              <tr class="ds-row"><td class="ds-key">Notifications</td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>12 months</option><option>24 months</option></select></td><td>Deleted</td><td class="mk-muted">Not built</td></tr>
+              <tr class="ds-row"><td class="ds-key">Company news and adverse media items</td><td><select class="ds-select" style="padding:5px 30px 5px 8px"><option>24 months</option></select></td><td>Deleted</td><td class="mk-muted">Not built</td></tr>
+            </tbody>
+          </table>
+          <div class="mk-row" style="padding:12px 18px;border-top:1px solid var(--border-card)">
+            <b style="color:var(--indigo)">Export audit log</b>
+            <select class="ds-select" style="width:auto"><option>Platform and Reports</option><option>Reports only</option><option>Platform only</option></select>
+            <input class="ds-input" value="2026-01 to 2026-11" style="width:170px">
+            <select class="ds-select" style="width:auto"><option>CSV</option><option>JSON</option></select>
+            <button class="ds-btn ds-btn--sm ds-btn--ghost">Export</button>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">9</b>Periods are proposals, not policy: the operator or compliance sets them. Audit entries are never deleted from this screen; the export itself is logged (who, range, format). Deleting a PDF never deletes the deal numbers published from it.</div>
+
+      <!-- 7. Branding -->
+      <div class="ds-card ds-card--flush" id="s-brand">
+        <div class="ds-card__head"><div><h2>7 · Branding per partner portal <span class="mk-tag">New</span></h2><div class="ds-card__sub">Name, logo and email footer per partner. Colours stay on the portal's tokens.</div></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Partner</th><th>Portal name</th><th>Subtitle</th><th>Logo</th><th>Email footer</th><th></th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Investor</td><td>Investor Portal</td><td>Portfolio monitoring</td><td class="mk-muted">TAO default</td><td class="mk-muted">TAO default</td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+              <tr class="ds-row"><td class="ds-key">Manager</td><td>Manager Portal</td><td>Portfolio monitoring</td><td class="mk-muted">TAO default</td><td class="mk-muted">TAO default</td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Edit</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">10</b>New behaviour, kept narrow: name, subtitle, logo (PNG or SVG, shown in the sidebar mark and on printed dashboards) and email footer. No free colour picker: status colours carry meaning (OK, WATCH, BREACH) and must not change per partner.</div>
+
+      <!-- 8. Integrations -->
+      <div class="mk-grid2" id="s-integrations">
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head"><div><h2>8 · API keys <span class="mk-tag">New</span></h2><div class="ds-card__sub">Placeholders. The POC API trusts the X-Role header and has no keys.</div></div><div class="ds-card__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost" disabled>Create key</button></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>Name</th><th>Scope</th><th>Created</th><th>Last used</th></tr></thead>
+              <tbody><tr class="ds-table__empty"><td colspan="4"><b>No keys</b>Read-only keys for /published/* per partner, shown once at creation.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ds-card ds-card--flush">
+          <div class="ds-card__head"><div><h2>Webhooks and chat <span class="mk-tag">New</span></h2><div class="ds-card__sub">Sample endpoints.</div></div><div class="ds-card__actions"><button class="ds-btn ds-btn--sm ds-btn--ghost" disabled>Add webhook</button></div></div>
+          <div class="ds-card__body">
+            <table class="ds-table ds-table--compact">
+              <thead><tr><th>Target</th><th>Events</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr class="ds-row"><td>Teams channel: portfolio-ops (sample)</td><td>Report waiting for approval, partner question</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not connected</span></td></tr>
+                <tr class="ds-row"><td>https://hooks.example.com/tao (sample)</td><td>Report published, correction</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Not connected</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">11</b>New behaviour, after real sign-in exists. Keys are scoped to one partner and read-only, so the same partner_filter applies as in the portal. Teams / chat is the channel docs/portal-map.md names for "Report waiting for approval". Creating, revoking or rotating a key is a Platform audit entry.</div>
+
+      <!-- 9. Maintenance -->
+      <div class="ds-card ds-card--flush" id="s-maint">
+        <div class="ds-card__head"><div><h2>9 · Maintenance</h2><div class="ds-card__sub">Jobs that run by hand. None re-reads a PDF.</div></div></div>
+        <div class="ds-card__body">
+          <table class="ds-table ds-table--compact">
+            <thead><tr><th>Job</th><th>What it does</th><th>Today</th><th>Here</th><th></th></tr></thead>
+            <tbody>
+              <tr class="ds-row"><td class="ds-key">Regenerate dashboards</td><td>Rebuilds program roll-ups from published reports, for one program or all</td><td><span class="ds-pill ds-pill--sm ds-pill--ok"><span class="ds-pill__dot"></span>Exists</span> Reports library pop-up</td><td><span class="ds-pill ds-pill--sm ds-pill--neutral"><span class="ds-pill__dot"></span>Shows what exists</span></td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Regenerate…</button></td></tr>
+              <tr class="ds-row"><td class="ds-key">Reset demo <span class="mk-tag">New</span></td><td>Wipes database and file store, reloads master data, optional profile: review, partner or admin</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Script only</span> <code>python scripts/reset_demo.py --profile review</code></td><td>Button, demo environments only</td><td><button class="ds-btn ds-btn--sm ds-btn--danger">Reset demo…</button></td></tr>
+              <tr class="ds-row"><td class="ds-key">Run overdue check now <span class="mk-tag">New</span></td><td>Runs the reporting calendar check outside its daily time</td><td class="mk-muted">Not built</td><td>Button</td><td><button class="ds-btn ds-btn--sm ds-btn--ghost">Run</button></td></tr>
+              <tr class="ds-row"><td class="ds-key">Contract and reference check</td><td><code>make check</code>: validates contracts and reference data</td><td><span class="ds-pill ds-pill--sm ds-pill--warn"><span class="ds-pill__dot"></span>Script only</span></td><td>Last result shown, not run</td><td class="mk-muted">Developer task</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">12</b>Reset demo becomes a button only where the stack is flagged as a demo (an environment setting, off in production, where the row is hidden). It needs the reset dialog below. The reset itself wipes the audit log, so the entry is written to the server log and shown as the first entry of the fresh log ("Demo reset by TAO Admin, profile review").</div>
+
+      <div class="mk-grid2">
+        <div class="mk-stage">
+          <div class="ds-dialog" role="dialog" aria-labelledby="save-d">
+            <div class="ds-dialog__head"><div><h2 id="save-d">State after clicking Save changes</h2><div class="ds-dialog__desc">2 settings changed. Each goes to the Platform audit log.</div></div></div>
+            <div class="ds-dialog__body">
+              <table class="ds-table ds-table--compact">
+                <thead><tr><th>Setting</th><th>Before</th><th>After</th></tr></thead>
+                <tbody>
+                  <tr><td>Reporting calendar · Moneda Capital Corp. expected day</td><td class="ds-num">7</td><td class="ds-num">8</td></tr>
+                  <tr><td>Notifications · Overdue grace period</td><td>3 business days</td><td>5 business days</td></tr>
+                </tbody>
+              </table>
+              <label class="ds-field"><span class="ds-field__label">Reason<span class="ds-field__req">*</span></span><input class="ds-input" value="Servicer confirmed new settlement day by email"><span class="ds-field__hint">At least three characters. Shown in the audit entry.</span></label>
+            </div>
+            <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--primary">Save 2 changes</button></div>
+          </div>
+        </div>
+        <div class="mk-stage">
+          <div class="ds-dialog" role="dialog" aria-labelledby="reset-d">
+            <div class="ds-dialog__head"><div><h2 id="reset-d">State after clicking Reset demo…</h2><div class="ds-dialog__desc">This wipes every upload, publication, comment and audit entry on this demo stack.</div></div></div>
+            <div class="ds-dialog__body">
+              <label class="ds-field"><span class="ds-field__label">Profile to load</span><select class="ds-select"><option>review: the review demo state</option><option>partner: all 12 reference deals published</option><option>admin</option><option>Master data only</option></select></label>
+              <label class="ds-field"><span class="ds-field__label">Type RESET to confirm</span><input class="ds-input" placeholder="RESET"></label>
+            </div>
+            <div class="ds-dialog__foot"><button class="ds-btn ds-btn--ghost">Cancel</button><button class="ds-btn ds-btn--danger" disabled>Reset demo</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="mk-note"><b class="mk-n">13</b>One save covers all changed settings on the page, with one reason, and writes one audit entry per setting so each can be found by name. Read-only sections (Programs and deals, Validation rules, Regenerate) never write an entry from this page.</div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
