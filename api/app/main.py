@@ -474,11 +474,13 @@ def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depen
         box, key = review._walk(deal, e.pointer)
         box[key] = review.typed(olds[e.pointer], e.value)
         src = ((ex.sources if ex else None) or {}).get(e.pointer) or {}
-        s.add(ValueEdit(upload_id=u.id, correction_id=k.id, pointer=e.pointer, old_value=float(olds[e.pointer]), new_value=e.value,
-                        reason=body.reason, source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role,
-                        actor_label=c.role, at=k.created_at + dt.timedelta(microseconds=i)))
+        ve = ValueEdit(id=new_id(), upload_id=u.id, correction_id=k.id, pointer=e.pointer, old_value=float(olds[e.pointer]), new_value=e.value,
+                       reason=body.reason, source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role,
+                       actor_label=c.role, at=k.created_at + dt.timedelta(microseconds=i))
+        s.add(ve)
+        # partner deal page groups data_corrections by edit_id: "Corrected by TAO · version n"
         rows.append(review.correction_entry(e.pointer, u.collection_period, olds[e.pointer], box[key], body.reason,
-                                            correction_id=k.id, version=version, by=c.role))
+                                            edit_id=ve.id, correction_id=k.id, version=version, by=c.role))
     deal["data_corrections"] = list(deal.get("data_corrections") or []) + rows
     k.deal = deal
     k.findings = review.correction_findings(s, u, deal)

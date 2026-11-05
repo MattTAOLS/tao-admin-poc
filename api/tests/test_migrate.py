@@ -142,3 +142,31 @@ def test_a_failing_migration_leaves_nothing_behind(pg, tmp_path):
     assert len(recorded(pg)) == len(ALL)                                  # the good files before it are kept
     (tmp_path / "999_broken.sql").write_text("create table if not exists half_done (a int);\n", encoding="utf-8")
     assert migrate.run(pg, tmp_path) == ["999_broken.sql"]
+
+
+@needs_pg
+def test_009_wave_b_is_idempotent_and_marks_ui_covenants(pg):
+    """009 on a database that has a covenant created through the old PUT (a master_change entry keyed by its id): that row
+    becomes origin=ui, seed rows stay seed, and running the file again changes nothing."""
+    by_hand(pg, "008")
+    with pg.begin() as c:
+        c.execute(text("insert into partner (slug, name, kind) values ('investor', 'Investor', 'investor')"))
+        c.execute(text("insert into program (slug, name, partner_slug, \"limit\") values ('p', 'P', 'investor', 1)"))
+        c.execute(text("insert into deal (slug, name, program_slug, servicer, template_id) values ('d', 'D', 'p', 's', 't')"))
+        for cid in ("00000000-0000-4000-8000-0000000000a1", "00000000-0000-4000-8000-0000000000a2"):
+            c.execute(text("insert into covenant_definition (id, deal_slug, legal_ref, description, kind, effective_from) "
+                           "values (:i, 'd', :r, 'x', 'ceiling', '2022-12-09')"), {"i": cid, "r": cid[-2:]})
+        c.execute(text("insert into review_action (actor_role, action, detail) values ('tao_admin', 'master_change', "
+                       "cast(:d as jsonb))"), {"d": '{"entity": "covenant_definition", "key": "00000000-0000-4000-8000-0000000000a2"}'})
+    assert migrate.run(pg) == ALL[6:]                                     # 007, 008 again (idempotent), then 009
+    sql = next(p for n, p in migrate.files() if n == "009").read_text(encoding="utf-8")
+    with pg.begin() as c:                                                   # idempotent: the whole file again
+        for stmt in migrate.statements(sql):
+            c.exec_driver_sql(stmt)
+    with pg.connect() as c:
+        origins = dict(c.execute(text("select id::text, origin from covenant_definition order by id")).all())
+    assert origins == {"00000000-0000-4000-8000-0000000000a1": "seed", "00000000-0000-4000-8000-0000000000a2": "ui"}
+    for table, col in [("covenant_definition", "supersedes_id"), ("covenant_definition", "change_reason"), ("publication", "version"),
+                       ("publication_version", "deal"), ("correction", "note_to_partners"), ("value_edit", "reverted_at")]:
+        assert has_column(pg, table, col), (table, col)
+    assert has_index(pg, "correction_one_pending") and has_index(pg, "value_edit_upload")
