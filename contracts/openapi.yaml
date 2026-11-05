@@ -272,7 +272,7 @@ components:
         at: { type: string, format: date-time }
         actor_role: { type: string }
         actor_label: { type: string }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change] }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -369,8 +369,16 @@ paths:
         '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
   /uploads/{upload_id}/pages/{n}.png:
     get:
-      summary: Page image for the finding card (rendered at 110 dpi)
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } } ]
+      summary: Page image for the finding card and the page viewer
+      description: >
+        Rendered at `dpi` (default 110, the finding-card crop). The page viewer asks for 200 or 300 so zoomed numbers stay
+        sharp. Each dpi is cached separately; source bboxes stay in PDF points, so clients scale them by the image's real
+        width divided by the page width in points, never by a fixed dpi.
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { $ref: '#/components/parameters/UploadId' }
+        - { name: n, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: dpi, in: query, required: false, schema: { type: integer, enum: [110, 200, 300], default: 110 } }
       responses:
         '200': { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -446,12 +454,47 @@ paths:
 
   /audit:
     get:
-      summary: Audit log (tao_admin)
+      summary: Audit log. scope=reports is readable by tao_admin and tao_analyst; scope=platform (and no scope) by tao_admin only.
+      description: >
+        Newest first. Scope is derived from the action, not stored: reports = entries with an upload_id, plus publish and
+        regenerate; platform = everything else (master_change and later user and settings changes). Months are calendar months in
+        America/Toronto. q searches action, actor, reason, deal and detail text across every month unless `month` is given.
       parameters:
         - { $ref: '#/components/parameters/XRole' }
         - { name: upload_id, in: query, schema: { type: string, format: uuid } }
         - { name: action, in: query, schema: { type: string } }
-      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } } } } }
+        - { name: scope, in: query, schema: { type: string, enum: [reports, platform] } }
+        - { name: month, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' }, description: 'YYYY-MM, America/Toronto' }
+        - { name: q, in: query, schema: { type: string, minLength: 2 } }
+        - { name: actor_role, in: query, schema: { type: string } }
+        - { name: deal_slug, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /audit/months:
+    get:
+      summary: Entry counts per month for one scope (History list), newest first
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { name: scope, in: query, required: true, schema: { type: string, enum: [reports, platform] } }
+        - { name: q, in: query, schema: { type: string, minLength: 2 }, description: 'with q, counts matching entries only' }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { type: object, required: [month, count], properties: { month: { type: string }, count: { type: integer } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /audit/export.csv:
+    get:
+      summary: One month of one scope as CSV, one row per entry; writes its own `export` entry to the platform log
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { name: scope, in: query, required: true, schema: { type: string, enum: [reports, platform] } }
+        - { name: month, in: query, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }
+      responses:
+        '200': { description: CSV, content: { text/csv: { schema: { type: string } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /health:
     get:
