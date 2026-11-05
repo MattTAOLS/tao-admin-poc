@@ -227,7 +227,9 @@ rules:
     description: >
       For each covenant on page 14, the threshold stated on the report equals the master covenant_definition
       effective for this period. SLFA 9.1(c)/(d) are conditional on portfolio NPV (threshold_rule), so compare
-      the resolved threshold, not the raw number.
+      the resolved threshold, not the raw number. A covenant on the report with no definition in force for the period
+      (none recorded yet, or its first version starts later, e.g. Stride before the 2026-01-22 amendment) is a `note`
+      finding naming the covenant, so a missing master record is visible instead of silently skipped.
     fields: [/covenants, master:/covenant_definitions]
     fn: thresholds_match_master
     on_failure: review_notify_master_owner

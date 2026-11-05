@@ -119,6 +119,9 @@ components:
         failure_reason: { type: [string, 'null'], description: 'set while status is extraction_failed: why extraction failed (the worker error, or queue unavailable), from the audit row that failed it' }
         replaces_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a corrected re-issue: the upload whose publication this one replaces on approve' }
         replaced_by_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a published upload once a re-issue for its period has been approved' }
+        active_edit_count: { type: integer, description: 'value edits in force (not reverted) on this upload' }
+        published_version: { type: [integer, 'null'], description: 'current publication version of this upload; null until published' }
+        pending_correction_id: { type: [string, 'null'], format: uuid, description: 'a correction waiting in the approval queue' }
     Extraction:
       description: See contracts/extraction.schema.json (meta, deal, sources) plus id.
       type: object
@@ -202,6 +205,111 @@ components:
         watch_buffer_pct: { type: number, default: 0.1 }
         effective_from: { type: string, format: date }
         source: { type: [string, 'null'], description: 'e.g. SLFA dated 2022-12-09; Amendment 2 2025-03-01' }
+        origin: { type: string, enum: [seed, ui], readOnly: true, description: 'seed rows may be superseded by a later seed run; ui rows never are' }
+        superseded_at: { type: [string, 'null'], format: date-time, readOnly: true, description: 'set when a correction or a seed run replaced this row; returned only with include_history=true' }
+        supersedes_id: { type: [string, 'null'], format: uuid, readOnly: true, description: 'the row this one corrected (mode=correct)' }
+        changed_by: { type: [string, 'null'], readOnly: true, description: 'role or user label of the last change; null for seed rows' }
+        change_reason: { type: [string, 'null'], readOnly: true }
+    CovenantChange:
+      description: |
+        Body of PUT /master/covenants (TAO Admin). A change never updates a row in place.
+        mode=new_version: `id` omitted; inserts a definition with a later `effective_from` (an amendment). Earlier periods keep the old version.
+        mode=correct: `id` of the current row; that row gets superseded_at and a new row with the same effective_from replaces it
+        (supersedes_id points back). Use it to fix a mistake in the definition itself.
+        mode=add: `id` omitted; a covenant new to this deal (no row with this legal_ref yet).
+        Every change writes a master_change audit entry with before/after and the reason, and re-runs the rules on that deal's
+        uploads in needs_review, so their R14 findings reflect the change. Published periods are not touched.
+      allOf:
+        - { $ref: '#/components/schemas/CovenantDefinition' }
+        - type: object
+          required: [mode, reason]
+          properties:
+            mode: { type: string, enum: [new_version, correct, add] }
+            reason: { type: string, minLength: 10 }
+    CovenantChangeResult:
+      type: object
+      required: [definition, rerun_upload_ids]
+      properties:
+        definition: { $ref: '#/components/schemas/CovenantDefinition' }
+        superseded_id: { type: [string, 'null'], format: uuid }
+        rerun_upload_ids: { type: array, items: { type: string, format: uuid }, description: 'uploads in needs_review whose rules were re-run' }
+    ValueEdit:
+      type: object
+      required: [id, upload_id, pointer, old_value, new_value, reason, actor_role, at]
+      description: |
+        A TAO Admin's change to one extracted number while the report is in review (needs_review or approved). Stored beside the
+        extraction (the extraction row is not rewritten); the rules re-run on the extraction with every active edit applied. On
+        approve each active edit is written to the published deal and appended to deal.data_corrections with choice `manual`.
+        A later edit on a pointer replaces an earlier use_ours / use_report on the same pointer; both stay in the audit log.
+      properties:
+        id: { type: string, format: uuid }
+        upload_id: { type: string, format: uuid }
+        correction_id: { type: [string, 'null'], format: uuid, description: 'set when the edit belongs to a post-publish correction' }
+        pointer: { type: string, description: 'JSON pointer into extraction.deal, e.g. /financial_ratios/total_equity' }
+        old_value: { type: number, description: 'the value before this edit (extracted, or the previous edit)' }
+        new_value: { type: number }
+        reason: { type: string, minLength: 10 }
+        source_page: { type: [integer, 'null'], description: 'page of the value, from sources' }
+        actor_role: { type: string }
+        actor_label: { type: [string, 'null'] }
+        at: { type: string, format: date-time }
+        reverted_at: { type: [string, 'null'], format: date-time }
+        reverted_by: { type: [string, 'null'] }
+        revert_reason: { type: [string, 'null'] }
+    ValueEditRequest:
+      type: object
+      required: [pointer, value, reason]
+      properties:
+        pointer: { type: string }
+        value: { type: number }
+        reason: { type: string, minLength: 10 }
+    ValueEditResult:
+      type: object
+      required: [edit, finding_counts]
+      properties:
+        edit: { $ref: '#/components/schemas/ValueEdit' }
+        finding_counts: { type: object, properties: { block: { type: integer }, review: { type: integer }, note: { type: integer } }, description: 'open findings after the rules re-ran' }
+    Correction:
+      type: object
+      required: [id, upload_id, status, version, edits, reason, created_at, created_by]
+      description: |
+        A change to a published report without a new PDF. The rules re-run on the published deal with the edits applied.
+        With no open block finding it is published straight away as the next version; otherwise it waits in the approval queue
+        (status needs_review) and the current version stays live until a TAO Admin approves or rejects it. Partner notification
+        of a correction is wired in wave C; `note_to_partners` is stored now.
+      properties:
+        id: { type: string, format: uuid }
+        upload_id: { type: string, format: uuid }
+        deal_slug: { type: string }
+        collection_period: { type: string }
+        status: { type: string, enum: [needs_review, published, rejected] }
+        version: { type: integer, minimum: 2, description: 'the publication version this correction becomes' }
+        edits: { type: array, items: { $ref: '#/components/schemas/ValueEdit' } }
+        reason: { type: string, minLength: 10 }
+        note_to_partners: { type: [string, 'null'] }
+        finding_counts: { type: object, properties: { block: { type: integer }, review: { type: integer }, note: { type: integer } } }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+        decided_at: { type: [string, 'null'], format: date-time }
+        decided_by: { type: [string, 'null'] }
+        reject_reason: { type: [string, 'null'] }
+    CorrectionRequest:
+      type: object
+      required: [edits, reason]
+      properties:
+        edits: { type: array, minItems: 1, items: { type: object, required: [pointer, value], properties: { pointer: { type: string }, value: { type: number } } } }
+        reason: { type: string, minLength: 10 }
+        note_to_partners: { type: [string, 'null'], maxLength: 2000 }
+    PublicationVersion:
+      type: object
+      required: [version, published_at, published_by]
+      properties:
+        version: { type: integer, minimum: 1 }
+        published_at: { type: string, format: date-time }
+        published_by: { type: string }
+        correction_id: { type: [string, 'null'], format: uuid }
+        reason: { type: [string, 'null'] }
+        current: { type: boolean }
     DealIndexEntry:
       type: object
       required: [deal_slug, deal_name]
@@ -258,6 +366,8 @@ components:
         upload_id: { type: [string, 'null'], format: uuid }
         published_at: { type: string, format: date-time }
         published_by: { type: string }
+        version: { type: integer, description: 'the publication version shown (1 = original, 2+ = corrections)' }
+        versions: { type: array, items: { $ref: '#/components/schemas/PublicationVersion' } }
     RegenerateResult:
       type: object
       properties:
@@ -272,7 +382,7 @@ components:
         at: { type: string, format: date-time }
         actor_role: { type: string }
         actor_label: { type: string }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export] }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -362,6 +472,71 @@ paths:
         '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings`, `conflicting_corrections`, `correction_inconsistent`, `bad_state` or `no_extraction`' }
+  /uploads/{upload_id}/edits:
+    get:
+      summary: Value edits on this upload, newest first, reverted ones included (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ValueEdit' } } } } } }
+    post:
+      summary: Edit one extracted number while in review (tao_admin); re-runs the rules; writes a value_edit audit entry
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ValueEditRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ValueEditResult' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` (not needs_review / approved; a published report takes a correction)' }
+        '422': { description: '`invalid`: pointer not found or not a number in the extraction' }
+  /uploads/{upload_id}/edits/{edit_id}/revert:
+    post:
+      summary: Revert a value edit (tao_admin); re-runs the rules; writes a value_edit_revert audit entry
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' }, { name: edit_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3 } } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ValueEditResult' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` or `already_reverted`' }
+  /uploads/{upload_id}/corrections:
+    get:
+      summary: Corrections of this published upload, newest first (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Correction' } } } } } }
+    post:
+      summary: Correct values of a published report without a new PDF (tao_admin); publishes as the next version, or waits in the queue if a block finding opens; writes a correction audit entry
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CorrectionRequest' } } } }
+      responses:
+        '200': { description: Published or queued, content: { application/json: { schema: { $ref: '#/components/schemas/Correction' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` (not published, or replaced by a re-issue) or `correction_pending` (one is already waiting)' }
+        '422': { description: '`invalid`: a pointer not found or not a number' }
+  /corrections:
+    get:
+      summary: Corrections across uploads, for the approval queue (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: status, in: query, schema: { type: string, enum: [needs_review, published, rejected] } } ]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Correction' } } } } } }
+  /corrections/{correction_id}:
+    get:
+      summary: One correction with the findings of its rule re-run (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: correction_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { allOf: [ { $ref: '#/components/schemas/Correction' }, { type: object, properties: { findings: { type: array, items: { type: object } } } } ] } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /corrections/{correction_id}/approve:
+    post:
+      summary: Publish a queued correction as its version (tao_admin; refused while block findings are open); writes correction_approve and publish entries
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: correction_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Correction' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings` or `bad_state`' }
+  /corrections/{correction_id}/reject:
+    post:
+      summary: Discard a queued correction (tao_admin); the current version stays; writes correction_reject
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: correction_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RejectRequest' } } } }
+      responses:
+        '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Correction' } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
   /uploads/{upload_id}/reject:
     post:
       summary: Reject with a reason (tao_admin only)
@@ -420,14 +595,17 @@ paths:
       responses: { '200': { description: OK } }
   /master/covenants:
     get:
-      summary: Covenant definitions, versioned by effective_from (TAO)
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: deal_slug, in: query, schema: { type: string } }, { name: as_of, in: query, schema: { type: string, format: date } } ]
+      summary: Covenant definitions, versioned by effective_from (TAO). Current rows only, unless include_history=true.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: deal_slug, in: query, schema: { type: string } }, { name: as_of, in: query, schema: { type: string, format: date } }, { name: include_history, in: query, schema: { type: boolean, default: false } } ]
       responses: { '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CovenantDefinition' } } } } } }
     put:
-      summary: Upsert a covenant definition (tao_admin); writes a master_change audit entry
+      summary: Change a covenant definition (tao_admin); see CovenantChange. Never updates a row in place.
       parameters: [ { $ref: '#/components/parameters/XRole' } ]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CovenantDefinition' } } } }
-      responses: { '200': { description: OK } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CovenantChange' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CovenantChangeResult' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`not_current` (correct on a superseded row), `exists` (add for a legal_ref the deal already has), `effective_not_later` (new_version not after the current one)' }
 
   /published/portfolio:
     get:
@@ -444,7 +622,7 @@ paths:
   /published/programs/{program_slug}/deals/{deal_slug}:
     get:
       summary: Published deal page data (partner-filtered)
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { name: program_slug, in: path, required: true, schema: { type: string } }, { name: deal_slug, in: path, required: true, schema: { type: string } }, { name: period, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } } ]
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { name: program_slug, in: path, required: true, schema: { type: string } }, { name: deal_slug, in: path, required: true, schema: { type: string } }, { name: period, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }, { name: version, in: query, schema: { type: integer, minimum: 1 }, description: 'an earlier publication version; default the current one' } ]
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PublishedDeal' } } } }
         '404': { $ref: '#/components/responses/NotFound' }
