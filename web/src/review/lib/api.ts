@@ -37,6 +37,9 @@ export const reviewApi = {
   correct: (id: string, body: CorrectionRequest) => api<Correction>(`/uploads/${id}/corrections`, json(body)),
   corrections: (status?: CorrectionStatus) => api<Correction[]>('/corrections' + (status ? `?status=${status}` : '')),
   correction: (cid: string) => api<CorrectionDetail>(`/corrections/${cid}`),
+  /** Restatement or acknowledge only (use_ours / use_report → 409 bad_choice). The response shape is open; the view reloads. */
+  overrideCorrectionFinding: (cid: string, findingId: string, choice: 'restatement' | 'acknowledge', reason: string) =>
+    api<unknown>(`/corrections/${cid}/findings/${findingId}/override`, json({ choice, reason })),
   approveCorrection: (cid: string) => api<Correction>(`/corrections/${cid}/approve`, { method: 'POST' }),
   rejectCorrection: (cid: string, reason: string) => api<Correction>(`/corrections/${cid}/reject`, json({ reason })),
   regenerate: (programSlug?: string) =>
@@ -86,6 +89,7 @@ export function errorText(e: unknown): string {
     case 'not_open': return 'That finding was already resolved. The list has been refreshed.'
     case 'already_reverted': return 'That edit was already reverted. The list has been refreshed.'
     case 'correction_pending': return 'A correction of this report is already waiting in the approval queue. Approve or reject it first.'
+    case 'bad_choice': return 'A correction\'s values are its edits, so only Accept as restatement or Acknowledge apply here.'
     case 'invalid': return err.message || 'The API could not find that value, or it is not a number.'
     case 'admin_only': case 'tao_only': return 'Your role cannot do this. Only a TAO admin can.'
   }

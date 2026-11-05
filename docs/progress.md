@@ -666,7 +666,10 @@ Append an entry when a work package lands. Newest first.
   card linking to each, and a banner while one is pending; the library shows vN, a Corrected tag and "Correction waiting".
   Activity labels value_edit, value_edit_revert, correction, correction_approve, correction_reject (and export), with
   "label (p. N): old → new" when the entry's detail carries pointer / old_value / new_value (or an edits list).
-  Run: `npx vitest run src/review` (104 tests). Stubbed / assumed: the edits and corrections routes fall back to empty
+  Correction review (contract 867d8f1): each open block finding on a queued correction gets Accept as restatement /
+  Acknowledge for TAO Admin (reason 3+, `POST /corrections/{id}/findings/{fid}/override`; use ours / use report are
+  not offered); the view reloads the correction and Approve unlocks once no block is open.
+  Run: `npx vitest run src/review` (105 tests). Stubbed / assumed: the edits and corrections routes fall back to empty
   lists when the API does not have them yet. The page lays edits over the extraction for display (the extraction row
   is not rewritten); a correction's "Published" column is computed the same way plus any use ours / use report write,
   so it can differ from the published deal if the API applies something else. Needs from Data & API: audit `detail`

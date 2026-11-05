@@ -213,6 +213,7 @@ export function CorrectionReview({ correctionId, uploadId, ex, title, onOpen, on
   const { toast } = useToast()
   const c = useLoad(() => reviewApi.correction(correctionId), [correctionId])
   const [rejecting, setRejecting] = useState(false)
+  const [resolving, setResolving] = useState<{ finding: Finding; choice: 'restatement' | 'acknowledge' } | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string>()
   if (c.error && !c.data) {
@@ -249,13 +250,18 @@ export function CorrectionReview({ correctionId, uploadId, ex, title, onOpen, on
         {findings.length === 0 ? <p className="rv-allclear">No findings on the corrected values.</p> : findings.map(f => (
           <FindingCard key={f.id} finding={{ ...f, message: formatMessage(f.message) }} ruleTitle={ruleTitle(f.rule_id)}
             crop={f.source_page != null ? <PageCrop uploadId={uploadId} page={f.source_page} boxes={findingBoxes(ex, f.fields, f.source_page)} focus={focusBox(ex, f.fields, f.source_page, f.report_value)}
-              onZoom={() => onOpen({ page: f.source_page!, boxes: findingBoxes(ex, f.fields, f.source_page), tone: 'finding', caption: `${f.rule_id} · ${ruleTitle(f.rule_id)}` })} /> : undefined} />
+              onZoom={() => onOpen({ page: f.source_page!, boxes: findingBoxes(ex, f.fields, f.source_page), tone: 'finding', caption: `${f.rule_id} · ${ruleTitle(f.rule_id)}` })} /> : undefined}
+            actions={admin && waiting && f.status === 'open' && f.severity === 'block' ? <>
+              <Button size="sm" onClick={() => setResolving({ finding: f, choice: 'restatement' })} aria-label={`Accept as restatement for ${f.rule_id}`}>Accept as restatement</Button>
+              <Button size="sm" onClick={() => setResolving({ finding: f, choice: 'acknowledge' })} aria-label={`Acknowledge ${f.rule_id}`}>Acknowledge</Button>
+              <span className="rv-hint">A correction&rsquo;s values are its edits, so use ours / use report do not apply.</span>
+            </> : undefined} />
         ))}
         {waiting && (
           <div className="rv-footer rv-footer--inline" role="region" aria-label="Correction decision">
             <span id="rv-corr-reason" className={'rv-footer__note' + (blocks > 0 ? ' rv-footer__note--bad' : '')}>
               {!admin ? 'Read only. Only a TAO admin can approve or reject a correction.'
-                : blocks > 0 ? `${plural(blocks, 'block finding')} open on the corrected values. Approve is refused until none is open: reject the correction and correct again.`
+                : blocks > 0 ? `${plural(blocks, 'block finding')} open on the corrected values. Approve is refused until none is open: accept each as a restatement or acknowledge it with a reason, or reject the correction.`
                 : `No block findings. Approving publishes version ${k.version}; version ${k.version - 1} stays on record.`}
             </span>
             {admin && <>
@@ -266,9 +272,46 @@ export function CorrectionReview({ correctionId, uploadId, ex, title, onOpen, on
         )}
         {err && <div className="rv-dialog-error" role="alert">{err}</div>}
       </div>
+      {admin && <ResolveCorrectionFindingDialog correctionId={k.id} target={resolving} onClose={() => setResolving(null)}
+        onDone={() => { const f = resolving!.finding; setResolving(null); toast({ tone: 'ok', title: `${f.rule_id} resolved on the correction`, message: 'Findings refreshed.' }); c.reload() }} />}
       {admin && <RejectCorrectionDialog open={rejecting} correction={k} onClose={() => setRejecting(false)}
         onDone={done => { c.setData({ ...k, ...done }); setRejecting(false); toast({ tone: 'warn', title: 'Correction rejected', message: `Version ${k.version - 1} stays live.` }); onChanged() }} />}
     </Card>
+  )
+}
+
+/** Accept as restatement / Acknowledge a block finding on a queued correction, with a reason of 3+ characters. */
+function ResolveCorrectionFindingDialog({ correctionId, target, onClose, onDone }: {
+  correctionId: string; target: { finding: Finding; choice: 'restatement' | 'acknowledge' } | null; onClose: () => void; onDone: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [touched, setTouched] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string>()
+  useEffect(() => { if (target) { setReason(''); setTouched(false); setErr(undefined) } }, [target])
+  if (!target) return null
+  const ok = reason.trim().length >= 3
+  const label = target.choice === 'restatement' ? 'Accept as restatement' : 'Acknowledge'
+  const submit = async () => {
+    setTouched(true)
+    if (!ok) return
+    setBusy(true); setErr(undefined)
+    try { await reviewApi.overrideCorrectionFinding(correctionId, target.finding.id, target.choice, reason.trim()); onDone() }
+    catch (e) { setErr(errorText(e)) }
+    finally { setBusy(false) }
+  }
+  return (
+    <Dialog open onClose={onClose} dismissable={!busy} title={`${label}: ${target.finding.rule_id} ${ruleTitle(target.finding.rule_id)}`}
+      description="Resolves this finding on the correction only. The choice and reason go in the audit log."
+      footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} disabled={!ok || busy} onClick={submit}>{label}</Button></>}>
+      <div className="rv-dialog-body">
+        <p style={{ margin: 0 }}>{formatMessage(target.finding.message)}</p>
+        <Field label="Reason" required error={touched && !ok ? 'Give a reason of at least 3 characters. It goes in the audit log.' : undefined}>
+          <Textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} onBlur={() => setTouched(true)} />
+        </Field>
+        {err && <div className="rv-dialog-error" role="alert">{err}</div>}
+      </div>
+    </Dialog>
   )
 }
 

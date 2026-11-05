@@ -355,6 +355,37 @@ describe('Correction review view', () => {
     expect(calls.filter(c => c.method === 'POST' && c.path.endsWith('/approve'))).toHaveLength(2)
   }, 60000)
 
+  it('TAO Admin acknowledges a block finding on the correction (3+ characters), then Approve unlocks', async () => {
+    const state = publishedState()
+    const open = clone(findingsFx) as never as { id: string; status: string; resolution: unknown }[]
+    let detail = correction({ status: 'needs_review', finding_counts: { block: 1, review: 0, note: 0 }, findings: open as never })
+    const calls = view(state, correction(), [
+      on('GET', new RegExp(`^/corrections/${CORR}$`), () => ({ body: detail })),
+      on('POST', new RegExp(`^/corrections/${CORR}/findings/[^/]+/override$`), c => {
+        const b = c.body as { choice: string; reason: string }
+        detail = { ...detail, finding_counts: { block: 0, review: 0, note: 0 },
+          findings: [{ ...open[0], status: 'overridden', resolution: { choice: b.choice, reason: b.reason, by: 'tao_admin', at: '2026-11-05T20:00:00+00:00' } }] as never }
+        return { body: detail }
+      }),
+    ])
+    const card = await screen.findByRole('region', { name: 'Correction' })
+    expect(within(card).queryByRole('button', { name: /Use ours|Use report/ })).toBeNull()
+    expect((within(card).getByRole('button', { name: 'Approve and publish v2' }) as HTMLButtonElement).disabled).toBe(true)
+    await userEvent.click(within(card).getByRole('button', { name: 'Acknowledge R05' }))
+    const dlg = await screen.findByRole('dialog', { name: /^Acknowledge: R05/ })
+    const go = within(dlg).getByRole('button', { name: 'Acknowledge' }) as HTMLButtonElement
+    await userEvent.type(within(dlg).getByRole('textbox', { name: /Reason/ }), 'ok')
+    expect(go.disabled).toBe(true)
+    await userEvent.type(within(dlg).getByRole('textbox', { name: /Reason/ }), '!')
+    await userEvent.click(go)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const post = calls.find(c => c.method === 'POST') as Call
+    expect(post.path).toBe(`/corrections/${CORR}/findings/${open[0].id}/override`)
+    expect(post.body).toEqual({ choice: 'acknowledge', reason: 'ok!' })
+    await waitFor(() => expect((within(card).getByRole('button', { name: 'Approve and publish v2' }) as HTMLButtonElement).disabled).toBe(false))
+    expect(within(card).queryByRole('button', { name: 'Acknowledge R05' })).toBeNull()
+  }, 60000)
+
   it('rejects a queued correction with a reason', async () => {
     const state = publishedState()
     const detail = correction({ status: 'needs_review', findings: [] })

@@ -137,4 +137,7 @@ export type Correction = {
 /** GET /corrections/{id}: the correction plus the findings of its rule re-run. */
 export type CorrectionDetail = Correction & { findings?: Finding[] }
 
+/** contracts/openapi.yaml › PublicationVersion. */
+export type PublicationVersion = { version: number; published_at: string; published_by: string; correction_id?: string | null; reason?: string | null; note_to_partners?: string | null; current?: boolean }
+
 export type CorrectionRequest = { edits: { pointer: string; value: number }[]; reason: string; note_to_partners?: string | null }
