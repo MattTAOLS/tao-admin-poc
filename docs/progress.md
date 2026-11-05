@@ -646,3 +646,25 @@ Append an entry when a work package lands. Newest first.
   with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
   database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
   --profile review from an empty volume builds the schema through the runner and runs the whole review profile.
+- 2026-11-05 — UI-Admin (phase 2 wave B item 2, D2): covenant edits with version history on the Program / facility
+  record, and the wave B audit actions.
+  Covenant definitions table: current rows only (rows with `superseded_at` drop out), new Unit and Last change columns
+  ("Seed load", or date · who), Kind renamed Direction, the long Source moved to the history panel and the dialog. One
+  **Edit** per row and **Add covenant** (TAO Admin only); **History** per covenant for both TAO roles. The Edit dialog
+  asks "New version from a date" (`mode: new_version`, no id, Effective from must be later than the covenant's latest
+  version) or "Correct the current version" (`mode: correct`, the row's id, date fixed); the save button reads Save new
+  version / Save correction. Fields: direction, unit (now required), single or banded threshold, watch buffer, effective
+  from, source, reason (at least 10 characters). Add covenant (`mode: add`) adds deal, legal reference and description.
+  A "What this change does" box works the impact out from the dates and lists this deal's reports in review
+  (`GET /uploads?status=needs_review&deal_slug=`), marking for a new version which keep the current version; it says
+  published periods are not touched. After saving, a toast and a note on the card give the count from
+  `rerun_upload_ids`. 409 `not_current`, `exists`, `effective_not_later` show as plain messages in the dialog. History
+  reads `GET /master/covenants?include_history=true`: when, who, old → new per field, effective date, kind (Created,
+  Added, New version, Correction) and reason, newest first; a seed row replaced by a seed run says "replaced <date>".
+  Audit log: labels for `value_edit` (Value edited), `value_edit_revert`, `correction`, `correction_approve`,
+  `correction_reject`, all on Reports (also without an upload_id); `master_change` stays on Platform and its summary
+  adds the covenant `mode` and `effective_from`. Detail cell and expanded row show before → after for these actions
+  from `before`/`after`, `pointer` + `old_value`/`new_value`, or a correction's `edits[]`.
+  Run: `npx vitest run src/admin` (web/). Stubbed / needs: `changed_at` on CovenantDefinition (requests.md; without it
+  new versions and added covenants show who but not when), help text for the new buttons (Design System, requests.md).
+  Built against the contract only; not checked against the real API (Data & API builds it in parallel).
