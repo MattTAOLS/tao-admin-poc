@@ -39,14 +39,13 @@ describe('shell routing', () => {
     const acc = screen.getByRole('navigation', { name: 'Account' })
     expect(within(acc).queryByRole('link', { name: 'System settings' })).toBeNull()
     expect(within(acc).queryByRole('link', { name: 'User management' })).toBeNull()
-    expect(within(acc).queryByRole('link', { name: 'Audit log' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
   })
-  it('lets analysts reach master data and the audit log (Reports tab, decision A4) without an audit sidebar entry', () => {
+  it('lets analysts reach master data and the audit log (Reports tab, decision A4) from the sidebar', () => {
     renderAt('/admin/settings/users/audit', 'tao_analyst')
     expect(screen.getByRole('link', { name: 'Partners' })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'You don’t have access' })).toBeNull()
-    expect(within(screen.getByRole('navigation', { name: 'Account' })).queryByRole('link', { name: 'Audit log' })).toBeNull()
+    expect(within(screen.getByRole('navigation', { name: 'Account' })).getByRole('link', { name: 'Audit log' }).getAttribute('href')).toBe('/admin/settings/users/audit')
   })
   it('registers the nested portfolio routes in the admin shell', () => {
     for (const p of ['/admin/portfolio/:programId', '/admin/portfolio/:programId/dashboard', '/admin/portfolio/:programId/deals/:dealId']) {

@@ -74,12 +74,19 @@ test('negative: partner roles cannot reach TAO routes, by URL or by API', async 
     await page.goto(url)
     await expect(page).toHaveURL(/\/investor\/portfolio$/)
   }
-  // TAO-admin-only pages inside the admin shell: an analyst gets "no access" on the Audit log (Partners is read-only
-  // for analysts since wave 3, so it is not a negative case any more).
+  // Phase 2 (decision A4): an analyst reads the Audit log's Reports tab only. The Platform tab is not shown and the API
+  // refuses platform scope (and no scope) with 403. System settings stays TAO-admin-only.
   await signInAs(page, 'tao_analyst')
   await page.goto('/admin/settings/users/audit')
+  await expect(page.getByRole('heading', { name: 'You don’t have access' })).toHaveCount(0)
+  await expect(page.getByText('The Platform tab (master data and exports) is for TAO Admin.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Platform/ })).toHaveCount(0)
+  const analyst = new Api('tao_analyst')
+  expect((await analyst.get('/audit')).status).toBe(403)
+  expect((await analyst.get('/audit?scope=platform')).status).toBe(403)
+  expect((await analyst.get('/audit?scope=reports')).status).toBe(200)
+  await page.goto('/admin/settings/system')
   await expect(page.getByRole('heading', { name: 'You don’t have access' })).toBeVisible()
-  expect((await new Api('tao_analyst').get('/audit')).status).toBe(403)
 })
 
 test('negative: a blank PDF ends in extraction_failed with a plain message', async ({ page }) => {

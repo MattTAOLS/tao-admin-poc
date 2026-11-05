@@ -79,7 +79,9 @@ describe('role filtering', () => {
   it('drops sections that end up empty for a role', () => {
     const analyst = forRole(ADMIN_HELP, 'tao_analyst')
     for (const s of analyst.sections) expect(Boolean(s.intro || s.steps?.length || s.points?.length || s.table)).toBe(true)
-    expect(analyst.sections.find(s => s.id === 'audit')).toBeUndefined()
+    const audit = analyst.sections.find(s => s.id === 'audit')
+    expect(audit?.steps?.some(st => st.text.includes('Platform tab is for TAO Admin'))).toBe(true)
+    expect(audit?.steps?.some(st => st.text.startsWith('Choose **Reports** or **Platform**'))).toBe(false)
   })
 })
 

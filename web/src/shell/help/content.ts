@@ -80,8 +80,8 @@ export const ADMIN_HELP: HelpContent = {
       roles: ['tao_admin', 'tao_analyst'],
       points: [
         { roles: ADMIN, text: 'You are TAO Admin. You can upload, review, resolve findings, re-extract pages, reject, approve and publish, regenerate dashboards, edit partners, programs and covenant definitions, and read the Audit log.' },
-        { roles: ANALYST, text: 'You are TAO Analyst. You can upload reports, follow their status, open every report in the Approval queue, read findings, page images and extracted values, and read Partners, the Reports library and the portfolio pages.' },
-        { roles: ANALYST, text: 'You cannot resolve findings, re-extract pages, reject, approve or publish, regenerate a dashboard, change master data or open the Audit log. Those buttons do not appear for you. Ask a TAO Admin, or switch role if you are testing.' },
+        { roles: ANALYST, text: 'You are TAO Analyst. You can upload reports, follow their status, open every report in the Approval queue, read findings, page images and extracted values, and read Partners, the Reports library, the portfolio pages and the Audit log’s Reports tab.' },
+        { roles: ANALYST, text: 'You cannot resolve findings, re-extract pages, reject, approve or publish, regenerate a dashboard, change master data or see the Audit log’s Platform tab. Those buttons do not appear for you. Ask a TAO Admin, or switch role if you are testing.' },
       ],
     },
     {
@@ -318,13 +318,16 @@ export const ADMIN_HELP: HelpContent = {
     {
       id: 'audit',
       title: 'Check the audit log',
-      roles: ADMIN,
-      intro: 'Every upload, extraction, resolution, approval, publication, regeneration and master data change is an entry.',
+      intro: 'Every upload, extraction, resolution, approval, publication and regeneration is an entry on the **Reports** tab. Master data changes and exports are on the **Platform** tab.',
       steps: [
-        { text: 'Select **Audit** on any row in [Uploads](/admin/uploads), [Upload history](/admin/uploads/history) or the Dashboard’s Latest uploads. The log opens filtered to that upload. To see everything, select [Audit log](/admin/settings/users/audit) under Account in the sidebar.' },
-        { text: 'Filter by **Upload id** (paste the full id, then **Apply**) and by **Action**: Upload, Extract, Re-extract, Override, Restate, Approve, Reject, Publish, Regenerate or Master data change.' },
-        { text: 'Each row shows when, the action, the role that did it, the upload, the reason and a short detail. Select the arrow at the start of a row for the full detail.' },
-        { text: 'Select an upload id in the table to filter to it. **Open the upload** goes to its review page. **Clear filters** resets the view.' },
+        { text: 'Select [Audit log](/admin/settings/users/audit) under Account in the sidebar. It opens on this month (Toronto time).' },
+        { roles: ADMIN, text: 'Choose **Reports** or **Platform**. Each tab shows its count for this month.' },
+        { roles: ANALYST, text: 'You see the **Reports** tab. The Platform tab is for TAO Admin.' },
+        { text: 'Earlier months are under **History**, each with its count. Select a month to open it; **Show all** loads the rest of that month.' },
+        { text: 'Type in **Search** to look through every month at once, for example a deal name or a reason. Results are grouped by month with the matches highlighted.' },
+        { text: 'Narrow with **Action**, **User** and **Deal**. Select a row, or press Enter on it, to see what changed (before and after), the reason and the ids.' },
+        { roles: ADMIN, text: 'Select **Audit** on any row in [Uploads](/admin/uploads), [Upload history](/admin/uploads/history) or the Dashboard’s Latest uploads to see that upload’s whole trail.' },
+        { text: '**Export CSV** downloads the open month of the open tab. The export itself is recorded on the Platform tab.' },
       ],
     },
     {
