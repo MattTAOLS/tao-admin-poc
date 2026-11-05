@@ -29,15 +29,22 @@ export const reviewApi = {
     api<{ queued?: boolean; programs?: string[]; publications?: number } | undefined>('/published/regenerate', json(programSlug ? { program_slug: programSlug } : {})),
 }
 
-// One object URL per page image for the session; the same page is shown by several cards and the page viewer.
+// One object URL per page image and dpi for the session; the same page is shown by several cards and the page viewer.
+// 110 dpi (the contract default, no query) is the finding-card crop; the page viewer also asks for 200 and 300.
 const pageCache = new Map<string, Promise<string>>()
 
-export function pageImageUrl(uploadId: string, page: number): Promise<string> {
+export type PageDpi = 110 | 200 | 300
+
+export function pageImagePath(uploadId: string, page: number, dpi: PageDpi = 110): string {
+  return `/uploads/${uploadId}/pages/${page}.png` + (dpi === 110 ? '' : `?dpi=${dpi}`)
+}
+
+export function pageImageUrl(uploadId: string, page: number, dpi: PageDpi = 110): Promise<string> {
   const role = loadRole()
-  const key = `${role}:${uploadId}:${page}`
+  const key = `${role}:${uploadId}:${page}:${dpi}`
   let p = pageCache.get(key)
   if (!p) {
-    p = apiBlob(`/uploads/${uploadId}/pages/${page}.png`).then(b => URL.createObjectURL(b))
+    p = apiBlob(pageImagePath(uploadId, page, dpi)).then(b => URL.createObjectURL(b))
     p.catch(() => pageCache.delete(key))
     pageCache.set(key, p)
   }

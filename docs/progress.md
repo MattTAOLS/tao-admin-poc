@@ -2,6 +2,20 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — UI-Review: sharper page viewer (phase 2 wave A item 4, risk R6). `web/src/review/components/PageImage.tsx`.
+  The finding-card crop keeps 110 dpi (no query). The viewer stacks the page images: 110 dpi underneath (usually
+  cached from the crop), then `?dpi=200` for Fit and 100%, `?dpi=300` from 200% upward, each shown only once it has
+  loaded (`visibility`, never opacity), so changing zoom never blanks the page. Zoom steps Fit / 100 / 200 / 400%
+  (100% = actual size, 96/72 CSS px per point). Opened from a value or a finding with an outline it starts at 200%
+  centred on the cell; "Zoom to value" (or Z) goes to 400% and centres it; + and - step the zoom; previous / next page
+  and Escape as before. Outlines are a 2 px line outside the cell (red finding, purple source), no fill, no blend.
+  Boxes are placed in page points: the page size comes from the loaded image's natural size and the dpi it was asked
+  for, and each image is scaled by its own naturalWidth / page width, so outlines fit every layer; `PX_PER_PT` is gone.
+  Cache keyed by page and dpi (`lib/api.ts: pageImageUrl`). Not built: the magnifier (design note 9) and area clips
+  at 600 dpi (design note 11a; the contract has whole pages at 110/200/300). Needs from Data & API: the `dpi` query
+  as in contract 9764f69; until it is merged the old API ignores the query and serves 110 dpi, and the viewer still
+  places outlines correctly (it scales by the real image width). Tests: `src/review/__tests__/PageImage.test.tsx`,
+  14 tests on the real Moneda page 2 size (1,466.67 × 1,133.33 pt; 2241 / 4075 / 6112 px at 110 / 200 / 300 dpi).
 - 2026-11-04 — QA & Demo, MOVE Trust in the demo (merged main b40a3f3): `specs/09-move-trust.spec.ts`, three tests in
   order. 9a: Essex, TLFC LP and Finloc April uploaded by the analyst and published by the admin (API); Essex May through
   the upload form gets two R11 restatement Blocks (April ICR 1.15 → 1.12, D/E 6.35 → 6.22), the admin accepts each as a
