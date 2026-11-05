@@ -646,3 +646,29 @@ Append an entry when a work package lands. Newest first.
   with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
   database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
   --profile review from an empty volume builds the schema through the runner and runs the whole review profile.
+- 2026-11-05 — UI-Review (phase 2 wave B, item 1): value edits, corrections, correction queue, audit labels.
+  Edit (D1 a): in Extracted values every number (key/value rows and numeric table cells, covenants and ratios included)
+  gets Edit for TAO Admin while the upload is needs_review or approved. The dialog shows the current value, its page
+  crop, the raw text and a source-page link (opens the viewer), the new value (typed as printed; percentages as 1.79),
+  the change, a reason of 10+ characters, and the rules whose findings name the value (fields or targets). "Save and
+  re-run rules" stays disabled until the value parses, differs and the reason is long enough. After saving the value
+  shows an Edited pill with "original …" underneath, a tooltip with who, when and the reason, and Revert (reason 3+).
+  The upload's finding_counts come from the response; findings, edits, upload and audit reload. Analysts see the
+  marker, original and reason with no controls. The Publish dialog lists every active edit (value, old, new, who,
+  reason); the footer shows "N values edited"; the Re-extract dialog warns when a picked page holds an edited value.
+  Corrections (D1 c): "Correct a value…" in the Reports library (current published rows) and on a published review
+  record (footer, and "Correct…" on each value). One or more values, reason 10+, optional note to partners (marked
+  "sent to partners in a later release"). The result reads "Published as version N" or "Waiting in the approval queue:
+  K block findings" with a link. The Approval queue adds `GET /corrections?status=needs_review` rows with a Correction
+  tag; a row opens `/admin/uploads/queue/<upload>?correction=<id>` (no new shell route), which shows the correction's
+  edits, its re-run findings with crops, and Approve / Reject (reason). Approve is disabled with the reason while block
+  findings are open and shows the 409 open_block_findings refusal. Published uploads show "Version N", a Corrections
+  card linking to each, and a banner while one is pending; the library shows vN, a Corrected tag and "Correction waiting".
+  Activity labels value_edit, value_edit_revert, correction, correction_approve, correction_reject (and export), with
+  "label (p. N): old → new" when the entry's detail carries pointer / old_value / new_value (or an edits list).
+  Run: `npx vitest run src/review` (104 tests). Stubbed / assumed: the edits and corrections routes fall back to empty
+  lists when the API does not have them yet. The page lays edits over the extraction for display (the extraction row
+  is not rewritten); a correction's "Published" column is computed the same way plus any use ours / use report write,
+  so it can differ from the published deal if the API applies something else. Needs from Data & API: audit `detail`
+  for value_edit / correction entries with `pointer`, `old_value`, `new_value` (and `edits` for a correction) so the
+  Activity line shows old → new; `source_page` on ValueEdit for the re-extract warning.
