@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderPage, fakeApi, httpError, never, header, DEALS, PROGRAMS, PORTFOLIO, upload } from './helpers'
 
 vi.mock('@/shell/api', () => ({ api: vi.fn() }))
@@ -62,5 +63,19 @@ describe('Dashboard', () => {
     mockApi.mockImplementation(fakeApi({ 'GET /published/portfolio': no, 'GET /uploads': no, 'GET /master/deals': no, 'GET /master/programs': no }))
     renderPage('/admin', route)
     expect((await screen.findAllByRole('heading', { name: 'You don’t have access' })).length).toBe(2)
+  })
+
+  it('Latest uploads: the whole row opens the upload; the deal name is the link; Audit stays separate (D4)', async () => {
+    const pub = upload({ id: 'p1', status: 'published', deal_slug: 'move-trust-dynamic-capital', program_slug: 'move-trust', collection_period: '2026-07', reporting_period: '2026-07', published_at: '2026-11-04T10:00:00Z', uploaded_at: '2026-11-05T10:00:00Z' })
+    const rev = upload({ id: 'n1', status: 'needs_review', uploaded_at: '2026-11-05T09:00:00Z' })
+    mockApi.mockImplementation(fakeApi({ 'GET /published/portfolio': PORTFOLIO, ...queue, 'GET /uploads': [pub, rev] }))
+    renderPage('/admin', route)
+    const table = await screen.findByRole('table', { name: 'Latest uploads' })
+    expect(screen.getByText('Click a row to open it.')).toBeTruthy()
+    const link = await within(table).findByRole('link', { name: 'Open the published deal Dynamic Capital Jul 2026' })
+    expect(link.getAttribute('href')).toBe('/admin/portfolio/move-trust/deals/move-trust-dynamic-capital?period=2026-07')
+    expect(within(table).getByRole('link', { name: /^Audit trail for Dynamic Capital/ }).getAttribute('href')).toBe('/admin/settings/users/audit?upload_id=p1')
+    await userEvent.click(within(within(table).getAllByRole('row')[2]).getAllByRole('cell')[1])
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/uploads/queue/n1')
   })
 })

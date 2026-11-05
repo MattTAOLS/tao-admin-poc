@@ -584,3 +584,22 @@ Append an entry when a work package lands. Newest first.
   An existing database needs `007_covenant_superseded.sql` applied by hand (initdb runs migrations only on a fresh
   volume). Needs from Rules: the one-line adapter filter in requests.md, or worker R14 still sees superseded rows.
   No contract change. Tests: api 144 on SQLite and on PostgreSQL (pg8000), check_contracts green.
+- 2026-11-05 — UI-Admin, wave A (D3 audit log, D4 clickable upload rows). Built against the wave A contract (9764f69).
+  **Audit log** (`web/src/admin/AuditLogPage.tsx`): Reports and Platform tabs with this month's counts; each tab opens
+  on the current month in Toronto time (`GET /audit?scope&month&limit=100`, Show all pages through 500 at a time), then
+  History, the earlier months from `GET /audit/months` with counts, each opening in place (first 50, then Show all).
+  One search box (debounced, 2+ characters, `q` in the URL) searches every month and both tabs; results are grouped by
+  month with a Reports/Platform chip and highlighted matches. Action (grouped by tab), User and Deal filters live in
+  the URL (`action`, `actor`, `deal`) and go to the API (`action`, `actor_role`, `deal_slug`). A row click or Enter
+  expands it: before → after per field (from `detail.before/after`), the reason, the report with collection and
+  reporting period from the upload record, file, upload / finding / entry ids and a link to the upload's whole trail.
+  The Report column shows deal and period, linking where the Uploads table goes. `?upload_id=` still opens one
+  upload's trail across all months (table name "Audit log"). Export CSV per month (current and each History month)
+  via `GET /audit/export.csv`, file `audit-<tab>-<month>.csv`. `export` added to AUDIT_ACTIONS and ACTION_LABEL;
+  `restate` now reads "Restatement accepted". TAO Analyst: page open (pages.ts roles), Reports tab only, never calls
+  scope=platform, no sidebar entry. **Latest uploads** (`UploadsTable.tsx`, also Uploads and Upload history): the row
+  opens Review (needs_review, approved), the deal page at `?period=<collection_period>` (published) or the upload
+  details (failed, rejected, received, extracting); the deal name is the real link, the Open column names the
+  destination, Audit and re-issue tags keep their own targets. Stubbed: tab counts and History counts ignore the
+  action/user/deal filters, and export writes the whole month, because the contract's /audit/months and export.csv
+  take no filters. Needs: QA change to e2e 08 (analyst audit no longer "no access"), help text update, see requests.md.

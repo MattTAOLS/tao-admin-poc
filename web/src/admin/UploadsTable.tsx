@@ -1,17 +1,26 @@
 import type { ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { DataTable, UploadStatusPill, formatNumber, formatPeriod, type Column } from '@/design/components'
 import type { Deal, Program, Upload } from './data'
-import { TextLink, auditHref, formatDateTime, periodHistoryHref, reviewHref } from './ui'
+import { TextLink, auditHref, formatDateTime, periodHistoryHref, uploadTarget } from './ui'
 
-/** One table for the recent list (Uploads) and the full history. Numbers right-aligned; status is a pill. */
+/** One table for the Dashboard's Latest uploads, the Uploads recent list and Upload history. Numbers right-aligned;
+ * status is a pill. The whole row opens the upload (D4, `uploadTarget`): the deal name is the real link (so ctrl-,
+ * cmd- and middle-click open a new tab), a click anywhere else on the row or Enter on the focused row follows it.
+ * The Audit link and the re-issue tags go to their own targets and never trigger the row. */
 export function UploadsTable({ uploads, deals, programs, loading, caption, empty, compact, showAudit = true }: {
   uploads: Upload[]; deals: Deal[]; programs: Program[]; loading?: boolean; caption: string
   empty: { title: string; message?: string; action?: ReactNode }; compact?: boolean; showAudit?: boolean
 }) {
   const dealName = (slug: string) => deals.find(d => d.slug === slug)?.name ?? slug
   const programName = (slug: string) => programs.find(p => p.slug === slug)?.name ?? slug
+  const navigate = useNavigate()
+  const target = (u: Upload) => uploadTarget(u, dealName(u.deal_slug), formatPeriod(u.collection_period))
   const columns: Column<Upload>[] = [
-    { key: 'deal', header: 'Deal', emphasis: true, render: u => <span style={{ whiteSpace: 'nowrap' }}>{dealName(u.deal_slug)}</span>, sortValue: u => dealName(u.deal_slug) },
+    { key: 'deal', header: 'Deal', emphasis: true, render: u => {
+      const t = target(u)
+      return <Link className="adm-rowlink" to={t.href} aria-label={t.label} onClick={e => e.stopPropagation()}>{dealName(u.deal_slug)}</Link>
+    }, sortValue: u => dealName(u.deal_slug) },
     { key: 'program', header: 'Program', render: u => programName(u.program_slug), sortValue: u => programName(u.program_slug) },
     { key: 'collection_period', header: 'Collection period', render: u => formatPeriod(u.collection_period), sortValue: u => u.collection_period },
     { key: 'reporting_period', header: 'Reporting period', render: u => formatPeriod(u.reporting_period), sortValue: u => u.reporting_period },
@@ -24,9 +33,8 @@ export function UploadsTable({ uploads, deals, programs, loading, caption, empty
     { key: 'at', header: 'Uploaded', render: u => <time dateTime={u.uploaded_at}>{formatDateTime(u.uploaded_at)}</time>, sortValue: u => u.uploaded_at },
     {
       key: 'open', header: 'Open', ariaLabel: 'Open', render: u => (
-        <span className="adm-actions">
-          {u.status === 'needs_review' && <TextLink to={reviewHref(u.id)} label={`Review ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Review</TextLink>}
-          {u.status === 'extraction_failed' && <TextLink to={reviewHref(u.id)} label={`Details of the failed upload ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Details</TextLink>}
+        <span className="adm-actions adm-nowrap">
+          <span className="adm-open" aria-hidden="true">{target(u).verb} ›</span>
           {showAudit && <TextLink to={auditHref(u.id)} label={`Audit trail for ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Audit</TextLink>}
         </span>
       ),
@@ -34,7 +42,7 @@ export function UploadsTable({ uploads, deals, programs, loading, caption, empty
   ]
   return (
     <DataTable columns={columns} rows={uploads} rowKey={u => u.id} caption={caption} captionHidden loading={loading}
-      empty={empty} density={compact ? 'compact' : 'normal'} rowLabel={u => `${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`} />
+      empty={empty} density={compact ? 'compact' : 'normal'} onRowClick={u => navigate(target(u).href)} className="adm-rowtable" rowLabel={u => `${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`} />
   )
 }
 

@@ -96,6 +96,20 @@ export const reviewHref = (id: string) => `/admin/uploads/queue/${id}`
 /** Upload history filtered to one deal and period: shows a re-issue next to the upload it replaces. */
 export const periodHistoryHref = (deal: string, period: string) => `/admin/uploads/history?deal=${encodeURIComponent(deal)}&period=${encodeURIComponent(period)}`
 export const auditHref = (uploadId: string) => `/admin/settings/users/audit?upload_id=${encodeURIComponent(uploadId)}`
+/** The published deal page at one collection period (the deal page reads ?period=YYYY-MM). */
+export const dealPageHref = (program: string, deal: string, period?: string | null) =>
+  `/admin/portfolio/${encodeURIComponent(program)}/deals/${encodeURIComponent(deal)}${period ? `?period=${encodeURIComponent(period)}` : ''}`
+
+export type UploadTarget = { href: string; verb: 'Review' | 'Open deal' | 'Details'; label: string }
+/** Where an upload row opens, by status (D4): Review when in review or approved; the published deal page at the
+ * upload's own collection period when published (a replaced publication too); upload details otherwise (failed,
+ * rejected, received, extracting). `name` and `period` are only for the accessible label. */
+export function uploadTarget(u: Pick<Upload, 'id' | 'status' | 'program_slug' | 'deal_slug' | 'collection_period'>, name: string, period: string): UploadTarget {
+  if (u.status === 'needs_review' || u.status === 'approved') return { href: reviewHref(u.id), verb: 'Review', label: `Review ${name} ${period}` }
+  if (u.status === 'published') return { href: dealPageHref(u.program_slug, u.deal_slug, u.collection_period), verb: 'Open deal', label: `Open the published deal ${name} ${period}` }
+  const what = u.status === 'extraction_failed' ? 'the failed upload' : u.status === 'rejected' ? 'the rejected upload' : 'the upload'
+  return { href: reviewHref(u.id), verb: 'Details', label: `Details of ${what} ${name} ${period}` }
+}
 
 export function TextLink({ to, children, label }: { to: string; children: ReactNode; label?: string }) {
   return <Link className="adm-link" to={to} aria-label={label} onClick={e => e.stopPropagation()}>{children}</Link>

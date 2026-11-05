@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { loadRole } from './roles'
 /** Every page in docs/portal-map.md, by shell. `built: true` pages get a real component in wave 1; the rest render a
  * routed placeholder so navigation and the role switcher behave as the finished app will. Owner = agent folder.
  *
@@ -30,7 +31,7 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to do each task, filtered to the role; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
   { path: '/admin/settings/users', title: 'User management', nav: 'account', roles: ['tao_admin'], owner: 'admin' },
-  { path: '/admin/settings/users/audit', title: 'Audit log', nav: 'account', roles: ['tao_admin'], built: true, owner: 'admin', load: () => import('@/admin/AuditLogPage') },
+  { path: '/admin/settings/users/audit', title: 'Audit log', /* sidebar entry: TAO Admin only (A4) */ get nav() { return loadRole() === 'tao_admin' ? 'account' as const : undefined }, roles: ['tao_admin', 'tao_analyst'], built: true, owner: 'admin', load: () => import('@/admin/AuditLogPage') },
   { path: '/admin/settings/users/roles', title: 'Roles & permissions', roles: ['tao_admin'], owner: 'admin' },
   { path: '/admin/settings/profile', title: 'Profile', nav: 'account', owner: 'shell' },
   { path: '/admin/settings/system', title: 'System settings', nav: 'account', roles: ['tao_admin'], owner: 'shell' },
