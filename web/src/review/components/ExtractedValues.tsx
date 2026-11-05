@@ -1,9 +1,10 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, memo, useState, type ReactNode } from 'react'
 import { Card, CovenantPill, DataTable, formatPeriod, type Column } from '@/design/components'
 import type { Extraction } from '../lib/types'
 import { getPointer, provenance } from '../lib/provenance'
 import { byFormat, count, covenantValue, money, pct, ratio, text, yesNo } from '../lib/format'
 import type { ViewerTarget } from './PageImage'
+import { EditableValue, useEdits } from './EditValue'
 
 type Open = (t: ViewerTarget) => void
 type Fmt = (v: unknown) => ReactNode
@@ -41,7 +42,7 @@ function Kv({ ex, items, onOpen }: { ex: Extraction; items: KvItem[]; onOpen: Op
         return (
           <div key={i.ptr} className="rv-kv__row">
             <span className="rv-kv__label">{i.label}</span>
-            <span className="rv-kv__value">{i.fmt(getPointer(ex.deal, i.ptr))}</span>
+            <span className="rv-kv__value"><EditableValue ex={ex} pointer={i.ptr} label={name} fmt={i.fmt} /></span>
             <SourceRef ex={ex} pointer={i.ptr} label={name} onOpen={onOpen} />
           </div>
         )
@@ -51,7 +52,8 @@ function Kv({ ex, items, onOpen }: { ex: Extraction; items: KvItem[]; onOpen: Op
 }
 
 type Row = Record<string, unknown> & { __i: number }
-type ColSpec = { key: string; header: string; fmt: Fmt; numeric?: boolean; className?: string; render?: (r: Row) => ReactNode }
+/** `fmtRow` formats a value that needs its row (a ratio's format); numeric columns get the edit control. */
+type ColSpec = { key: string; header: string; fmt: Fmt; numeric?: boolean; className?: string; fmtRow?: (v: unknown, r: Row) => ReactNode }
 
 function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
   ex: Extraction; base: string; title: string; cols: ColSpec[]; onOpen: Open; rowName: (r: Row) => string; reverse?: boolean
@@ -61,7 +63,12 @@ function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
   let rows: Row[] = list.map((r, i) => ({ ...(r as Record<string, unknown>), __i: i }))
   if (reverse) rows = rows.reverse()
   const columns: Column<Row>[] = [
-    ...cols.map(c => ({ key: c.key, header: c.header, numeric: c.numeric, render: (r: Row) => <span className={c.className}>{c.render ? c.render(r) : c.fmt(r[c.key])}</span> })),
+    ...cols.map(c => ({ key: c.key, header: c.header, numeric: c.numeric, render: (r: Row) => {
+      const fmt: Fmt = c.fmtRow ? v => c.fmtRow!(v, r) : c.fmt
+      return c.numeric
+        ? <EditableValue ex={ex} pointer={`${base}/${r.__i}/${c.key}`} label={`${title}, ${rowName(r)}, ${c.header}`} fmt={fmt} />
+        : <span className={c.className}>{fmt(r[c.key])}</span>
+    } })),
     { key: '__src', header: 'Source', align: 'right' as const, render: (r: Row) => <SourceRef ex={ex} pointer={`${base}/${r.__i}`} label={`${title}, ${rowName(r)}`} onOpen={onOpen} /> },
   ]
   return <div className="rv-scroll"><DataTable<Row> caption={title} captionHidden columns={columns} rows={rows} rowKey={r => String(r.__i)} density="compact" /></div>
@@ -82,8 +89,10 @@ type SectionId = (typeof SECTIONS)[number]['id']
 
 /** The extracted deal object as sections that follow the SetRep pages, with a source link on every value or row.
  * Shows what the extraction holds; computes nothing. */
-export function ExtractedValues({ ex, onOpen }: { ex: Extraction; onOpen: Open }) {
+export const ExtractedValues = memo(function ExtractedValues({ ex, onOpen }: { ex: Extraction; onOpen: Open }) {
   const [only, setOnly] = useState<SectionId | 'all'>('all')
+  const { mode, states } = useEdits()
+  const edited = states.size
   const pages = (getPointer(ex.deal, '/source_pages') ?? {}) as Record<string, number | null>
   const pg = (k: string) => (pages[k] ? `page ${pages[k]}` : undefined)
   const show = (id: SectionId) => only === 'all' || only === id
@@ -183,7 +192,7 @@ export function ExtractedValues({ ex, onOpen }: { ex: Extraction; onOpen: Open }
           <RowTable ex={ex} onOpen={onOpen} base="/financial_ratios" title="Financial ratios" rowName={r => text(r.label) as string} cols={[
             { key: 'group', header: 'Group', fmt: text },
             { key: 'label', header: 'Ratio', fmt: text },
-            { key: 'value', header: 'Value', fmt: text, numeric: true, render: r => byFormat(r.value, r.format) },
+            { key: 'value', header: 'Value', fmt: text, numeric: true, fmtRow: (v, r) => byFormat(v, r.format) },
             { key: 'vintage', header: 'Vintage', fmt: text },
           ]} />
           <div className="rv-gap" />
@@ -202,7 +211,11 @@ export function ExtractedValues({ ex, onOpen }: { ex: Extraction; onOpen: Open }
   }
 
   return (
-    <Card title="Extracted values" subtitle="What the extraction read, by SetRep section. Every value links to its page."
+    <Card title="Extracted values" subtitle={<>What the extraction read, by SetRep section. Every value links to its page.
+      {mode === 'edit' && ' TAO Admin can edit a value; the original stays on record.'}
+      {mode === 'correct' && ' Correct… changes a published value as a new version.'}
+      {mode === 'read' && edited > 0 && ' Read only. Only a TAO Admin can edit a value.'}
+      {edited > 0 && <b data-testid="edited-summary"> {edited} value{edited === 1 ? '' : 's'} edited.</b>}</>}
       actions={
         <div className="rv-sections" role="group" aria-label="Show section">
           <button type="button" className="rv-chip" aria-pressed={only === 'all'} onClick={() => setOnly('all')}>All</button>
@@ -219,20 +232,22 @@ export function ExtractedValues({ ex, onOpen }: { ex: Extraction; onOpen: Open }
       ))}
     </Card>
   )
-}
+})
 
 function CovenantTable({ ex, onOpen }: { ex: Extraction; onOpen: Open }) {
   const list = getPointer(ex.deal, '/covenants')
   if (!Array.isArray(list) || list.length === 0) return <p className="rv-muted">No covenants in this extraction.</p>
   type C = Record<string, unknown> & { __i: number }
   const rows: C[] = list.map((c, i) => ({ ...(c as Record<string, unknown>), __i: i }))
+  const cell = (c: C, key: string, header: string, fmt: Fmt) =>
+    <EditableValue ex={ex} pointer={`/covenants/${c.__i}/${key}`} label={`Covenant ${text(c.legal_ref)}, ${header}`} fmt={fmt} />
   const columns: Column<C>[] = [
     { key: 'legal_ref', header: 'Ref', render: c => text(c.legal_ref), emphasis: true },
     { key: 'description', header: 'Test', render: c => <span className="rv-desc">{text(c.description)}</span> },
     { key: 'kind', header: 'Kind', render: c => text(c.kind) },
-    { key: 'current_value', header: 'Value', numeric: true, render: c => covenantValue(c.current_value, c.threshold) },
-    { key: 'threshold', header: 'Threshold', numeric: true, render: c => covenantValue(c.threshold, c.threshold) },
-    { key: 'utilization_pct', header: 'Utilization', numeric: true, render: c => pct(c.utilization_pct) },
+    { key: 'current_value', header: 'Value', numeric: true, render: c => cell(c, 'current_value', 'value', v => covenantValue(v, c.threshold)) },
+    { key: 'threshold', header: 'Threshold', numeric: true, render: c => cell(c, 'threshold', 'threshold', v => covenantValue(v, c.threshold)) },
+    { key: 'utilization_pct', header: 'Utilization', numeric: true, render: c => cell(c, 'utilization_pct', 'utilization', pct) },
     { key: 'status', header: 'Status', render: c => (c.status ? <CovenantPill status={String(c.status)} size="sm" /> : '—') },
     { key: 'reported_triggered', header: 'Report says', render: c => text(c.reported_triggered) },
     { key: '__src', header: 'Source', align: 'right', render: c => <SourceRef ex={ex} pointer={`/covenants/${c.__i}`} label={`Covenant ${text(c.legal_ref)}`} onOpen={onOpen} /> },

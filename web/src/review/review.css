@@ -123,3 +123,38 @@
 .rv-banner--blue { background: var(--blue-bg); border-color: var(--blue-bg); }
 .rv-banner--blue b { color: var(--blue); }
 .rv-dealcell { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---- Wave B: value edits (D1 a) and corrections (D1 c) ---- */
+.rv-ev { display: inline-flex; align-items: baseline; gap: 6px; justify-content: flex-end; position: relative; }
+.rv-ev--start { justify-content: flex-start; }
+.rv-ev__stack { display: inline-flex; flex-direction: column; align-items: flex-end; }
+.rv-ev__orig { color: var(--muted); font-weight: 400; font-size: var(--fs-small); }
+.rv-ev__ctl { display: inline-flex; gap: 2px; }
+/* Edit / Revert / Correct… show on row hover and on keyboard focus; they stay in the tab order. */
+.rv-ev__btn { border: 0; background: none; color: var(--purple); font: 600 11px var(--font); padding: 2px 4px; min-height: 24px; cursor: pointer;
+  border-radius: var(--r-chip); opacity: 0; transition: opacity var(--t-control) var(--ease), background var(--t-control) var(--ease); }
+.rv-ev--edited .rv-ev__btn, .rv-kv__row:hover .rv-ev__btn, tr:hover .rv-ev__btn, .rv-ev__btn:focus-visible { opacity: 1; }
+.rv-ev__btn:hover { background: var(--lav); }
+.rv-ev__btn:focus-visible { box-shadow: var(--focus); outline: none; }
+@media (hover: none) { .rv-ev__btn { opacity: 1; } }
+.rv-ev__marker { position: relative; display: inline-flex; border-radius: var(--r-chip); }
+.rv-ev__marker:focus-visible { box-shadow: var(--focus); outline: none; }
+.rv-ev__tip { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; width: max-content; max-width: 280px; white-space: normal; text-align: left;
+  background: var(--card); color: var(--text); border: 1px solid var(--border-card); border-radius: var(--r-control); box-shadow: var(--sh-panel);
+  padding: 6px 10px; font: 400 12px var(--font); visibility: hidden; opacity: 0; transition: opacity var(--t-control) var(--ease); }
+.rv-ev__marker:hover .rv-ev__tip, .rv-ev__marker:focus .rv-ev__tip { visibility: visible; opacity: 1; }
+.rv-editgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 14px; align-items: start; }
+@media (max-width: 640px) { .rv-editgrid { grid-template-columns: 1fr; } }
+.rv-editgrid code { font: 12px var(--mono); }
+.rv-whensave { background: var(--cream); border: 1px solid var(--border-card); border-radius: var(--r-control); padding: 10px 12px; }
+.rv-picker { list-style: none; margin: -6px 0 0; padding: 4px; border: 1px solid var(--border-card); border-radius: var(--r-control); max-height: 220px; overflow: auto; }
+.rv-picker button { width: 100%; display: flex; justify-content: space-between; gap: 12px; border: 0; background: none; padding: 6px 8px; text-align: left;
+  font: 13px var(--font); color: var(--text); border-radius: var(--r-chip); cursor: pointer; }
+.rv-picker button:hover, .rv-picker button:focus-visible { background: var(--lav); outline: none; }
+.rv-picker .rv-muted { font-family: var(--data); font-feature-settings: var(--tabular); white-space: nowrap; }
+.rv-ver { font: 600 11px var(--data); color: var(--muted); align-self: center; }
+.rv-linkbtn { border: 0; background: none; padding: 0; color: var(--purple); font: inherit; cursor: pointer; text-decoration: underline; }
+.rv-linkbtn:disabled { color: var(--muted); cursor: not-allowed; text-decoration: none; }
+.rv-footer--inline { position: static; box-shadow: none; }
+.rv-plain { font-family: var(--font); font-weight: 400; color: var(--text); }
+.rv-warnline { color: var(--warn); }

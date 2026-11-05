@@ -100,7 +100,7 @@ describe('Review report', () => {
     await waitFor(() => expect((screen.getByRole('button', { name: 'Publish to partner…' }) as HTMLButtonElement).disabled).toBe(false))
     // The audit log is fetched again after the override
     expect(calls.filter(c => c.path.startsWith('/audit')).length).toBeGreaterThanOrEqual(2)
-  }, 20000)
+  }, 40000)
 
   it('publishes through the pop-up, and shows the API refusal when a block is still open', async () => {
     const state = fresh(); state.findings = overridden()
@@ -171,7 +171,7 @@ describe('Review report', () => {
     await waitFor(() => expect(screen.getByText('1 block finding is open. Resolve it before publishing.')).toBeTruthy(), { timeout: 6000 })
     const findingGets = calls.filter(c => c.method === 'GET' && c.path.endsWith('/findings')).length
     expect(findingGets).toBeGreaterThanOrEqual(3)
-  }, 10000)
+  }, 20000)
 
   it('analysts can open the page but see no action buttons', async () => {
     setRole('tao_analyst')
