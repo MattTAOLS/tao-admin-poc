@@ -584,3 +584,13 @@ Append an entry when a work package lands. Newest first.
   An existing database needs `007_covenant_superseded.sql` applied by hand (initdb runs migrations only on a fresh
   volume). Needs from Rules: the one-line adapter filter in requests.md, or worker R14 still sees superseded rows.
   No contract change. Tests: api 144 on SQLite and on PostgreSQL (pg8000), check_contracts green.
+- 2026-11-05 — UI-Partner (with Design System, Lead-authorized): trend colours, phase 2 wave A item 5. Colour shows
+  whether a move is good or bad for the metric; the arrow shows direction. `KpiTile` delta takes an optional
+  `tone` (good / bad / neutral) separate from `direction`; without it the old up-green / down-red colours stay. A
+  good or bad tone adds "better" / "worse" to the tooltip and screen-reader text only (A2). One polarity file,
+  `web/src/portfolio/polarity.ts`: KPI metric map (delinquency, loss, CNL, leverage lower is better; coverage higher;
+  tranche balance, contracts, warehouse advances neutral) and covenant polarity from `kind` (ceiling lower, floor
+  higher, binary none). Covenant `Trend` cells on the deal page and Program Dashboard colour the published trend word
+  (never recomputed): green better, red worse, flat and n/a grey, binary uncoloured; the word stays Rising / Falling /
+  Flat. Every portfolio KPI delta today is a balance or count, so those deltas are now grey. No Test or Last period
+  columns (A3). Run: `cd web && npx vitest run src/portfolio src/design`. Nothing stubbed; nothing needed from others.

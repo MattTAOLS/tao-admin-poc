@@ -3,6 +3,7 @@ import { Button, KpiRow, KpiTile, SkeletonBlock, StatePanel, StatusPill, formatP
 import type { Load } from './data'
 import { commonDealNamePrefix, shortName, terms } from './fmt'
 import { Num } from './Num'
+import { kpiDelta } from './polarity'
 import type { ShellId } from './nav'
 import type { DealBehind, PortfolioProgram, ProgramAggregate } from './types'
 import './portfolio.css'
@@ -42,7 +43,6 @@ export function programName(p: AnyProgram): string {
 }
 
 export const isFlagged = (status: string) => status === 'WATCH' || status === 'BREACH'
-const dirOf = (v: number | null | undefined) => (v ?? 0) > 0 ? 'up' as const : (v ?? 0) < 0 ? 'down' as const : 'flat' as const
 
 /** The program KPI tiles: balance with change, contracts, utilization (weighted by facility size, as published),
  * warehouse advances when the program has them, covenant counts, deals flagged. Fields are relative to the program
@@ -69,13 +69,13 @@ export function ProgramTiles({ p, compact = false, field = '' }: { p: AnyProgram
     <KpiRow>
       <KpiTile label={`Total ${label.balance}`} value={<Num v={t.closing_tranche_balance} kind="money" field={f('portfolio_totals.closing_tranche_balance')} />}
         delta={t.tranche_balance_change_abs === null || t.tranche_balance_change_abs === undefined ? undefined : {
-          direction: dirOf(t.tranche_balance_change_abs), label: 'Change vs last period',
+          ...kpiDelta('tranche_balance', t.tranche_balance_change_abs), label: 'Change vs last period',
           value: <><Num v={t.tranche_balance_change_abs} kind="signed-money" field={f('portfolio_totals.tranche_balance_change_abs')} /> (<Num v={t.tranche_balance_change_pct} kind="pct" field={f('portfolio_totals.tranche_balance_change_pct')} />)</>,
         }} context="vs last period" />
       {!compact && (
         <KpiTile label="Outstanding contracts" value={<Num v={t.closing_contracts} kind="count" field={f('portfolio_totals.closing_contracts')} />}
           delta={t.contracts_change_abs === null || t.contracts_change_abs === undefined ? undefined : {
-            direction: dirOf(t.contracts_change_abs), label: 'Change vs last period',
+            ...kpiDelta('contracts', t.contracts_change_abs), label: 'Change vs last period',
             value: <><Num v={t.contracts_change_abs} kind="signed-count" field={f('portfolio_totals.contracts_change_abs')} /> (<Num v={t.contracts_change_pct} kind="pct" field={f('portfolio_totals.contracts_change_pct')} />)</>,
           }} context="vs last period" />
       )}
@@ -84,7 +84,7 @@ export function ProgramTiles({ p, compact = false, field = '' }: { p: AnyProgram
       {!compact && hasWarehouse && (
         <KpiTile label="Warehouse advances" value={<Num v={t.total_warehouse_closing_advances} kind="money" field={f('portfolio_totals.total_warehouse_closing_advances')} />}
           delta={t.warehouse_advances_change_abs === null || t.warehouse_advances_change_abs === undefined ? undefined : {
-            direction: dirOf(t.warehouse_advances_change_abs), label: 'Change vs last period',
+            ...kpiDelta('warehouse_advances', t.warehouse_advances_change_abs), label: 'Change vs last period',
             value: <Num v={t.warehouse_advances_change_abs} kind="signed-money" field={f('portfolio_totals.warehouse_advances_change_abs')} />,
           }} context="vs last period" />
       )}

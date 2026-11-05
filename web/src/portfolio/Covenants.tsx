@@ -1,12 +1,25 @@
 import { CovenantPill, DataTable, type Column } from '@/design/components'
 import { TREND, covKind } from './fmt'
 import { Num } from './Num'
+import { covenantTrendTone } from './polarity'
 import type { Covenant } from './types'
 
-export function Trend({ trend }: { trend: string }) {
+const JUDGED = { good: 'better', bad: 'worse' } as const
+
+/** The published trend word with its arrow. The colour comes from the covenant's kind (ceiling: falling is better;
+ * floor: rising is better; binary: no colour); flat and n/a are grey. The trend itself is never recomputed. The word
+ * stays Rising / Falling / Flat; "better" / "worse" goes only in the tooltip and screen-reader text (decision A2). */
+export function Trend({ trend, kind }: { trend: string; kind?: string }) {
   const t = TREND[trend]
   if (!t) return <span className="pf-muted">n/a</span>
-  return <span className="pf-trend"><span aria-hidden="true">{t.arrow} </span>{t.word}</span>
+  const tone = covenantTrendTone(kind, trend)
+  const judged = tone === 'good' || tone === 'bad' ? JUDGED[tone] : undefined
+  const cls = trend === 'flat' ? 'pf-trend pf-trend--flat' : judged ? `pf-trend pf-trend--${tone}` : 'pf-trend'
+  return (
+    <span className={cls} title={judged ? `${t.word}: ${judged} for this covenant` : t.word}>
+      <span aria-hidden="true">{t.arrow} </span>{t.word}{judged && <span className="ds-visually-hidden">, {judged}</span>}
+    </span>
+  )
 }
 
 const KIND_WORD: Record<string, string> = { ceiling: 'Ceiling: must not exceed the threshold', floor: 'Floor: must stay at or above the threshold', binary: 'Yes / no test reported by the servicer' }
@@ -48,7 +61,7 @@ export function CovenantTable({ covenants }: { covenants: Covenant[] }) {
     { key: 'value', header: 'Value', numeric: true, render: r => <Num v={r.c.current_value} kind={covKind(r.c)} field={`covenants.${r.i}.current_value`} /> },
     { key: 'threshold', header: 'Threshold', numeric: true, render: r => <>{r.c.kind === 'floor' && <span className="pf-muted pf-small">min </span>}<Num v={r.c.threshold} kind={covKind(r.c)} field={`covenants.${r.i}.threshold`} /></> },
     { key: 'util', header: 'Utilization', numeric: true, render: r => <Num v={r.c.utilization_pct} kind="pct" field={`covenants.${r.i}.utilization_pct`} /> },
-    { key: 'trend', header: 'Trend', render: r => <Trend trend={r.c.trend} /> },
+    { key: 'trend', header: 'Trend', render: r => <Trend trend={r.c.trend} kind={r.c.kind} /> },
     { key: 'status', header: 'Status', render: r => <CovenantPill status={r.c.status} size="sm" /> },
   ]
   return <DataTable columns={cols} rows={rows} rowKey={r => String(r.i)} caption="Covenant tests" captionHidden density="compact" />

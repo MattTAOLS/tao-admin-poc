@@ -75,7 +75,7 @@ export function ProgramDashboardView({ p }: { p: ProgramAggregate }) {
     { key: 'value', header: 'Value', numeric: true, render: r => <Num v={r.c.current_value} kind={covKind(r.c)} field={`deals.${r.di}.covenants.${r.ci}.current_value`} /> },
     { key: 'threshold', header: 'Threshold', numeric: true, render: r => <>{r.c.kind === 'floor' && <span className="pf-muted pf-small">min </span>}<Num v={r.c.threshold} kind={covKind(r.c)} field={`deals.${r.di}.covenants.${r.ci}.threshold`} /></> },
     { key: 'util', header: 'Utilization', numeric: true, sortValue: r => r.c.utilization_pct, render: r => <Num v={r.c.utilization_pct} kind="pct" field={`deals.${r.di}.covenants.${r.ci}.utilization_pct`} /> },
-    { key: 'trend', header: 'Trend', render: r => <Trend trend={r.c.trend} /> },
+    { key: 'trend', header: 'Trend', render: r => <Trend trend={r.c.trend} kind={r.c.kind} /> },
   ]
 
   type MRow = { d: Deal; di: number }
