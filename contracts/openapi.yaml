@@ -210,6 +210,7 @@ components:
         supersedes_id: { type: [string, 'null'], format: uuid, readOnly: true, description: 'the row this one corrected (mode=correct)' }
         changed_by: { type: [string, 'null'], readOnly: true, description: 'role or user label of the last change; null for seed rows' }
         change_reason: { type: [string, 'null'], readOnly: true }
+        changed_at: { type: [string, 'null'], format: date-time, readOnly: true, description: 'when this row was saved; null for seed rows' }
     CovenantChange:
       description: |
         Body of PUT /master/covenants (TAO Admin). A change never updates a row in place.
