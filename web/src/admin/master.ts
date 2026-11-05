@@ -67,3 +67,95 @@ export function parseNumber(s: string): number | undefined {
   if (t === '') return undefined
   return /^-?\d*\.?\d+(e-?\d+)?$/i.test(t) ? Number(t) : NaN
 }
+
+// ---- Covenant changes and version history (wave B, D2) ----
+
+/** Current rows only: the ones no correction or seed run replaced. */
+export const isCurrent = (c: CovenantDefinition) => !c.superseded_at
+export const covenantKey = (c: Pick<CovenantDefinition, 'deal_slug' | 'legal_ref'>) => c.deal_slug + '|' + c.legal_ref
+
+const ROLE_NAME: Record<string, string> = { tao_admin: 'TAO Admin', tao_analyst: 'TAO Analyst', system: 'System', seed: 'System' }
+export const changedByLabel = (by?: string | null) => (by ? ROLE_NAME[by] ?? by : 'System')
+
+const DAY = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
+const day = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : DAY.format(d) }
+
+export type HistoryKind = 'seed' | 'add' | 'new_version' | 'correct'
+export const HISTORY_KIND: Record<HistoryKind, string> = { seed: 'Created', add: 'Added', new_version: 'New version', correct: 'Correction' }
+export type FieldChange = { field: string; before: string; after: string }
+export type HistoryEntry = {
+  row: CovenantDefinition
+  kind: HistoryKind
+  /** When the row was written: changed_at, or for a correction the superseded row's superseded_at. */
+  at?: string | null
+  who: string
+  /** Field changes against the row it corrected (correct) or the version before it (new_version). */
+  changes: FieldChange[]
+  /** For created / added rows: what was created, e.g. "Ceiling, ≤ 10.00×, ratio, watch buffer 10%". */
+  created?: string
+  reason: string
+  /** Set when a later correction or seed run replaced this row. */
+  replacedAt?: string | null
+}
+
+const KIND_WORD = { ceiling: 'Ceiling', floor: 'Floor' } as const
+const UNIT_WORD: Record<string, string> = { fraction: 'fraction', ratio: 'ratio', currency: 'currency' }
+const bufferText = (c: CovenantDefinition) => formatPercent(c.watch_buffer_pct ?? null, { decimals: 0 })
+/** The comparable fields of a definition, as the page shows them. */
+function fields(c: CovenantDefinition): [string, string][] {
+  return [
+    ['Direction', KIND_WORD[c.kind] ?? c.kind],
+    ['Threshold', thresholdText(c)],
+    ['Unit', c.unit ? UNIT_WORD[c.unit] ?? c.unit : 'not set'],
+    ['Watch buffer', bufferText(c)],
+    ['Description', c.description],
+    ['Source', c.source ?? '—'],
+  ]
+}
+export function fieldChanges(before: CovenantDefinition, after: CovenantDefinition): FieldChange[] {
+  const a = new Map(fields(after))
+  return fields(before).filter(([k, v]) => a.get(k) !== v).map(([k, v]) => ({ field: k, before: v, after: a.get(k)! }))
+}
+export const createdText = (c: CovenantDefinition) =>
+  [KIND_WORD[c.kind] ?? c.kind, thresholdText(c), c.unit ? UNIT_WORD[c.unit] ?? c.unit : null, `watch buffer ${bufferText(c)}`].filter(Boolean).join(', ')
+
+/** Every change to one covenant (all rows of one deal + legal ref, superseded ones included), newest first.
+ * A row with supersedes_id is a correction of that row; a ui row with an earlier version is a new version; a ui row
+ * without one was added; a seed row was created by the seed load. */
+export function covenantHistory(rows: CovenantDefinition[]): HistoryEntry[] {
+  const byId = new Map(rows.filter(r => r.id).map(r => [r.id!, r]))
+  const corrected = new Set(rows.map(r => r.supersedes_id).filter(Boolean))
+  const out = rows.map((r): HistoryEntry => {
+    const prev = r.supersedes_id ? byId.get(r.supersedes_id) : undefined
+    const seed = r.origin === 'seed' || (r.origin === undefined && !r.changed_by && !r.supersedes_id)
+    const replacedAt = r.superseded_at && !corrected.has(r.id) ? r.superseded_at : null
+    const base = { row: r, who: seed ? 'System' : changedByLabel(r.changed_by), replacedAt }
+    if (r.supersedes_id) {
+      return { ...base, kind: 'correct', at: r.changed_at ?? prev?.superseded_at, changes: prev ? fieldChanges(prev, r) : [], reason: r.change_reason ?? '—' }
+    }
+    if (seed) return { ...base, kind: 'seed', at: r.changed_at, changes: [], created: createdText(r), reason: r.change_reason ?? 'Loaded from seed/covenant_definitions.json' }
+    // The version this one followed: the latest earlier effective date, a current row before a replaced one.
+    const earlier = rows.filter(x => x !== r && x.effective_from < r.effective_from)
+      .sort((a, b) => b.effective_from.localeCompare(a.effective_from) || Number(!!a.superseded_at) - Number(!!b.superseded_at))[0]
+    return earlier
+      ? { ...base, kind: 'new_version', at: r.changed_at, changes: fieldChanges(earlier, r), reason: r.change_reason ?? '—' }
+      : { ...base, kind: 'add', at: r.changed_at, changes: [], created: createdText(r), reason: r.change_reason ?? '—' }
+  })
+  // Newest first: timed entries by time, then untimed ui changes by effective date, seed loads last.
+  const rank = (e: HistoryEntry) => (e.kind === 'seed' ? 0 : 1)
+  return out.sort((a, b) => rank(b) - rank(a) || (b.at ?? '').localeCompare(a.at ?? '') || b.row.effective_from.localeCompare(a.row.effective_from))
+}
+
+/** The Last change cell: "Seed load", or "Nov 5, 2026 · TAO Admin" (the date only when the API gives it). */
+export function lastChangeText(c: CovenantDefinition, all: CovenantDefinition[]): string {
+  const seed = c.origin === 'seed' || (c.origin === undefined && !c.changed_by && !c.supersedes_id)
+  if (seed) return 'Seed load'
+  const at = c.changed_at ?? (c.supersedes_id ? all.find(x => x.id === c.supersedes_id)?.superseded_at : undefined)
+  return [at ? day(at) : null, changedByLabel(c.changed_by)].filter(Boolean).join(' · ')
+}
+
+/** The first collection period (YYYY-MM) a version applies to. R14 picks the version in force on the last day of the
+ * collection period, and every month's last day falls on or after any date in that month, so it is the date's month. */
+export function firstPeriodFrom(effective: string): string {
+  return effective.slice(0, 7)
+}

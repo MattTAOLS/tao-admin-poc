@@ -23,6 +23,10 @@ export function errorText(e: ApiError): string {
     case 'upload_in_progress': return 'An upload for this deal and collection period is already in progress. Find it in Upload history.'
     case 'not_a_pdf': return 'The file is not a readable PDF.'
     case 'unknown_deal': return 'The API does not know this deal. Refresh the page and pick it again.'
+    // PUT /master/covenants (CovenantChange)
+    case 'not_current': return 'This version has already been replaced by another change. Close the dialog, and edit the version the table shows now.'
+    case 'exists': return 'This deal already has a covenant with this legal reference. Edit that covenant instead of adding it again.'
+    case 'effective_not_later': return 'A new version must start after the current version’s effective date. Pick a later date, or choose Correct the current version.'
     case 'tao_only': case 'admin_only': return 'Your role can’t do this. Switch to TAO Admin in the sidebar.'
   }
   if (e.status === 403) return 'Your role can’t do this. Switch to TAO Admin in the sidebar.'
