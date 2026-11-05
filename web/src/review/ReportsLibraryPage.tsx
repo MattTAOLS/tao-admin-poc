@@ -10,6 +10,7 @@ import { formatDateTime } from './lib/format'
 import type { Program, Upload } from './lib/types'
 import { reviewPath } from './QueuePage'
 import { ReissueTag } from './components/Reissue'
+import { CorrectedTag, CorrectionDialog, correctionPath } from './components/Corrections'
 import './review.css'
 
 const routeRegex = (pattern: string) => new RegExp('^' + pattern.replace(/:[^/]+/g, '[^/]+') + '/?$')
@@ -43,6 +44,7 @@ function Library({ regenOpen, onRegenClose, admin }: { regenOpen: boolean; onReg
   const { dealName, programName, programs, deals } = useMasterNames()
   const [program, setProgram] = useState('')
   const [deal, setDeal] = useState('')
+  const [correcting, setCorrecting] = useState<Upload | null>(null)
 
   const rows = useMemo(() => (list.data ?? [])
     .filter(u => (!program || u.program_slug === program) && (!deal || u.deal_slug === deal))
@@ -60,8 +62,10 @@ function Library({ regenOpen, onRegenClose, admin }: { regenOpen: boolean; onReg
     { key: 'period', header: 'Collection period', sortValue: u => u.collection_period,
       render: u => <>{formatPeriod(u.collection_period)}{u.reporting_period && <span className="rv-sub">reporting {formatPeriod(u.reporting_period)}</span>}</> },
     { key: 'status', header: 'Status', render: u => u.replaced_by_upload_id
-      ? <StatusPill tone="neutral" size="sm">Replaced</StatusPill>
-      : <span className="rv-pills"><UploadStatusPill status={u.status} size="sm" />{u.replaces_upload_id && <ReissueTag />}</span> },
+      ? <span className="rv-pills"><StatusPill tone="neutral" size="sm">Replaced</StatusPill>{u.published_version != null && <span className="rv-ver">v{u.published_version}</span>}</span>
+      : <span className="rv-pills"><UploadStatusPill status={u.status} size="sm" />{u.published_version != null && <span className="rv-ver" data-testid="library-version">v{u.published_version}</span>}
+        {(u.published_version ?? 1) > 1 && <CorrectedTag />}{u.replaces_upload_id && <ReissueTag />}
+        {u.pending_correction_id && <StatusPill tone="warn" size="sm">Correction waiting</StatusPill>}</span> },
     { key: 'published_at', header: 'Published', numeric: true, sortValue: u => u.published_at ?? '', render: u => formatDateTime(u.published_at) },
     { key: 'file', header: 'File', render: u => <span className="rv-muted">{u.file_name}</span> },
     { key: 'links', header: 'Open', align: 'right', render: u => (
@@ -70,6 +74,11 @@ function Library({ regenOpen, onRegenClose, admin }: { regenOpen: boolean; onReg
         <Link to={reviewPath(u.id)} aria-label={`Review record of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Review record</Link>
         {u.replaces_upload_id && <Link to={reviewPath(u.replaces_upload_id)} aria-label={`Report replaced by this re-issue of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Replaces earlier report</Link>}
         {u.replaced_by_upload_id && <Link to={reviewPath(u.replaced_by_upload_id)} aria-label={`Re-issue that replaced ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Replaced by re-issue</Link>}
+        {u.pending_correction_id && <Link to={correctionPath(u.id, u.pending_correction_id)} aria-label={`Correction waiting for ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Correction in queue</Link>}
+        {admin && !u.replaced_by_upload_id && u.status === 'published' && (
+          <button type="button" className="rv-linkbtn" onClick={() => setCorrecting(u)} disabled={!!u.pending_correction_id}
+            aria-label={`Correct a value of ${dealName(u.deal_slug)} ${formatPeriod(u.collection_period)}`}>Correct a value…</button>
+        )}
       </span>
     ) },
   ]
@@ -89,6 +98,8 @@ function Library({ regenOpen, onRegenClose, admin }: { regenOpen: boolean; onReg
         loading={list.loading && !list.data}
         empty={{ title: program || deal ? 'No published reports match' : 'No published reports yet', message: 'Approved reports appear here once published.' }} />
       {admin && <RegenerateDialog open={regenOpen} onClose={onRegenClose} programs={programs} />}
+      {admin && correcting && <CorrectionDialog upload={correcting} open title={`${dealName(correcting.deal_slug)} · ${formatPeriod(correcting.collection_period)}`}
+        onClose={() => setCorrecting(null)} onDone={() => { list.reload() }} />}
     </div>
   )
 }

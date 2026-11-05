@@ -3,21 +3,26 @@ import { Card, DataTable, formatByUnit, type Column } from '@/design/components'
 import type { AuditEntry, Finding } from '../lib/types'
 import { formatDateTime } from '../lib/format'
 import { CHOICES } from './Dialogs'
+import { fmtFor } from '../lib/edits'
+import { pointerLabel } from '../lib/corrections'
 
 const ACTION: Record<string, string> = {
   upload: 'Uploaded', extract: 'Extracted', reextract: 'Re-extract requested', override: 'Override', restate: 'Restatement accepted',
   approve: 'Approved', reject: 'Rejected', publish: 'Published', regenerate: 'Dashboards regenerated', master_change: 'Master data changed',
+  export: 'Exported', value_edit: 'Value edited', value_edit_revert: 'Edit reverted', correction: 'Value corrected',
+  correction_approve: 'Correction approved', correction_reject: 'Correction rejected',
 }
+export const actionLabel = (a: string) => ACTION[a] ?? a.replace(/_/g, ' ')
 const choiceLabel = (c: unknown) => CHOICES.find(x => x.id === c)?.label ?? String(c)
 
 /** The audit trail for this upload (tao_admin only; /audit is admin-only on the API). */
-export function Activity({ entries, findings, loading }: { entries: AuditEntry[]; findings: Finding[]; loading: boolean }) {
+export function Activity({ entries, findings, loading, deal }: { entries: AuditEntry[]; findings: Finding[]; loading: boolean; deal?: Record<string, unknown> }) {
   const unitOf = (id?: string | null) => findings.find(f => f.id === id)?.unit
   const columns: Column<AuditEntry>[] = [
     { key: 'at', header: 'When', render: e => formatDateTime(e.at), sortValue: e => e.at, width: 140 },
     { key: 'actor', header: 'Who', render: e => e.actor_label ?? e.actor_role },
-    { key: 'action', header: 'Action', render: e => ACTION[e.action] ?? e.action },
-    { key: 'detail', header: 'Detail', render: e => <Detail e={e} unit={unitOf(e.finding_id)} /> },
+    { key: 'action', header: 'Action', render: e => actionLabel(e.action) },
+    { key: 'detail', header: 'Detail', render: e => <Detail e={e} unit={unitOf(e.finding_id)} deal={deal} /> },
     { key: 'reason', header: 'Reason', render: e => e.reason ?? '—' },
   ]
   const rows = [...entries].sort((a, b) => b.at.localeCompare(a.at))
@@ -29,9 +34,23 @@ export function Activity({ entries, findings, loading }: { entries: AuditEntry[]
   )
 }
 
-function Detail({ e, unit }: { e: AuditEntry; unit: Finding['unit'] }) {
+type EditDetail = { pointer?: unknown; old_value?: unknown; new_value?: unknown; value?: unknown; source_page?: unknown }
+
+/** "Total Equity (p. 13): 6,755,120 → 6,755,210" for a value edit, revert or correction entry. */
+function editLine(deal: Record<string, unknown> | undefined, x: EditDetail, key: string): ReactNode {
+  if (typeof x.pointer !== 'string') return null
+  const fmt = fmtFor(deal, x.pointer)
+  const to = x.new_value ?? x.value
+  return <span key={key}>{pointerLabel(deal, x.pointer)}{typeof x.source_page === 'number' && ` (p. ${x.source_page})`}
+    {(x.old_value !== undefined || to !== undefined) && <>: <b>{fmt(x.old_value)}</b> → <b>{fmt(to)}</b></>}</span>
+}
+
+function Detail({ e, unit, deal }: { e: AuditEntry; unit: Finding['unit']; deal?: Record<string, unknown> }) {
   const d = e.detail ?? {}
   const parts: ReactNode[] = []
+  if (typeof d.pointer === 'string') parts.push(editLine(deal, d as EditDetail, 'e'))
+  if (Array.isArray(d.edits)) (d.edits as EditDetail[]).forEach((x, i) => parts.push(editLine(deal, x, 'e' + i)))
+  if (typeof d.version === 'number') parts.push(<span key="ver">version {d.version}</span>)
   if (d.rule_id) parts.push(<b key="r">{String(d.rule_id)}</b>)
   if (d.choice) parts.push(<span key="c">{choiceLabel(d.choice)}</span>)
   const val = (v: unknown) => formatByUnit(v as number | string | boolean | null, unit)

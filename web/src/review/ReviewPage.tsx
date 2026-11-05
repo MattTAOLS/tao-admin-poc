@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
-  Button, Card, FindingCard, SeverityPill, SkeletonBlock, StatePanel, UploadStatusPill, useToast, formatPeriod, type Severity,
+  Button, Card, FindingCard, SeverityPill, StatusPill, SkeletonBlock, StatePanel, UploadStatusPill, useToast, formatPeriod, type Severity,
 } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { access, errorText, reviewApi } from './lib/api'
@@ -10,7 +10,7 @@ import { useMasterNames } from './lib/master'
 import { ruleTitle } from './lib/rules'
 import { findingBoxes, focusBox, getPointer } from './lib/provenance'
 import { formatDateTime, formatMessage, pct, text } from './lib/format'
-import type { Finding, OverrideChoice, Upload } from './lib/types'
+import type { Correction, Finding, OverrideChoice, Upload, ValueEdit, ValueEditResult } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
 import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, WriteEffect } from './components/Dialogs'
@@ -19,6 +19,9 @@ import { isReissueFinding, reissueInfo } from './lib/reissue'
 import { ReissueBanner } from './components/Reissue'
 import { Activity } from './components/Activity'
 import { FindingCountPills } from './QueuePage'
+import { EditProvider, EditValueDialog, RevertDialog, type EditMode, type EditTarget } from './components/EditValue'
+import { CorrectionDialog, CorrectionReview, CorrectionsCard, correctionPath } from './components/Corrections'
+import { editsByPointer, plural, reviewEdits, type EditState } from './lib/edits'
 import './review.css'
 
 const SEVERITIES: Severity[] = ['block', 'review', 'note']
@@ -45,6 +48,25 @@ function Review({ uploadId }: { uploadId: string }) {
   const { dealName, programName } = useMasterNames()
   const replacesId = upload.data?.replaces_upload_id ?? null
   const replaced = useLoad(() => (replacesId ? reviewApi.upload(replacesId) : Promise.resolve(undefined)), [replacesId])
+  // Wave B. A missing route (the API before wave B) reads as "no edits" rather than breaking the page.
+  const edits = useLoad(() => reviewApi.edits(uploadId).catch(() => [] as ValueEdit[]), [uploadId])
+  const published = upload.data?.status === 'published'
+  const corrections = useLoad(() => (published ? reviewApi.uploadCorrections(uploadId).catch(() => [] as Correction[]) : Promise.resolve([] as Correction[])), [uploadId, published])
+  const [params] = useSearchParams()
+  const correctionId = params.get('correction')
+  const [editing, setEditing] = useState<EditTarget | null>(null)
+  const [reverting, setReverting] = useState<{ target: EditTarget; state: EditState } | null>(null)
+  const [correcting, setCorrecting] = useState<{ pointer: string | null } | null>(null)
+  // Memoised so the Extracted values section (hundreds of cells) re-renders only when the edits or the mode change.
+  const states = useMemo(() => editsByPointer(extraction.data, edits.data, corrections.data), [extraction.data, edits.data, corrections.data])
+  const ud = upload.data
+  const mode: EditMode = admin && (ud?.status === 'needs_review' || ud?.status === 'approved') ? 'edit'
+    : admin && ud?.status === 'published' && !ud.replaced_by_upload_id ? 'correct' : 'read'
+  const editCtx = useMemo(() => ({
+    mode, states,
+    onEdit: (t: EditTarget) => (mode === 'correct' ? setCorrecting({ pointer: t.pointer }) : setEditing(t)),
+    onRevert: (target: EditTarget, state: EditState) => setReverting({ target, state }),
+  }), [mode, states])
 
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [override, setOverride] = useState<{ finding: Finding; choice: OverrideChoice } | null>(null)
@@ -58,7 +80,7 @@ function Review({ uploadId }: { uploadId: string }) {
   const reviewable = status === 'needs_review' || status === 'approved'
   const title = u ? `${dealName(u.deal_slug)} · ${formatPeriod(u.collection_period)}` : 'Review report'
 
-  const refresh = () => Promise.all([upload.reload(), findings.reload(), extraction.reload(), admin ? audit.reload() : Promise.resolve()])
+  const refresh = () => Promise.all([upload.reload(), findings.reload(), extraction.reload(), edits.reload(), corrections.reload(), admin ? audit.reload() : Promise.resolve()])
 
   // While a (re-)extraction runs, poll the upload every 2 s; when it settles, reload everything else.
   const active = !!status && (ACTIVE as readonly string[]).includes(status)
@@ -93,6 +115,22 @@ function Review({ uploadId }: { uploadId: string }) {
   const pass = ex?.pass ?? ex?.meta?.pass
   const confidence = ex?.confidence ?? ex?.meta?.confidence
   const reread = ex?.meta?.pages_reread
+  const pending = reviewEdits(edits.data)
+  const editedValues = new Set(pending.map(e => e.pointer)).size
+  const editedPages = new Map<number, number>()
+  for (const s of states.values()) {
+    const pg = s.current.source_page ?? ex?.sources?.[s.pointer]?.page
+    if (typeof pg === 'number' && !s.current.correction_id) editedPages.set(pg, (editedPages.get(pg) ?? 0) + 1)
+  }
+
+  const onEditDone = (verb: 'edited' | 'reverted') => (r: ValueEditResult, t: EditTarget) => {
+    setEditing(null); setReverting(null)
+    upload.setData({ ...u, finding_counts: r.finding_counts })
+    const b = r.finding_counts?.block ?? 0, rv = r.finding_counts?.review ?? 0
+    toast({ tone: 'ok', title: `${t.label} ${verb}`, message: `Rules re-ran. ${b ? plural(b, 'block finding') + ' open' : 'No block findings open'}${rv ? `, ${plural(rv, 'review finding')} open` : ''}.` })
+    findings.reload(); edits.reload(); upload.reload(); if (admin) audit.reload()
+  }
+  const onCorrected = (c: Correction) => { refresh(); toast({ tone: c.status === 'published' ? 'ok' : 'warn', title: c.status === 'published' ? `Published as version ${c.version}` : 'Correction waiting in the approval queue', message: title }) }
 
   const onOverrideDone = (next: Finding[], choice: OverrideChoice) => {
     const f = override!.finding
@@ -149,7 +187,15 @@ function Review({ uploadId }: { uploadId: string }) {
   const suggestedPages = [...new Set(list.filter(f => f.status === 'open' && f.source_page != null).map(f => f.source_page!))].sort((a, b) => a - b)
 
   return (
+    <EditProvider value={editCtx}>
     <div className="rv-page">
+      {correctionId && <CorrectionReview correctionId={correctionId} uploadId={uploadId} ex={ex} title={title} onOpen={setViewer} onChanged={refresh} />}
+      {!correctionId && u.pending_correction_id && (
+        <div className="rv-banner rv-banner--warn" role="note" aria-label="Correction waiting">
+          <p><b>A correction of this report is waiting in the approval queue.</b> The current version stays live until a TAO Admin approves or rejects it.</p>
+          <Link to={correctionPath(u.id, u.pending_correction_id)}>Open the correction</Link>
+        </div>
+      )}
       <ReissueBanner upload={u} dealName={dealName(u.deal_slug)} info={reissue} replacedPublishedAt={replaced.data?.published_at} />
       <Card aria-label="Report" title="Report" subtitle={`${u.file_name}${u.page_count ? ` · ${u.page_count} pages` : ''}`}>
         <dl className="rv-facts">
@@ -160,7 +206,8 @@ function Review({ uploadId }: { uploadId: string }) {
           <div><dt>Extraction</dt><dd>{pass ? `Pass ${pass}` : '—'}<small>{reread && reread.length ? `re-read page${reread.length === 1 ? '' : 's'} ${reread.join(', ')}` : ex?.meta?.template_id ?? ''}</small></dd></div>
           <div><dt>Confidence</dt><dd>{typeof confidence === 'number' ? pct(confidence) : '—'}<small>extraction</small></dd></div>
           <div><dt>Findings</dt><dd><FindingsFact findings={findings.data} counts={u.finding_counts} /></dd></div>
-          {u.published_at && <div><dt>Published</dt><dd>{formatDateTime(u.published_at)}</dd></div>}
+          {u.published_at && <div><dt>Published</dt><dd>{formatDateTime(u.published_at)}{u.published_version != null && <small data-testid="version">Version {u.published_version}</small>}</dd></div>}
+          {editedValues > 0 && <div><dt>Edited values</dt><dd>{editedValues}<small>original kept</small></dd></div>}
           {u.reject_reason && <div><dt>Reject reason</dt><dd>{text(u.reject_reason)}</dd></div>}
         </dl>
       </Card>
@@ -196,18 +243,26 @@ function Review({ uploadId }: { uploadId: string }) {
         <Card title="Extracted values"><div aria-busy="true"><SkeletonBlock lines={6} /></div></Card>
       )}
 
-      {admin && <Activity entries={audit.data ?? []} findings={list} loading={audit.loading} />}
+      {published && <CorrectionsCard upload={u} corrections={corrections.data ?? []} />}
 
-      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
+      {admin && <Activity entries={audit.data ?? []} findings={list} loading={audit.loading} deal={ex?.deal} />}
+
+      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} edited={editedValues} onCorrect={mode === 'correct' ? () => setCorrecting({ pointer: null }) : undefined} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
 
       <PageViewer uploadId={uploadId} target={viewer} pageCount={u.page_count} onClose={() => setViewer(null)} />
       {admin && <>
         <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnersLabel(u)} findings={list} ex={ex} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
-        <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
+        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnersLabel(u)} findings={list} ex={ex} edits={pending} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
+        <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} editedPages={editedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
+        {ex && <EditValueDialog uploadId={uploadId} title={title} ex={ex} findings={list} target={editing} state={editing ? states.get(editing.pointer) : undefined}
+          onClose={() => setEditing(null)} onOpen={setViewer} onDone={onEditDone('edited')} />}
+        {ex && <RevertDialog uploadId={uploadId} ex={ex} target={reverting?.target ?? null} state={reverting?.state} onClose={() => setReverting(null)} onDone={onEditDone('reverted')} />}
+        {mode === 'correct' && <CorrectionDialog upload={u} open={!!correcting} title={title} initialPointer={correcting?.pointer}
+          data={{ ex, findings: list, edits: edits.data ?? [], corrections: corrections.data ?? [] }} onClose={() => setCorrecting(null)} onDone={onCorrected} />}
       </>}
     </div>
+    </EditProvider>
   )
 }
 
@@ -234,14 +289,14 @@ export function partnersLabel(u: Pick<Upload, 'partner_slug' | 'partner_slugs'>)
   return `the ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} portals`
 }
 
-function Footer({ upload: u, admin, openBlocks, onReextract, onReject, onPublish }: {
-  upload: Upload; admin: boolean; openBlocks: number; onReextract: () => void; onReject: () => void; onPublish: () => void
+function Footer({ upload: u, admin, openBlocks, edited, onCorrect, onReextract, onReject, onPublish }: {
+  upload: Upload; admin: boolean; openBlocks: number; edited: number; onCorrect?: () => void; onReextract: () => void; onReject: () => void; onPublish: () => void
 }) {
   const reason = useMemo(() => openBlocks > 0 ? `${openBlocks} block finding${openBlocks === 1 ? ' is' : 's are'} open. Resolve ${openBlocks === 1 ? 'it' : 'them'} before publishing.` : null, [openBlocks])
   let note: ReactNode
   if (u.status === 'received' || u.status === 'extracting') note = 'Extraction is running. This page refreshes every 2 seconds.'
   else if (u.replaced_by_upload_id) note = <>Replaced by a corrected re-issue; partners no longer see this report. <Link to={`/admin/uploads/queue/${u.replaced_by_upload_id}`}>Open the re-issue</Link></>
-  else if (u.status === 'published') note = <>Published {formatDateTime(u.published_at)}. Partners can see it. <Link to="/admin/reports">Reports library</Link></>
+  else if (u.status === 'published') note = <>Published {formatDateTime(u.published_at)}{u.published_version != null && <> as version {u.published_version}</>}. Partners can see it. <Link to="/admin/reports">Reports library</Link></>
   else if (u.status === 'rejected') note = `Rejected${u.reject_reason ? `: ${u.reject_reason}` : ''}.`
   // failure_reason is on the upload for every TAO role; without it (older API) the usual cause stands in.
   else if (u.status === 'extraction_failed') {
@@ -254,13 +309,15 @@ function Footer({ upload: u, admin, openBlocks, onReextract, onReject, onPublish
   const actionable = admin && (u.status === 'needs_review' || u.status === 'approved')
   return (
     <div className="rv-footer" role="region" aria-label="Decision">
-      <span id="rv-publish-reason" className={'rv-footer__note' + (actionable && reason ? ' rv-footer__note--bad' : '')}>{note}</span>
+      <span id="rv-publish-reason" className={'rv-footer__note' + (actionable && reason ? ' rv-footer__note--bad' : '')}>{note}
+        {(u.status === 'needs_review' || u.status === 'approved') && edited > 0 && <StatusPill tone="blue" size="sm" data-testid="edited-count">{plural(edited, 'value')} edited</StatusPill>}</span>
       {actionable && <>
         <Button onClick={onReextract}>Re-extract pages…</Button>
         <Button variant="danger" onClick={onReject}>Reject…</Button>
         <Button variant="primary" onClick={onPublish} disabled={openBlocks > 0} aria-describedby="rv-publish-reason">Publish to partner…</Button>
       </>}
       {admin && u.status === 'extraction_failed' && <Button variant="danger" onClick={onReject}>Reject…</Button>}
+      {onCorrect && <Button onClick={onCorrect} disabled={!!u.pending_correction_id}>Correct a value…</Button>}
     </div>
   )
 }

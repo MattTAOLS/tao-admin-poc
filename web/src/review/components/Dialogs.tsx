@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Dialog, Field, Textarea, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
 import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
-import type { ApiError, Extraction, Finding, OverrideChoice, Upload } from '../lib/types'
+import type { ApiError, Extraction, Finding, OverrideChoice, Upload, ValueEdit } from '../lib/types'
+import { EditsTable } from './Corrections'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
 import { isReissueFinding, type ReissueInfo } from '../lib/reissue'
 import { formatDateTime, formatMessage } from '../lib/format'
@@ -137,8 +138,10 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
   )
 }
 
-export function PublishDialog({ upload, open, title, partner, findings, ex, reissue, replacedPublishedAt, onClose, onDone, onGoTo }: {
+export function PublishDialog({ upload, open, title, partner, findings, ex, edits = [], reissue, replacedPublishedAt, onClose, onDone, onGoTo }: {
   upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; ex?: Extraction
+  /** Value edits in force from review (not reverted, not part of a correction): publishing writes each one. */
+  edits?: ValueEdit[]
   reissue?: ReissueInfo | null; replacedPublishedAt?: string | null
   onClose: () => void; onDone: (u: Upload) => void; onGoTo: (findingId: string) => void
 }) {
@@ -163,7 +166,7 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, reis
     return f ? <Button key={id} size="sm" onClick={() => onGoTo(id)}>Go to {f.rule_id}</Button> : null
   }
   return (
-    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size={changes.length > 0 || err ? 'lg' : 'md'}
+    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size={changes.length > 0 || edits.length > 0 || err ? 'lg' : 'md'}
       description={`${title} goes to ${partner}. Partner portals show it straight away and the program roll-up regenerates.`}
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Approve and publish</Button></>}>
       <ul className="rv-summary">
@@ -176,7 +179,15 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, reis
         <li>{resolved} finding{resolved === 1 ? '' : 's'} resolved with a reason</li>
         {openReview > 0 && <li>{openReview} review finding{openReview === 1 ? '' : 's'} still open: publishing accepts {openReview === 1 ? 'it' : 'them'} as shown</li>}
         {openNotes > 0 && <li>{openNotes} note{openNotes === 1 ? '' : 's'} (information only)</li>}
+        {edits.length > 0 && <li>{edits.length} value edit{edits.length === 1 ? '' : 's'} by hand, listed below</li>}
       </ul>
+      {edits.length > 0 && (
+        <div className="rv-corrections" data-testid="publish-edits">
+          <h3 className="rv-section__title">Values edited by hand</h3>
+          <EditsTable ex={ex} edits={edits} caption="Values edited by hand" />
+          <p className="rv-hint">Publishing writes each edited value and records it in the deal&rsquo;s data corrections as a manual change.</p>
+        </div>
+      )}
       {changes.length > 0 ? (
         <div className="rv-corrections">
           <h3 className="rv-section__title">Corrections publishing writes</h3>
@@ -197,9 +208,9 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, reis
           </div>
           <p className="rv-hint">Recorded in the deal&rsquo;s data corrections. The rules re-run on the corrected deal before anything is published.</p>
         </div>
-      ) : (
+      ) : edits.length === 0 ? (
         <p className="rv-hint">No values change: the published deal is the extraction as shown.</p>
-      )}
+      ) : null}
       {unchanged.length > 0 && <p className="rv-hint">{unchanged.map(id => byId(id)?.rule_id).join(', ')}: the chosen value is already the extracted one, so nothing is written.</p>}
       {err && <PublishError err={err} findings={findings} ex={ex} goTo={goTo} />}
     </Dialog>
@@ -240,8 +251,10 @@ function PublishError({ err, findings, ex, goTo }: { err: ApiError; findings: Fi
   return <div className="rv-dialog-error" role="alert">{errorText(err)}</div>
 }
 
-export function ReextractDialog({ upload, open, suggested, onClose, onDone }: {
+export function ReextractDialog({ upload, open, suggested, editedPages, onClose, onDone }: {
   upload: Upload; open: boolean; suggested: number[]; onClose: () => void; onDone: (u: Upload) => void
+  /** Edited values in force, by page: re-extracting such a page keeps the edit (D1 note 5). */
+  editedPages?: Map<number, number>
 }) {
   const [pages, setPages] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -268,6 +281,10 @@ export function ReextractDialog({ upload, open, suggested, onClose, onDone }: {
           ))}
         </div>
       </fieldset>
+      {[...pages].sort((a, b) => a - b).filter(n => editedPages?.get(n)).map(n => {
+        const k = editedPages!.get(n)!
+        return <p key={n} className="rv-hint rv-warnline" data-testid="reextract-edited">Page {n} has {k} edited value{k === 1 ? '' : 's'}. The edit is kept and applied over the new extraction; check it after the second pass.</p>
+      })}
       {err && <div className="rv-dialog-error" role="alert">{err}</div>}
     </Dialog>
   )

@@ -2,7 +2,9 @@
  * from apiBlob and are shown through object URLs. */
 import { api, apiBlob, API_BASE, roleHeaders } from '@/shell/api'
 import { loadRole, type Role } from '@/shell/roles'
-import type { AuditEntry, Deal, Extraction, Finding, OverrideChoice, Program, Upload } from './types'
+import type {
+  AuditEntry, Correction, CorrectionDetail, CorrectionRequest, CorrectionStatus, Deal, Extraction, Finding, OverrideChoice, Program, Upload, ValueEdit, ValueEditResult,
+} from './types'
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
@@ -25,6 +27,21 @@ export const reviewApi = {
   deals: () => api<Deal[]>('/master/deals'),
   programs: () => api<Program[]>('/master/programs'),
   audit: (uploadId: string) => api<AuditEntry[]>(`/audit?upload_id=${encodeURIComponent(uploadId)}`),
+  // Wave B: value edits while in review, and corrections after publish (contracts/openapi.yaml).
+  edits: (id: string) => api<ValueEdit[]>(`/uploads/${id}/edits`),
+  editValue: (id: string, pointer: string, value: number, reason: string) =>
+    api<ValueEditResult>(`/uploads/${id}/edits`, json({ pointer, value, reason })),
+  revertEdit: (id: string, editId: string, reason: string) =>
+    api<ValueEditResult>(`/uploads/${id}/edits/${editId}/revert`, json({ reason })),
+  uploadCorrections: (id: string) => api<Correction[]>(`/uploads/${id}/corrections`),
+  correct: (id: string, body: CorrectionRequest) => api<Correction>(`/uploads/${id}/corrections`, json(body)),
+  corrections: (status?: CorrectionStatus) => api<Correction[]>('/corrections' + (status ? `?status=${status}` : '')),
+  correction: (cid: string) => api<CorrectionDetail>(`/corrections/${cid}`),
+  /** Restatement or acknowledge only (use_ours / use_report → 409 bad_choice). The response shape is open; the view reloads. */
+  overrideCorrectionFinding: (cid: string, findingId: string, choice: 'restatement' | 'acknowledge', reason: string) =>
+    api<unknown>(`/corrections/${cid}/findings/${findingId}/override`, json({ choice, reason })),
+  approveCorrection: (cid: string) => api<Correction>(`/corrections/${cid}/approve`, { method: 'POST' }),
+  rejectCorrection: (cid: string, reason: string) => api<Correction>(`/corrections/${cid}/reject`, json({ reason })),
   regenerate: (programSlug?: string) =>
     api<{ queued?: boolean; programs?: string[]; publications?: number } | undefined>('/published/regenerate', json(programSlug ? { program_slug: programSlug } : {})),
 }
@@ -70,6 +87,10 @@ export function errorText(e: unknown): string {
     case 'correction_inconsistent': return 'Writing the corrections makes another rule fail, so nothing was published. Use report or re-extract instead.'
     case 'bad_state': return err.message || 'The report is not in a state that allows this action. Reload the page.'
     case 'not_open': return 'That finding was already resolved. The list has been refreshed.'
+    case 'already_reverted': return 'That edit was already reverted. The list has been refreshed.'
+    case 'correction_pending': return 'A correction of this report is already waiting in the approval queue. Approve or reject it first.'
+    case 'bad_choice': return 'A correction\'s values are its edits, so only Accept as restatement or Acknowledge apply here.'
+    case 'invalid': return err.message || 'The API could not find that value, or it is not a number.'
     case 'admin_only': case 'tao_only': return 'Your role cannot do this. Only a TAO admin can.'
   }
   if (err?.status === 403) return 'Your role cannot do this. Only a TAO admin can.'
