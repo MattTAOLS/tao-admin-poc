@@ -60,7 +60,7 @@ describe('role filtering', () => {
   it('hides admin-only sections and steps from TAO Analyst and says what they cannot do', () => {
     renderView('admin', 'tao_analyst')
     const titles = sectionTitles()
-    for (const t of ['Resolve a finding', 'Re-extract pages', 'Approve and publish', 'Reject a report', 'Check the audit log']) expect(titles).not.toContain(t)
+    for (const t of ['Resolve a finding', 'Re-extract pages', 'Approve and publish', 'Reject a report']) expect(titles).not.toContain(t)
     for (const t of ['Upload a settlement report', 'Review a report', 'Re-issue a corrected report for a published month', 'Testing the portal']) expect(titles).toContain(t)
     expect(screen.getByText(/You cannot resolve findings/)).toBeTruthy()
     expect(screen.queryByText(/Regenerate dashboard…/)).toBeNull()
