@@ -37,3 +37,21 @@ def test_partner_roles_blocked_from_intake(method, path, h): assert c.request(me
 
 @pytest.mark.parametrize("method,path", ADMIN_ONLY)
 def test_analyst_blocked_from_admin_routes(method, path): assert c.request(method, path, headers=ANALYST).status_code == 403
+
+# ---- wave B: value edits, corrections, covenant history. tao_admin writes; tao_analyst reads the GETs; partners get 403 ----
+E = U + "/edits"
+K = "/api/v1/corrections/00000000-0000-4000-8000-000000000002"
+WAVE_B_READS = [("get", E), ("get", U + "/corrections"), ("get", "/api/v1/corrections"), ("get", "/api/v1/corrections?status=needs_review"),
+                ("get", K), ("get", "/api/v1/master/covenants?include_history=true")]
+WAVE_B_WRITES = [("post", E), ("post", E + "/00000000-0000-4000-8000-000000000003/revert"), ("post", U + "/corrections"),
+                 ("post", K + "/approve"), ("post", K + "/reject")]
+
+@pytest.mark.parametrize("method,path", WAVE_B_READS + WAVE_B_WRITES)
+@pytest.mark.parametrize("h", [INV, MGR, {"X-Role": "investor_admin", "X-Partner": "investor"}, {"X-Role": "manager_viewer", "X-Partner": "manager"}])
+def test_partner_roles_blocked_from_wave_b(method, path, h): assert c.request(method, path, headers=h).status_code == 403
+
+@pytest.mark.parametrize("method,path", WAVE_B_WRITES)
+def test_analyst_blocked_from_wave_b_writes(method, path): assert c.request(method, path, headers=ANALYST).status_code == 403
+
+@pytest.mark.parametrize("method,path", WAVE_B_READS)
+def test_analyst_reads_wave_b(method, path): assert c.request(method, path, headers=ANALYST).status_code in (200, 404)

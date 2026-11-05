@@ -1,7 +1,7 @@
 """SQLAlchemy models for db/migrations/001_init.sql (+ 002). Column names match the SQL exactly so the same
 models run against PostgreSQL (compose) and SQLite (tests)."""
 import uuid, datetime as dt
-from sqlalchemy import String, Text, Integer, Numeric, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text, func
+from sqlalchemy import String, Text, Integer, Float, Numeric, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -78,6 +78,11 @@ class CovenantDefinition(Base):
     unit: Mapped[str | None] = mapped_column(Text, nullable=True)            # 004: fraction | ratio | currency
     source: Mapped[str | None] = mapped_column(Text, nullable=True)
     superseded_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # 007
+    # 009: seed rows may be superseded by a later seed run, ui rows never (risk R11); a correction points at the row it replaced
+    origin: Mapped[str] = mapped_column(Text, default="seed", server_default=text("'seed'"))
+    supersedes_id: Mapped[str | None] = mapped_column(Id, ForeignKey("covenant_definition.id"), nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    change_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class SetrepUpload(Base):
@@ -160,3 +165,67 @@ class Publication(Base):
     published_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     deal: Mapped[dict] = mapped_column(Json)
     rollup_version: Mapped[int] = mapped_column(Integer, default=1)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))                  # 009
+    correction_id: Mapped[str | None] = mapped_column(Id, nullable=True)
+    version_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PublicationVersion(Base):
+    """009: an earlier version of a publication, copied here before the publication is overwritten."""
+    __tablename__ = "publication_version"
+    __table_args__ = (UniqueConstraint("publication_id", "version"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    publication_id: Mapped[str] = mapped_column(Id, ForeignKey("publication.id"))
+    version: Mapped[int] = mapped_column(Integer)
+    upload_id: Mapped[str] = mapped_column(Id, ForeignKey("setrep_upload.id"))
+    deal: Mapped[dict] = mapped_column(Json)
+    published_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    published_by: Mapped[str] = mapped_column(Text)
+    correction_id: Mapped[str | None] = mapped_column(Id, nullable=True)
+    version_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archived_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+PENDING = "status = 'needs_review'"
+
+
+class Correction(Base):
+    """009: a change to a published report without a new PDF. `deal` is the corrected deal object."""
+    __tablename__ = "correction"
+    __table_args__ = (Index("correction_status", "status"),
+                      Index("correction_one_pending", "upload_id", unique=True, sqlite_where=text(PENDING), postgresql_where=text(PENDING)))
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    upload_id: Mapped[str] = mapped_column(Id, ForeignKey("setrep_upload.id"))
+    publication_id: Mapped[str] = mapped_column(Id, ForeignKey("publication.id"))
+    status: Mapped[str] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(Text)
+    note_to_partners: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deal: Mapped[dict] = mapped_column(Json)
+    findings: Mapped[list | None] = mapped_column(Json, nullable=True)
+    finding_counts: Mapped[dict | None] = mapped_column(Json, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    created_by: Mapped[str] = mapped_column(Text)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ValueEdit(Base):
+    """009: one TAO Admin change to an extracted number. Review edits have no correction_id; a correction's edits do."""
+    __tablename__ = "value_edit"
+    __table_args__ = (Index("value_edit_upload", "upload_id"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    upload_id: Mapped[str] = mapped_column(Id, ForeignKey("setrep_upload.id"))
+    correction_id: Mapped[str | None] = mapped_column(Id, ForeignKey("correction.id"), nullable=True)
+    pointer: Mapped[str] = mapped_column(Text)
+    old_value: Mapped[float] = mapped_column(Float)
+    new_value: Mapped[float] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text)
+    source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actor_role: Mapped[str] = mapped_column(Text)
+    actor_label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    reverted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reverted_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    revert_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

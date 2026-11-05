@@ -2,20 +2,21 @@
 Role gates: `caller` resolves the role; intake routes call tao_only / admin_only first, before touching data.
 Partner tenancy: every /published/* route takes `partner_filter` as a dependency and asks `visible_programs`
 which programs it may read. Those two functions are the only place partner scoping happens."""
-import contextlib, datetime as dt, enum, io, json, re, logging
+import contextlib, copy, datetime as dt, enum, io, json, re, logging
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from typing import Literal
+from typing import Annotated, Literal
 from .auth import caller, tao_only, admin_only, Caller
 from .db import get_db, file_store, engine
 from .jobs import get_queue
-from .models import Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication, new_id, utcnow
+from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
+                     PublicationVersion, Correction, ValueEdit, new_id, utcnow)
 from . import views, review, rollup, pdf, migrate, auditlog
 
 log = logging.getLogger("api")
@@ -242,17 +243,22 @@ def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depe
     ex = views.latest_extraction(s, u.id)
     if ex is None:
         raise err(409, "no_extraction", "nothing extracted to approve")
+    edits = review.active_edits(s, u.id)
+    if edits:                       # findings must reflect the edits, also over a pass-2 extraction that came after them
+        review.rerun(s, u, ex)
+        s.commit()
     blocks = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.severity == "block", Finding.status == "open")).all()
     if blocks:
         raise err(409, "open_block_findings", f"{len(blocks)} block finding(s) still open: {', '.join(sorted({b.rule_id for b in blocks}))}")
     resolved = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.resolution.is_not(None)).order_by(Finding.created_at)).all()
     overrides = [f.id for f in resolved]
     try:
-        published_deal, corrections = review.apply_overrides(ex.deal, resolved, u.collection_period)
+        published_deal, corrections = review.apply_overrides(review.apply_edits(ex.deal, edits), resolved, u.collection_period, manual=edits)
     except review.CorrectionConflict as e:
         raise HTTPException(409, {"code": "conflicting_corrections", "message": "resolved findings write different values to the "
                                   "same field: " + "; ".join(f"{x['pointer']} ({'/'.join(x['rule_ids'])})" for x in e.conflicts),
                                   "conflicts": e.conflicts})
+    published_deal, manual = review.manual_corrections(ex.deal, published_deal, edits, u.collection_period)
     if any(x.get("applied") is not False for x in corrections):
         stored = s.scalars(select(Finding).where(Finding.extraction_id == ex.id)).all()
         knock_on = review.new_blocks_after_corrections(s, u, ex, published_deal, stored)
@@ -262,21 +268,280 @@ def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depe
                                       "use report or re-extract instead", "findings": knock_on})
     u.status = "approved"
     views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides,
-                                                          "corrections": corrections})
+                                                          "corrections": corrections, "value_edits": manual})
     pub = s.scalars(select(Publication).where(Publication.deal_slug == u.deal_slug, Publication.collection_period == u.collection_period)).first()
     replaced = pub.upload_id if pub else None
     if pub is None:
         pub = Publication(upload_id=u.id, deal_slug=u.deal_slug, collection_period=u.collection_period, published_by=c.role, deal=published_deal)
         s.add(pub)
-    else:                                                     # R12 replace: same (deal, period), new upload
+    else:                                                     # R12 replace: same (deal, period), new upload, next version
+        archive_publication(s, pub)
         pub.upload_id, pub.published_by, pub.published_at, pub.deal = u.id, c.role, utcnow(), published_deal
+        pub.version, pub.correction_id, pub.version_reason = (pub.version or 1) + 1, None, "corrected re-issue"
         pub.rollup_version += 1
+    s.flush()
     u.status = "published"
-    views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced})
+    views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced,
+                                                         "version": pub.version})
     program_slug = s.get(Deal, u.deal_slug).program_slug
     views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": program_slug, "trigger": "approve"})
     s.commit()
     return views.upload_dict(s, u)
+
+
+def archive_publication(s: Session, pub: Publication) -> None:
+    """Copy the live version to publication_version before the publication is overwritten (re-issue or correction)."""
+    s.add(PublicationVersion(publication_id=pub.id, version=pub.version or 1, upload_id=pub.upload_id, deal=copy.deepcopy(pub.deal),
+                             published_at=pub.published_at, published_by=pub.published_by, correction_id=pub.correction_id,
+                             version_reason=pub.version_reason))
+
+
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=10)]
+
+
+# ---- value edits while in review (wave B) ----
+class ValueEditRequest(BaseModel):
+    pointer: str
+    value: float
+    reason: Reason
+
+
+class RevertRequest(BaseModel):
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
+
+
+EDITABLE = ("needs_review", "approved")
+
+
+def _edit_result(s: Session, u: SetrepUpload, e: ValueEdit, ex: Extraction) -> dict:
+    findings = review.rerun(s, u, ex)
+    return {"edit": views.value_edit_dict(e), "finding_counts": review.finding_counts(findings)}
+
+
+def _editable(s: Session, upload_id: str) -> tuple[SetrepUpload, Extraction]:
+    u = get_upload_or_404(s, upload_id)
+    if u.status not in EDITABLE:
+        hint = "; a published report takes a correction" if u.status == "published" else ""
+        raise err(409, "bad_state", f"upload is {u.status}; values can be edited only in needs_review or approved{hint}")
+    ex = views.latest_extraction(s, u.id)
+    if ex is None:
+        raise err(409, "bad_state", "nothing extracted to edit")
+    return u, ex
+
+
+@app.get(API + "/uploads/{upload_id}/edits")
+def list_edits(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    tao_only(c)
+    u = get_upload_or_404(s, upload_id)
+    rows = s.scalars(select(ValueEdit).where(ValueEdit.upload_id == u.id).order_by(ValueEdit.at.desc(), ValueEdit.id.desc())).all()
+    return [views.value_edit_dict(e) for e in rows]
+
+
+@app.post(API + "/uploads/{upload_id}/edits")
+def create_edit(upload_id: str, body: ValueEditRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """One extracted number changed while in review. The extraction row is not touched; the edit is stored beside it,
+    the rules re-run with every edit in force, and the value_edit audit entry names any use_ours / use_report the edit replaces."""
+    admin_only(c)
+    u, ex = _editable(s, upload_id)
+    edits = review.active_edits(s, u.id)
+    current = review.apply_edits(ex.deal, edits)
+    why = review.check_number_edit(current, body.pointer, body.value)
+    if why:
+        raise err(422, "invalid", why)
+    _, old = review.value_at(current, body.pointer)
+    src = (ex.sources or {}).get(body.pointer) or {}
+    e = ValueEdit(upload_id=u.id, pointer=body.pointer, old_value=float(old), new_value=body.value, reason=body.reason,
+                  source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role, actor_label=c.role, at=utcnow())
+    s.add(e); s.flush()
+    replaced = [f.id for f in s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.status == "overridden")).all()
+                if (f.resolution or {}).get("choice") in review.VALUE_CHOICES and body.pointer in (f.targets or [])]
+    views.audit(s, c, "value_edit", upload_id=u.id, reason=body.reason,
+                detail={"edit_id": e.id, "pointer": e.pointer, "old_value": e.old_value, "new_value": e.new_value, "source_page": e.source_page,
+                        "replaces_edit_id": edits[body.pointer].id if body.pointer in edits else None, "replaces_override_finding_ids": replaced})
+    out = _edit_result(s, u, e, ex)
+    s.commit()
+    return out
+
+
+@app.post(API + "/uploads/{upload_id}/edits/{edit_id}/revert")
+def revert_edit(upload_id: str, edit_id: str, body: RevertRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    admin_only(c)
+    u = get_upload_or_404(s, upload_id)
+    e = s.get(ValueEdit, edit_id) if _is_uuid(edit_id) else None
+    if e is None or e.upload_id != u.id or e.correction_id is not None:
+        raise err(404, "not_found", "no such value edit on this upload")
+    u, ex = _editable(s, upload_id)
+    if e.reverted_at is not None:
+        raise err(409, "already_reverted", f"edit was reverted at {views.iso(e.reverted_at)}")
+    e.reverted_at, e.reverted_by, e.revert_reason = utcnow(), c.role, body.reason
+    s.flush()
+    now = review.active_edits(s, u.id).get(e.pointer)
+    _, value_now = review.value_at(review.apply_edits(ex.deal, review.active_edits(s, u.id)), e.pointer)
+    views.audit(s, c, "value_edit_revert", upload_id=u.id, reason=body.reason,
+                detail={"edit_id": e.id, "pointer": e.pointer, "reverted_value": e.new_value, "value_now": value_now,
+                        "edit_in_force_id": now.id if now else None})
+    out = _edit_result(s, u, e, ex)
+    s.commit()
+    return out
+
+
+# ---- corrections after publish (wave B) ----
+class CorrectionEditIn(BaseModel):
+    pointer: str
+    value: float
+
+
+class CorrectionRequest(BaseModel):
+    edits: list[CorrectionEditIn] = Field(min_length=1)
+    reason: Reason
+    note_to_partners: str | None = Field(default=None, max_length=2000)
+
+
+def _correction_or_404(s: Session, correction_id: str) -> Correction:
+    k = s.get(Correction, correction_id) if _is_uuid(correction_id) else None
+    if k is None:
+        raise err(404, "not_found", "no such correction")
+    return k
+
+
+def _rerun_open_reviews(s: Session, deal_slug: str, after_period: str | None = None) -> list[str]:
+    """Re-run the rules on the deal's uploads in needs_review (optionally only later periods); returns their ids."""
+    q = select(SetrepUpload).where(SetrepUpload.deal_slug == deal_slug, SetrepUpload.status == "needs_review")
+    if after_period:
+        q = q.where(SetrepUpload.collection_period > after_period)
+    ids = []
+    for u in s.scalars(q.order_by(SetrepUpload.collection_period, SetrepUpload.uploaded_at)).all():
+        ex = views.latest_extraction(s, u.id)
+        if ex is not None:
+            review.rerun(s, u, ex)
+            ids.append(u.id)
+    return ids
+
+
+def _publish_correction(s: Session, c: Caller, k: Correction, u: SetrepUpload, pub: Publication) -> None:
+    """Version n+1 goes live: the old version is archived, the corrected deal published, the roll-up regenerated, and later
+    months still in review re-run, since their prior changed (risk R4)."""
+    archive_publication(s, pub)
+    pub.deal, pub.published_by, pub.published_at = copy.deepcopy(k.deal), c.role, utcnow()
+    pub.version, pub.correction_id, pub.version_reason = k.version, k.id, k.reason
+    pub.rollup_version += 1
+    k.status, k.decided_at, k.decided_by = "published", utcnow(), c.role
+    s.flush()
+    rerun = _rerun_open_reviews(s, u.deal_slug, after_period=u.collection_period)
+    views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "version": k.version,
+                                                         "correction_id": k.id, "rerun_upload_ids": rerun})
+    views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": s.get(Deal, u.deal_slug).program_slug, "trigger": "correction"})
+
+
+@app.get(API + "/uploads/{upload_id}/corrections")
+def list_upload_corrections(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    tao_only(c)
+    u = get_upload_or_404(s, upload_id)
+    rows = s.scalars(select(Correction).where(Correction.upload_id == u.id).order_by(Correction.created_at.desc(), Correction.version.desc())).all()
+    return [views.correction_dict(s, k) for k in rows]
+
+
+@app.post(API + "/uploads/{upload_id}/corrections")
+def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """Correct values of a published report without a new PDF. The edits apply to the live published deal and the rules
+    re-run on it. No open block finding: published at once as the next version. Otherwise it waits in the approval queue
+    (decision B1) and the live version stays until approve or reject."""
+    admin_only(c)
+    u = get_upload_or_404(s, upload_id)
+    pub = s.scalars(select(Publication).where(Publication.upload_id == u.id)).first()
+    if u.status != "published" or pub is None:
+        why = "it was replaced by a re-issue" if u.status == "published" else f"it is {u.status}"
+        raise err(409, "bad_state", f"only the live publication of a report can be corrected; {why}")
+    if s.scalars(select(Correction.id).where(Correction.upload_id == u.id, Correction.status == "needs_review")).first():
+        raise err(409, "correction_pending", "a correction of this report is already waiting for approval")
+    pointers = [e.pointer for e in body.edits]
+    if len(set(pointers)) != len(pointers):
+        raise err(422, "invalid", "each pointer may appear once")
+    deal = copy.deepcopy(pub.deal)
+    olds = {}
+    for e in body.edits:
+        why = review.check_number_edit(deal, e.pointer, e.value)
+        if why:
+            raise err(422, "invalid", why)
+        _, olds[e.pointer] = review.value_at(deal, e.pointer)
+    version = (pub.version or 1) + 1
+    k = Correction(id=new_id(), upload_id=u.id, publication_id=pub.id, status="needs_review", version=version, reason=body.reason,
+                   note_to_partners=body.note_to_partners, deal={}, created_by=c.role, created_at=utcnow())
+    s.add(k); s.flush()
+    ex = views.latest_extraction(s, u.id)
+    rows = []
+    for i, e in enumerate(body.edits):
+        box, key = review._walk(deal, e.pointer)
+        box[key] = review.typed(olds[e.pointer], e.value)
+        src = ((ex.sources if ex else None) or {}).get(e.pointer) or {}
+        s.add(ValueEdit(upload_id=u.id, correction_id=k.id, pointer=e.pointer, old_value=float(olds[e.pointer]), new_value=e.value,
+                        reason=body.reason, source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role,
+                        actor_label=c.role, at=k.created_at + dt.timedelta(microseconds=i)))
+        rows.append(review.correction_entry(e.pointer, u.collection_period, olds[e.pointer], box[key], body.reason,
+                                            correction_id=k.id, version=version, by=c.role))
+    deal["data_corrections"] = list(deal.get("data_corrections") or []) + rows
+    k.deal = deal
+    k.findings = review.correction_findings(s, u, deal)
+    k.finding_counts = review.finding_counts(k.findings)
+    s.flush()
+    views.audit(s, c, "correction", upload_id=u.id, reason=body.reason,
+                detail={"correction_id": k.id, "version": version, "edits": [{"pointer": r_.pointer, "old_value": olds[r_.pointer], "new_value": r_.value}
+                                                                             for r_ in body.edits],
+                        "finding_counts": k.finding_counts, "queued": k.finding_counts["block"] > 0, "note_to_partners": body.note_to_partners})
+    if k.finding_counts["block"] == 0:
+        _publish_correction(s, c, k, u, pub)
+    s.commit()
+    return views.correction_dict(s, k)
+
+
+@app.get(API + "/corrections")
+def list_corrections(status: Literal["needs_review", "published", "rejected"] | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    tao_only(c)
+    q = select(Correction)
+    if status:
+        q = q.where(Correction.status == status)
+    return [views.correction_dict(s, k) for k in s.scalars(q.order_by(Correction.created_at.desc(), Correction.version.desc())).all()]
+
+
+@app.get(API + "/corrections/{correction_id}")
+def get_correction(correction_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    tao_only(c)
+    return views.correction_dict(s, _correction_or_404(s, correction_id), findings=True)
+
+
+@app.post(API + "/corrections/{correction_id}/approve")
+def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """The rules re-run first (the master data or the prior month may have changed since); still a block open: 409."""
+    admin_only(c)
+    k = _correction_or_404(s, correction_id)
+    if k.status != "needs_review":
+        raise err(409, "bad_state", f"correction is {k.status}")
+    u = s.get(SetrepUpload, k.upload_id)
+    pub = s.get(Publication, k.publication_id)
+    if pub is None or pub.upload_id != u.id or (pub.version or 1) != k.version - 1:
+        raise err(409, "bad_state", "the publication changed since this correction was made (a re-issue or another version); reject it and correct again")
+    k.findings = review.correction_findings(s, u, k.deal)
+    k.finding_counts = review.finding_counts(k.findings)
+    if k.finding_counts["block"]:
+        s.commit()
+        blocks = sorted({f["rule_id"] for f in k.findings if f["severity"] == "block" and f["status"] == "open"})
+        raise err(409, "open_block_findings", f"{k.finding_counts['block']} block finding(s) still open: {', '.join(blocks)}")
+    views.audit(s, c, "correction_approve", upload_id=u.id, detail={"correction_id": k.id, "version": k.version})
+    _publish_correction(s, c, k, u, pub)
+    s.commit()
+    return views.correction_dict(s, k)
+
+
+@app.post(API + "/corrections/{correction_id}/reject")
+def reject_correction(correction_id: str, body: RejectRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    admin_only(c)
+    k = _correction_or_404(s, correction_id)
+    if k.status != "needs_review":
+        raise err(409, "bad_state", f"correction is {k.status}")
+    k.status, k.decided_at, k.decided_by, k.reject_reason = "rejected", utcnow(), c.role, body.reason
+    views.audit(s, c, "correction_reject", upload_id=k.upload_id, reason=body.reason, detail={"correction_id": k.id, "version": k.version})
+    s.commit()
+    return views.correction_dict(s, k)
 
 
 @app.post(API + "/uploads/{upload_id}/reject")
@@ -346,7 +611,10 @@ class ThresholdRule(BaseModel):
 
 
 class CovenantIn(BaseModel):
-    id: str | None = Field(default=None, description="omit to add a new definition (a new version when effective_from differs)")
+    """Body of PUT /master/covenants (contract CovenantChange). Read-only fields a client echoes back are ignored."""
+    id: str | None = Field(default=None, description="mode=correct: the current row; omitted otherwise")
+    mode: Literal["new_version", "correct", "add"]
+    reason: Reason
     deal_slug: str
     legal_ref: str
     description: str
@@ -424,31 +692,59 @@ def put_deal(body: DealIn, c: Caller = Depends(admin_caller), s: Session = Depen
 
 
 @app.get(API + "/master/covenants")
-def covenants(deal_slug: str | None = None, as_of: dt.date | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+def covenants(deal_slug: str | None = None, as_of: dt.date | None = None, include_history: bool = False,
+              c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
-    return [views.covenant_dict(r) for r in views.covenants_as_of(s, deal_slug, as_of)]
+    return [views.covenant_dict(r) for r in views.covenants_as_of(s, deal_slug, as_of, include_history)]
 
 
 @app.put(API + "/master/covenants")
 def put_covenant(body: CovenantIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """Never updates a row in place (risk R5). correct: supersede the current row, insert its replacement (same effective_from,
+    supersedes_id). new_version: insert a later effective_from. add: a legal_ref new to the deal. Writes a master_change entry
+    with before / after and the reason, then re-runs the rules on the deal's uploads in needs_review."""
     admin_only(c)
     if s.get(Deal, body.deal_slug) is None:
         raise err(422, "unknown_deal", f"no deal {body.deal_slug}")
     # threshold and threshold_rule may both be null: e.g. Stride SLFA 9.1 (g) CNL, whose limit is set per vintage
-    if body.id is not None and not _is_uuid(body.id):
-        raise err(422, "invalid", "id must be a uuid")
-    row = s.get(CovenantDefinition, body.id) if body.id else None
-    before = views.covenant_dict(row) if row else None
-    if row is None:
-        row = CovenantDefinition(id=body.id or new_id()); s.add(row)
-    data = body.model_dump(exclude={"id"})
-    data["threshold_rule"] = body.threshold_rule.model_dump(exclude_none=True) if body.threshold_rule else None
-    for k, v in data.items():
-        setattr(row, k, v)
+    current = s.scalars(select(CovenantDefinition).where(CovenantDefinition.deal_slug == body.deal_slug, CovenantDefinition.legal_ref == body.legal_ref,
+                                                         CovenantDefinition.superseded_at.is_(None))
+                        .order_by(CovenantDefinition.effective_from)).all()
+    superseded, before = None, None
+    if body.mode == "correct":
+        if not body.id or not _is_uuid(body.id):
+            raise err(422, "invalid", "mode=correct needs the id of the current row")
+        old = s.get(CovenantDefinition, body.id)
+        if old is None:
+            raise err(404, "not_found", "no such covenant definition")
+        if old.superseded_at is not None:
+            raise err(409, "not_current", f"that row was superseded at {views.iso(old.superseded_at)}; correct the current one")
+        if (old.deal_slug, old.legal_ref) != (body.deal_slug, body.legal_ref):
+            raise err(422, "invalid", "deal and legal reference are fixed on a correction; add a new covenant instead")
+        if old.effective_from != body.effective_from:
+            raise err(422, "invalid", f"a correction keeps effective_from {old.effective_from.isoformat()}; use mode=new_version for a later date")
+        before, superseded = views.covenant_dict(old), old.id
+        old.superseded_at = utcnow()
+    elif body.mode == "new_version":
+        if not current:
+            raise err(422, "invalid", f"{body.deal_slug} has no {body.legal_ref} yet; use mode=add")
+        latest = current[-1]
+        if body.effective_from <= latest.effective_from:
+            raise err(409, "effective_not_later", f"effective_from must be later than {latest.effective_from.isoformat()}, the current version's")
+        before = views.covenant_dict(latest)
+    elif current:
+        raise err(409, "exists", f"{body.deal_slug} already has {body.legal_ref}; edit it with new_version or correct")
     s.flush()
-    _master_change(s, c, "covenant_definition", row.id, before, views.covenant_dict(row))
+    data = body.model_dump(exclude={"id", "mode", "reason"})
+    data["threshold_rule"] = body.threshold_rule.model_dump(exclude_none=True) if body.threshold_rule else None
+    row = CovenantDefinition(id=new_id(), origin="ui", supersedes_id=superseded, changed_by=c.role, change_reason=body.reason, **data)
+    s.add(row); s.flush()
+    views.audit(s, c, "master_change", reason=body.reason,
+                detail={"entity": "covenant_definition", "key": row.id, "mode": body.mode, "deal_slug": body.deal_slug, "legal_ref": body.legal_ref,
+                        "superseded_id": superseded, "before": before, "after": views.covenant_dict(row)})
+    rerun = _rerun_open_reviews(s, body.deal_slug)
     s.commit()
-    return views.covenant_dict(row)
+    return {"definition": views.covenant_dict(row), "superseded_id": superseded, "rerun_upload_ids": rerun}
 
 
 # ---- published views (all roles, partner-filtered) ----
@@ -524,7 +820,8 @@ def published_program(program_slug: str, period: str | None = None, partner: str
 
 
 @app.get(API + "/published/programs/{program_slug}/deals/{deal_slug}")
-def published_deal(program_slug: str, deal_slug: str, period: str | None = None, partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+def published_deal(program_slug: str, deal_slug: str, period: str | None = None, version: int | None = Query(default=None, ge=1),
+                   partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     _check_period(period)
     program = _visible_program(s, partner, program_slug)
     deal = s.get(Deal, deal_slug)
@@ -536,8 +833,14 @@ def published_deal(program_slug: str, deal_slug: str, period: str | None = None,
     if pub is None:
         raise err(404, "not_found", "nothing published for this deal" + (f" in {period}" if period else ""))
     periods = sorted(s.scalars(select(Publication.collection_period).where(Publication.deal_slug == deal_slug)).all(), reverse=True)
-    return {**pub.deal, "published_at": views.iso(pub.published_at), "published_by": pub.published_by, "upload_id": pub.upload_id,
-            "published_period": pub.collection_period, "available_periods": periods}
+    versions = views.publication_versions(s, pub)
+    shown = pub
+    if version is not None and version != pub.version:
+        shown = s.scalars(select(PublicationVersion).where(PublicationVersion.publication_id == pub.id, PublicationVersion.version == version)).first()
+        if shown is None:
+            raise err(404, "not_found", f"no version {version} of {deal_slug} {pub.collection_period}")
+    return {**shown.deal, "published_at": views.iso(shown.published_at), "published_by": shown.published_by, "upload_id": shown.upload_id,
+            "published_period": pub.collection_period, "available_periods": periods, "version": shown.version or 1, "versions": versions}
 
 
 class RegenerateRequest(BaseModel):
