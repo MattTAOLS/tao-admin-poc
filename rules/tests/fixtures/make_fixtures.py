@@ -129,7 +129,12 @@ EXTRA = {
                                                      "published_periods": {"2026-07": "2026-07-15T14:02:00Z", "2026-09": "2026-09-14T10:00:00Z", "2026-10": "2026-10-13T10:00:00Z"}}, {},
         [],
         [{"target": "context", "path": "/published_periods/2026-08", "value": "2026-08-12T16:40:00Z", "why": "re-issue of August 2026 after September and October were published"}]),
-    "r18-reported-triggered": ("R18", MONEDA, lambda d: {}, {},
+    # Stride's master definitions take effect 2026-01-22 (the SLFA amendment): a report for a period before that has
+    # no definition in force, so each of its four ceiling covenants is a note (binary tests are not noted).
+    "r14-not-in-force": ("R14", STRIDE, lambda d: {"master": master_for(d["deal_slug"])}, {},
+        [],
+        [{"target": "deal", "path": "/collection_period", "value": "December 2025", "why": "a Stride report for December 2025, before the 2026-01-22 definitions"}]),
+    "r18-reported-triggered":("R18", MONEDA, lambda d: {}, {},
         [{"target": "deal", "path": "/covenants/5/reported_triggered", "value": "NO", "why": "ICR 1.27 vs floor 1.10: report answers NO"}],
         [{"target": "deal", "path": "/covenants/5/reported_triggered", "value": "YES", "why": "report answers YES on SLFA 9.1 (h) while the value is OK (as Moneda May 2026 prints)"}]),
 }

@@ -575,11 +575,23 @@ def _effective(defs, period):
     return {k: v[1] | {"_effective_from": v[0].isoformat() if v[0] else None} for k, v in best.items()}
 
 def thresholds_match_master(rule, ex, ctx, tol):
-    d = ex["deal"]; defs = _effective(ctx.master.get("covenants") or ctx.master.get("covenant_definitions") or [], period_key(d.get("collection_period"))); out = []
-    if not defs: return out
+    """Report threshold vs the master definition in force at the period end (latest effective_from per legal_ref).
+    A ceiling / floor covenant on the report with no definition in force (none recorded for its legal_ref, or the first
+    version starts after the period end, e.g. Stride before 2026-01-22) is a `note` naming the covenant. Binary
+    tests carry no threshold and are not noted. No master record at all in the context (no "covenants" key: the
+    master was not loaded) means nothing to compare and no notes; an empty list means the deal has no definitions."""
+    if "covenants" not in ctx.master and "covenant_definitions" not in ctx.master: return []
+    d = ex["deal"]; period = period_key(d.get("collection_period")); out = []
+    defs = _effective(ctx.master.get("covenants") or ctx.master.get("covenant_definitions") or [], period)
     for i, c in enumerate(d.get("covenants") or []):
+        if c.get("kind") not in ("ceiling", "floor"): continue
         m = defs.get(_ref(c.get("legal_ref")))
-        if not m or c.get("kind") not in ("ceiling", "floor"): continue
+        if not m:
+            out.append(finding({**rule, "severity": "note"}, _uid(ex), report_value=c.get("threshold"), unit=None, fields=[f"/covenants/{i}", "master:/covenant_definitions"],
+                               context={"legal_ref": c.get("legal_ref"), "description": c.get("description"), "period": period, "kind": c.get("kind")},
+                               message="{legal_ref} ({description}): no master covenant definition is in force for {period} (none recorded, or its first version "
+                                       "starts after the period end), so the report's threshold {report_value} was not checked. Record the definition in master data."))
+            continue
         # no threshold and no threshold_rule: the master record does not fix one number for this test (Stride SLFA
         # 9.1 (g) CNL is set per vintage), so there is nothing to compare; skipped, kind included
         if m.get("threshold") is None and not m.get("threshold_rule"): continue
