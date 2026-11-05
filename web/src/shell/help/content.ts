@@ -209,6 +209,30 @@ export const ADMIN_HELP: HelpContent = {
       ],
     },
     {
+      id: 'edit-values',
+      title: 'Edit an extracted value',
+      intro: 'If a number was read wrongly, a TAO Admin can change it while the report is in review. The PDF and the original reading are kept.',
+      steps: [
+        { roles: ADMIN, text: 'On the review page, find the value under **Extracted values** and select **Edit**. Check it against the page crop or open the page with the page link.' },
+        { roles: ADMIN, text: 'Type the new value and a **Reason** of at least 10 characters, for example what the page shows. Select **Save and re-run rules**. The findings refresh straight away.' },
+        { roles: ADMIN, text: 'The value now shows **Edited** with the original underneath. **Revert** puts the original back; it asks for a short reason.' },
+        { text: 'Every edit and revert is in the Activity card and the Audit log. When the report is published, each edit is listed in the deal’s corrections as **Corrected by TAO**.' },
+        { roles: ANALYST, text: 'You see the Edited marker, the original value and the reason. Only a TAO Admin can edit.' },
+      ],
+    },
+    {
+      id: 'correct-published',
+      title: 'Correct a published report',
+      roles: ADMIN,
+      intro: 'To fix a value after a report is published, without a new PDF.',
+      steps: [
+        { text: 'In the [Reports library](/admin/reports), or on the published report, select **Correct a value…**. Pick the values, type the new values and a reason of at least 10 characters. A note to partners is optional.' },
+        { text: 'The rules re-run on the corrected numbers. If nothing blocks, it is published at once as the next version and the deal page shows **Corrected**. Earlier versions stay viewable.' },
+        { text: 'If a block finding opens, the correction waits in the [Approval queue](/admin/uploads/queue) tagged **Correction**, and partners keep seeing the current version. Resolve each block with **Acknowledge** or **Accept as restatement**, then **Approve**, or **Reject** it with a reason.' },
+        { text: 'A new PDF for the same month is a different route: upload it as a corrected re-issue.' },
+      ],
+    },
+    {
       id: 'publish',
       title: 'Approve and publish',
       roles: ADMIN,
@@ -290,10 +314,10 @@ export const ADMIN_HELP: HelpContent = {
         { text: 'Select [Partners](/admin/partners) in the sidebar. Each row shows the partner, kind, status, the programs it sees, its deals and the total program limit.' },
         { text: 'Select a partner to open **Partner details**: its programs with currency, program limit, warehouse limit, deal count and **Visible to**.' },
         { text: 'Select a program to open its **Program / facility record**: **Limits and visibility**, **Deals** with servicer and template id, and **Covenant definitions** with legal reference, kind, threshold, watch buffer, effective date, version and source.' },
-        { text: 'Filter covenant definitions with **Deal**. **Version** reads **In force**, **Superseded**, or **Scheduled** for an amendment dated later than today.' },
+        { text: 'Filter covenant definitions with **Deal**. The table shows the versions in force and any scheduled for a later date. **Last change** says who changed it and when. **History** lists every earlier version with the reason.' },
         { roles: ADMIN, text: 'To change limits or who sees the program, select **Edit** on **Limits and visibility**. Tick at least one partner.' },
         { roles: ADMIN, text: 'To change a deal’s name, servicer or template id, select **Edit** on its row.' },
-        { roles: ADMIN, text: 'For covenants: **Edit** corrects a definition, **New version** records an amendment with a later **Effective from**, and **Add definition** adds one. Each save writes a Master data change to the Audit log.' },
+        { roles: ADMIN, text: 'To change a covenant, select **Edit** and choose **New version from a date** (an amendment: earlier months keep the old version) or **Correct the current version** (a mistake in the definition itself). **Add covenant** adds one the deal does not have yet. Every change needs a reason of at least 10 characters, is kept in History and the Audit log, and re-checks this deal’s reports still in review. Published months do not change.' },
       ],
       points: [
         { roles: ANALYST, text: 'These pages are read only for you: “Read only. Only TAO Admin can change master data.”' },
