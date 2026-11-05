@@ -277,6 +277,9 @@ components:
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
         detail: { type: object }
+        deal_slug: { type: [string, 'null'], description: 'the upload''s deal, or detail.deal_slug; null for platform entries without a deal' }
+        deal_name: { type: [string, 'null'] }
+        collection_period: { type: [string, 'null'], description: 'YYYY-MM of the upload (MOVE Trust: the report''s own month; F-PIL: the settlement month)' }
 
 paths:
   /uploads:
@@ -454,7 +457,7 @@ paths:
 
   /audit:
     get:
-      summary: Audit log. scope=reports is readable by tao_admin and tao_analyst; scope=platform (and no scope) by tao_admin only.
+      summary: Audit log (at most `limit` rows, default 100). scope=reports is readable by tao_admin and tao_analyst; scope=platform (and no scope) by tao_admin only.
       description: >
         Newest first. Scope is derived from the action, not stored: reports = entries with an upload_id, plus publish and
         regenerate; platform = everything else (master_change and later user and settings changes). Months are calendar months in
@@ -488,6 +491,9 @@ paths:
   /audit/export.csv:
     get:
       summary: One month of one scope as CSV, one row per entry; writes its own `export` entry to the platform log
+      description: >
+        Columns: at, at_toronto, scope, action, actor, deal, period, upload_id, finding_id, reason, detail (JSON), id. The rows are
+        read first and the export entry is written afterwards, so an export never lists itself.
       parameters:
         - { $ref: '#/components/parameters/XRole' }
         - { name: scope, in: query, required: true, schema: { type: string, enum: [reports, platform] } }
