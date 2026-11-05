@@ -21,6 +21,8 @@ export const ACTOR_LABEL: Record<string, string> = {
 const TAB_LABEL: Record<AuditScope, string> = { reports: 'Reports', platform: 'Platform' }
 const FIRST = { current: 100, history: 50 }
 const SEARCH_LIMIT = 500
+/** Search pages at most this many pages per tab (2,000 rows); a broader search asks to be narrowed. */
+const SEARCH_PAGES = 4
 const SEARCH_ROWS = 5
 const SEARCH_OPEN_GROUPS = 3
 
@@ -87,19 +89,22 @@ export function summary(e: AuditEntry): string {
 }
 
 /** The Report (or Subject) of an entry: the deal and collection period, linking to the report the way the Uploads
- * table does (Review, the deal page at that period, or upload details). Periods come from the upload record, never
- * from the file name: MOVE Trust's collection month is the file month, F-PIL's is the settlement month. */
+ * table does (Review, the deal page at that period, or upload details). Deal and period come from the entry itself
+ * (`deal_slug`, `deal_name`, `collection_period`, set by the API from the upload), never from the file name: MOVE
+ * Trust's collection month is the file month, F-PIL's is the settlement month. The upload record, when loaded, adds the
+ * program, the re-issue tag and the status that picks the link target. */
 function subject(e: AuditEntry, c: Ctx): { title: string; sub?: string; href?: string } | null {
   const d = (e.detail ?? {}) as Record<string, unknown>
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
-  if (u) {
-    const name = dealName(c, u.deal_slug)!
-    const period = formatPeriod(u.collection_period)
-    return { title: name, href: uploadTarget(u, name, period).href,
-      sub: [programName(c, u.program_slug), period, u.replaces_upload_id ? 're-issue' : null].filter(Boolean).join(' · ') }
-  }
-  if (typeof d.deal_slug === 'string') {
-    return { title: dealName(c, d.deal_slug)!, sub: typeof d.collection_period === 'string' ? formatPeriod(d.collection_period) : undefined }
+  const slug = e.deal_slug ?? u?.deal_slug ?? (typeof d.deal_slug === 'string' ? d.deal_slug : undefined)
+  const per = e.collection_period ?? u?.collection_period ?? (typeof d.collection_period === 'string' ? d.collection_period : undefined)
+  if (slug) {
+    const name = e.deal_name ?? dealName(c, slug)!
+    const period = per ? formatPeriod(per) : undefined
+    const deal = c.deals.find(x => x.slug === slug)
+    const program = programName(c, u?.program_slug ?? deal?.program_slug)
+    return { title: name, href: u ? uploadTarget(u, name, period ?? '').href : undefined,
+      sub: [program, period, u?.replaces_upload_id ? 're-issue' : null].filter(Boolean).join(' · ') || undefined }
   }
   if (e.action === 'regenerate') return { title: programName(c, d.program_slug) ?? 'All programs', sub: 'Program' }
   if (e.action === 'master_change' && typeof d.key === 'string') {
@@ -215,14 +220,15 @@ function EntryTable({ rows, caption, c, q, showTab, subjectHeader, loading, empt
 type Filters = Pick<AuditQuery, 'action' | 'actor_role' | 'deal_slug'>
 const newestFirst = (rows: AuditEntry[]) => rows.slice().sort((a, b) => b.at.localeCompare(a.at))
 
-/** Every page of a query (the API caps a page at 500). */
-async function fetchAll(f: AuditQuery): Promise<AuditEntry[]> {
+/** Every page of a query: /audit returns at most `limit` rows (max 500), so page with offset until a short page. */
+export async function fetchAll(f: AuditQuery, maxPages = Infinity): Promise<AuditEntry[]> {
   const out: AuditEntry[] = []
-  for (let offset = 0; ; offset += SEARCH_LIMIT) {
-    const page = await adminApi.audit({ ...f, limit: SEARCH_LIMIT, offset })
-    out.push(...page)
-    if (page.length < SEARCH_LIMIT) return out
+  for (let page = 0, offset = 0; page < maxPages; page++, offset += SEARCH_LIMIT) {
+    const rows = await adminApi.audit({ ...f, limit: SEARCH_LIMIT, offset })
+    out.push(...rows)
+    if (rows.length < SEARCH_LIMIT) break
   }
+  return out
 }
 
 /** Downloads one month of one tab. The API logs the export itself (decision A6). */
@@ -322,13 +328,13 @@ function History({ scope, months, filters, c, onClear, filtered, exp }: {
 
 /** Search: every month and every tab the role can read, grouped by month (Toronto), newest first. */
 function SearchResults({ q, scopes, filters, c, onClearSearch }: { q: string; scopes: AuditScope[]; filters: Filters; c: Ctx; onClearSearch: () => void }) {
-  const res = useResource(() => Promise.all(scopes.map(scope => adminApi.audit({ scope, q, ...filters, limit: SEARCH_LIMIT }))),
+  const res = useResource(() => Promise.all(scopes.map(scope => fetchAll({ scope, q, ...filters }, SEARCH_PAGES))),
     [q, scopes.join(), filters.action, filters.actor_role, filters.deal_slug])
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set())
   const [full, setFull] = useState<Set<string>>(() => new Set())
   useEffect(() => { setOpenGroups(new Set()); setFull(new Set()) }, [q])
   if (res.error) return <LoadError error={res.error} onRetry={res.reload} />
-  const capped = (res.data ?? []).some(r => r.length >= SEARCH_LIMIT)
+  const capped = (res.data ?? []).some(r => r.length >= SEARCH_LIMIT * SEARCH_PAGES)
   const rows = newestFirst((res.data ?? []).flat())
   const groups = new Map<string, AuditEntry[]>()
   for (const e of rows) { const m = torontoMonth(e.at); groups.set(m, [...(groups.get(m) ?? []), e]) }
@@ -340,7 +346,7 @@ function SearchResults({ q, scopes, filters, c, onClearSearch }: { q: string; sc
   return (
     <>
       <div className="adm-searchsum" role="status">
-        {loading ? 'Searching…' : `${formatNumber(rows.length)} result${rows.length === 1 ? '' : 's'} in ${formatNumber(list.length)} month${list.length === 1 ? '' : 's'} · ${scopes.length > 1 ? 'both tabs' : 'Reports tab'}${filtered ? ' · filters applied' : ''}${capped ? ` · newest ${SEARCH_LIMIT} per tab, narrow the search to see older ones` : ''}`}
+        {loading ? 'Searching…' : `${formatNumber(rows.length)} result${rows.length === 1 ? '' : 's'} in ${formatNumber(list.length)} month${list.length === 1 ? '' : 's'} · ${scopes.length > 1 ? 'both tabs' : 'Reports tab'}${filtered ? ' · filters applied' : ''}${capped ? ` · newest ${SEARCH_LIMIT * SEARCH_PAGES} per tab, narrow the search to see older ones` : ''}`}
         <Button size="sm" onClick={onClearSearch}>Clear search</Button>
       </div>
       <Card padding="flush" aria-label={`Search results for ${q}`}>

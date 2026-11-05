@@ -7,7 +7,7 @@ import type { AuditEntry } from '../data'
 
 vi.mock('@/shell/api', () => ({ api: vi.fn(), apiBlob: vi.fn() }))
 import { api, apiBlob } from '@/shell/api'
-import AuditLogPage, { torontoMonth, monthName, changes } from '../AuditLogPage'
+import AuditLogPage, { torontoMonth, monthName, changes, fetchAll } from '../AuditLogPage'
 import { auditScope, AUDIT_ACTIONS } from '../data'
 import { addMonths } from '../ui'
 
@@ -37,6 +37,8 @@ const ENTRIES: AuditEntry[] = [
   e({ id: 'c3', at: at(CUR, 2, 15), action: 'extract', actor_role: 'system', actor_label: 'worker', upload_id: MONEDA, detail: { status: 'needs_review' } }),
   e({ id: 'c4', at: at(CUR, 2, 14), action: 'upload', actor_role: 'tao_analyst', actor_label: 'tao_analyst', upload_id: MONEDA, detail: { file_name: 'Moneda-202608 -SETTREP.pdf', page_count: 16, collection_period: '2026-08' } }),
   e({ id: 'c5', at: at(CUR, 2, 13), action: 'master_change', detail: { entity: 'program', key: 'f-pil-2-0', before: { limit: 150000000, currency: 'CAD' }, after: { limit: 175000000, currency: 'CAD' } } }),
+  e({ id: 'c7', at: at(CUR, 1, 14), action: 'reject', upload_id: 'bbbbbbbb-0000-4000-8000-000000000009', reason: 'Wrong deal chosen at upload',
+    deal_slug: 'f-pil-2-0-stride-capital', deal_name: 'Stride Capital', collection_period: '2026-08' }),
   e({ id: 'c6', at: at(CUR, 1, 13), action: 'regenerate', detail: { program_slug: 'move-trust', publications: 9, trigger: 'manual' } }),
   e({ id: 'p1', at: at(PREV, 9), action: 'reject', upload_id: MONEDA, reason: 'Wrong deal chosen at upload' }),
   ...Array.from({ length: 54 }, (_, i) => e({ id: `p${i + 2}`, at: at(PREV, 10, 0) .replace('T00', `T${String(i % 24).padStart(2, '0')}`).replace(`-10T`, `-${String(10 + Math.floor(i / 24)).padStart(2, '0')}T`), action: 'extract', actor_role: 'system', actor_label: 'worker', upload_id: MONEDA, detail: { status: 'needs_review' } })),
@@ -92,6 +94,19 @@ describe('helpers', () => {
     expect(auditScope({ action: 'master_change', upload_id: null })).toBe('platform')
     expect(auditScope({ action: 'export', upload_id: null })).toBe('platform')
   })
+  it('pages through /audit with limit and offset until a short page', async () => {
+    const seen: string[] = []
+    mockApi.mockImplementation(async (p: string) => {
+      seen.push(p)
+      const off = Number(new URLSearchParams(p.split('?')[1]).get('offset'))
+      return Array.from({ length: off < 1000 ? 500 : 20 }, (_, i) => e({ id: `x${off + i}`, at: '2026-11-01T00:00:00Z', action: 'extract', upload_id: MONEDA }))
+    })
+    expect(await fetchAll({ scope: 'reports', month: '2026-11' })).toHaveLength(1020)
+    expect(seen).toEqual([0, 500, 1000].map(o => `/audit?scope=reports&month=2026-11&limit=500&offset=${o}`))
+    seen.length = 0
+    expect(await fetchAll({ scope: 'reports', q: 'x' }, 2)).toHaveLength(1000)
+    expect(seen).toHaveLength(2)
+  })
   it('lists only the fields a change touched', () => {
     expect(changes({ before: { a: 1, b: 2 }, after: { a: 1, b: 3 } })).toEqual([{ field: 'b', before: 2, after: 3 }])
     expect(changes({ status: 'x' })).toEqual([])
@@ -104,15 +119,15 @@ describe('Audit log (TAO Admin)', () => {
     renderPage(PATH, route)
     expect(header().title).toBe('Audit log')
     const t = await log()
-    await waitFor(() => expect(bodyRows(t)).toHaveLength(5))
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(6))
     expect(calls).toContain(`/audit?scope=reports&month=${CUR}&limit=100`)
     expect(screen.getByRole('heading', { name: monthName(CUR) })).toBeTruthy()
     const tabs = screen.getByRole('navigation', { name: 'Audit log sections' })
     expect(within(tabs).getByRole('button', { name: /Reports/ }).getAttribute('aria-current')).toBe('page')
-    await waitFor(() => expect(within(tabs).getByRole('button', { name: /Reports/ }).textContent).toBe('Reports5'))
+    await waitFor(() => expect(within(tabs).getByRole('button', { name: /Reports/ }).textContent).toBe('Reports6'))
     expect(within(tabs).getByRole('button', { name: /Platform/ }).textContent).toBe('Platform1')
 
-    const [publish, override, extract, uploadRow, regen] = bodyRows(t)
+    const [publish, override, extract, uploadRow, reject, regen] = bodyRows(t)
     expect(within(publish).getByRole('cell', { name: 'Publish' })).toBeTruthy()
     expect(publish.textContent).toContain('tao_admin')
     // MOVE Trust published upload: deal page at its own collection period (lag 0).
@@ -124,6 +139,9 @@ describe('Audit log (TAO Admin)', () => {
     expect(within(override).getByText('R05 · use_ours')).toBeTruthy()
     expect(within(extract).getByText('worker')).toBeTruthy()
     expect(within(uploadRow).getByText('TAO Analyst')).toBeTruthy()
+    // Deal and period straight from the entry (deal_slug, deal_name, collection_period) when the upload is not loaded.
+    expect(within(reject).getByText('Stride Capital')).toBeTruthy()
+    expect(within(reject).getByText('F-PIL 2.0 · Aug 2026')).toBeTruthy()
     expect(within(regen).getByText('MOVE Trust')).toBeTruthy()
     expect(within(regen).getByText('Program')).toBeTruthy()
   })
@@ -145,7 +163,7 @@ describe('Audit log (TAO Admin)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Reports/ }))
     expect(loc()).toBe(PATH)
     const r = await log()
-    await waitFor(() => expect(bodyRows(r)).toHaveLength(5))
+    await waitFor(() => expect(bodyRows(r)).toHaveLength(6))
     await userEvent.click(within(r).getByRole('button', { name: /^Expand Override at/ }))
     expect(screen.getByText(/Collection period/).nextElementSibling!.textContent).toBe('Aug 2026 (reporting period Jul 2026)')
     expect(screen.getAllByText(MONEDA).length).toBeGreaterThan(0)
@@ -175,7 +193,7 @@ describe('Audit log (TAO Admin)', () => {
     mockApi.mockImplementation(auditApi())
     renderPage(PATH, route)
     const t = await log()
-    await waitFor(() => expect(bodyRows(t)).toHaveLength(5))
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(6))
     await userEvent.selectOptions(screen.getByLabelText('Action'), 'override')
     await waitFor(() => expect(bodyRows(t)).toHaveLength(1))
     expect(loc()).toBe(`${PATH}?action=override`)
@@ -202,8 +220,8 @@ describe('Audit log (TAO Admin)', () => {
     await log()
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search every month and both tabs' }), 'dynamic')
     await waitFor(() => expect(loc()).toBe(`${PATH}?q=dynamic`))
-    expect(calls).toContain('/audit?scope=reports&q=dynamic&limit=500')
-    expect(calls).toContain('/audit?scope=platform&q=dynamic&limit=500')
+    expect(calls).toContain('/audit?scope=reports&q=dynamic&limit=500&offset=0')
+    expect(calls).toContain('/audit?scope=platform&q=dynamic&limit=500&offset=0')
     const status = await screen.findByText(/2 results in 2 months · both tabs/)
     expect(status).toBeTruthy()
     const cur = screen.getByRole('table', { name: `Results in ${monthName(CUR)}` })
@@ -248,7 +266,7 @@ describe('Audit log (TAO Analyst: Reports tab only)', () => {
     mockApi.mockImplementation(auditApi())
     renderPage(`${PATH}?tab=platform`, route, 'tao_analyst')
     const t = await log()
-    await waitFor(() => expect(bodyRows(t)).toHaveLength(5))
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(6))
     const tabs = screen.getByRole('navigation', { name: 'Audit log sections' })
     expect(within(tabs).queryByRole('button', { name: /Platform/ })).toBeNull()
     expect(within(tabs).getByRole('button', { name: /Reports/ })).toBeTruthy()
@@ -303,7 +321,7 @@ describe('Audit log states', () => {
     mockApi.mockImplementation(auditApi())
     renderPage(PATH, route)
     const t = await log()
-    await waitFor(() => expect(bodyRows(t)).toHaveLength(5))
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(6))
     fireEvent.click(await within(bodyRows(t)[0]).findByRole('link', { name: /^Dynamic Capital/ }))
     expect(loc()).toBe('/admin/portfolio/move-trust/deals/move-trust-dynamic-capital?period=2026-07')
   })

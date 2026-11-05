@@ -82,6 +82,11 @@ export type AuditEntry = {
   finding_id?: string | null
   reason?: string | null
   detail?: Record<string, unknown>
+  /** The upload's deal (or detail.deal_slug); null for platform entries without a deal. */
+  deal_slug?: string | null
+  deal_name?: string | null
+  /** YYYY-MM of the upload: MOVE Trust's own report month, F-PIL's settlement month. */
+  collection_period?: string | null
 }
 export type CovenantTotals = { BREACH?: number; WATCH?: number; OK?: number; AVAILABLE?: number }
 export type PortfolioDeal = { deal_slug?: string; deal_name?: string; collection_period?: string; worst_status?: string }
