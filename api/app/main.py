@@ -378,7 +378,8 @@ def revert_edit(upload_id: str, edit_id: str, body: RevertRequest, c: Caller = D
     now = review.active_edits(s, u.id).get(e.pointer)
     _, value_now = review.value_at(review.apply_edits(ex.deal, review.active_edits(s, u.id)), e.pointer)
     views.audit(s, c, "value_edit_revert", upload_id=u.id, reason=body.reason,
-                detail={"edit_id": e.id, "pointer": e.pointer, "reverted_value": e.new_value, "value_now": value_now,
+                detail={"edit_id": e.id, "pointer": e.pointer, "old_value": e.new_value, "new_value": value_now,
+                        "reverted_value": e.new_value, "value_now": value_now,
                         "edit_in_force_id": now.id if now else None})
     out = _edit_result(s, u, e, ex)
     s.commit()
@@ -395,6 +396,12 @@ class CorrectionRequest(BaseModel):
     edits: list[CorrectionEditIn] = Field(min_length=1)
     reason: Reason
     note_to_partners: str | None = Field(default=None, max_length=2000)
+
+
+def _audit_edits(s: Session, k: Correction) -> list[dict]:
+    """A correction's edits as the audit page shows them: [{pointer, old_value, new_value}]."""
+    rows = s.scalars(select(ValueEdit).where(ValueEdit.correction_id == k.id).order_by(ValueEdit.at, ValueEdit.id)).all()
+    return [{"pointer": e.pointer, "old_value": e.old_value, "new_value": e.new_value} for e in rows]
 
 
 def _correction_or_404(s: Session, correction_id: str) -> Correction:
@@ -487,8 +494,7 @@ def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depen
     k.finding_counts = review.finding_counts(k.findings)
     s.flush()
     views.audit(s, c, "correction", upload_id=u.id, reason=body.reason,
-                detail={"correction_id": k.id, "version": version, "edits": [{"pointer": r_.pointer, "old_value": olds[r_.pointer], "new_value": r_.value}
-                                                                             for r_ in body.edits],
+                detail={"correction_id": k.id, "version": version, "edits": _audit_edits(s, k),
                         "finding_counts": k.finding_counts, "queued": k.finding_counts["block"] > 0, "note_to_partners": body.note_to_partners})
     if k.finding_counts["block"] == 0:
         _publish_correction(s, c, k, u, pub)
@@ -528,7 +534,7 @@ def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s:
         s.commit()
         blocks = sorted({f["rule_id"] for f in k.findings if f["severity"] == "block" and f["status"] == "open"})
         raise err(409, "open_block_findings", f"{k.finding_counts['block']} block finding(s) still open: {', '.join(blocks)}")
-    views.audit(s, c, "correction_approve", upload_id=u.id, detail={"correction_id": k.id, "version": k.version})
+    views.audit(s, c, "correction_approve", upload_id=u.id, detail={"correction_id": k.id, "version": k.version, "edits": _audit_edits(s, k)})
     _publish_correction(s, c, k, u, pub)
     s.commit()
     return views.correction_dict(s, k)
@@ -541,7 +547,8 @@ def reject_correction(correction_id: str, body: RejectRequest, c: Caller = Depen
     if k.status != "needs_review":
         raise err(409, "bad_state", f"correction is {k.status}")
     k.status, k.decided_at, k.decided_by, k.reject_reason = "rejected", utcnow(), c.role, body.reason
-    views.audit(s, c, "correction_reject", upload_id=k.upload_id, reason=body.reason, detail={"correction_id": k.id, "version": k.version})
+    views.audit(s, c, "correction_reject", upload_id=k.upload_id, reason=body.reason,
+                detail={"correction_id": k.id, "version": k.version, "edits": _audit_edits(s, k)})
     s.commit()
     return views.correction_dict(s, k)
 
@@ -739,10 +746,12 @@ def put_covenant(body: CovenantIn, c: Caller = Depends(admin_caller), s: Session
     s.flush()
     data = body.model_dump(exclude={"id", "mode", "reason"})
     data["threshold_rule"] = body.threshold_rule.model_dump(exclude_none=True) if body.threshold_rule else None
-    row = CovenantDefinition(id=new_id(), origin="ui", supersedes_id=superseded, changed_by=c.role, change_reason=body.reason, **data)
+    row = CovenantDefinition(id=new_id(), origin="ui", supersedes_id=superseded, changed_by=c.role, change_reason=body.reason,
+                             changed_at=utcnow(), **data)
     s.add(row); s.flush()
     views.audit(s, c, "master_change", reason=body.reason,
                 detail={"entity": "covenant_definition", "key": row.id, "mode": body.mode, "deal_slug": body.deal_slug, "legal_ref": body.legal_ref,
+                        "effective_from": body.effective_from.isoformat(),
                         "superseded_id": superseded, "before": before, "after": views.covenant_dict(row)})
     rerun = _rerun_open_reviews(s, body.deal_slug)
     s.commit()

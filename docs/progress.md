@@ -646,3 +646,40 @@ Append an entry when a work package lands. Newest first.
   with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
   database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
   --profile review from an empty volume builds the schema through the runner and runs the whole review profile.
+- 2026-11-05 — Data & API (phase 2 wave B): covenant changes, value edits, corrections with publication versions.
+  Migration `009_wave_b_editing.sql` (idempotent): covenant_definition gains origin (seed|ui; rows with an old
+  master_change entry are backfilled to ui), supersedes_id, changed_by, change_reason, changed_at; publication gains
+  version, correction_id, version_reason; new tables publication_version, correction (one pending per upload, partial
+  unique index) and value_edit.
+  Covenants: `PUT /master/covenants` takes mode new_version | correct | add and a reason (10+ characters, spaces trimmed)
+  and never updates a row in place. correct supersedes the current row and inserts its replacement (same effective_from,
+  supersedes_id); new_version needs a later effective_from; add needs a legal_ref the deal does not have. 409 not_current,
+  exists, effective_not_later; 422 for a correct without id, a changed effective_from / deal / legal_ref, or new_version on
+  an unknown legal_ref. Returns {definition, superseded_id, rerun_upload_ids}; re-runs the rules on the deal's needs_review
+  uploads; master_change entry with before, after, mode, effective_from and the reason. `GET ?include_history=true` returns
+  superseded rows too. The seed supersedes only origin=seed rows and never inserts into a (legal_ref, effective_from) slot
+  held by a ui row (R11). The review context carries `master.covenants_recorded` (parity with worker/validate for R14).
+  Value edits: `/uploads/{id}/edits` (GET, POST) and `/edits/{edit_id}/revert`. tao_admin only, needs_review or approved,
+  numbers at an existing pointer only (a whole-number field stays whole). On a pointer the latest not-reverted edit is in
+  force; revert falls back to the previous edit, else the extracted value. Re-runs and approve read the extraction with the
+  edits applied; approve also re-runs first when edits exist, writes each edited pointer into the published deal and one
+  data_corrections row (choice manual, edit_id, old = extracted value). A manual edit wins over use_ours / use_report on the
+  same pointer: the approve detail lists the override target as replaced, and the override and value_edit entries both stay.
+  Upload dict: active_edit_count (pointers with an edit in force), published_version, pending_correction_id.
+  Corrections: `/uploads/{id}/corrections`, `/corrections`, `/corrections/{id}`, approve, reject. Edits apply to the live
+  published deal; data_corrections rows carry edit_id, correction_id and version. The rules re-run with prior = published
+  previous month and the corrected period left out of published_periods (no R12). A block that was resolved in the
+  original review carries its resolution; any other open block queues the correction (B1), else it publishes at once as
+  version n+1 (old version copied to publication_version, publish + regenerate entries, and later-period needs_review
+  uploads of the deal re-run, their ids in the publish detail). Approve re-runs the rules first (409 open_block_findings
+  while a block stays open) and refuses a correction whose base version is no longer live (409 bad_state). A corrected
+  re-issue now also archives the old version (version_reason "corrected re-issue"). `GET /published/.../deals/{slug}`
+  gains version, versions and `?version=n`.
+  Fixed on the way: review.rerun inserted a new finding before its values were set (NOT NULL on layer); never hit before
+  because no earlier re-run produced a finding the worker had not.
+  Tests: api suite on SQLite (count in the commit), wave B files and test_master/test_reissue also on PostgreSQL 16 via
+  pg8000, and 009 checked there for idempotency and the ui backfill. check_contracts green.
+  Needs from others: UI-Admin sends mode + reason on PUT /master/covenants (the old body is now 422). worker/validate
+  does not apply value edits after a pass-2 extraction; the API re-runs with edits on approve and on every edit, so
+  findings written by the worker in between ignore edits until then. Correction findings cannot be overridden (no route
+  in the contract), so a queued correction is approved only once a re-run no longer blocks, or rejected.

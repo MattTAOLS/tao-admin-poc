@@ -191,3 +191,14 @@ def test_context_carries_covenants_recorded(client):
         s.add(u); s.flush()
         assert review.build_context(s, u).master["covenants_recorded"] == 7
         s.rollback()
+
+
+def test_changed_at_and_audit_detail_shape(client):
+    """changed_at is set on saved rows, null on seed rows; master_change carries before, after, mode and effective_from."""
+    e = ref(rows(client), "SLFA 9.1 (e)")[0]
+    assert e["changed_at"] is None
+    new = put(client, dict(e, threshold=0.04, mode="correct", reason="the record was keyed as 3.5%; SLFA says 4%")).json()["definition"]
+    assert new["changed_at"] and new["changed_at"][:2] == "20"
+    d = client.get("/api/v1/audit", headers=TAO, params={"action": "master_change"}).json()[0]["detail"]
+    assert {"before", "after", "mode", "effective_from"} <= set(d)
+    assert d["mode"] == "correct" and d["effective_from"] == e["effective_from"] and d["before"]["id"] == e["id"] and d["after"]["id"] == new["id"]

@@ -8,6 +8,7 @@ alter table covenant_definition add column if not exists origin text not null de
 alter table covenant_definition add column if not exists supersedes_id uuid references covenant_definition(id);
 alter table covenant_definition add column if not exists changed_by text;
 alter table covenant_definition add column if not exists change_reason text;
+alter table covenant_definition add column if not exists changed_at timestamptz;
 -- Rows an operator already created or edited through the old PUT carry a master_change audit entry keyed by their id:
 -- they are UI rows, so a later seed run must leave them alone.
 update covenant_definition set origin = 'ui'

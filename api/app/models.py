@@ -83,6 +83,7 @@ class CovenantDefinition(Base):
     supersedes_id: Mapped[str | None] = mapped_column(Id, ForeignKey("covenant_definition.id"), nullable=True)
     changed_by: Mapped[str | None] = mapped_column(Text, nullable=True)
     change_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)      # null for seed rows
 
 
 class SetrepUpload(Base):

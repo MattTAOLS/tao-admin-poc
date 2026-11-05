@@ -182,3 +182,23 @@ def test_correction_changes_the_prior_next_month_sees(client, published):
         assert any(c.get("correction_id") == k["id"] for c in prior["data_corrections"])
     pub = client.get("/api/v1/audit", headers=TAO, params={"upload_id": published, "action": "publish"}).json()[0]
     assert pub["detail"]["rerun_upload_ids"] == [nxt["id"]]
+
+
+def test_audit_detail_shape_for_the_audit_page(client, published):
+    want = [{"pointer": PRINCIPAL, "old_value": 646926.71, "new_value": 646826.71}]
+    k = correct(client, published, [(PRINCIPAL, 646826.71)], reason="principal re-read on page 2 as 646,826.71").json()
+    client.post(f"/api/v1/corrections/{k['id']}/reject", headers=TAO, json={"reason": "R05 does not close"})
+    k2 = correct(client, published, [(INTEREST, 86705.51)]).json()
+    a = client.get("/api/v1/audit", headers=TAO, params={"upload_id": published}).json()
+    rej = next(x for x in a if x["action"] == "correction_reject")["detail"]
+    assert rej["edits"] == want and rej["version"] == 2
+    first = [x for x in a if x["action"] == "correction"][-1]["detail"]
+    assert first["edits"] == want and first["version"] == 2
+    assert [x for x in a if x["action"] == "correction"][0]["detail"]["edits"] == [{"pointer": INTEREST, "old_value": 86704.51, "new_value": 86705.51}]
+    k3 = correct(client, published, [(PRINCIPAL, 646826.71)], reason="principal re-read on page 2 as 646,826.71").json()
+    with db.session() as s:                                     # clear the block in the stored deal, as in test_queued_correction_approve
+        row = s.get(Correction, k3["id"]); deal = dict(row.deal); ph = [dict(p) for p in deal["period_history"]]
+        ph[3]["principal"] = 646926.71; deal["period_history"] = ph; row.deal = deal; s.commit()
+    assert client.post(f"/api/v1/corrections/{k3['id']}/approve", headers=TAO).status_code == 200
+    appr = client.get("/api/v1/audit", headers=TAO, params={"upload_id": published, "action": "correction_approve"}).json()[0]["detail"]
+    assert appr["edits"] == want and appr["version"] == k2["version"] + 1

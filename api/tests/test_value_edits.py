@@ -157,3 +157,13 @@ def test_apply_overrides_skips_pointer_held_by_manual_edit():
     assert [(c["field"], c["choice"]) for c in corr[1:]] == [("y", "use_ours")]
     out, rows = review.manual_corrections(deal, out, {"/a/x": e}, "2026-08")
     assert [(c["field"], c["choice"], c["old_value"], c["new_value"], c["edit_id"]) for c in out["data_corrections"] if c["choice"] == "manual"] ==         [("x", "manual", 1.0, 3.0, "e1")]
+
+
+def test_audit_detail_shape_for_the_audit_page(client, pending):
+    uid, _ = pending
+    e = edit(client, uid).json()["edit"]
+    revert(client, uid, e["id"])
+    a = {x["action"]: x["detail"] for x in client.get("/api/v1/audit", headers=TAO, params={"upload_id": uid}).json()}
+    assert {k: a["value_edit"][k] for k in ("pointer", "old_value", "new_value")} == {"pointer": PRINCIPAL, "old_value": 646826.71, "new_value": 646926.71}
+    assert {k: a["value_edit_revert"][k] for k in ("pointer", "old_value", "new_value")} == {"pointer": PRINCIPAL, "old_value": 646926.71,
+                                                                                           "new_value": 646826.71}

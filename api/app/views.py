@@ -153,7 +153,8 @@ def covenant_dict(c: CovenantDefinition) -> dict:
     return {"id": c.id, "deal_slug": c.deal_slug, "legal_ref": c.legal_ref, "description": c.description, "kind": c.kind,
             "threshold": c.threshold, "threshold_rule": c.threshold_rule, "watch_buffer_pct": c.watch_buffer_pct,
             "effective_from": c.effective_from.isoformat(), "source": c.source, "unit": c.unit, "origin": c.origin or "seed",
-            "superseded_at": iso(c.superseded_at), "supersedes_id": c.supersedes_id, "changed_by": c.changed_by, "change_reason": c.change_reason}
+            "superseded_at": iso(c.superseded_at), "supersedes_id": c.supersedes_id, "changed_by": c.changed_by, "change_reason": c.change_reason,
+            "changed_at": iso(c.changed_at)}
 
 
 def audit_dict(a: ReviewAction) -> dict:
