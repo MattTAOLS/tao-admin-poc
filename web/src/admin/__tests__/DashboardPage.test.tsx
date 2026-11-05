@@ -31,7 +31,7 @@ describe('Dashboard', () => {
     renderPage('/admin', route)
     expect(header().title).toBe('Dashboard')
     const table = await screen.findByRole('table', { name: 'Covenant status by program' })
-    expect(within(tile('Programs')).getByText('2')).toBeTruthy()
+    expect(await within(tile('Programs')).findByText('2')).toBeTruthy()
     expect(within(tile('Deals')).getByText('12')).toBeTruthy()
     expect(within(tile('Flagged deals')).getByText('5')).toBeTruthy()
     expect(within(tile('Flagged deals')).getByText('2 breach · 3 watch')).toBeTruthy()

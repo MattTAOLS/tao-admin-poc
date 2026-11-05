@@ -37,6 +37,7 @@ describe('Uploads', () => {
     renderPage('/admin/uploads', uploadsRoute)
     expect(header().title).toBe('Uploads')
     const table = await screen.findByRole('table', { name: 'Recent uploads' })
+    await waitFor(() => expect(table.querySelector('.ds-table__skel')).toBeNull())
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(5)
     expect(within(rows[0]).getByText('Received')).toBeTruthy()
@@ -100,6 +101,7 @@ describe('Upload history', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(6))
     expect(header().title).toBe('Upload history')
 
+    await within(screen.getByLabelText('Deal')).findByRole('option', { name: 'Moneda Capital Corp.' })
     await userEvent.selectOptions(screen.getByLabelText('Deal'), 'f-pil-2-0-moneda-capital-corp')
     await waitFor(() => expect(calls.at(-1)).toBe('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp'))
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(5))
@@ -130,6 +132,7 @@ describe('Upload history', () => {
     mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [UPLOADS[2]] }))
     renderPage('/admin/uploads/history', historyRoute)
     const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(table.querySelector('.ds-table__skel')).toBeNull())
     const cells = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')
     const blockCell = cells[5]
     expect(blockCell.textContent).toBe('1')
