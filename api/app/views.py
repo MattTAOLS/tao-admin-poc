@@ -2,7 +2,8 @@
 import datetime as dt
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
-from .models import Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication
+from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
+                     PublicationVersion, Correction, ValueEdit)
 
 
 def iso(t: dt.datetime | None) -> str | None:
@@ -69,7 +70,52 @@ def upload_dict(s: Session, u: SetrepUpload) -> dict:
             "latest_extraction_id": ex.id if ex else None, "published_at": iso(pub.published_at) if pub else None,
             "reject_reason": u.reject_reason, "failure_reason": failure_reason(s, u), "replaces_upload_id": u.replaces_upload_id,
             "replaced_by_upload_id": s.scalars(select(SetrepUpload.id).where(SetrepUpload.replaces_upload_id == u.id,
-                                                                            SetrepUpload.status == "published")).first()}
+                                                                            SetrepUpload.status == "published")).first(),
+            "active_edit_count": active_edit_count(s, u.id), "published_version": published_version(s, u, pub),
+            "pending_correction_id": s.scalars(select(Correction.id).where(Correction.upload_id == u.id,
+                                                                          Correction.status == "needs_review")).first()}
+
+
+def active_edit_count(s: Session, upload_id: str) -> int:
+    """Review edits in force: pointers whose latest not-reverted edit exists (a later edit on a pointer replaces the earlier)."""
+    rows = s.scalars(select(ValueEdit.pointer).where(ValueEdit.upload_id == upload_id, ValueEdit.correction_id.is_(None),
+                                                     ValueEdit.reverted_at.is_(None))).all()
+    return len(set(rows))
+
+
+def published_version(s: Session, u: SetrepUpload, pub: Publication | None) -> int | None:
+    """The live version when this upload's publication is current; else the last version it held (a replaced upload)."""
+    if pub is not None:
+        return pub.version
+    return s.scalar(select(func.max(PublicationVersion.version)).where(PublicationVersion.upload_id == u.id))
+
+
+def value_edit_dict(e: ValueEdit) -> dict:
+    return {"id": e.id, "upload_id": e.upload_id, "correction_id": e.correction_id, "pointer": e.pointer, "old_value": e.old_value,
+            "new_value": e.new_value, "reason": e.reason, "source_page": e.source_page, "actor_role": e.actor_role,
+            "actor_label": e.actor_label, "at": iso(e.at), "reverted_at": iso(e.reverted_at), "reverted_by": e.reverted_by,
+            "revert_reason": e.revert_reason}
+
+
+def correction_dict(s: Session, c: Correction, findings: bool = False) -> dict:
+    u = s.get(SetrepUpload, c.upload_id)
+    edits = s.scalars(select(ValueEdit).where(ValueEdit.correction_id == c.id).order_by(ValueEdit.at, ValueEdit.id)).all()
+    out = {"id": c.id, "upload_id": c.upload_id, "deal_slug": u.deal_slug, "collection_period": u.collection_period, "status": c.status,
+           "version": c.version, "edits": [value_edit_dict(e) for e in edits], "reason": c.reason, "note_to_partners": c.note_to_partners,
+           "finding_counts": c.finding_counts or {"block": 0, "review": 0, "note": 0}, "created_at": iso(c.created_at),
+           "created_by": c.created_by, "decided_at": iso(c.decided_at), "decided_by": c.decided_by, "reject_reason": c.reject_reason}
+    if findings:
+        out["findings"] = c.findings or []
+    return out
+
+
+def publication_versions(s: Session, pub: Publication) -> list[dict]:
+    """Every version of a publication, oldest first; the live one has current = true."""
+    old = s.scalars(select(PublicationVersion).where(PublicationVersion.publication_id == pub.id).order_by(PublicationVersion.version)).all()
+    rows = [{"version": v.version, "published_at": iso(v.published_at), "published_by": v.published_by, "correction_id": v.correction_id,
+             "reason": v.version_reason, "current": False} for v in old]
+    return rows + [{"version": pub.version, "published_at": iso(pub.published_at), "published_by": pub.published_by,
+                    "correction_id": pub.correction_id, "reason": pub.version_reason, "current": True}]
 
 
 def extraction_dict(e: Extraction) -> dict:
@@ -106,7 +152,9 @@ def deal_dict(d: Deal) -> dict:
 def covenant_dict(c: CovenantDefinition) -> dict:
     return {"id": c.id, "deal_slug": c.deal_slug, "legal_ref": c.legal_ref, "description": c.description, "kind": c.kind,
             "threshold": c.threshold, "threshold_rule": c.threshold_rule, "watch_buffer_pct": c.watch_buffer_pct,
-            "effective_from": c.effective_from.isoformat(), "source": c.source, "unit": c.unit}
+            "effective_from": c.effective_from.isoformat(), "source": c.source, "unit": c.unit, "origin": c.origin or "seed",
+            "superseded_at": iso(c.superseded_at), "supersedes_id": c.supersedes_id, "changed_by": c.changed_by, "change_reason": c.change_reason,
+            "changed_at": iso(c.changed_at)}
 
 
 def audit_dict(a: ReviewAction) -> dict:
@@ -114,16 +162,20 @@ def audit_dict(a: ReviewAction) -> dict:
             "upload_id": a.upload_id, "finding_id": a.finding_id, "reason": a.reason, "detail": a.detail or {}}
 
 
-def covenants_as_of(s: Session, deal_slug: str | None, as_of: dt.date | None) -> list[CovenantDefinition]:
+def covenants_as_of(s: Session, deal_slug: str | None, as_of: dt.date | None, include_history: bool = False) -> list[CovenantDefinition]:
     """All current definitions, or, with as_of, the one in force for each (deal, legal_ref): latest effective_from <= as_of.
-    Rows the seed superseded (007, superseded_at set) are never returned."""
-    q = select(CovenantDefinition).where(CovenantDefinition.superseded_at.is_(None))
+    Superseded rows (007 / 009, superseded_at set) are returned only with include_history, and then every row is returned
+    (with as_of: every row with effective_from <= as_of), ordered by deal, legal_ref, effective_from."""
+    q = select(CovenantDefinition)
+    if not include_history:
+        q = q.where(CovenantDefinition.superseded_at.is_(None))
     if deal_slug:
         q = q.where(CovenantDefinition.deal_slug == deal_slug)
     if as_of:
         q = q.where(CovenantDefinition.effective_from <= as_of)
-    rows = s.scalars(q.order_by(CovenantDefinition.deal_slug, CovenantDefinition.legal_ref, CovenantDefinition.effective_from)).all()
-    if not as_of:
+    rows = s.scalars(q.order_by(CovenantDefinition.deal_slug, CovenantDefinition.legal_ref, CovenantDefinition.effective_from,
+                                CovenantDefinition.superseded_at.is_(None), CovenantDefinition.superseded_at)).all()
+    if not as_of or include_history:
         return list(rows)
     current: dict[tuple, CovenantDefinition] = {}
     for r in rows:

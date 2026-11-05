@@ -7,7 +7,10 @@
 
 Covenant definitions carry no id in the seed file; a deal's definitions are compared by content with its current
 rows (migration 007): identical rows are left alone, rows the file no longer has are marked superseded_at = now, new
-ones are inserted (first version id = uuid5 of deal, legal_ref, effective_from). Re-running with the same file is a no-op."""
+ones are inserted (first version id = uuid5 of deal, legal_ref, effective_from). Re-running with the same file is a no-op.
+Only rows the seed created (origin = seed) are compared and superseded; rows a TAO Admin changed or added in the UI
+(origin = ui, migration 009) are never touched, and a file row is not inserted where a ui row holds the same
+(legal_ref, effective_from): the UI correction stands (risk R11)."""
 import json, pathlib, sys, uuid, datetime as dt
 from sqlalchemy import select
 from . import db, views
@@ -84,7 +87,7 @@ def covenant_key(r) -> tuple:
 
 
 def load_covenants(s, rows: list[dict]) -> int:
-    """Per deal in the file: current rows (superseded_at is null) the file no longer contains get superseded_at = now;
+    """Per deal in the file: current seed rows (superseded_at is null, origin seed) the file no longer contains get superseded_at = now;
     file rows with no identical current row are inserted. Unchanged rows are left alone, so a re-run with the same file
     changes nothing. Deals absent from the file keep their rows. Returns the number of rows superseded.
     A new row takes the stable uuid5 id unless an earlier (now superseded) version already holds it."""
@@ -93,8 +96,10 @@ def load_covenants(s, rows: list[dict]) -> int:
     for r in rows:
         by_deal.setdefault(r["deal_slug"], []).append(r)
     for slug, want in by_deal.items():
-        current = s.scalars(select(CovenantDefinition).where(CovenantDefinition.deal_slug == slug,
-                                                              CovenantDefinition.superseded_at.is_(None))).all()
+        live = s.scalars(select(CovenantDefinition).where(CovenantDefinition.deal_slug == slug,
+                                                           CovenantDefinition.superseded_at.is_(None))).all()
+        current = [c for c in live if (c.origin or "seed") == "seed"]
+        held_by_ui = {(c.legal_ref, c.effective_from.isoformat()) for c in live if c.origin == "ui"}
         keep = {covenant_key(r) for r in want}
         have = set()
         for c in current:
@@ -106,7 +111,7 @@ def load_covenants(s, rows: list[dict]) -> int:
         s.flush()
         for r in want:
             k = covenant_key(r)
-            if k in have:
+            if k in have or (r["legal_ref"], str(r["effective_from"])[:10]) in held_by_ui:
                 continue
             have.add(k)
             cid = covenant_id(r)
@@ -116,7 +121,7 @@ def load_covenants(s, rows: list[dict]) -> int:
             data["effective_from"] = dt.date.fromisoformat(r["effective_from"])
             if data["watch_buffer_pct"] is None:
                 data.pop("watch_buffer_pct")
-            s.add(CovenantDefinition(id=cid, deal_slug=slug, **data))
+            s.add(CovenantDefinition(id=cid, deal_slug=slug, origin="seed", **data))
         s.flush()
     return superseded
 

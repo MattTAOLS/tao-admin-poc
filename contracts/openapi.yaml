@@ -119,7 +119,7 @@ components:
         failure_reason: { type: [string, 'null'], description: 'set while status is extraction_failed: why extraction failed (the worker error, or queue unavailable), from the audit row that failed it' }
         replaces_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a corrected re-issue: the upload whose publication this one replaces on approve' }
         replaced_by_upload_id: { type: [string, 'null'], format: uuid, description: 'set on a published upload once a re-issue for its period has been approved' }
-        active_edit_count: { type: integer, description: 'value edits in force (not reverted) on this upload' }
+        active_edit_count: { type: integer, description: 'values with an edit in force on this upload (a chain of edits on one pointer counts once)' }
         published_version: { type: [integer, 'null'], description: 'current publication version of this upload; null until published' }
         pending_correction_id: { type: [string, 'null'], format: uuid, description: 'a correction waiting in the approval queue' }
     Extraction:
@@ -210,6 +210,7 @@ components:
         supersedes_id: { type: [string, 'null'], format: uuid, readOnly: true, description: 'the row this one corrected (mode=correct)' }
         changed_by: { type: [string, 'null'], readOnly: true, description: 'role or user label of the last change; null for seed rows' }
         change_reason: { type: [string, 'null'], readOnly: true }
+        changed_at: { type: [string, 'null'], format: date-time, readOnly: true, description: 'when this row was saved; null for seed rows' }
     CovenantChange:
       description: |
         Body of PUT /master/covenants (TAO Admin). A change never updates a row in place.
@@ -273,6 +274,7 @@ components:
       type: object
       required: [id, upload_id, status, version, edits, reason, created_at, created_by]
       description: |
+        A corrected re-issue (POST /uploads with replace=true) also archives the old publication and becomes the next version.
         A change to a published report without a new PDF. The rules re-run on the published deal with the edits applied.
         With no open block finding it is published straight away as the next version; otherwise it waits in the approval queue
         (status needs_review) and the current version stays live until a TAO Admin approves or rejects it. Partner notification
@@ -308,7 +310,8 @@ components:
         published_at: { type: string, format: date-time }
         published_by: { type: string }
         correction_id: { type: [string, 'null'], format: uuid }
-        reason: { type: [string, 'null'] }
+        reason: { type: [string, 'null'], description: 'the correction reason, or "corrected re-issue" when a re-issued report replaced the publication' }
+        note_to_partners: { type: [string, 'null'] }
         current: { type: boolean }
     DealIndexEntry:
       type: object
@@ -522,6 +525,14 @@ paths:
           description: OK
           content: { application/json: { schema: { allOf: [ { $ref: '#/components/schemas/Correction' }, { type: object, properties: { findings: { type: array, items: { type: object } } } } ] } } }
         '404': { $ref: '#/components/responses/NotFound' }
+  /corrections/{correction_id}/findings/{finding_id}/override:
+    post:
+      summary: Resolve a block finding on a queued correction (tao_admin). Only restatement or acknowledge; a correction's values are its edits, so use_ours / use_report are refused (409 `bad_choice`).
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { name: correction_id, in: path, required: true, schema: { type: string, format: uuid } }, { name: finding_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OverrideRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_choice` or `bad_state`' }
   /corrections/{correction_id}/approve:
     post:
       summary: Publish a queued correction as its version (tao_admin; refused while block findings are open); writes correction_approve and publish entries
