@@ -13,7 +13,12 @@ const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$
 export const ACTION_LABEL: Record<string, string> = {
   upload: 'Upload', extract: 'Extract', reextract: 'Re-extract', override: 'Override', restate: 'Restatement accepted', approve: 'Approve',
   reject: 'Reject', publish: 'Publish', regenerate: 'Regenerate', master_change: 'Master data change', export: 'Export',
+  value_edit: 'Value edited', value_edit_revert: 'Value edit reverted', correction: 'Correction',
+  correction_approve: 'Correction approved', correction_reject: 'Correction rejected',
 }
+/** Actions whose detail carries before → after values (shown in the Detail cell and the expanded row). */
+const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject']
+const MODE_LABEL: Record<string, string> = { new_version: 'new version', correct: 'correction', add: 'added' }
 /** The User filter: the actor roles the API writes (`system` is the extraction worker, `seed` the reference data). */
 export const ACTOR_LABEL: Record<string, string> = {
   tao_admin: 'TAO Admin', tao_analyst: 'TAO Analyst', system: 'System (extraction worker)', seed: 'Reference data',
@@ -56,10 +61,20 @@ export function Highlight({ text, q }: { text: string; q?: string }) {
 
 type Change = { field: string; before: unknown; after: unknown }
 const show = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
-/** Field-level changes from `detail.before` / `detail.after` (master_change today; value edits and covenant changes
- * in wave B use the same pair). Objects are compared key by key; scalars give one row. */
+/** Field-level changes from an entry's detail. `before` / `after` (master_change, covenant changes): objects are
+ * compared key by key, scalars give one row named by `field` or `pointer`. Value edits may instead carry
+ * `old_value` / `new_value` with a `pointer`, and corrections an `edits` list of those; each gives one row. */
 export function changes(d: Record<string, unknown>): Change[] {
-  if (!('before' in d) && !('after' in d)) return []
+  const fieldOf = (x: Record<string, unknown>) => (typeof x.field === 'string' ? x.field : typeof x.pointer === 'string' ? x.pointer : 'value')
+  if (Array.isArray(d.edits)) {
+    return (d.edits as Record<string, unknown>[]).filter(x => x && typeof x === 'object').map(x => ({
+      field: fieldOf(x), before: x.old_value ?? x.before, after: x.new_value ?? x.after ?? x.value,
+    }))
+  }
+  if (!('before' in d) && !('after' in d)) {
+    if ('old_value' in d || 'new_value' in d) return JSON.stringify(d.old_value) === JSON.stringify(d.new_value) ? [] : [{ field: fieldOf(d), before: d.old_value, after: d.new_value }]
+    return []
+  }
   const b = d.before, a = d.after
   const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
   if (isObj(b) || isObj(a)) {
@@ -67,7 +82,7 @@ export function changes(d: Record<string, unknown>): Change[] {
     const keys = [...new Set([...Object.keys(bo), ...Object.keys(ao)])]
     return keys.filter(k => JSON.stringify(bo[k]) !== JSON.stringify(ao[k])).map(k => ({ field: k, before: bo[k], after: ao[k] }))
   }
-  return JSON.stringify(b) === JSON.stringify(a) ? [] : [{ field: typeof d.field === 'string' ? d.field : 'value', before: b, after: a }]
+  return JSON.stringify(b) === JSON.stringify(a) ? [] : [{ field: fieldOf(d), before: b, after: a }]
 }
 
 /** One line from `detail` for the table; the full detail is in the expanded row. */
@@ -76,8 +91,14 @@ export function summary(e: AuditEntry): string {
   if (e.action === 'upload') return [d.file_name, d.page_count != null ? `${d.page_count} pages` : null, d.collection_period].filter(Boolean).join(' · ')
   if (e.action === 'master_change') {
     const ch = changes(d)
-    const head = [d.entity, d.key].filter(Boolean).join(' ')
+    const head = [d.entity, d.key, typeof d.mode === 'string' ? MODE_LABEL[d.mode] ?? d.mode : null, d.effective_from ? `effective ${d.effective_from}` : null].filter(Boolean).join(' ')
     return ch.length ? `${head} · ${ch.slice(0, 2).map(c => `${c.field} ${show(c.before)} → ${show(c.after)}`).join(' · ')}${ch.length > 2 ? ` · +${ch.length - 2} more` : ''}` : head
+  }
+  if (CHANGE_ACTIONS.includes(e.action)) {
+    const ch = changes(d)
+    const vs = typeof d.version === 'number' ? `version ${d.version}` : null
+    const list = ch.slice(0, 2).map(c => `${c.field} ${show(c.before)} → ${show(c.after)}`).join(' · ') + (ch.length > 2 ? ` · +${ch.length - 2} more` : '')
+    return [vs, list || null].filter(Boolean).join(' · ') || '—'
   }
   if (e.action === 'regenerate') return [d.program_slug ?? 'all programs', d.publications != null ? `${d.publications} publications` : null, d.trigger].filter(Boolean).join(' · ')
   if (e.action === 'override' || e.action === 'restate') return [d.rule_id, d.choice].filter(Boolean).join(' · ')
@@ -140,7 +161,7 @@ function ActorCell({ e, q }: { e: AuditEntry; q?: string }) {
 }
 
 function DetailCell({ e, q }: { e: AuditEntry; q?: string }) {
-  const ch = e.action === 'master_change' ? changes((e.detail ?? {}) as Record<string, unknown>) : []
+  const ch = CHANGE_ACTIONS.includes(e.action) ? changes((e.detail ?? {}) as Record<string, unknown>) : []
   if (ch.length === 1) {
     const x = ch[0]
     return <span><Highlight text={x.field} q={q} /> <span className="adm-before"><Highlight text={show(x.before)} q={q} /></span><span className="adm-arrow" aria-label="changed to">→</span><span className="adm-after"><Highlight text={show(x.after)} q={q} /></span></span>
@@ -152,7 +173,7 @@ function DetailCell({ e, q }: { e: AuditEntry; q?: string }) {
 function EntryDetail({ e, c }: { e: AuditEntry; c: Ctx }) {
   const d = { ...((e.detail ?? {}) as Record<string, unknown>) }
   const ch = changes(d)
-  if (ch.length) { delete d.before; delete d.after }
+  if (ch.length) { delete d.before; delete d.after; delete d.old_value; delete d.new_value; delete d.edits }
   const rest = Object.entries(d)
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
   const s = subject(e, c)

@@ -57,16 +57,35 @@ export type CovenantDefinition = {
   watch_buffer_pct?: number
   effective_from: string
   source?: string | null
+  /** seed rows may be replaced by a later seed run; ui rows never are. */
+  origin?: 'seed' | 'ui'
+  /** Set when a correction or a seed run replaced this row (only with include_history=true). */
+  superseded_at?: string | null
+  /** The row this one corrected (mode=correct). */
+  supersedes_id?: string | null
+  /** Role or user label of the change that created this row; null for seed rows. */
+  changed_by?: string | null
+  change_reason?: string | null
+  /** real API only (requested in docs/requests.md): when the row was written. Without it the page shows the date only
+   * where it can be derived (a correction's time is the superseded row's superseded_at). */
+  changed_at?: string | null
 }
-export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export'] as const
+/** PUT /master/covenants (TAO Admin). new_version and add omit `id`; correct sends the current row's id. */
+export type CovenantChangeMode = 'new_version' | 'correct' | 'add'
+export type CovenantChange = CovenantDefinition & { mode: CovenantChangeMode; reason: string }
+export type CovenantChangeResult = { definition: CovenantDefinition; superseded_id?: string | null; rerun_upload_ids: string[] }
+export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export',
+  'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject'] as const
 export type AuditAction = typeof AUDIT_ACTIONS[number]
 /** The two audit tabs. The API derives the scope from the action (contracts/openapi.yaml /audit): reports = entries
  * with an upload_id, plus publish and regenerate; platform = everything else. */
 export type AuditScope = 'reports' | 'platform'
 export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export']
 export const REPORT_ACTIONS: readonly string[] = AUDIT_ACTIONS.filter(a => !PLATFORM_ACTIONS.includes(a))
+/** Wave B actions about one report: always on the Reports tab, even if an entry arrives without an upload_id. */
+const REPORT_ONLY: readonly string[] = ['publish', 'regenerate', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject']
 export const auditScope = (e: Pick<AuditEntry, 'action' | 'upload_id'>): AuditScope =>
-  e.upload_id || e.action === 'publish' || e.action === 'regenerate' ? 'reports' : 'platform'
+  e.upload_id || REPORT_ONLY.includes(e.action) ? 'reports' : 'platform'
 export type AuditQuery = {
   scope?: AuditScope; month?: string; q?: string; action?: string; actor_role?: string; deal_slug?: string; upload_id?: string
   limit?: number; offset?: number
@@ -126,10 +145,11 @@ export const adminApi = {
   partners: () => api<Partner[]>('/master/partners'),
   programs: () => api<Program[]>('/master/programs'),
   deals: (program_slug?: string) => api<Deal[]>('/master/deals' + qs({ program_slug })),
-  covenants: (deal_slug?: string) => api<CovenantDefinition[]>('/master/covenants' + qs({ deal_slug })),
+  /** Current rows only; with `history` also the rows a correction or a seed run replaced (superseded_at set). */
+  covenants: (deal_slug?: string, history = false) => api<CovenantDefinition[]>('/master/covenants' + qs({ deal_slug, include_history: history ? 'true' : undefined })),
   putProgram: (p: Program) => api<Program>('/master/programs', { method: 'PUT', body: JSON.stringify(p) }),
   putDeal: (d: Deal) => api<Deal>('/master/deals', { method: 'PUT', body: JSON.stringify(d) }),
-  putCovenant: (c: CovenantDefinition) => api<CovenantDefinition>('/master/covenants', { method: 'PUT', body: JSON.stringify(c) }),
+  putCovenant: (c: CovenantChange) => api<CovenantChangeResult>('/master/covenants', { method: 'PUT', body: JSON.stringify(c) }),
   portfolio: () => api<PublishedPortfolio>('/published/portfolio'),
   /** Parameters go out in a fixed order (scope, month, q, filters, paging) so the URL is stable. */
   audit: (f: AuditQuery = {}) => api<AuditEntry[]>('/audit' + qs({ scope: f.scope, month: f.month, q: f.q, upload_id: f.upload_id, action: f.action,

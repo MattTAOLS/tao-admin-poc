@@ -7,8 +7,8 @@ import type { AuditEntry } from '../data'
 
 vi.mock('@/shell/api', () => ({ api: vi.fn(), apiBlob: vi.fn() }))
 import { api, apiBlob } from '@/shell/api'
-import AuditLogPage, { torontoMonth, monthName, changes, fetchAll } from '../AuditLogPage'
-import { auditScope, AUDIT_ACTIONS } from '../data'
+import AuditLogPage, { torontoMonth, monthName, changes, fetchAll, summary, ACTION_LABEL } from '../AuditLogPage'
+import { auditScope, AUDIT_ACTIONS, PLATFORM_ACTIONS, REPORT_ACTIONS } from '../data'
 import { addMonths } from '../ui'
 
 const mockApi = vi.mocked(api)
@@ -324,5 +324,105 @@ describe('Audit log states', () => {
     await waitFor(() => expect(bodyRows(t)).toHaveLength(6))
     fireEvent.click(await within(bodyRows(t)[0]).findByRole('link', { name: /^Dynamic Capital/ }))
     expect(loc()).toBe('/admin/portfolio/move-trust/deals/move-trust-dynamic-capital?period=2026-07')
+  })
+})
+
+describe('Wave B actions', () => {
+  const B = ['value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject']
+  const WAVE_B: AuditEntry[] = [
+    e({ id: 'b5', at: at(CUR, 4, 16), action: 'correction_reject', upload_id: DYNAMIC, reason: 'Servicer withdrew the restated figure',
+      detail: { correction_id: 'cccccccc-0000-4000-8000-000000000001', version: 2, edits: [{ pointer: '/financial_ratios/total_equity', old_value: 2500000, new_value: 2600000 }] } }),
+    e({ id: 'b4', at: at(CUR, 4, 15), action: 'correction_approve', upload_id: DYNAMIC, reason: null,
+      detail: { correction_id: 'cccccccc-0000-4000-8000-000000000002', version: 2, edits: [{ pointer: '/tranche_balance/closing', old_value: 9500000, new_value: 9450000 }] } }),
+    e({ id: 'b3', at: at(CUR, 4, 14), action: 'correction', upload_id: DYNAMIC, reason: 'Closing balance restated by the servicer',
+      detail: { version: 2, edits: [{ pointer: '/tranche_balance/closing', before: 9500000, after: 9450000 }] } }),
+    e({ id: 'b2', at: at(CUR, 4, 13), action: 'value_edit_revert', upload_id: MONEDA, reason: 'Wrong field',
+      detail: { pointer: '/financial_ratios/total_equity', before: 2600000, after: 2500000 } }),
+    e({ id: 'b1', at: at(CUR, 4, 12), action: 'value_edit', upload_id: MONEDA, reason: 'Page 9 shows 2,600,000',
+      detail: { pointer: '/financial_ratios/total_equity', old_value: 2500000, new_value: 2600000, source_page: 9 } }),
+    e({ id: 'b0', at: at(CUR, 4, 11), action: 'master_change', reason: 'Amendment 3 lowers the leverage covenant from January 2027.',
+      detail: { entity: 'covenant_definition', key: '7d1f0a8e-0000-4000-8000-000000000005', mode: 'new_version',
+        before: { threshold: 10, effective_from: '2022-12-09' }, after: { threshold: 9, effective_from: '2027-01-01' } } }),
+  ]
+  const bApi = () => auditApi({
+    'GET /audit': (p: string) => {
+      const q = new URLSearchParams(p.split('?')[1] ?? '')
+      return WAVE_B.filter(x => !q.get('scope') || auditScope(x) === q.get('scope')).filter(x => !q.get('action') || x.action === q.get('action'))
+    },
+    'GET /audit/months': (p: string) => {
+      const scope = new URLSearchParams(p.split('?')[1]).get('scope')
+      return [{ month: CUR, count: WAVE_B.filter(x => auditScope(x) === scope).length }]
+    },
+  })
+  const cellOf = (rows: HTMLElement[], label: string) => {
+    const r = rows.find(x => within(x).queryByRole('cell', { name: label }))!
+    return { row: r, cell: within(r).getByRole('cell', { name: label }) }
+  }
+
+  it('knows the five new actions, files them under Reports (even without an upload id) and labels them', () => {
+    for (const a of B) {
+      expect(AUDIT_ACTIONS).toContain(a)
+      expect(REPORT_ACTIONS).toContain(a)
+      expect(PLATFORM_ACTIONS).not.toContain(a)
+      expect(auditScope({ action: a, upload_id: null })).toBe('reports')
+    }
+    expect(B.map(a => ACTION_LABEL[a])).toEqual(['Value edited', 'Value edit reverted', 'Correction', 'Correction approved', 'Correction rejected'])
+    expect(PLATFORM_ACTIONS).toContain('master_change')
+  })
+
+  it('reads before / after from value edits and corrections', () => {
+    expect(changes({ pointer: '/financial_ratios/total_equity', old_value: 2500000, new_value: 2600000 }))
+      .toEqual([{ field: '/financial_ratios/total_equity', before: 2500000, after: 2600000 }])
+    expect(changes({ pointer: '/a', before: 1, after: 2 })).toEqual([{ field: '/a', before: 1, after: 2 }])
+    expect(changes({ edits: [{ pointer: '/a', old_value: 1, new_value: 2 }, { pointer: '/b', before: 3, value: 4 }] })).toEqual([
+      { field: '/a', before: 1, after: 2 }, { field: '/b', before: 3, after: 4 }])
+  })
+
+  it('shows the new actions on the Reports tab with before → after in the row and in the expanded entry', async () => {
+    mockApi.mockImplementation(bApi())
+    renderPage(PATH, route)
+    const t = await log()
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(5))
+    const rows = bodyRows(t)
+    // Detail cell: one change reads field old → new.
+    const edit = cellOf(rows, 'Value edited')
+    expect(edit.row.textContent).toContain('/financial_ratios/total_equity 2500000→2600000')
+    await userEvent.click(edit.cell)
+    const ba = screen.getByRole('table', { name: 'Before and after' })
+    expect(within(ba).getAllByRole('row').map(r => r.textContent)).toEqual(['FieldBeforeAfter', '/financial_ratios/total_equity25000002600000'])
+    expect(screen.getByText('Page 9 shows 2,600,000')).toBeTruthy()
+    await userEvent.click(edit.cell)
+    expect(screen.queryByRole('table', { name: 'Before and after' })).toBeNull()
+
+    for (const [label, row] of [
+      ['Value edit reverted', '/financial_ratios/total_equity26000002500000'],
+      ['Correction', '/tranche_balance/closing95000009450000'],
+      ['Correction approved', '/tranche_balance/closing95000009450000'],
+      ['Correction rejected', '/financial_ratios/total_equity25000002600000'],
+    ]) {
+      const c = cellOf(rows, label)
+      await userEvent.click(c.cell)
+      expect(within(screen.getByRole('table', { name: 'Before and after' })).getAllByRole('row').map(r => r.textContent)).toEqual(['FieldBeforeAfter', row])
+      await userEvent.click(c.cell)
+    }
+  })
+
+  it('a correction with several edits sums up as the version and its edits', () => {
+    const two = { ...WAVE_B[2], detail: { version: 2, edits: [{ pointer: '/a', before: 1, after: 2 }, { pointer: '/b', before: 3, after: 4 }] } }
+    expect(summary(two)).toBe('version 2 · /a 1 → 2 · /b 3 → 4')
+    expect(summary({ ...WAVE_B[0], detail: { version: 3 } })).toBe('version 3')
+  })
+
+  it('a covenant change stays on Platform as a master data change with mode, before → after and the reason', async () => {
+    mockApi.mockImplementation(bApi())
+    renderPage(`${PATH}?tab=platform`, route)
+    const t = await log()
+    await waitFor(() => expect(bodyRows(t)).toHaveLength(1))
+    const c = cellOf(bodyRows(t), 'Master data change')
+    await userEvent.click(c.cell)
+    expect(within(screen.getByRole('table', { name: 'Before and after' })).getAllByRole('row').map(r => r.textContent))
+      .toEqual(['FieldBeforeAfter', 'threshold109', 'effective_from2022-12-092027-01-01'])
+    expect(screen.getByText('Amendment 3 lowers the leverage covenant from January 2027.')).toBeTruthy()
+    expect(screen.getByText('new_version')).toBeTruthy()
   })
 })

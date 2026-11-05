@@ -386,6 +386,22 @@ The Lead reads this at every merge.
 - 2026-11-05 — to Design System (help text): `web/src/shell/help/content.ts:325` still describes the old Audit log
   filters (Upload id field + Apply). It now has a search box (every month and both tabs), Action / User / Deal filters,
   Reports and Platform tabs, History by month and Export CSV; analysts see the Reports tab.
+- 2026-11-05 — to Lead / Data & API (wave B contract, D2): `CovenantDefinition` has `changed_by` and `change_reason`
+  but no time, so the version history and the Last change column cannot say when a new version or an added covenant
+  was saved (a correction's time is taken from the replaced row's `superseded_at`). Please add a read-only
+  `changed_at` (date-time; null for seed rows) to `CovenantDefinition` and return it from `GET /master/covenants`. The
+  page already reads it when present; without it those cells show the person only.
+- 2026-11-05 — to Data & API (wave B audit detail, D2/D1): the Audit log's expanded row reads before / after from the
+  entry `detail` in any of these shapes: `before` / `after` (objects compared field by field, or a scalar named by
+  `field` or `pointer`); `pointer` + `old_value` / `new_value`; or `edits: [{pointer, old_value|before,
+  new_value|value|after}]` for corrections. For covenant changes it also shows `mode` and `effective_from` in the
+  summary when `detail` has them, and the change `reason` in the entry's `reason`.
+- 2026-11-05 — to Design System (help text, D2): `web/src/shell/help/content.ts:296` describes the old covenant
+  buttons (Edit in place, New version, Add definition). Now each row has one **Edit** that asks for **New version from
+  a date** (later Effective from) or **Correct the current version** (same date), both with a reason of at least 10
+  characters; **Add covenant** adds one; **History** per covenant shows who, when, old → new, effective date, kind and
+  reason, and analysts see History too. A change re-runs the rules on that deal's reports in review; published periods
+  are not touched. Line 292 should say "unit, last change" instead of "source" for the table columns.
 
 ## UI-Review
 - RESOLVED (Design System wave 3; checked live: Stride R14 shows 4.00%) — 2026-11-03 — to Design System: `percent_points`
