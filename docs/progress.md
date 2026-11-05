@@ -683,3 +683,8 @@ Append an entry when a work package lands. Newest first.
   does not apply value edits after a pass-2 extraction; the API re-runs with edits on approve and on every edit, so
   findings written by the worker in between ignore edits until then. Correction findings cannot be overridden (no route
   in the contract), so a queued correction is approved only once a re-run no longer blocks, or rejected.
+  Update after Lead 867d8f1: `POST /corrections/{id}/findings/{finding_id}/override` (tao_admin; restatement or
+  acknowledge, use_ours / use_report 409 bad_choice; 409 bad_state when the correction is decided or the finding is not
+  open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
+  publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
+  from the correction (no schema change). active_edit_count is per value, as built.

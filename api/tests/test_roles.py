@@ -44,7 +44,7 @@ K = "/api/v1/corrections/00000000-0000-4000-8000-000000000002"
 WAVE_B_READS = [("get", E), ("get", U + "/corrections"), ("get", "/api/v1/corrections"), ("get", "/api/v1/corrections?status=needs_review"),
                 ("get", K), ("get", "/api/v1/master/covenants?include_history=true")]
 WAVE_B_WRITES = [("post", E), ("post", E + "/00000000-0000-4000-8000-000000000003/revert"), ("post", U + "/corrections"),
-                 ("post", K + "/approve"), ("post", K + "/reject")]
+                 ("post", K + "/approve"), ("post", K + "/reject"), ("post", K + "/findings/00000000-0000-4000-8000-000000000004/override")]
 
 @pytest.mark.parametrize("method,path", WAVE_B_READS + WAVE_B_WRITES)
 @pytest.mark.parametrize("h", [INV, MGR, {"X-Role": "investor_admin", "X-Partner": "investor"}, {"X-Role": "manager_viewer", "X-Partner": "manager"}])

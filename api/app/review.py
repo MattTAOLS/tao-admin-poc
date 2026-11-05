@@ -282,10 +282,12 @@ def finding_counts(findings) -> dict:
 
 
 # ---- corrections after publish (wave B) ----
-def correction_findings(s: Session, u: SetrepUpload, deal: dict) -> list[dict]:
+def correction_findings(s: Session, u: SetrepUpload, deal: dict, previous: list[dict] | None = None) -> list[dict]:
     """Run the rules on a corrected published deal (prior = the published previous month). A produced finding is `open`
     unless the reviewer already resolved the same finding (rule_id + fields) when the report was approved: it then carries
-    that status and resolution, so a block overridden in review (e.g. R05 use_report) does not hold up every correction."""
+    that status and resolution, so a block overridden in review (e.g. R05 use_report) does not hold up every correction.
+    `previous` are the correction's own stored findings: a re-run keeps their ids, and their overrides (restatement /
+    acknowledge on the queued correction) win over the review's."""
     rules, _ = _rules()
     ex = views.latest_extraction(s, u.id)
     resolved = {}
@@ -295,11 +297,18 @@ def correction_findings(s: Session, u: SetrepUpload, deal: dict) -> list[dict]:
                 resolved[(f.rule_id, tuple(f.fields or []))] = f
     produced = rules.run({"meta": (ex.meta if ex else {}) or {}, "deal": deal, "sources": (ex.sources if ex else {}) or {}},
                          build_context(s, u, correcting=True), phases=PHASES)
-    out = []
+    out, taken = [], set()
     for f in produced:
         f = {k: v for k, v in f.items() if k != "created_at"}
         f["extraction_id"] = ex.id if ex else None
-        prev = resolved.get((f["rule_id"], tuple(f.get("fields") or [])))
-        f["status"], f["resolution"] = (prev.status, prev.resolution) if prev else ("open", None)
+        key = (f["rule_id"], tuple(f.get("fields") or []))
+        mine = next((p for p in (previous or []) if (p.get("rule_id"), tuple(p.get("fields") or [])) == key and p.get("id") not in taken), None)
+        if mine is not None:
+            f["id"] = mine["id"]; taken.add(mine["id"])
+        prev = resolved.get(key)
+        if mine is not None and mine.get("status") not in ("open", None):
+            f["status"], f["resolution"] = mine["status"], mine.get("resolution")
+        else:
+            f["status"], f["resolution"] = (prev.status, prev.resolution) if prev else ("open", None)
         out.append(f)
     return out

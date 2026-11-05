@@ -517,6 +517,35 @@ def get_correction(correction_id: str, c: Caller = Depends(tao_caller), s: Sessi
     return views.correction_dict(s, _correction_or_404(s, correction_id), findings=True)
 
 
+@app.post(API + "/corrections/{correction_id}/findings/{finding_id}/override")
+def override_correction_finding(correction_id: str, finding_id: str, body: OverrideRequest, c: Caller = Depends(admin_caller),
+                                s: Session = Depends(get_db)):
+    """Resolve a finding of a queued correction. Only restatement or acknowledge: the correction's values are its edits,
+    so use_ours / use_report are refused (409 bad_choice). The resolution sticks across the re-run approve does."""
+    admin_only(c)
+    k = _correction_or_404(s, correction_id)
+    findings = [dict(f) for f in (k.findings or [])]
+    f = next((x for x in findings if x.get("id") == finding_id), None)
+    if f is None:
+        raise err(404, "not_found", "no such finding on this correction")
+    if k.status != "needs_review":
+        raise err(409, "bad_state", f"correction is {k.status}")
+    if body.choice in review.VALUE_CHOICES:
+        raise err(409, "bad_choice", "a correction's values are its edits; resolve with restatement or acknowledge, or reject and correct again")
+    if f.get("status") != "open":
+        raise err(409, "bad_state", f"finding is already {f.get('status')}")
+    f["status"] = review.CHOICE_STATUS[body.choice]
+    f["resolution"] = {"by": c.role, "at": views.iso(utcnow()), "choice": body.choice, "reason": body.reason}
+    k.findings = findings
+    k.finding_counts = review.finding_counts(findings)
+    views.audit(s, c, "restate" if body.choice == "restatement" else "override", upload_id=k.upload_id, reason=body.reason,
+                detail={"correction_id": k.id, "version": k.version, "correction_finding_id": f["id"], "choice": body.choice,
+                        "rule_id": f.get("rule_id"), "our_value": f.get("our_value"), "report_value": f.get("report_value"),
+                        "edits": _audit_edits(s, k)})
+    s.commit()
+    return views.correction_dict(s, k, findings=True)
+
+
 @app.post(API + "/corrections/{correction_id}/approve")
 def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     """The rules re-run first (the master data or the prior month may have changed since); still a block open: 409."""
@@ -528,7 +557,7 @@ def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s:
     pub = s.get(Publication, k.publication_id)
     if pub is None or pub.upload_id != u.id or (pub.version or 1) != k.version - 1:
         raise err(409, "bad_state", "the publication changed since this correction was made (a re-issue or another version); reject it and correct again")
-    k.findings = review.correction_findings(s, u, k.deal)
+    k.findings = review.correction_findings(s, u, k.deal, previous=k.findings)
     k.finding_counts = review.finding_counts(k.findings)
     if k.finding_counts["block"]:
         s.commit()

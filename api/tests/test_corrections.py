@@ -202,3 +202,46 @@ def test_audit_detail_shape_for_the_audit_page(client, published):
     assert client.post(f"/api/v1/corrections/{k3['id']}/approve", headers=TAO).status_code == 200
     appr = client.get("/api/v1/audit", headers=TAO, params={"upload_id": published, "action": "correction_approve"}).json()[0]["detail"]
     assert appr["edits"] == want and appr["version"] == k2["version"] + 1
+
+
+def test_override_a_queued_correction_finding_then_approve(client, published):
+    """Lead 867d8f1: restatement / acknowledge resolve a correction's block; use_ours / use_report are 409 bad_choice.
+    The resolution survives the re-run approve does, and approve then publishes."""
+    uid = published
+    k = correct(client, uid, [(PRINCIPAL, 646826.71)], reason="principal re-read on page 2 as 646,826.71",
+                note="August principal corrected after the servicer's restatement.").json()
+    assert k["status"] == "needs_review"
+    fs = client.get(f"/api/v1/corrections/{k['id']}", headers=TAO).json()["findings"]
+    blocks = [f for f in fs if f["severity"] == "block" and f["status"] == "open"]
+    assert blocks and any(f["rule_id"] == "R05" for f in blocks)
+    url = lambda fid: f"/api/v1/corrections/{k['id']}/findings/{fid}/override"
+    for choice in ("use_ours", "use_report"):
+        r = client.post(url(blocks[0]["id"]), headers=TAO, json={"choice": choice, "reason": "try a value choice"})
+        assert r.status_code == 409 and r.json()["code"] == "bad_choice"
+    assert client.post(url(blocks[0]["id"]), headers=ANALYST, json={"choice": "acknowledge", "reason": "servicer confirmed"}).status_code == 403
+    assert client.post(url(blocks[0]["id"]), headers=TAO, json={"choice": "grant", "reason": "x y z"}).status_code == 422
+    assert client.post(url("00000000-0000-4000-8000-000000000000"), headers=TAO, json={"choice": "acknowledge", "reason": "n/a"}).status_code == 404
+    r = client.post(f"/api/v1/corrections/{k['id']}/approve", headers=TAO)
+    assert r.status_code == 409 and r.json()["code"] == "open_block_findings"
+    for i, b in enumerate(blocks):
+        choice = "restatement" if i == 0 else "acknowledge"
+        r = client.post(url(b["id"]), headers=TAO, json={"choice": choice, "reason": "servicer restated principal for August"})
+        assert r.status_code == 200, r.text
+        f = next(x for x in r.json()["findings"] if x["id"] == b["id"])
+        assert f["status"] == ("accepted_as_restatement" if i == 0 else "overridden") and f["resolution"]["choice"] == choice
+    assert r.json()["finding_counts"]["block"] == 0
+    again = client.post(url(blocks[0]["id"]), headers=TAO, json={"choice": "acknowledge", "reason": "again please"})
+    assert again.status_code == 409 and again.json()["code"] == "bad_state"
+    r = client.post(f"/api/v1/corrections/{k['id']}/approve", headers=TAO)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "published"
+    after = client.get(f"/api/v1/corrections/{k['id']}", headers=TAO).json()["findings"]
+    assert {f["id"] for f in blocks} <= {f["id"] for f in after if f["status"] != "open"}            # ids and resolutions kept
+    d = client.get(DEAL_URL, headers=INV).json()
+    assert d["version"] == 2 and d["period_history"][3]["principal"] == 646826.71
+    v2 = d["versions"][-1]
+    assert v2["note_to_partners"] == "August principal corrected after the servicer's restatement." and v2["reason"].startswith("principal")
+    assert d["versions"][0]["note_to_partners"] is None
+    a = [x for x in client.get("/api/v1/audit", headers=TAO, params={"upload_id": uid}).json() if x["action"] in ("override", "restate")]
+    assert len(a) == len(blocks) and all(x["detail"]["correction_id"] == k["id"] for x in a)
+    assert client.post(url(blocks[0]["id"]), headers=TAO, json={"choice": "acknowledge", "reason": "too late now"}).json()["code"] == "bad_state"
