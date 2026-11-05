@@ -52,6 +52,25 @@
 .pf-strip__link:hover { text-decoration: underline; }
 .pf-strip__newer { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
 
+/* Publication versions (wave B): header pill + menu, banner on an earlier version, manual corrections. */
+.pf-version { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; vertical-align: middle; }
+.pf-vmenu { position: relative; display: inline-block; }
+.pf-vmenu__panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 320px; max-width: 80vw;
+  padding: 6px; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-panel);
+  box-shadow: var(--sh-panel); font-family: var(--data); font-size: var(--fs-table); font-weight: 400; color: var(--text);
+  animation: pf-panel-in var(--t-panel) var(--ease); }
+@keyframes pf-panel-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pf-vmenu__list { list-style: none; margin: 0; padding: 0; }
+.pf-vmenu__item { padding: 8px 10px; border-radius: var(--r-control); display: flex; flex-direction: column; gap: 2px; }
+.pf-vmenu__item + .pf-vmenu__item { border-top: 1px solid var(--border-table); }
+.pf-vmenu__item--here { background: var(--lav); }
+.pf-vmenu__link { color: var(--purple); font-weight: 600; text-decoration: none; }
+.pf-vmenu__link:hover { text-decoration: underline; }
+.pf-vmenu__link:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-cell); }
+.pf-oldversion { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--warn);
+  border-radius: var(--r-panel); background: var(--warn-bg); color: var(--text); font-size: var(--fs-small); }
+.pf-manual { margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
 .pf-chart__svg { width: 100%; max-width: 720px; height: auto; display: block; }
 .pf-chart__grid { stroke: var(--border-table); stroke-width: 1; }
 .pf-chart__axis { fill: var(--muted); font-family: var(--data); font-size: 10px; }

@@ -1,8 +1,9 @@
 import { useId, useState } from 'react'
-import { Button, DataTable, formatPeriod, type Column } from '@/design/components'
+import { Button, DataTable, StatusPill, formatPeriod, type Column } from '@/design/components'
 import type { NumKind } from './fmt'
 import { Num } from './Num'
 import type { DataCorrection } from './types'
+import { versionDate } from './Versions'
 
 const RECORD: Record<string, string> = {
   period_history: 'Balance history', tranche_balance: 'Balance', tranche_amount: 'Amount', contracts: 'Contracts',
@@ -40,6 +41,15 @@ export function correctionKind(c: Pick<DataCorrection, 'record' | 'field'>): Num
 
 const CHOICE: Record<string, string> = { use_ours: 'our recomputation', use_report: 'the report value' }
 
+/** A TAO Admin's own value edit (ValueEdit, choice `manual`), in review or as a post-publish correction. */
+export const isManual = (c: Pick<DataCorrection, 'choice'>) => c.choice === 'manual'
+
+/** The day a correction was applied: `applied` as recorded, else the edit's timestamp. */
+export function correctionDate(c: Pick<DataCorrection, 'applied' | 'at'>): string {
+  if (typeof c.applied === 'string' && c.applied) return c.applied
+  return c.at ? versionDate(c.at) : '—'
+}
+
 type Entry = { c: DataCorrection; i: number }
 export type CorrectionGroup = { key: string; primary: Entry; copies: Entry[] }
 
@@ -49,7 +59,7 @@ export type CorrectionGroup = { key: string; primary: Entry; copies: Entry[] }
 export function groupCorrections(rows: DataCorrection[]): CorrectionGroup[] {
   const groups = new Map<string, CorrectionGroup>()
   rows.forEach((c, i) => {
-    const key = c.finding_id ? `f:${c.finding_id}` : `v:${c.period}|${c.reason ?? ''}|${JSON.stringify(c.old_value)}|${JSON.stringify(c.new_value)}`
+    const key = c.finding_id ? `f:${c.finding_id}` : c.edit_id ? `e:${c.edit_id}` : `v:${c.period}|${c.reason ?? ''}|${JSON.stringify(c.old_value)}|${JSON.stringify(c.new_value)}`
     const g = groups.get(key)
     if (g) g.copies.push({ c, i }); else groups.set(key, { key, primary: { c, i }, copies: [] })
   })
@@ -92,9 +102,11 @@ export function CorrectionsTable({ rows }: { rows: DataCorrection[] }) {
     { key: 'new', header: 'Now', numeric: true, render: g => <Value e={g.primary} k="new_value" /> },
     { key: 'reason', header: 'Reason', render: ({ primary: { c } }) => <>
       <div>{c.reason || '—'}</div>
-      {(c.rule_id || c.choice) && <div className="pf-muted pf-small">{[c.rule_id, c.choice && `kept ${CHOICE[c.choice] ?? c.choice}`].filter(Boolean).join(' · ')}</div>}
+      {isManual(c)
+        ? <div className="pf-manual"><StatusPill tone="blue" size="sm">Corrected by TAO</StatusPill>{typeof c.version === 'number' && <span className="pf-muted pf-small">version {c.version}</span>}</div>
+        : (c.rule_id || c.choice) && <div className="pf-muted pf-small">{[c.rule_id, c.choice && `kept ${CHOICE[c.choice] ?? c.choice}`].filter(Boolean).join(' · ')}</div>}
     </> },
-    { key: 'applied', header: 'Applied', render: ({ primary: { c } }) => <span className="pf-nowrap">{typeof c.applied === 'string' ? c.applied : '—'}</span> },
+    { key: 'applied', header: 'Applied', render: ({ primary: { c } }) => <span className="pf-nowrap">{correctionDate(c)}</span> },
   ]
   return <DataTable columns={cols} rows={data} rowKey={g => g.key} caption="Data corrections" captionHidden density="compact" />
 }

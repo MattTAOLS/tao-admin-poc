@@ -646,3 +646,17 @@ Append an entry when a work package lands. Newest first.
   with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
   database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
   --profile review from an empty volume builds the schema through the runner and runs the whole review profile.
+- 2026-11-05 — UI-Partner, phase 2 wave B (publication versions, decisions B2 and B3): merged lead/wave-b (35e3abc).
+  Deal page, admin and partner shells: when the published deal's current version is above 1, the header shows a
+  "Corrected" pill (blue, dot plus word) and a "Version N of M" button that opens the versions menu (newest first:
+  version, published date, publisher, correction reason; Escape and outside click close it). An older version opens
+  `?period=…&version=n` (the API call carries `version`) under a banner "You are looking at version n. The current
+  version is m." with "Go to the current version". Data corrections: `choice: "manual"` rows read "Corrected by TAO"
+  (plus "version n" when the entry carries it) with old → new, the date (`applied`, else the edit's `at`) and the
+  reason; use_ours / use_report rows unchanged; partners see the same values (B3). Program pages, the period picker,
+  prev / next deal and the breadcrumb never carry `version`. Nothing changes when version is 1 or absent. New:
+  `web/src/portfolio/Versions.tsx`; `links.deal` and `paths.deal` take an optional version. Tests: `npx vitest run
+  src/portfolio` 110 passed, 17 live skipped (new `versions.test.tsx`, 10 tests, fixture = real Dynamic Capital July 2026
+  with one change: version 2 with a manual recoveries correction). Full web suite 450 passed, 1 failed under load
+  (review ReviewPage R05 override, 21 s; passes alone 17/17). Not checked against the real API (wave B API not merged);
+  I assume manual entries in `data_corrections` carry `choice`, `applied` or `at`, and optionally `version`, `edit_id`.

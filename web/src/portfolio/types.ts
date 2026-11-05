@@ -54,7 +54,15 @@ export type RatioHistoryRow = { month?: string; [k: string]: number | string | u
 export type DataCorrection = {
   period: string; record: string; field: string
   old_value: number | string | boolean | null; new_value: number | string | boolean | null
-  applied?: string | boolean; reason?: string | null; rule_id?: string; choice?: 'use_ours' | 'use_report' | string; finding_id?: string
+  applied?: string | boolean; reason?: string | null; rule_id?: string; choice?: 'use_ours' | 'use_report' | 'manual' | string; finding_id?: string
+  /** Manual edits (choice `manual`, contracts/openapi.yaml ValueEdit): when, by whom, and the version they belong to. */
+  at?: string; actor_role?: string; actor_label?: string | null; edit_id?: string; correction_id?: string | null; version?: number
+}
+
+/** contracts/openapi.yaml PublicationVersion: one publication of a deal month (1 = original, 2+ = corrections). */
+export type PublicationVersion = {
+  version: number; published_at: string; published_by: string
+  correction_id?: string | null; reason?: string | null; current?: boolean
 }
 
 /** One row of top10_obligors (SCHEMA.md). Finloc also carries the CAD / USD split of the contract amount. */
@@ -104,6 +112,9 @@ export type Deal = {
   upload_id?: string
   published_period?: string
   available_periods?: string[]
+  /** The publication version shown and every version of this month (PublishedDeal, wave B). */
+  version?: number
+  versions?: PublicationVersion[]
   [k: string]: unknown
 }
 

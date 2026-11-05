@@ -44,3 +44,28 @@ export const OWNERS = OWNER
 export function at(obj: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((o, k) => (o == null ? undefined : (o as Record<string, unknown>)[k]), obj)
 }
+
+/** Wave B (decision B2): a deal month corrected after publication. The real Dynamic Capital July 2026 object with one
+ * deliberate change: version 2 is a TAO manual correction of tranche_balance.recoveries (0 → 18,450), appended to
+ * data_corrections with choice `manual` next to the reference row that is already there. Version 1 is the reference
+ * object as published. Both carry the same versions list, as the API returns it for either version. */
+export const CORRECTED = 'move-trust-dynamic-capital'
+export const MANUAL_REASON = 'Recoveries on the July report were left at zero; the servicer confirmed 18,450.00 received.'
+export const VERSIONS = [
+  { version: 1, published_at: '2026-10-09T14:00:00Z', published_by: 'tao_admin', correction_id: null, reason: null, current: false },
+  { version: 2, published_at: '2026-11-04T15:30:00Z', published_by: 'tao_admin', correction_id: 'cccccccc-0000-0000-0000-000000000002', reason: MANUAL_REASON, current: true },
+]
+export function apiCorrectedDeal(version?: number): Deal {
+  const base = apiDeal(CORRECTED)
+  if (version === 1) return { ...base, version: 1, versions: VERSIONS }
+  const manual = {
+    period: base.published_period as string, record: 'tranche_balance', field: 'recoveries', old_value: 0, new_value: 18450,
+    applied: '2026-11-04', reason: MANUAL_REASON, choice: 'manual', at: '2026-11-04T15:30:00Z', actor_role: 'tao_admin',
+    actor_label: 'tao_admin', edit_id: 'eeeeeeee-0000-0000-0000-000000000001', correction_id: VERSIONS[1].correction_id, version: 2,
+  }
+  return {
+    ...base, version: 2, versions: VERSIONS, published_at: VERSIONS[1].published_at,
+    tranche_balance: { ...base.tranche_balance, recoveries: 18450 },
+    data_corrections: [...(base.data_corrections ?? []), manual],
+  }
+}

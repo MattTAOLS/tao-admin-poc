@@ -14,14 +14,15 @@ import { RatioChart } from './RatioChart'
 import { Top10Panel } from './Top10'
 import { AsOfPill, LoadGate, behindOf, crumbs, dealMonth, programName } from './shared'
 import type { AgingRow, CnlRow, Deal, FinancialRatio, PeriodRow, ProgramAggregate } from './types'
+import { OlderVersionBanner, VersionStatus } from './Versions'
 
 /** Deal page: Deal Metrics, covenants with legal reference, ratio history, prev / next deal, period picker. */
 export function DealPage() {
   const shell = useShell()
   const L = links(shell)
   const nav = useNavigate()
-  const { programId, dealId, period } = usePortfolioParams()
-  const load = usePublished<Deal>(programId && dealId ? paths.deal(programId, dealId, period) : null)
+  const { programId, dealId, period, version } = usePortfolioParams()
+  const load = usePublished<Deal>(programId && dealId ? paths.deal(programId, dealId, period, version) : null)
   const deal = load.state === 'ok' ? load.data : undefined
   // The program gives prev / next within it. At the deal's newest publication: the program's latest month, so each
   // neighbour opens at its own newest month. At an older month: the program as of that month.
@@ -37,9 +38,11 @@ export function DealPage() {
   const behind = prog.state === 'ok' && dealId ? behindOf(prog.data, dealId) : undefined
   const behindHere = behind && behind.as_of === shown ? behind : undefined
   const pname = prog.state === 'ok' ? programName(prog.data) : programId ?? ''
+  // A version link keeps the month on screen; the current version has no ?version (program links never carry one).
+  const versionHref = (v: number | undefined) => programId && dealId ? L.deal(programId, dealId, shown, v) : L.portfolio()
   usePageHeader({
     title: deal ? deal.deal_name : 'Deal',
-    status: deal ? <><CovenantPill status={deal.worst_status} />{behindHere && prog.state === 'ok' && <AsOfPill p={prog.data} dealSlug={behindHere.deal_slug} />}</> : undefined,
+    status: deal ? <><CovenantPill status={deal.worst_status} />{behindHere && prog.state === 'ok' && <AsOfPill p={prog.data} dealSlug={behindHere.deal_slug} />}<VersionStatus d={deal} hrefFor={versionHref} /></> : undefined,
     subtitle: deal ? <>Collection period {deal.collection_period}{deal.settlement_date ? ` · settled ${deal.settlement_date}` : ''}{deal.prior_period ? ` · compared with ${formatPeriod(deal.prior_period)}` : ''}</> : undefined,
     crumbs: crumbs(shell, L.portfolio(), { label: pname, href: programId ? L.program(programId) : undefined }, { label: deal ? shortName(deal.deal_name, prefix) : dealId ?? '' }),
     actions: programId ? <>
@@ -51,6 +54,7 @@ export function DealPage() {
     <LoadGate load={load}>{d => (
       <div className="pf-stack">
         {shell === 'admin' && <AdminStrip deal={d} />}
+        <OlderVersionBanner d={d} currentHref={versionHref(undefined)} />
         {behindHere && prog.state === 'ok' && (
           <p className="pf-behind" role="note">{shortName(d.deal_name, prefix)} is as of {formatPeriod(behindHere.as_of)}; its {formatPeriod(prog.data.period)} report is not published yet.</p>
         )}

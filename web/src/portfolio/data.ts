@@ -34,8 +34,13 @@ export function usePublished<T>(path: string | null): Load<T> {
 export const paths = {
   portfolio: () => '/published/portfolio',
   program: (p: string, period?: string) => `/published/programs/${encodeURIComponent(p)}${period ? `?period=${period}` : ''}`,
-  deal: (p: string, d: string, period?: string) =>
-    `/published/programs/${encodeURIComponent(p)}/deals/${encodeURIComponent(d)}${period ? `?period=${period}` : ''}`,
+  deal: (p: string, d: string, period?: string, version?: number) => {
+    const q = new URLSearchParams()
+    if (period) q.set('period', period)
+    if (version !== undefined) q.set('version', String(version))
+    const s = q.toString()
+    return `/published/programs/${encodeURIComponent(p)}/deals/${encodeURIComponent(d)}${s ? `?${s}` : ''}`
+  },
   /** TAO-only upload list for one deal (admin strip; never called from a partner shell). */
   uploads: (d: string) => `/uploads?deal_slug=${encodeURIComponent(d)}`,
 }
