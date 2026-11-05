@@ -30,8 +30,11 @@ export function links(shell: ShellId) {
     portfolio: () => base,
     program: (p: string, period?: string) => nested ? `${base}/${enc(p)}${q({ period })}` : base + q({ program: p, period }),
     dashboard: (p: string, period?: string) => nested ? `${base}/${enc(p)}/dashboard${q({ period })}` : base + q({ program: p, view: 'dashboard', period }),
-    deal: (p: string, d: string, period?: string) =>
-      nested ? `${base}/${enc(p)}/deals/${enc(d)}${q({ period })}` : base + q({ program: p, deal: d, period }),
+    /** `version` opens an earlier publication of that month; omit it for the current one. */
+    deal: (p: string, d: string, period?: string, version?: number) => {
+      const v = version === undefined ? undefined : String(version)
+      return nested ? `${base}/${enc(p)}/deals/${enc(d)}${q({ period, version: v })}` : base + q({ program: p, deal: d, period, version: v })
+    },
   }
 }
 export function useLinks() { return links(useShell()) }
@@ -45,6 +48,8 @@ export function usePortfolioParams() {
     dealId: params.dealId ?? search.get('deal') ?? undefined,
     view: search.get('view') ?? undefined,
     period: search.get('period') ?? undefined,
+    /** An earlier publication version of the deal month (?version=n); absent means the current one. */
+    version: /^[1-9]\d*$/.test(search.get('version') ?? '') ? Number(search.get('version')) : undefined,
   }
 }
 
