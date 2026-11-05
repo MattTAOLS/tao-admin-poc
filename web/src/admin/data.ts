@@ -1,6 +1,6 @@
 /** Typed calls for the TAO Admin pages. Shapes follow contracts/openapi.yaml; fields the real API adds that the
  * contract does not list yet are marked "real API only" and always treated as optional. */
-import { api } from '@/shell/api'
+import { api, apiBlob } from '@/shell/api'
 import type { UploadStatus } from '@/design/components'
 
 export type FindingCounts = { block?: number; review?: number; note?: number }
@@ -58,8 +58,20 @@ export type CovenantDefinition = {
   effective_from: string
   source?: string | null
 }
-export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change'] as const
+export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export'] as const
 export type AuditAction = typeof AUDIT_ACTIONS[number]
+/** The two audit tabs. The API derives the scope from the action (contracts/openapi.yaml /audit): reports = entries
+ * with an upload_id, plus publish and regenerate; platform = everything else. */
+export type AuditScope = 'reports' | 'platform'
+export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export']
+export const REPORT_ACTIONS: readonly string[] = AUDIT_ACTIONS.filter(a => !PLATFORM_ACTIONS.includes(a))
+export const auditScope = (e: Pick<AuditEntry, 'action' | 'upload_id'>): AuditScope =>
+  e.upload_id || e.action === 'publish' || e.action === 'regenerate' ? 'reports' : 'platform'
+export type AuditQuery = {
+  scope?: AuditScope; month?: string; q?: string; action?: string; actor_role?: string; deal_slug?: string; upload_id?: string
+  limit?: number; offset?: number
+}
+export type AuditMonth = { month: string; count: number }
 export type AuditEntry = {
   id: string
   at: string
@@ -70,6 +82,11 @@ export type AuditEntry = {
   finding_id?: string | null
   reason?: string | null
   detail?: Record<string, unknown>
+  /** The upload's deal (or detail.deal_slug); null for platform entries without a deal. */
+  deal_slug?: string | null
+  deal_name?: string | null
+  /** YYYY-MM of the upload: MOVE Trust's own report month, F-PIL's settlement month. */
+  collection_period?: string | null
 }
 export type CovenantTotals = { BREACH?: number; WATCH?: number; OK?: number; AVAILABLE?: number }
 export type PortfolioDeal = { deal_slug?: string; deal_name?: string; collection_period?: string; worst_status?: string }
@@ -87,9 +104,9 @@ export type PublishedPortfolio = { partner?: string | null; programs?: Portfolio
 
 export type ApiError = Error & { code?: string; status?: number }
 
-const qs = (params: Record<string, string | undefined>) => {
+const qs = (params: Record<string, string | number | undefined>) => {
   const p = new URLSearchParams()
-  for (const [k, v] of Object.entries(params)) if (v) p.set(k, v)
+  for (const [k, v] of Object.entries(params)) if (v || v === 0) p.set(k, String(v))
   const s = p.toString()
   return s ? '?' + s : ''
 }
@@ -114,7 +131,12 @@ export const adminApi = {
   putDeal: (d: Deal) => api<Deal>('/master/deals', { method: 'PUT', body: JSON.stringify(d) }),
   putCovenant: (c: CovenantDefinition) => api<CovenantDefinition>('/master/covenants', { method: 'PUT', body: JSON.stringify(c) }),
   portfolio: () => api<PublishedPortfolio>('/published/portfolio'),
-  audit: (f: { upload_id?: string; action?: string } = {}) => api<AuditEntry[]>('/audit' + qs(f)),
+  /** Parameters go out in a fixed order (scope, month, q, filters, paging) so the URL is stable. */
+  audit: (f: AuditQuery = {}) => api<AuditEntry[]>('/audit' + qs({ scope: f.scope, month: f.month, q: f.q, upload_id: f.upload_id, action: f.action,
+    actor_role: f.actor_role, deal_slug: f.deal_slug, limit: f.limit, offset: f.offset })),
+  auditMonths: (scope: AuditScope, q?: string) => api<AuditMonth[]>('/audit/months' + qs({ scope, q })),
+  /** One month of one tab as CSV; the API writes its own `export` entry to the Platform tab. */
+  auditExport: (scope: AuditScope, month: string) => apiBlob('/audit/export.csv' + qs({ scope, month })),
 }
 
 /** Statuses the upload poller keeps watching (motion.md: 2 s while non-terminal; this page stops once it reaches review). */

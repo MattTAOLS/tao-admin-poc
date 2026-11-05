@@ -37,6 +37,7 @@ describe('Uploads', () => {
     renderPage('/admin/uploads', uploadsRoute)
     expect(header().title).toBe('Uploads')
     const table = await screen.findByRole('table', { name: 'Recent uploads' })
+    await waitFor(() => expect(table.querySelector('.ds-table__skel')).toBeNull())
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(5)
     expect(within(rows[0]).getByText('Received')).toBeTruthy()
@@ -100,6 +101,7 @@ describe('Upload history', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(6))
     expect(header().title).toBe('Upload history')
 
+    await within(screen.getByLabelText('Deal')).findByRole('option', { name: 'Moneda Capital Corp.' })
     await userEvent.selectOptions(screen.getByLabelText('Deal'), 'f-pil-2-0-moneda-capital-corp')
     await waitFor(() => expect(calls.at(-1)).toBe('/uploads?deal_slug=f-pil-2-0-moneda-capital-corp'))
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(5))
@@ -130,6 +132,7 @@ describe('Upload history', () => {
     mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [UPLOADS[2]] }))
     renderPage('/admin/uploads/history', historyRoute)
     const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(table.querySelector('.ds-table__skel')).toBeNull())
     const cells = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')
     const blockCell = cells[5]
     expect(blockCell.textContent).toBe('1')
@@ -190,5 +193,88 @@ describe('Upload history', () => {
     mockApi.mockImplementation(fakeApi({ 'GET /master/deals': httpError(403, 'tao_only'), 'GET /master/programs': httpError(403, 'tao_only'), 'GET /uploads': httpError(403, 'tao_only') }))
     renderPage('/admin/uploads/history', historyRoute)
     expect(await screen.findByRole('heading', { name: 'You don’t have access' })).toBeTruthy()
+  })
+})
+
+describe('Whole-row open (D4): Uploads and Upload history share the table', () => {
+  const ROWS = [
+    upload({ id: 'r1', status: 'needs_review', collection_period: '2026-08', uploaded_at: '2026-11-05T10:00:00Z' }),
+    upload({ id: 'r2', status: 'approved', deal_slug: 'f-pil-2-0-stride-capital', uploaded_at: '2026-11-05T09:00:00Z' }),
+    // MOVE Trust: the collection period is the file month (lag 0), so a 202607 file opens the deal at 2026-07.
+    upload({ id: 'r3', status: 'published', deal_slug: 'move-trust-dynamic-capital', program_slug: 'move-trust', collection_period: '2026-07', reporting_period: '2026-07',
+      file_name: 'Dynamic - 202607 - SETTREP.pdf', published_at: '2026-11-04T10:00:00Z', uploaded_at: '2026-11-05T08:00:00Z' }),
+    upload({ id: 'r4', status: 'extraction_failed', uploaded_at: '2026-11-05T07:00:00Z' }),
+    upload({ id: 'r5', status: 'rejected', uploaded_at: '2026-11-05T06:00:00Z' }),
+    upload({ id: 'r6', status: 'extracting', uploaded_at: '2026-11-05T05:00:00Z' }),
+    // F-PIL: the collection period is the settlement month (2026-08 for a July reporting period).
+    upload({ id: 'r7', status: 'published', collection_period: '2026-08', reporting_period: '2026-07', published_at: '2026-10-28T10:00:00Z', uploaded_at: '2026-11-05T04:00:00Z' }),
+  ]
+  const dealLink = (table: HTMLElement, i: number) => within(within(table).getAllByRole('row')[i + 1]).getAllByRole('link')[0]
+
+  it('the deal name is a real link to the right place for every status', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': ROWS }))
+    renderPage('/admin/uploads/history', historyRoute)
+    const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(8))
+    const hrefs = ROWS.map((_, i) => dealLink(table, i).getAttribute('href'))
+    expect(hrefs).toEqual([
+      '/admin/uploads/queue/r1', '/admin/uploads/queue/r2',
+      '/admin/portfolio/move-trust/deals/move-trust-dynamic-capital?period=2026-07',
+      '/admin/uploads/queue/r4', '/admin/uploads/queue/r5', '/admin/uploads/queue/r6',
+      '/admin/portfolio/f-pil-2-0/deals/f-pil-2-0-moneda-capital-corp?period=2026-08',
+    ])
+    expect(dealLink(table, 0).getAttribute('aria-label')).toBe('Review Moneda Capital Corp. Aug 2026')
+    expect(dealLink(table, 2).getAttribute('aria-label')).toBe('Open the published deal Dynamic Capital Jul 2026')
+    expect(dealLink(table, 3).getAttribute('aria-label')).toBe('Details of the failed upload Moneda Capital Corp. Aug 2026')
+    expect(dealLink(table, 4).getAttribute('aria-label')).toBe('Details of the rejected upload Moneda Capital Corp. Aug 2026')
+    // The Open column names the destination.
+    const open = within(table).getAllByRole('row').slice(1).map(r => r.querySelector('.adm-open')!.textContent)
+    expect(open).toEqual(['Review ›', 'Review ›', 'Open deal ›', 'Details ›', 'Details ›', 'Details ›', 'Open deal ›'])
+  })
+
+  it('a click anywhere on the row, or Enter on the focused row, opens it', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': ROWS }))
+    renderPage('/admin/uploads/history', historyRoute)
+    const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(8))
+    await userEvent.click(within(within(table).getAllByRole('row')[3]).getAllByRole('cell')[2])
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/portfolio/move-trust/deals/move-trust-dynamic-capital?period=2026-07')
+  })
+
+  it('Enter on a focused row opens it (keyboard)', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': ROWS }))
+    renderPage('/admin/uploads', uploadsRoute)
+    const table = await screen.findByRole('table', { name: 'Recent uploads' })
+    const row = within(table).getAllByRole('row')[4]
+    row.focus()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/uploads/queue/r4')
+  })
+
+  it('the Audit link goes to its own target, not the row', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': ROWS }))
+    renderPage('/admin/uploads/history', historyRoute)
+    const table = await screen.findByRole('table', { name: 'Upload history' })
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(8))
+    await userEvent.click(within(table).getAllByRole('link', { name: /^Audit trail for Dynamic Capital/ })[0])
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/settings/users/audit?upload_id=r3')
+  })
+
+  it('the re-issue tag keeps its own target', async () => {
+    const re = upload({ id: 'r8', status: 'needs_review', replaces_upload_id: 'r7', uploaded_at: '2026-11-05T11:00:00Z' })
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': [re] }))
+    renderPage('/admin/uploads/history', historyRoute)
+    const table = await screen.findByRole('table', { name: 'Upload history' })
+    await userEvent.click(await within(table).findByRole('link', { name: /^Re-issue: replaces/ }))
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/uploads/history?deal=f-pil-2-0-moneda-capital-corp&period=2026-08')
+  })
+
+  it('analysts open rows the same way, without the Audit link', async () => {
+    mockApi.mockImplementation(fakeApi({ ...master, 'GET /uploads': ROWS }))
+    renderPage('/admin/uploads', uploadsRoute, 'tao_analyst')
+    const table = await screen.findByRole('table', { name: 'Recent uploads' })
+    expect(within(table).queryAllByRole('link', { name: /Audit trail/ })).toHaveLength(0)
+    await userEvent.click(within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[1])
+    expect(screen.getByTestId('loc').textContent).toBe('/admin/uploads/queue/r1')
   })
 })

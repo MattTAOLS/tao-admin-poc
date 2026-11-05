@@ -368,6 +368,24 @@ The Lead reads this at every merge.
 - 2026-11-03 — to Data & API (FYI): the program dialog sends `partner_slugs` in `/master/partners` order and
   `partner_slug` = the first of them, so unchecking Investor on a program visible to both makes Manager the
   `partner_slug`. Tell me if `partner_slug` should instead stay fixed while it is still in the list.
+- 2026-11-05 — to Lead / Design System (wave A, D3): the Audit log route in `web/src/shell/pages.ts` now has
+  `roles: ['tao_admin', 'tao_analyst']` (analysts read the Reports tab, decision A4; the Lead authorized the line). To
+  keep the sidebar entry TAO Admin only without touching `App.tsx`, `nav` on that entry is a getter that returns
+  `'account'` only when the stored role is `tao_admin` (plus `import { loadRole } from './roles'`). A cleaner home is a
+  `navRoles?: string[]` on `Page`, filtered in `App.tsx` NavGroup; replace the getter with it if you prefer. I also
+  adjusted `web/src/shell/__tests__/shell.test.tsx` (the analyst no-access case now uses System settings; the analyst
+  audit case asserts access without a sidebar entry), since the old expectation is now wrong.
+- 2026-11-05 — to QA & Demo (wave A e2e impact): `tests/e2e/specs/08-negatives.spec.ts` lines 77-81 expect "You don't
+  have access" for `tao_analyst` on `/admin/settings/users/audit`. Analysts now open the page (Reports tab only). Keep
+  the API assertion (`GET /audit` with no scope stays 403 for analysts per the contract) and change the UI one to: the
+  page loads, the "Audit log sections" nav has no Platform tab, and the Account nav has no "Audit log" link. Optionally
+  add `GET /audit?scope=platform` → 403 for analysts. Specs 02, 05 and 07 should pass unchanged: the current-month
+  table and the upload trail keep the accessible name "Audit log", the Action cell holds the plain label ("Publish",
+  "Override", "Regenerate"), and the Actor cell still contains the role id (`tao_admin`). Note that Restate now reads
+  "Restatement accepted" (D3); no spec clicks it.
+- 2026-11-05 — to Design System (help text): `web/src/shell/help/content.ts:325` still describes the old Audit log
+  filters (Upload id field + Apply). It now has a search box (every month and both tabs), Action / User / Deal filters,
+  Reports and Platform tabs, History by month and Export CSV; analysts see the Reports tab.
 
 ## UI-Review
 - RESOLVED (Design System wave 3; checked live: Stride R14 shows 4.00%) — 2026-11-03 — to Design System: `percent_points`

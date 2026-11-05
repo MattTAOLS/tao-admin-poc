@@ -38,3 +38,62 @@
 .adm-status { display: inline-flex; gap: 6px; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
 .adm-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--lav-2); background: var(--lav); color: var(--purple-700); }
 .adm-tag--muted { background: var(--card); color: var(--text); border-color: var(--border); }
+.adm-nowrap { white-space: nowrap; }
+/* D4: the whole upload row opens the upload. The deal name is the real link; the Open column names the destination. */
+.adm-rowlink { color: var(--indigo); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.adm-rowlink:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+.adm-rowtable tbody tr.ds-row--clickable:hover { background: color-mix(in srgb, var(--lav) 70%, var(--card)); }
+.adm-rowtable tbody tr.ds-row--clickable:hover .adm-rowlink { color: var(--purple); text-decoration: underline; }
+.adm-rowtable tbody tr.ds-row--clickable:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--purple) 45%, transparent); }
+.adm-open { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--purple); border: 1px solid var(--lav-2); background: var(--card); border-radius: var(--r-control); padding: 3px 9px; white-space: nowrap; transition: background var(--t-control) var(--ease); }
+.adm-rowtable tbody tr.ds-row--clickable:hover .adm-open { background: var(--lav); }
+/* D3 Audit log */
+.adm-auditsearch { display: grid; gap: 12px; }
+.adm-searchbox { position: relative; }
+.adm-searchbox svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.adm-searchbox .ds-input { padding-left: 36px; font-size: 14px; width: 100%; }
+.adm-auditfilters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+@media (max-width: 900px) { .adm-auditfilters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.adm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.adm-tabs__tab { appearance: none; background: none; border: 0; cursor: pointer; padding: 9px 14px; font: 600 13px var(--font); color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; gap: 8px; align-items: center; transition: color var(--t-control) var(--ease); }
+.adm-tabs__tab[aria-current='page'] { color: var(--purple); border-bottom-color: var(--purple); }
+.adm-tabs__tab:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
+.adm-count { font: 600 11px/1 var(--data); background: var(--canvas-deep); color: var(--muted); border-radius: var(--r-chip); padding: 3px 7px; font-variant-numeric: var(--tabular); }
+.adm-tabs__tab[aria-current='page'] .adm-count { background: var(--lav); color: var(--indigo); }
+.adm-scroll { overflow-x: auto; }
+.adm-scroll .ds-table { min-width: 860px; }
+.adm-actor small, .adm-subject small { display: block; color: var(--muted); font-size: 11.5px; }
+.adm-subject { white-space: nowrap; }
+.adm-before { color: var(--muted); text-decoration: line-through; }
+.adm-after { color: var(--indigo); font-weight: 600; }
+.adm-arrow { color: var(--muted); padding: 0 4px; }
+.adm-exp { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+.adm-exp__main { display: grid; gap: 10px; align-content: start; }
+@media (max-width: 1100px) { .adm-exp { grid-template-columns: minmax(0, 1fr); } }
+.adm-ba { width: 100%; border-collapse: collapse; font: 13px var(--data); }
+.adm-ba th { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border-card); }
+.adm-ba td { padding: 7px 10px; border-bottom: 1px solid var(--border-table); font-variant-numeric: var(--tabular); }
+.adm-reason { padding: 9px 12px; border-radius: var(--r-control); background: var(--canvas-deep); font-size: 12.5px; }
+.adm-reason b { color: var(--indigo); }
+.adm-more { padding: 10px 18px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border-table); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adm-hist { list-style: none; margin: 0; padding: 0; }
+.adm-hist > li { border-bottom: 1px solid var(--border-table); }
+.adm-hist > li:last-child { border-bottom: 0; }
+.adm-hist__head { display: flex; align-items: center; gap: 12px; padding: 6px 18px 6px 8px; }
+.adm-hist__toggle { appearance: none; background: none; border: 0; cursor: pointer; flex: 1; display: flex; align-items: center; gap: 10px; padding: 6px 10px; font: 600 13.5px var(--font); color: var(--indigo); text-align: left; border-radius: 8px; }
+.adm-hist__toggle:hover { background: color-mix(in srgb, var(--lav) 45%, var(--card)); }
+.adm-hist__toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+.adm-hist__chev { color: var(--muted); transition: transform var(--t-control) var(--ease); }
+.adm-hist__toggle[aria-expanded='true'] .adm-hist__chev { transform: rotate(90deg); }
+.adm-hist__n, .adm-group__n { font: 500 12.5px var(--data); color: var(--muted); font-variant-numeric: var(--tabular); }
+mark.adm-hit { background: var(--lav-2); color: var(--indigo); border-radius: 3px; padding: 0 2px; font-weight: 700; }
+.adm-group { padding: 10px 18px; display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border-card); background: color-mix(in srgb, var(--cream) 55%, var(--card)); }
+section:first-child > .adm-group { border-top: 0; }
+.adm-group h3 { margin: 0; font: 700 12px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.adm-tabchip { font: 600 10.5px/1 var(--data); border-radius: var(--r-chip); padding: 3px 8px; white-space: nowrap; }
+.adm-tabchip--reports { background: color-mix(in srgb, var(--blue) 12%, var(--card)); color: var(--blue); }
+.adm-tabchip--platform { background: color-mix(in srgb, var(--dpv) 12%, var(--card)); color: var(--dpv); }
+.adm-searchsum { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+.adm-linkbtn { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: var(--purple-700); font-weight: 600; }
+.adm-linkbtn:hover { text-decoration: underline; }
+.adm-linkbtn:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }

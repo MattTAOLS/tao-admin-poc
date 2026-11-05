@@ -69,7 +69,7 @@ export default function DashboardPage() {
       {queue.error ? <LoadError error={queue.error} onRetry={queue.reload} /> : (
         <>
           <KpiRow><QueueTiles uploads={uploads} loading={queue.loading && !uploads} /></KpiRow>
-          <Card title="Latest uploads" padding="flush" actions={<TextLink to="/admin/uploads/history">Upload history →</TextLink>}>
+          <Card title="Latest uploads" subtitle="Click a row to open it." padding="flush" actions={<TextLink to="/admin/uploads/history">Upload history →</TextLink>}>
             <UploadsTable uploads={recent} deals={deals} programs={masterPrograms} loading={queue.loading && !uploads} caption="Latest uploads" compact
               showAudit={role === 'tao_admin'} empty={{ title: 'No uploads yet', message: 'Upload a settlement report to start the queue.' }} />
           </Card>
