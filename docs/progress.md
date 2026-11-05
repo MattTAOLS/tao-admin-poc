@@ -664,3 +664,10 @@ Append an entry when a work package lands. Newest first.
   For the Lead: 67 notes on MOVE Trust reviews is a lot of noise until MOVE definitions are seeded; one note per deal
   ("no covenant definitions recorded") is a one-line change if preferred. UI-Review: R14 notes carry no our_value, so
   "Use ours" should stay disabled for them.
+- 2026-11-05 — Rules, wave B follow-up (Lead decision, R14 collapse): a deal with no covenant definitions recorded
+  at all now gets ONE R14 note per report, "No covenant definitions recorded for <deal>: <n> covenants on the report
+  were not checked", with `legal_refs` (unique, report order), `count`, `deal`, `deal_slug` and `period` in context.
+  A deal with definitions but none in force for a legal_ref keeps one note per covenant (Stride before 2026-01-22,
+  Moneda with 9.1 (e) removed). worker/validate adds `master.covenants_recorded` (all current rows for the deal) so
+  R14 can tell the two cases apart; parity request to Data & API in requests.md. Reference deals: each MOVE Trust
+  deal has 1 R14 note (9 in all, was 67); F-PIL none. Tests: rules 129, worker/validate 23, check_contracts green.

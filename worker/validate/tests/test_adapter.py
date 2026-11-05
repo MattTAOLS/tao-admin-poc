@@ -142,7 +142,7 @@ def test_context_has_the_api_shape(conn):
     uid = new_upload(conn, status="extracting", reporting="2026-07")
     store = adapter.SqlStore(conn); ctx = adapter.build_context(store, store.upload(uid), d)
     assert ctx.prior["collection_period"] == "July 2026"
-    assert set(ctx.master) == {"program", "deal", "covenants"}
+    assert set(ctx.master) == {"program", "deal", "covenants", "covenants_recorded"} and ctx.master["covenants_recorded"] == 8   # 7 seed + the 2026-09 amendment
     assert ctx.master["program"] == {"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slug": "investor", "currency": "CAD", "limit": 150000000.0, "warehouse_limit": 5000000.0}
     assert ctx.master["deal"] == {"slug": "f-pil-2-0-moneda-capital-corp", "name": "Moneda Capital Corp.", "program_slug": "f-pil-2-0", "servicer": "Moneda Capital Corp.", "template_id": "fpil-2.0-settrep-v1"}
     covs = ctx.master["covenants"]
@@ -215,6 +215,19 @@ def test_stride_before_its_definitions_gets_r14_notes(conn):
     rows = conn.execute(text("select severity, context from finding where rule_id = 'R14'")).all()
     assert [(r.severity, json.loads(r.context)["legal_ref"]) for r in rows] == [("note", x) for x in ("SLFA 9.1(d)", "SLFA 9.1(e)", "SLFA 9.1(f)", "SLFA 9.1(g)")]
     assert out["counts"]["note"] >= 4
+    assert adapter.build_context(adapter.SqlStore(conn), adapter.SqlStore(conn).upload(uid), d).master["covenants_recorded"] == 4
+
+def test_deal_without_definitions_gets_one_r14_note(conn):
+    """A MOVE Trust deal (no covenant_definitions seeded): one R14 note for the report, naming the deal and listing
+    the unchecked legal_refs."""
+    d = mf.load_deal("move-trust-tpine-leasing-capital-corporation.dashboard.json")
+    uid = new_upload(conn, deal_slug=d["deal_slug"], period="2026-07", status="extracting")
+    adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d, template_id="move-trust-settrep-v1"), conn=conn, enqueue=FakeQueue())
+    rows = conn.execute(text("select severity, message, context from finding where rule_id = 'R14'")).all()
+    assert len(rows) == 1 and rows[0].severity == "note"
+    ctx = json.loads(rows[0].context)
+    assert ctx["count"] == 4 and ctx["legal_refs"] == ["MLA 7.1 (j)", "MLA 7.1 (k)", "MLA 7.1 (l)", "MLA 7.1 (m)"]
+    assert rows[0].message.startswith("No covenant definitions recorded for ") and rows[0].message.endswith(": 4 covenants on the report were not checked")
 
 def test_wrong_deal_selected_blocks(conn):
     uid = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")

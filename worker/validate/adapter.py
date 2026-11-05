@@ -14,7 +14,7 @@ Each takes an optional SQLAlchemy Connection; without one it opens a transaction
 
 Context parity: build_context returns the same shape as api/app/review.py build_context (the override re-run), and
 both run phases (1, 2): prior = last published deal object before the upload's period; master = {program, deal,
-covenants in force at the period end}; published_periods = set of published periods; upload = the API's Upload dict.
+covenants in force at the period end, covenants_recorded}; published_periods = set of published periods; upload = the API's Upload dict.
 """
 from __future__ import annotations
 import calendar, contextlib, copy, datetime as dt, decimal, json, logging, os, uuid
@@ -143,8 +143,11 @@ def build_context(store: SqlStore, upload: dict, deal_obj: dict | None = None) -
     program = store.program(deal_row["program_slug"]) if deal_row else None
     pubs = store.publications(slug)
     prior = (prior_publication(pubs, period) or {}).get("deal")
-    master = {"program": program, "deal": deal_row,
-              "covenants": covenants_as_of(store.covenant_definitions(slug), period_end(period) if period else None)}
+    defs = store.covenant_definitions(slug)
+    # covenants_recorded: current definitions for the deal at any effective date. R14 raises one note for a deal with
+    # none, and one per covenant when the deal has some but none in force for this period (Stride before 2026-01-22).
+    master = {"program": program, "deal": deal_row, "covenants": covenants_as_of(defs, period_end(period) if period else None),
+              "covenants_recorded": len(defs)}
     # {period: published_at}: membership works like the API's set, and R12 can name the publication's date
     return Context(prior=prior, master=master, published_periods={p["collection_period"]: p["published_at"] for p in pubs}, upload=upload_dict(store, upload))
 
