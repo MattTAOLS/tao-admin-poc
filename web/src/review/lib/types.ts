@@ -27,6 +27,12 @@ export type Upload = {
   replaces_upload_id?: string | null
   /** Set on a published upload once a re-issue for its period is approved. */
   replaced_by_upload_id?: string | null
+  /** Wave B: value edits in force (not reverted) on this upload. */
+  active_edit_count?: number
+  /** Wave B: current publication version; null until published. */
+  published_version?: number | null
+  /** Wave B: a correction waiting in the approval queue. */
+  pending_correction_id?: string | null
 }
 
 /** `targets`: JSON pointers approve writes to on use_ours / use_report (finding.schema.json). */
@@ -84,3 +90,51 @@ export type CorrectionConflict = { pointer: string; values: unknown[]; finding_i
 export type KnockOnFinding = { rule_id: string; message: string; fields?: string[]; our_value?: unknown; report_value?: unknown }
 
 export type ApiError = Error & { code?: string; status?: number; conflicts?: CorrectionConflict[]; findings?: KnockOnFinding[] }
+
+export type FindingCounts = { block?: number; review?: number; note?: number }
+
+/** contracts/openapi.yaml › ValueEdit: a TAO Admin's change to one extracted number (in review, or in a correction). */
+export type ValueEdit = {
+  id: string
+  upload_id: string
+  correction_id?: string | null
+  pointer: string
+  old_value: number
+  new_value: number
+  reason: string
+  source_page?: number | null
+  actor_role: string
+  actor_label?: string | null
+  at: string
+  reverted_at?: string | null
+  reverted_by?: string | null
+  revert_reason?: string | null
+}
+
+export type ValueEditResult = { edit: ValueEdit; finding_counts: FindingCounts }
+
+export type CorrectionStatus = 'needs_review' | 'published' | 'rejected'
+
+/** contracts/openapi.yaml › Correction: a change to a published report without a new PDF. */
+export type Correction = {
+  id: string
+  upload_id: string
+  deal_slug?: string
+  collection_period?: string
+  status: CorrectionStatus
+  version: number
+  edits: ValueEdit[]
+  reason: string
+  note_to_partners?: string | null
+  finding_counts?: FindingCounts
+  created_at: string
+  created_by: string
+  decided_at?: string | null
+  decided_by?: string | null
+  reject_reason?: string | null
+}
+
+/** GET /corrections/{id}: the correction plus the findings of its rule re-run. */
+export type CorrectionDetail = Correction & { findings?: Finding[] }
+
+export type CorrectionRequest = { edits: { pointer: string; value: number }[]; reason: string; note_to_partners?: string | null }
