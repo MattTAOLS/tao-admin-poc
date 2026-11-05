@@ -137,6 +137,7 @@ class Finding(Base):
 
 class ReviewAction(Base):
     __tablename__ = "review_action"
+    __table_args__ = (Index("review_action_at", "at"),)                               # 008
     id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
     upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)
     finding_id: Mapped[str | None] = mapped_column(Id, ForeignKey("finding.id"), nullable=True)

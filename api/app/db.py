@@ -57,6 +57,6 @@ def get_db():
 
 
 def create_all():
-    """SQLite / tests only. PostgreSQL is built from db/migrations by the postgres container."""
+    """SQLite / tests only. PostgreSQL is built from db/migrations by the runner in app/migrate.py at API start-up."""
     from .models import Base
     Base.metadata.create_all(engine())

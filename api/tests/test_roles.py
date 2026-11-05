@@ -24,7 +24,12 @@ TAO_ONLY = [("post", "/api/v1/uploads"), ("get", "/api/v1/uploads"), ("get", U),
             ("post", U + "/reextract"), ("get", U + "/pages/1.png"), ("get", U + "/file"),
             ("get", "/api/v1/master/programs"), ("get", "/api/v1/master/deals"), ("get", "/api/v1/master/covenants")]
 ADMIN_ONLY = [("post", F + "/override"), ("post", U + "/approve"), ("post", U + "/reject"), ("put", "/api/v1/master/programs"),
-              ("put", "/api/v1/master/deals"), ("put", "/api/v1/master/covenants"), ("post", "/api/v1/published/regenerate"), ("get", "/api/v1/audit")]
+              ("put", "/api/v1/master/deals"), ("put", "/api/v1/master/covenants"), ("post", "/api/v1/published/regenerate"), ("get", "/api/v1/audit"),
+              ("get", "/api/v1/audit?scope=platform"), ("get", "/api/v1/audit/months?scope=platform"),
+              ("get", "/api/v1/audit/export.csv?scope=platform&month=2026-11")]
+# scope=reports: both TAO roles read it, partners never (test_audit.py covers the analyst side)
+TAO_ONLY += [("get", "/api/v1/audit?scope=reports"), ("get", "/api/v1/audit/months?scope=reports"),
+             ("get", "/api/v1/audit/export.csv?scope=reports&month=2026-11")]
 
 @pytest.mark.parametrize("method,path", TAO_ONLY + ADMIN_ONLY)
 @pytest.mark.parametrize("h", [INV, MGR])

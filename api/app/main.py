@@ -2,29 +2,47 @@
 Role gates: `caller` resolves the role; intake routes call tao_only / admin_only first, before touching data.
 Partner tenancy: every /published/* route takes `partner_filter` as a dependency and asks `visible_programs`
 which programs it may read. Those two functions are the only place partner scoping happens."""
-import datetime as dt, io, json, re, logging
+import contextlib, datetime as dt, enum, io, json, re, logging
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import Literal
 from .auth import caller, tao_only, admin_only, Caller
-from .db import get_db, file_store
+from .db import get_db, file_store, engine
 from .jobs import get_queue
 from .models import Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication, new_id, utcnow
-from . import views, review, rollup, pdf
+from . import views, review, rollup, pdf, migrate, auditlog
 
 log = logging.getLogger("api")
-app = FastAPI(title="TAO Admin POC API", version="0.1.0", openapi_url="/api/v1/openapi.json")
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_: FastAPI):
+    """PostgreSQL: apply pending db/migrations before serving (app/migrate.py). SQLite: nothing (tests use create_all)."""
+    migrate.run(engine())
+    yield
+
+
+app = FastAPI(title="TAO Admin POC API", version="0.1.0", openapi_url="/api/v1/openapi.json", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])
 API = "/api/v1"
 PERIOD = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 STATUSES = ("received", "extracting", "needs_review", "approved", "rejected", "published", "extraction_failed")
-PAGE_DPI = 110
+
+
+class PageDpi(enum.IntEnum):
+    """Contract enum for the page image: 110 is the finding-card crop (default); the page viewer asks for 200 or 300."""
+    card = 110
+    sharp = 200
+    sharpest = 300
+
+
+PAGE_DPI = PageDpi.card
 
 
 def tao_caller(c: Caller = Depends(caller)) -> Caller:
@@ -274,7 +292,7 @@ def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(admin_caller
 
 
 @app.get(API + "/uploads/{upload_id}/pages/{n}.png")
-def page_image(upload_id: str, n: int, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+def page_image(upload_id: str, n: int, dpi: PageDpi = PAGE_DPI, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
     tao_only(c)
     u = get_upload_or_404(s, upload_id)
     if n < 1 or (u.page_count and n > u.page_count):
@@ -282,8 +300,8 @@ def page_image(upload_id: str, n: int, c: Caller = Depends(tao_caller), s: Sessi
     src = _upload_dir(u.id) / "source.pdf"
     if not src.exists():
         raise err(404, "not_found", "the source PDF is not in the file store")
-    png = _upload_dir(u.id) / "pages" / f"{n}.png"
-    pdf.render_page(src, n, png, PAGE_DPI)          # locked + atomic: PDFium is not thread-safe
+    png = _upload_dir(u.id) / "pages" / str(int(dpi)) / f"{n}.png"     # one cache per dpi: a 300 request never gets a 110 image
+    pdf.render_page(src, n, png, int(dpi))              # locked + atomic: PDFium is not thread-safe
     return FileResponse(png, media_type="image/png")
 
 
@@ -544,14 +562,43 @@ def regenerate(body: RegenerateRequest | None = None, c: Caller = Depends(admin_
     return {"queued": True, "programs": slugs, "publications": n}
 
 
+Scope = Literal["reports", "platform"]
+
+
+def _audit_gate(c: Caller, scope: str | None) -> Caller:
+    """scope=reports: tao_admin and tao_analyst. scope=platform, or no scope (both logs): tao_admin only."""
+    return tao_only(c) if scope == "reports" else admin_only(c)
+
+
 @app.get(API + "/audit")
-def audit(upload_id: str | None = None, action: str | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
-    admin_only(c)
-    q = select(ReviewAction)
-    if upload_id:
-        if not _is_uuid(upload_id):
-            raise err(422, "invalid", "upload_id must be a uuid")
-        q = q.where(ReviewAction.upload_id == upload_id)
-    if action:
-        q = q.where(ReviewAction.action == action)
-    return [views.audit_dict(a) for a in s.scalars(q.order_by(ReviewAction.at.desc())).all()]
+def audit(upload_id: str | None = None, action: str | None = None, scope: Scope | None = None, month: str | None = None,
+          q: str | None = Query(default=None, min_length=2), actor_role: str | None = None, deal_slug: str | None = None,
+          limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0),
+          c: Caller = Depends(caller), s: Session = Depends(get_db)):
+    """Newest first. Every filter narrows; q searches across all months unless month is given."""
+    _audit_gate(c, scope)
+    if upload_id is not None and not _is_uuid(upload_id):
+        raise err(422, "invalid", "upload_id must be a uuid")
+    _check_period(month, "month")
+    rows = auditlog.entries(s, limit, offset, scope=scope, month=month, q=q, actor_role=actor_role, deal_slug=deal_slug,
+                            upload_id=upload_id, action=action)
+    return [views.audit_dict(a) for a in rows]
+
+
+@app.get(API + "/audit/months")
+def audit_months(scope: Scope, q: str | None = Query(default=None, min_length=2), c: Caller = Depends(caller), s: Session = Depends(get_db)):
+    """Entry counts per America/Toronto month for one scope, newest first (the History list); with q, matching entries only."""
+    _audit_gate(c, scope)
+    return auditlog.months(s, scope, q)
+
+
+@app.get(API + "/audit/export.csv")
+def audit_export(scope: Scope, month: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+    """One month of one scope as CSV. The export itself is recorded as an `export` entry (platform: no upload_id)."""
+    _audit_gate(c, scope)
+    _check_period(month, "month")
+    body, n = auditlog.export_csv(s, scope, month)
+    views.audit(s, c, "export", detail={"scope": scope, "month": month, "rows": n, "format": "csv"})
+    s.commit()
+    return Response(body, media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="audit-{scope}-{month}.csv"'})

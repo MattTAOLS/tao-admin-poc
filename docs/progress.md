@@ -584,3 +584,22 @@ Append an entry when a work package lands. Newest first.
   An existing database needs `007_covenant_superseded.sql` applied by hand (initdb runs migrations only on a fresh
   volume). Needs from Rules: the one-line adapter filter in requests.md, or worker R14 still sees superseded rows.
   No contract change. Tests: api 144 on SQLite and on PostgreSQL (pg8000), check_contracts green.
+- 2026-11-05 — Data & API (phase 2 wave 0 + wave A): migration runner, page images by dpi, audit split.
+  Runner (`api/app/migrate.py`): at API start-up (and `python -m app.seed`) on PostgreSQL, applies every pending
+  `db/migrations/NNN_*.sql` in order, each in its own transaction with its `schema_migrations` row, under a session
+  advisory lock so two API processes never migrate at once. SQLite keeps create_all. Compose no longer mounts the
+  migrations into initdb; the API mounts them at /migrations (`MIGRATIONS_DIR`), so a fresh volume is built by the
+  runner alone. Baseline for a pre-runner database (app tables, no schema_migrations): each of 001-006 whose change is
+  visible in the catalog is recorded as applied (`baseline = true`); 007 (now idempotent) and later always run.
+  Every migration from 007 on must be idempotent. 008 adds `review_action_at` for the audit month and paging queries.
+  Page images: `GET /uploads/{id}/pages/{n}.png?dpi=110|200|300` (default 110, anything else 422), cached per dpi
+  under `pages/<dpi>/<n>.png`, still behind the PDFium lock with atomic writes. Old `pages/<n>.png` files are left
+  where they are and never served.
+  Audit (`api/app/auditlog.py`): `/audit` gains scope, month (America/Toronto), q, actor_role, deal_slug, limit
+  (default 100), offset; scope=reports for both TAO roles, platform or no scope tao_admin only. `/audit/months` and
+  `/audit/export.csv` (writes an `export` entry, platform). Scope is derived (reports = upload_id set, or publish /
+  regenerate); `extract` rows untouched. Note for UI-Admin: `/audit` without limit now returns at most 100 rows.
+  Tests: api 174 passed + 6 skipped on SQLite (the skips are the runner scenarios); 180 on PostgreSQL 16 via pg8000
+  with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
+  database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
+  --profile review from an empty volume builds the schema through the runner and runs the whole review profile.

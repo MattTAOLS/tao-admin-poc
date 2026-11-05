@@ -5,8 +5,8 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TMP = pathlib.Path(tempfile.mkdtemp(prefix="tao-api-tests-"))
-# TEST_DATABASE_URL=postgresql+psycopg://... runs the suite against PostgreSQL built from db/migrations/*.sql
-# (the schema compose uses). The database's public schema is dropped and rebuilt, so point it at a throwaway.
+# TEST_DATABASE_URL=postgresql+psycopg://... (or +pg8000) runs the suite against PostgreSQL built from db/migrations/*.sql
+# by the migration runner, as compose builds it. The database's public schema is dropped and rebuilt: use a throwaway.
 PG = os.environ.get("TEST_DATABASE_URL")
 os.environ["DATABASE_URL"] = PG or f"sqlite:///{(TMP / 'test.sqlite').as_posix()}"
 os.environ["FILE_STORE"] = str(TMP / "store")
@@ -19,10 +19,11 @@ from app.models import Base               # noqa: E402
 
 if PG:
     from sqlalchemy import text
+    from app import migrate
     with db.engine().begin() as conn:
-        conn.execute(text("drop schema public cascade; create schema public"))
-        for f in sorted((ROOT / "db" / "migrations").glob("*.sql")):
-            conn.exec_driver_sql(f.read_text(encoding="utf-8"))
+        conn.execute(text("drop schema public cascade"))
+        conn.execute(text("create schema public"))
+    migrate.run(db.engine())
 else:
     db.create_all()
 

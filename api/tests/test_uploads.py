@@ -109,11 +109,37 @@ def test_page_image_renders_at_110_dpi_and_caches(client):
     w, h = Image.open(io.BytesIO(r.content)).size
     assert (w, h) == (round(612 * 110 / 72), round(792 * 110 / 72))
     from app.db import file_store
-    assert (file_store() / "uploads" / u["id"] / "pages" / "2.png").exists()
+    assert (file_store() / "uploads" / u["id"] / "pages" / "110" / "2.png").exists()
     assert client.get(f"/api/v1/uploads/{u['id']}/pages/2.png", headers=TAO).content == r.content
+    assert client.get(f"/api/v1/uploads/{u['id']}/pages/2.png?dpi=110", headers=TAO).content == r.content
     assert client.get(f"/api/v1/uploads/{u['id']}/pages/4.png", headers=TAO).status_code == 404
     assert client.get(f"/api/v1/uploads/{u['id']}/pages/0.png", headers=TAO).status_code == 404
     assert client.get(f"/api/v1/uploads/{u['id']}/pages/1.png", headers=INV).status_code == 403
+
+
+def test_page_image_at_each_dpi_is_cached_separately(client):
+    from PIL import Image
+    import io
+    from app.db import file_store
+    u = upload(client).json()
+    base = f"/api/v1/uploads/{u['id']}/pages/2.png"
+    small = client.get(base, headers=TAO).content                          # 110 cached first
+    for dpi in (110, 200, 300):
+        r = client.get(base, headers=TAO, params={"dpi": dpi})
+        assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+        w, h = Image.open(io.BytesIO(r.content)).size                     # never a cached 110 (PDFium may round up a pixel)
+        assert abs(w - 612 * dpi / 72) <= 1 and abs(h - 792 * dpi / 72) <= 1, (dpi, w, h)
+        assert (file_store() / "uploads" / u["id"] / "pages" / str(dpi) / "2.png").exists()
+        assert client.get(base, headers=TAO, params={"dpi": dpi}).content == r.content
+    assert client.get(base, headers=TAO, params={"dpi": 300}).content != small
+    assert client.get(base, headers=INV, params={"dpi": 300}).status_code == 403
+
+
+def test_page_image_rejects_other_dpi(client):
+    u = upload(client).json()
+    for bad in ("72", "150", "301", "abc", "0"):
+        r = client.get(f"/api/v1/uploads/{u['id']}/pages/1.png", headers=TAO, params={"dpi": bad})
+        assert r.status_code == 422 and r.json()["code"] == "invalid", bad
 
 
 def test_file_route_returns_the_pdf(client):

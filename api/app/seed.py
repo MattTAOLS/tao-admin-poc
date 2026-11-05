@@ -146,6 +146,9 @@ def load_reference_publications(s, root: pathlib.Path = REFERENCE) -> int:
 if __name__ == "__main__":
     if db.database_url().startswith("sqlite"):
         db.create_all()
+    else:                                      # same runner as API start-up; a no-op when the API already migrated
+        from app import migrate
+        migrate.run(db.engine())
     with db.session() as s:
         for k, v in load(s).items():
             print(f"{k}: {v} rows")

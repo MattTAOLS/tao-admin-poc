@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment: { POSTGRES_USER: tao, POSTGRES_PASSWORD: tao, POSTGRES_DB: tao_admin }
     ports: ["5432:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data", "./db/migrations:/docker-entrypoint-initdb.d:ro"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]          # schema: the API's migration runner (api/app/migrate.py), not initdb
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U tao -d tao_admin"], interval: 5s, timeout: 3s, retries: 20 }
   redis:
     image: redis:7-alpine
@@ -11,8 +11,8 @@ services:
   api:
     build: ./api
     env_file: .env
-    environment: { DATABASE_URL: "postgresql+psycopg://tao:tao@postgres:5432/tao_admin", REDIS_URL: "redis://redis:6379/0", FILE_STORE: /data }
-    volumes: ["./api:/app", "./rules:/app/rules", "./contracts:/app/contracts:ro", "./seed:/app/seed:ro", "./docs/dashboard-json:/app/docs/dashboard-json:ro", "filestore:/data"]
+    environment: { DATABASE_URL: "postgresql+psycopg://tao:tao@postgres:5432/tao_admin", REDIS_URL: "redis://redis:6379/0", FILE_STORE: /data, MIGRATIONS_DIR: /migrations }
+    volumes: ["./api:/app", "./db/migrations:/migrations:ro", "./rules:/app/rules", "./contracts:/app/contracts:ro", "./seed:/app/seed:ro", "./docs/dashboard-json:/app/docs/dashboard-json:ro", "filestore:/data"]
     ports: ["8000:8000"]
     depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

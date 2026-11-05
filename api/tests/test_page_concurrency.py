@@ -29,7 +29,7 @@ def test_concurrent_page_requests_all_return_valid_pngs(client):
         responses = list(ex.map(get, urls))
     assert [r.status_code for r in responses] == [200] * len(urls)
     assert all(_valid_png(r.content) for r in responses)
-    pages = file_store() / "uploads" / u["id"] / "pages"
+    pages = file_store() / "uploads" / u["id"] / "pages" / "110"                                         # default dpi
     assert sorted(p.name for p in pages.iterdir()) == [f"{n}.png" for n in range(3, 9)]                  # no temp files left
     assert client.get("/api/v1/health").status_code == 200
 
@@ -60,3 +60,24 @@ def test_failed_render_leaves_no_temp_file(tmp_path):
     except Exception:
         pass
     assert list((tmp_path / "pages").iterdir()) == []
+
+
+def test_concurrent_requests_at_mixed_dpi_each_get_their_own_image(client):
+    u = upload(client, pdf=make_pdf(2)).json()
+    urls = [f"/api/v1/uploads/{u['id']}/pages/{n}.png?dpi={d}" for n in (1, 2) for d in (110, 200, 300) for _ in range(3)]
+    barrier = threading.Barrier(len(urls))
+
+    def get(url):
+        barrier.wait()
+        return url, client.get(url, headers=TAO)
+
+    with ThreadPoolExecutor(max_workers=len(urls)) as ex:
+        responses = list(ex.map(get, urls))
+    assert all(r.status_code == 200 and _valid_png(r.content) for _, r in responses)
+    for url, r in responses:
+        dpi = int(url.rsplit("=", 1)[1])
+        assert abs(Image.open(io.BytesIO(r.content)).width - 612 * dpi / 72) <= 1
+    pages = file_store() / "uploads" / u["id"] / "pages"
+    assert sorted(p.name for p in pages.iterdir()) == ["110", "200", "300"]
+    for d in ("110", "200", "300"):
+        assert sorted(p.name for p in (pages / d).iterdir()) == ["1.png", "2.png"]
