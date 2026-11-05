@@ -101,6 +101,17 @@ class SqlStore:
         current = " and superseded_at is null" if self._has_column("covenant_definition", "superseded_at") else ""
         return self._all("select id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source from covenant_definition where deal_slug = :slug" + current,
                          ("threshold_rule",), slug=deal_slug)
+    def _has_table(self, table):
+        try: return inspect(self.conn).has_table(table)
+        except Exception: return False
+    def active_edits(self, upload_id):
+        """Review edits in force, by pointer: the latest not-reverted edit on each pointer, correction edits excluded
+        (api/app/review.active_edits). The value_edit table arrives with migration 009; without it there are none."""
+        if not self._has_table("value_edit"): return {}
+        out = {}
+        for e in self._all("select id, pointer, new_value, at from value_edit where upload_id = :u and correction_id is null and reverted_at is null order by at, id", u=str(upload_id)):
+            out[e["pointer"]] = e   # ordered by time: the last one wins
+        return out
     def publications(self, deal_slug):
         return self._all("select upload_id, collection_period, published_at, deal from publication where deal_slug = :slug order by collection_period", ("deal",), slug=deal_slug)
     def findings(self, extraction_id):
@@ -117,6 +128,36 @@ def covenants_as_of(defs: list[dict], as_of: dt.date | None) -> list[dict]:
     current = {}
     for r in rows: current[(r["deal_slug"], r["legal_ref"])] = {**r, "effective_from": str(r["effective_from"])[:10]}
     return list(current.values())
+
+def _walk(doc, pointer: str):
+    """(container, key) for an RFC 6901 pointer, or None when the path does not exist (api/app/review._walk)."""
+    toks = [t.replace("~1", "/").replace("~0", "~") for t in pointer.split("/")[1:]]
+    if not toks: return None
+    cur = doc
+    for tok in toks[:-1]:
+        if isinstance(cur, dict) and tok in cur: cur = cur[tok]
+        elif isinstance(cur, list) and tok.isdigit() and int(tok) < len(cur): cur = cur[int(tok)]
+        else: return None
+    last = toks[-1]
+    if isinstance(cur, dict) and last in cur: return cur, last
+    if isinstance(cur, list) and last.isdigit() and int(last) < len(cur): return cur, int(last)
+    return None
+
+def _typed(old, new):
+    """Keep an integer field an integer (api/app/review.typed)."""
+    return int(new) if isinstance(old, int) and not isinstance(old, bool) and float(new).is_integer() else new
+
+def apply_edits(deal: dict, edits) -> dict:
+    """Copy of `deal` with each edit's new_value at its pointer (api/app/review.apply_edits). A pointer that no longer
+    resolves in this extraction is skipped; the API's approve reports it."""
+    edits = list(edits.values()) if isinstance(edits, dict) else list(edits or [])
+    if not edits: return deal
+    out = copy.deepcopy(deal)
+    for e in edits:
+        loc = _walk(out, e["pointer"])
+        if loc is not None:
+            box, key = loc; box[key] = _typed(box[key], e["new_value"])
+    return out
 
 def upload_dict(store: SqlStore, u: dict) -> dict:
     """Same keys as api/app/views.upload_dict."""
@@ -152,14 +193,17 @@ def build_context(store: SqlStore, upload: dict, deal_obj: dict | None = None) -
     return Context(prior=prior, master=master, published_periods={p["collection_period"]: p["published_at"] for p in pubs}, upload=upload_dict(store, upload))
 
 def validate_extraction(store, extraction_id, phases=PHASES, rules_doc: dict | None = None) -> list[dict]:
-    """Run the rules over one stored extraction. Findings carry this extraction's id and are not yet persisted."""
+    """Run the rules over one stored extraction, with the upload's active review edits applied. Findings carry this extraction's id and are not yet persisted."""
     ex = store.extraction(extraction_id)
     if ex is None: raise LookupError(f"extraction {extraction_id} not found")
     upload = store.upload(ex["upload_id"])
     if upload is None: raise LookupError(f"upload {ex['upload_id']} not found")
     meta = dict(ex["meta"])
     if not meta.get("reporting_period") and upload.get("reporting_period"): meta["reporting_period"] = upload["reporting_period"]
-    findings = run({"meta": meta, "deal": ex["deal"], "sources": ex.get("sources") or {}}, build_context(store, upload, ex["deal"]), phases=phases, rules_doc=rules_doc)
+    # review edits in force are applied before the rules run, as api/app/review.rerun does, so a pass 2 arriving during
+    # review does not undo them; the stored extraction stays the raw read
+    deal = apply_edits(ex["deal"], store.active_edits(upload["id"]))
+    findings = run({"meta": meta, "deal": deal, "sources": ex.get("sources") or {}}, build_context(store, upload, deal), phases=phases, rules_doc=rules_doc)
     for f in findings: f["extraction_id"] = str(ex["id"])
     return findings
 

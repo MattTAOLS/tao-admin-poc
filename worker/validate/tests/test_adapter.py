@@ -229,6 +229,44 @@ def test_deal_without_definitions_gets_one_r14_note(conn):
     assert ctx["count"] == 4 and ctx["legal_refs"] == ["MLA 7.1 (j)", "MLA 7.1 (k)", "MLA 7.1 (l)", "MLA 7.1 (m)"]
     assert rows[0].message.startswith("No covenant definitions recorded for ") and rows[0].message.endswith(": 4 covenants on the report were not checked")
 
+VALUE_EDIT_DDL = """create table value_edit (id text primary key, upload_id text, correction_id text, pointer text, old_value real, new_value real, reason text,
+  source_page int, actor_role text, actor_label text, at text, reverted_at text, reverted_by text, revert_reason text)"""
+
+def add_edit(c, uid, pointer, old, new, at, reverted_at=None, correction_id=None):
+    c.execute(text("insert into value_edit (id, upload_id, correction_id, pointer, old_value, new_value, reason, source_page, actor_role, at, reverted_at) "
+                   "values (:id, :u, :c, :p, :o, :n, 'read from the PDF', 2, 'tao_admin', :at, :r)"),
+              {"id": str(uuid.uuid4()), "u": uid, "c": correction_id, "p": pointer, "o": old, "n": new, "at": at, "r": reverted_at})
+
+def test_pass_2_applies_active_value_edits(conn):
+    """Migration 009: the reviewer edited Moneda's August principal back to 646,926.71 while a pass 2 was queued. Pass 2
+    reads 647,926.71 again; the stored findings reflect the edit (no R05) and the stored extraction stays the raw read.
+    A later reverted edit and a correction's edit on the same pointer are not in force (api/app/review.active_edits)."""
+    conn.execute(text(VALUE_EDIT_DDL))
+    ptr = "/period_history/3/principal"
+    uid = new_upload(conn, status="extracting"); q = FakeQueue()
+    out1 = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(moneda_with_r05_error()), conn=conn, enqueue=q)
+    assert out1["counts"]["block"] == 1 and len(q.jobs) == 1
+    add_edit(conn, uid, ptr, 647926.71, 646926.71, "2026-11-05T10:00:00Z")
+    add_edit(conn, uid, ptr, 646926.71, 647926.71, "2026-11-05T10:05:00Z", reverted_at="2026-11-05T10:06:00Z")
+    add_edit(conn, uid, ptr, 646926.71, 647926.71, "2026-11-05T10:07:00Z", correction_id=str(uuid.uuid4()))
+    store = adapter.SqlStore(conn)
+    assert {p: e["new_value"] for p, e in store.active_edits(uid).items()} == {ptr: 646926.71}
+    out2 = adapter.handle_extraction(q.jobs[0], doc(moneda_with_r05_error()), conn=conn, enqueue=q)
+    assert out2["status"] == "needs_review" and out2["counts"]["block"] == 0
+    assert not [f for f in store.findings(out2["extraction_id"]) if f["rule_id"] == "R05"]
+    assert conn.execute(text("select status from finding where rule_id = 'R05'")).scalar() == "resolved_by_pass_2"
+    assert json.loads(conn.execute(text("select deal from extraction where id = :id"), {"id": out2["extraction_id"]}).scalar())["period_history"][3]["principal"] == 647926.71
+    # the edit reverted: the raw read is back in force and R05 fires again on a re-validation
+    conn.execute(text("update value_edit set reverted_at = '2026-11-05T11:00:00Z' where reverted_at is null and correction_id is null"))
+    assert [f["rule_id"] for f in adapter.validate_extraction(store, out2["extraction_id"]) if f["severity"] == "block"] == ["R05"]
+
+def test_apply_edits_mirrors_the_api():
+    d = {"contracts": {"closing": 655}, "rows": [{"a/b": 1.5}]}
+    out = adapter.apply_edits(d, {"/contracts/closing": {"pointer": "/contracts/closing", "new_value": 656.0},
+                                  "/rows/0/a~1b": {"pointer": "/rows/0/a~1b", "new_value": 2.5}, "/missing/x": {"pointer": "/missing/x", "new_value": 1.0}})
+    assert out == {"contracts": {"closing": 656}, "rows": [{"a/b": 2.5}]} and isinstance(out["contracts"]["closing"], int)
+    assert d["contracts"]["closing"] == 655 and adapter.apply_edits(d, {}) is d
+
 def test_wrong_deal_selected_blocks(conn):
     uid = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")
     out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.load_deal(mf.MONEDA)), conn=conn, enqueue=FakeQueue())

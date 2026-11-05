@@ -708,3 +708,9 @@ Append an entry when a work package lands. Newest first.
   does not apply value edits after a pass-2 extraction; the API re-runs with edits on approve and on every edit, so
   findings written by the worker in between ignore edits until then. Correction findings cannot be overridden (no route
   in the contract), so a queued correction is approved only once a re-run no longer blocks, or rejected.
+- 2026-11-05 — Rules, worker/validate (value edits on pass 2): merged agent/api (a5e054a, migration 009).
+  `validate_extraction` now applies the upload's active review edits before running the rules, like
+  api/app/review.rerun: latest not-reverted edit per pointer, correction edits excluded, pointers that no longer resolve
+  skipped, integer fields kept integer (`SqlStore.active_edits`, `apply_edits`). Guarded: without the value_edit table
+  there are no edits. The stored extraction stays the raw read; only the findings reflect the edits, so a pass 2 during
+  review no longer drops them. Tests: worker/validate 25, rules 129, check_contracts green.
