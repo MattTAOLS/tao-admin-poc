@@ -2,6 +2,74 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — Rules, wave B (R14 note, covenant corrections): merged lead/wave-b (35e3abc).
+  R14 (`rules/checks.py: thresholds_match_master`): a ceiling / floor covenant on the report with no master definition
+  in force for the period (none recorded for its legal_ref, or the first version starts after the period end) is now a
+  `note` naming the covenant (legal_ref + description, report threshold, period), instead of being skipped. Mismatches
+  stay `review`. Binary tests are not noted (no threshold). A context with no master at all (no `covenants` key) stays
+  silent; an empty list means the deal has no definitions and every ceiling / floor covenant is noted.
+  Reference deals: the three F-PIL deals (August 2026) are unchanged; every MOVE Trust deal (July 2026) now gets notes
+  because the seed has no MOVE covenant_definitions: Dynamic 7, Essex 7, Finloc 8, Meridian 7, TLFC Leases 10,
+  TLFC Loans 8, TLFC LP 10, TPine 4, VCC IV 6 (67 in all; `KNOWN_R14_NOTES` in test_rules.py). Stride reports before
+  2026-01 note SLFA 9.1(d), (e), (f), (g); January 2026 onward is clean. New extra fixture `r14-not-in-force`
+  (Stride as December 2025, four frozen notes). No existing fixture changed.
+  worker/validate: the SELECT names its columns, so origin / supersedes_id / changed_by / change_reason do not change
+  the master shape; only current rows (superseded_at null) reach covenants_as_of. Tests: a mode=correct row (same
+  effective_from, supersedes_id set) is the one R14 compares; a Stride December 2025 upload stores four R14 notes.
+  Run: `cd rules && python -m pytest -q` (128), `cd worker/validate && python -m pytest -q` (22), `make check`.
+  For the Lead: 67 notes on MOVE Trust reviews is a lot of noise until MOVE definitions are seeded; one note per deal
+  ("no covenant definitions recorded") is a one-line change if preferred. UI-Review: R14 notes carry no our_value, so
+  "Use ours" should stay disabled for them.
+- 2026-11-05 — Rules, wave B follow-up (Lead decision, R14 collapse): a deal with no covenant definitions recorded
+  at all now gets ONE R14 note per report, "No covenant definitions recorded for <deal>: <n> covenants on the report
+  were not checked", with `legal_refs` (unique, report order), `count`, `deal`, `deal_slug` and `period` in context.
+  A deal with definitions but none in force for a legal_ref keeps one note per covenant (Stride before 2026-01-22,
+  Moneda with 9.1 (e) removed). worker/validate adds `master.covenants_recorded` (all current rows for the deal) so
+  R14 can tell the two cases apart; parity request to Data & API in requests.md. Reference deals: each MOVE Trust
+  deal has 1 R14 note (9 in all, was 67); F-PIL none. Tests: rules 129, worker/validate 23, check_contracts green.
+- 2026-11-05 — Data & API (phase 2 wave B): covenant changes, value edits, corrections with publication versions.
+  Migration `009_wave_b_editing.sql` (idempotent): covenant_definition gains origin (seed|ui; rows with an old
+  master_change entry are backfilled to ui), supersedes_id, changed_by, change_reason, changed_at; publication gains
+  version, correction_id, version_reason; new tables publication_version, correction (one pending per upload, partial
+  unique index) and value_edit.
+  Covenants: `PUT /master/covenants` takes mode new_version | correct | add and a reason (10+ characters, spaces trimmed)
+  and never updates a row in place. correct supersedes the current row and inserts its replacement (same effective_from,
+  supersedes_id); new_version needs a later effective_from; add needs a legal_ref the deal does not have. 409 not_current,
+  exists, effective_not_later; 422 for a correct without id, a changed effective_from / deal / legal_ref, or new_version on
+  an unknown legal_ref. Returns {definition, superseded_id, rerun_upload_ids}; re-runs the rules on the deal's needs_review
+  uploads; master_change entry with before, after, mode, effective_from and the reason. `GET ?include_history=true` returns
+  superseded rows too. The seed supersedes only origin=seed rows and never inserts into a (legal_ref, effective_from) slot
+  held by a ui row (R11). The review context carries `master.covenants_recorded` (parity with worker/validate for R14).
+  Value edits: `/uploads/{id}/edits` (GET, POST) and `/edits/{edit_id}/revert`. tao_admin only, needs_review or approved,
+  numbers at an existing pointer only (a whole-number field stays whole). On a pointer the latest not-reverted edit is in
+  force; revert falls back to the previous edit, else the extracted value. Re-runs and approve read the extraction with the
+  edits applied; approve also re-runs first when edits exist, writes each edited pointer into the published deal and one
+  data_corrections row (choice manual, edit_id, old = extracted value). A manual edit wins over use_ours / use_report on the
+  same pointer: the approve detail lists the override target as replaced, and the override and value_edit entries both stay.
+  Upload dict: active_edit_count (pointers with an edit in force), published_version, pending_correction_id.
+  Corrections: `/uploads/{id}/corrections`, `/corrections`, `/corrections/{id}`, approve, reject. Edits apply to the live
+  published deal; data_corrections rows carry edit_id, correction_id and version. The rules re-run with prior = published
+  previous month and the corrected period left out of published_periods (no R12). A block that was resolved in the
+  original review carries its resolution; any other open block queues the correction (B1), else it publishes at once as
+  version n+1 (old version copied to publication_version, publish + regenerate entries, and later-period needs_review
+  uploads of the deal re-run, their ids in the publish detail). Approve re-runs the rules first (409 open_block_findings
+  while a block stays open) and refuses a correction whose base version is no longer live (409 bad_state). A corrected
+  re-issue now also archives the old version (version_reason "corrected re-issue"). `GET /published/.../deals/{slug}`
+  gains version, versions and `?version=n`.
+  Fixed on the way: review.rerun inserted a new finding before its values were set (NOT NULL on layer); never hit before
+  because no earlier re-run produced a finding the worker had not.
+  Tests: api suite on SQLite (count in the commit), wave B files and test_master/test_reissue also on PostgreSQL 16 via
+  pg8000, and 009 checked there for idempotency and the ui backfill. check_contracts green.
+  Needs from others: UI-Admin sends mode + reason on PUT /master/covenants (the old body is now 422). worker/validate
+  does not apply value edits after a pass-2 extraction; the API re-runs with edits on approve and on every edit, so
+  findings written by the worker in between ignore edits until then. Correction findings cannot be overridden (no route
+  in the contract), so a queued correction is approved only once a re-run no longer blocks, or rejected.
+- 2026-11-05 — Rules, worker/validate (value edits on pass 2): merged agent/api (a5e054a, migration 009).
+  `validate_extraction` now applies the upload's active review edits before running the rules, like
+  api/app/review.rerun: latest not-reverted edit per pointer, correction edits excluded, pointers that no longer resolve
+  skipped, integer fields kept integer (`SqlStore.active_edits`, `apply_edits`). Guarded: without the value_edit table
+  there are no edits. The stored extraction stays the raw read; only the findings reflect the edits, so a pass 2 during
+  review no longer drops them. Tests: worker/validate 25, rules 129, check_contracts green.
 - 2026-11-05 — UI-Admin, wave A (D3 audit log, D4 clickable upload rows). Built against the wave A contract (9764f69).
   **Audit log** (`web/src/admin/AuditLogPage.tsx`): Reports and Platform tabs with this month's counts; each tab opens
   on the current month in Toronto time (`GET /audit?scope&month&limit=100`, Show all pages through 500 at a time), then

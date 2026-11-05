@@ -1,0 +1,27 @@
+{
+  "id": "571b96e6-fb81-5608-8519-e8fc131c840c",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R14",
+  "layer": "cross_source",
+  "severity": "note",
+  "message": "SLFA 9.1(d) (Has the Rolling Three Month Loss Ratio exceeded 3.50%?): no master covenant definition is in force for 2025-12 (none recorded, or its first version starts after the period end), so the report's threshold 0.035 was not checked. Record the definition in master data.",
+  "fields": [
+    "/covenants/0",
+    "master:/covenant_definitions"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": null,
+  "report_value": 0.035,
+  "difference": null,
+  "tolerance": null,
+  "unit": null,
+  "source_page": 14,
+  "context": {
+    "legal_ref": "SLFA 9.1(d)",
+    "description": "Has the Rolling Three Month Loss Ratio exceeded 3.50%?",
+    "period": "2025-12",
+    "kind": "ceiling"
+  },
+  "resolution": null
+}

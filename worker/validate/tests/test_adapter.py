@@ -142,7 +142,7 @@ def test_context_has_the_api_shape(conn):
     uid = new_upload(conn, status="extracting", reporting="2026-07")
     store = adapter.SqlStore(conn); ctx = adapter.build_context(store, store.upload(uid), d)
     assert ctx.prior["collection_period"] == "July 2026"
-    assert set(ctx.master) == {"program", "deal", "covenants"}
+    assert set(ctx.master) == {"program", "deal", "covenants", "covenants_recorded"} and ctx.master["covenants_recorded"] == 8   # 7 seed + the 2026-09 amendment
     assert ctx.master["program"] == {"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slug": "investor", "currency": "CAD", "limit": 150000000.0, "warehouse_limit": 5000000.0}
     assert ctx.master["deal"] == {"slug": "f-pil-2-0-moneda-capital-corp", "name": "Moneda Capital Corp.", "program_slug": "f-pil-2-0", "servicer": "Moneda Capital Corp.", "template_id": "fpil-2.0-settrep-v1"}
     covs = ctx.master["covenants"]
@@ -174,6 +174,98 @@ def test_superseded_definitions_never_reach_r14(conn):
     assert [c["threshold"] for c in covs if c["legal_ref"] == "SLFA 9.1 (e)"] == [0.04]
     r14 = [f for f in adapter.validate_extraction(store, eid) if f["rule_id"] == "R14"]
     assert len(r14) == 1 and r14[0]["our_value"] == 0.04 and r14[0]["report_value"] == 0.035
+
+def add_wave_b_columns(c):
+    """Migration 007 plus the wave B covenant columns (Data & API): origin, supersedes_id, changed_by, change_reason."""
+    for col in ("superseded_at text", "origin text default 'seed'", "supersedes_id text", "changed_by text", "change_reason text"):
+        c.execute(text(f"alter table covenant_definition add column {col}"))
+
+def test_corrected_definition_is_the_one_r14_compares(conn):
+    """mode=correct: the current SLFA 9.1 (e) row gets superseded_at and a new row with the same effective_from replaces
+    it (supersedes_id points back). The adapter's SELECT still works with the new columns, only the correction is in
+    force, and R14 compares against it (a 4.00% correction vs the report's 3.50% is a review finding)."""
+    add_wave_b_columns(conn)
+    orig = conn.execute(text("select id, effective_from from covenant_definition where deal_slug = 'f-pil-2-0-moneda-capital-corp' and legal_ref = 'SLFA 9.1 (e)'")).one()
+    conn.execute(text("update covenant_definition set superseded_at = '2026-11-05T10:00:00Z' where id = :id"), {"id": orig.id})
+    conn.execute(text("insert into covenant_definition (id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source, "
+                      "superseded_at, origin, supersedes_id, changed_by, change_reason) values ('fix-e', 'f-pil-2-0-moneda-capital-corp', 'SLFA 9.1 (e)', 'Delinquency Ratio', "
+                      "'ceiling', 0.04, null, 0.1, :ef, 'correction', null, 'ui', :sup, 'tao_admin', 'threshold keyed wrong')"), {"ef": orig.effective_from, "sup": orig.id})
+    d = mf.load_deal(mf.MONEDA); uid = new_upload(conn, status="extracting", reporting="2026-07")
+    store = adapter.SqlStore(conn)
+    defs = store.covenant_definitions(d["deal_slug"])
+    assert len(defs) == 7 and orig.id not in {x["id"] for x in defs}
+    assert set(defs[0]) == {"id", "deal_slug", "legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "source"}
+    covs = adapter.build_context(store, store.upload(uid), d).master["covenants"]
+    assert [(c["id"], c["threshold"]) for c in covs if c["legal_ref"] == "SLFA 9.1 (e)"] == [("fix-e", 0.04)]
+    adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d), conn=conn, enqueue=FakeQueue())
+    eid = conn.execute(text("select id from extraction where upload_id = :u"), {"u": uid}).scalar()
+    r14 = [f for f in store.findings(eid) if f["rule_id"] == "R14"]
+    assert [(f["severity"], f["context"]["legal_ref"], f["context"]["effective_from"]) for f in r14] == [("review", "SLFA 9.1 (e)", str(orig.effective_from)[:10])]
+    # covenants_as_of on its own: of two current rows per legal_ref, the latest effective_from <= the period end wins
+    later = {**covs[0], "id": "v2", "effective_from": "2026-08-15", "threshold": 0.05}
+    assert [c["id"] for c in adapter.covenants_as_of([covs[0], later], adapter.period_end("2026-08")) if c["legal_ref"] == covs[0]["legal_ref"]] == ["v2"]
+    assert [c["id"] for c in adapter.covenants_as_of([covs[0], later], adapter.period_end("2026-07")) if c["legal_ref"] == covs[0]["legal_ref"]] == [covs[0]["id"]]
+
+def test_stride_before_its_definitions_gets_r14_notes(conn):
+    """A Stride December 2025 report: no definition in force (first version 2026-01-22), so the adapter's master has
+    none for the period and R14 stores one note per ceiling covenant, counted in the upload's note total."""
+    d = mf.load_deal(mf.STRIDE); d["collection_period"] = "December 2025"
+    uid = new_upload(conn, deal_slug=d["deal_slug"], period="2025-12", status="extracting")
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d), conn=conn, enqueue=FakeQueue())
+    rows = conn.execute(text("select severity, context from finding where rule_id = 'R14'")).all()
+    assert [(r.severity, json.loads(r.context)["legal_ref"]) for r in rows] == [("note", x) for x in ("SLFA 9.1(d)", "SLFA 9.1(e)", "SLFA 9.1(f)", "SLFA 9.1(g)")]
+    assert out["counts"]["note"] >= 4
+    assert adapter.build_context(adapter.SqlStore(conn), adapter.SqlStore(conn).upload(uid), d).master["covenants_recorded"] == 4
+
+def test_deal_without_definitions_gets_one_r14_note(conn):
+    """A MOVE Trust deal (no covenant_definitions seeded): one R14 note for the report, naming the deal and listing
+    the unchecked legal_refs."""
+    d = mf.load_deal("move-trust-tpine-leasing-capital-corporation.dashboard.json")
+    uid = new_upload(conn, deal_slug=d["deal_slug"], period="2026-07", status="extracting")
+    adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d, template_id="move-trust-settrep-v1"), conn=conn, enqueue=FakeQueue())
+    rows = conn.execute(text("select severity, message, context from finding where rule_id = 'R14'")).all()
+    assert len(rows) == 1 and rows[0].severity == "note"
+    ctx = json.loads(rows[0].context)
+    assert ctx["count"] == 4 and ctx["legal_refs"] == ["MLA 7.1 (j)", "MLA 7.1 (k)", "MLA 7.1 (l)", "MLA 7.1 (m)"]
+    assert rows[0].message.startswith("No covenant definitions recorded for ") and rows[0].message.endswith(": 4 covenants on the report were not checked")
+
+VALUE_EDIT_DDL = """create table value_edit (id text primary key, upload_id text, correction_id text, pointer text, old_value real, new_value real, reason text,
+  source_page int, actor_role text, actor_label text, at text, reverted_at text, reverted_by text, revert_reason text)"""
+
+def add_edit(c, uid, pointer, old, new, at, reverted_at=None, correction_id=None):
+    c.execute(text("insert into value_edit (id, upload_id, correction_id, pointer, old_value, new_value, reason, source_page, actor_role, at, reverted_at) "
+                   "values (:id, :u, :c, :p, :o, :n, 'read from the PDF', 2, 'tao_admin', :at, :r)"),
+              {"id": str(uuid.uuid4()), "u": uid, "c": correction_id, "p": pointer, "o": old, "n": new, "at": at, "r": reverted_at})
+
+def test_pass_2_applies_active_value_edits(conn):
+    """Migration 009: the reviewer edited Moneda's August principal back to 646,926.71 while a pass 2 was queued. Pass 2
+    reads 647,926.71 again; the stored findings reflect the edit (no R05) and the stored extraction stays the raw read.
+    A later reverted edit and a correction's edit on the same pointer are not in force (api/app/review.active_edits)."""
+    conn.execute(text(VALUE_EDIT_DDL))
+    ptr = "/period_history/3/principal"
+    uid = new_upload(conn, status="extracting"); q = FakeQueue()
+    out1 = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(moneda_with_r05_error()), conn=conn, enqueue=q)
+    assert out1["counts"]["block"] == 1 and len(q.jobs) == 1
+    add_edit(conn, uid, ptr, 647926.71, 646926.71, "2026-11-05T10:00:00Z")
+    add_edit(conn, uid, ptr, 646926.71, 647926.71, "2026-11-05T10:05:00Z", reverted_at="2026-11-05T10:06:00Z")
+    add_edit(conn, uid, ptr, 646926.71, 647926.71, "2026-11-05T10:07:00Z", correction_id=str(uuid.uuid4()))
+    store = adapter.SqlStore(conn)
+    assert {p: e["new_value"] for p, e in store.active_edits(uid).items()} == {ptr: 646926.71}
+    out2 = adapter.handle_extraction(q.jobs[0], doc(moneda_with_r05_error()), conn=conn, enqueue=q)
+    assert out2["status"] == "needs_review" and out2["counts"]["block"] == 0
+    assert not [f for f in store.findings(out2["extraction_id"]) if f["rule_id"] == "R05"]
+    assert conn.execute(text("select status from finding where rule_id = 'R05'")).scalar() == "resolved_by_pass_2"
+    assert json.loads(conn.execute(text("select deal from extraction where id = :id"), {"id": out2["extraction_id"]}).scalar())["period_history"][3]["principal"] == 647926.71
+    # the edit reverted: the raw read is back in force and R05 fires again on a re-validation
+    conn.execute(text("update value_edit set reverted_at = '2026-11-05T11:00:00Z' where reverted_at is null and correction_id is null"))
+    assert [f["rule_id"] for f in adapter.validate_extraction(store, out2["extraction_id"]) if f["severity"] == "block"] == ["R05"]
+
+def test_apply_edits_mirrors_the_api():
+    d = {"contracts": {"closing": 655}, "rows": [{"a/b": 1.5}]}
+    out = adapter.apply_edits(d, {"/contracts/closing": {"pointer": "/contracts/closing", "new_value": 656.0},
+                                  "/rows/0/a~1b": {"pointer": "/rows/0/a~1b", "new_value": 2.5}, "/missing/x": {"pointer": "/missing/x", "new_value": 1.0}})
+    assert out == {"contracts": {"closing": 656}, "rows": [{"a/b": 2.5}]} and isinstance(out["contracts"]["closing"], int)
+    assert d["contracts"]["closing"] == 655 and adapter.apply_edits(d, {}) is d
 
 def test_wrong_deal_selected_blocks(conn):
     uid = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")

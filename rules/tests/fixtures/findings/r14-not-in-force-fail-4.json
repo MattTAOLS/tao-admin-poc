@@ -1,0 +1,27 @@
+{
+  "id": "1a9463a2-603e-5066-80a1-63aee4e5ec59",
+  "extraction_id": "00000000-0000-4000-8000-000000000000",
+  "rule_id": "R14",
+  "layer": "cross_source",
+  "severity": "note",
+  "message": "SLFA 9.1(g) (Has the Borrower failed at any time to maintain a Cumulative Net Loss Ratio for any period, other than the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 2.75%, and for the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 3.50%?): no master covenant definition is in force for 2025-12 (none recorded, or its first version starts after the period end), so the report's threshold 0.035 was not checked. Record the definition in master data.",
+  "fields": [
+    "/covenants/3",
+    "master:/covenant_definitions"
+  ],
+  "status": "open",
+  "created_at": "2026-10-28T00:00:00Z",
+  "our_value": null,
+  "report_value": 0.035,
+  "difference": null,
+  "tolerance": null,
+  "unit": null,
+  "source_page": 14,
+  "context": {
+    "legal_ref": "SLFA 9.1(g)",
+    "description": "Has the Borrower failed at any time to maintain a Cumulative Net Loss Ratio for any period, other than the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 2.75%, and for the period beginning Sept. 1, 2021 and ending Aug. 31, 2022, of less than or equal to 3.50%?",
+    "period": "2025-12",
+    "kind": "ceiling"
+  },
+  "resolution": null
+}

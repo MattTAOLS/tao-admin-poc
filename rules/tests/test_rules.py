@@ -100,6 +100,71 @@ def test_reference_review_findings_are_the_documented_ones():
     seen = {(d["deal_slug"], f["rule_id"]) for d, fs, _ in reference_runs() for f in fs if f["severity"] == "review"}
     assert seen == set(), seen
 
+# R14 notes on the reference deals since wave B. The seed has no covenant_definitions for any MOVE Trust deal, so each
+# MOVE Trust report gets ONE note listing its unchecked ceiling / floor legal_refs (Lead decision: collapse the notes
+# for a deal with no definitions at all). The three F-PIL deals have a definition in force for every ceiling / floor
+# covenant in August 2026: no notes.
+KNOWN_R14_NOTES = {s: 1 for s in (
+    "move-trust-dynamic-capital", "move-trust-essex-lease-financial-corp", "move-trust-finloc-2000-inc", "move-trust-meridian-onecap-lp",
+    "move-trust-tlfc-leases", "move-trust-tlfc-loans", "move-trust-tlfc-lp-leases", "move-trust-tpine-leasing-capital-corporation", "move-trust-vcc-iv-lp")}
+KNOWN_R14_UNCHECKED = {   # covenants counted in each MOVE Trust note
+    "move-trust-dynamic-capital": 7, "move-trust-essex-lease-financial-corp": 7, "move-trust-finloc-2000-inc": 8,
+    "move-trust-meridian-onecap-lp": 7, "move-trust-tlfc-leases": 10, "move-trust-tlfc-loans": 8, "move-trust-tlfc-lp-leases": 10,
+    "move-trust-tpine-leasing-capital-corporation": 4, "move-trust-vcc-iv-lp": 6,
+}
+
+def test_reference_r14_notes_are_the_documented_ones():
+    seen, unchecked = {}, {}
+    for d, fs, _ in reference_runs():
+        r14 = [f for f in fs if f["rule_id"] == "R14"]
+        assert all(f["severity"] == "note" for f in r14), d["deal_slug"]
+        if not r14: continue
+        seen[d["deal_slug"]] = len(r14); f = r14[0]
+        cf = [c["legal_ref"] for c in d["covenants"] if c["kind"] in ("ceiling", "floor")]
+        assert f["context"]["legal_refs"] == list(dict.fromkeys(cf)) and f["fields"] == ["/covenants", "master:/covenant_definitions"]
+        assert f["message"] == f"No covenant definitions recorded for {mf.master_for(d['deal_slug'])['deal']['name']}: {len(cf)} covenants on the report were not checked"
+        unchecked[d["deal_slug"]] = f["context"]["count"]
+    assert seen == KNOWN_R14_NOTES, seen
+    assert unchecked == KNOWN_R14_UNCHECKED, unchecked
+
+def test_r14_notes_stride_before_its_definitions_take_effect():
+    """Stride's definitions are effective 2026-01-22: December 2025 notes each ceiling covenant; January 2026 (period
+    end 2026-01-31) has them in force and is clean. Binary tests are never noted."""
+    d = mf.load_deal(mf.STRIDE); m = mf.master_for(d["deal_slug"])
+    assert {c["effective_from"] for c in m["covenants"]} == {"2026-01-22"}
+    d["collection_period"] = "December 2025"
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"})
+    assert [(f["severity"], f["context"]["legal_ref"]) for f in fs] == [("note", r) for r in ("SLFA 9.1(d)", "SLFA 9.1(e)", "SLFA 9.1(f)", "SLFA 9.1(g)")]
+    assert "no master covenant definition is in force for 2025-12" in fs[0]["message"] and fs[0]["report_value"] == 0.035
+    d["collection_period"] = "January 2026"
+    assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"}) == []
+
+def test_r14_notes_only_the_covenant_without_a_definition():
+    """Moneda with SLFA 9.1 (e) removed from the master: that covenant alone is a note, the rest still compare."""
+    d = mf.load_deal(mf.MONEDA); m = mf.master_for(d["deal_slug"])
+    m["covenants"] = [c for c in m["covenants"] if c["legal_ref"] != "SLFA 9.1 (e)"]
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master=m), only={"R14"})
+    assert [(f["severity"], f["context"]["legal_ref"]) for f in fs] == [("note", "SLFA 9.1 (e)")]
+    for f in fs: jsonschema.validate(f, FINDING_SCHEMA)
+
+def test_r14_without_a_master_record_is_silent():
+    """No master in the context (not loaded) is not the same as a deal with no definitions: no notes."""
+    d = mf.load_deal(mf.MONEDA)
+    assert run({"meta": mf.META, "deal": d, "sources": {}}, Context(), only={"R14"}) == []
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master={"covenants": []}), only={"R14"})
+    assert len(fs) == 1 and fs[0]["context"]["count"] == 7 and fs[0]["context"]["deal"] == d["deal_name"]   # no master deal row: the report's deal name
+    jsonschema.validate(fs[0], FINDING_SCHEMA)
+
+def test_r14_covenants_recorded_keeps_per_covenant_notes():
+    """worker/validate passes only the rows in force plus covenants_recorded (all current rows). Stride December 2025
+    through that shape: an empty in-force list but 4 recorded, so one note per covenant, not the collapsed note;
+    covenants_recorded 0 collapses even when the caller passed nothing else."""
+    d = mf.load_deal(mf.STRIDE); d["collection_period"] = "December 2025"; m = mf.master_for(d["deal_slug"])
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master={**m, "covenants": [], "covenants_recorded": 4}), only={"R14"})
+    assert [f["context"]["legal_ref"] for f in fs] == ["SLFA 9.1(d)", "SLFA 9.1(e)", "SLFA 9.1(f)", "SLFA 9.1(g)"]
+    fs = run({"meta": mf.META, "deal": d, "sources": {}}, Context(master={**m, "covenants": [], "covenants_recorded": 0}), only={"R14"})
+    assert len(fs) == 1 and fs[0]["message"] == "No covenant definitions recorded for Stride Capital: 4 covenants on the report were not checked"
+
 def test_r14_compares_every_f_pil_deal_against_its_own_definitions():
     """Each F-PIL deal's master definitions match some of its page-14 refs (Xpedite's ARFA refs are compared now),
     and a one-number change on a matched covenant fires R14."""

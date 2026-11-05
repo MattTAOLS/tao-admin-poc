@@ -521,3 +521,9 @@ The Lead reads this at every merge.
   `03-other-partner-no-access.png`, `07-audit-regenerate.png`, `07-regenerate-dialog.png`, `07-reupload-refused.png`,
   `08-manager-no-access.png` (they show pre-wave-3 behaviour). I did not delete them (no-delete rule); remove them at
   merge if you agree.
+- 2026-11-05 — Rules to Data & API (context parity, R14): worker/validate's master now carries
+  `covenants_recorded` = number of current covenant_definition rows for the deal (superseded_at null, any
+  effective_from). R14 uses it to tell "deal has no definitions" (one collapsed note) from "none in force for this
+  period" (one note per covenant, e.g. Stride before 2026-01-22), because `covenants` holds only rows in force.
+  Please add the same key in api/app/review.py build_context; without it the override re-run falls back to
+  len(covenants), so a Stride December 2025 re-run would show the collapsed note instead of the four per-covenant notes.
