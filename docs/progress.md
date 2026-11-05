@@ -646,3 +646,21 @@ Append an entry when a work package lands. Newest first.
   with TEST_DATABASE_URL and TEST_MIGRATE_URL on a throwaway container. Checked live on a `-p tao-api` stack: a
   database built by hand to 007 baselines 001-006 and runs 007 + 008 (data kept); a restart is a no-op; reset_demo
   --profile review from an empty volume builds the schema through the runner and runs the whole review profile.
+- 2026-11-05 — Rules, wave B (R14 note, covenant corrections): merged lead/wave-b (35e3abc).
+  R14 (`rules/checks.py: thresholds_match_master`): a ceiling / floor covenant on the report with no master definition
+  in force for the period (none recorded for its legal_ref, or the first version starts after the period end) is now a
+  `note` naming the covenant (legal_ref + description, report threshold, period), instead of being skipped. Mismatches
+  stay `review`. Binary tests are not noted (no threshold). A context with no master at all (no `covenants` key) stays
+  silent; an empty list means the deal has no definitions and every ceiling / floor covenant is noted.
+  Reference deals: the three F-PIL deals (August 2026) are unchanged; every MOVE Trust deal (July 2026) now gets notes
+  because the seed has no MOVE covenant_definitions: Dynamic 7, Essex 7, Finloc 8, Meridian 7, TLFC Leases 10,
+  TLFC Loans 8, TLFC LP 10, TPine 4, VCC IV 6 (67 in all; `KNOWN_R14_NOTES` in test_rules.py). Stride reports before
+  2026-01 note SLFA 9.1(d), (e), (f), (g); January 2026 onward is clean. New extra fixture `r14-not-in-force`
+  (Stride as December 2025, four frozen notes). No existing fixture changed.
+  worker/validate: the SELECT names its columns, so origin / supersedes_id / changed_by / change_reason do not change
+  the master shape; only current rows (superseded_at null) reach covenants_as_of. Tests: a mode=correct row (same
+  effective_from, supersedes_id set) is the one R14 compares; a Stride December 2025 upload stores four R14 notes.
+  Run: `cd rules && python -m pytest -q` (128), `cd worker/validate && python -m pytest -q` (22), `make check`.
+  For the Lead: 67 notes on MOVE Trust reviews is a lot of noise until MOVE definitions are seeded; one note per deal
+  ("no covenant definitions recorded") is a one-line change if preferred. UI-Review: R14 notes carry no our_value, so
+  "Use ours" should stay disabled for them.

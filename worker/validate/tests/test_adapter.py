@@ -175,6 +175,47 @@ def test_superseded_definitions_never_reach_r14(conn):
     r14 = [f for f in adapter.validate_extraction(store, eid) if f["rule_id"] == "R14"]
     assert len(r14) == 1 and r14[0]["our_value"] == 0.04 and r14[0]["report_value"] == 0.035
 
+def add_wave_b_columns(c):
+    """Migration 007 plus the wave B covenant columns (Data & API): origin, supersedes_id, changed_by, change_reason."""
+    for col in ("superseded_at text", "origin text default 'seed'", "supersedes_id text", "changed_by text", "change_reason text"):
+        c.execute(text(f"alter table covenant_definition add column {col}"))
+
+def test_corrected_definition_is_the_one_r14_compares(conn):
+    """mode=correct: the current SLFA 9.1 (e) row gets superseded_at and a new row with the same effective_from replaces
+    it (supersedes_id points back). The adapter's SELECT still works with the new columns, only the correction is in
+    force, and R14 compares against it (a 4.00% correction vs the report's 3.50% is a review finding)."""
+    add_wave_b_columns(conn)
+    orig = conn.execute(text("select id, effective_from from covenant_definition where deal_slug = 'f-pil-2-0-moneda-capital-corp' and legal_ref = 'SLFA 9.1 (e)'")).one()
+    conn.execute(text("update covenant_definition set superseded_at = '2026-11-05T10:00:00Z' where id = :id"), {"id": orig.id})
+    conn.execute(text("insert into covenant_definition (id, deal_slug, legal_ref, description, kind, threshold, threshold_rule, watch_buffer_pct, effective_from, source, "
+                      "superseded_at, origin, supersedes_id, changed_by, change_reason) values ('fix-e', 'f-pil-2-0-moneda-capital-corp', 'SLFA 9.1 (e)', 'Delinquency Ratio', "
+                      "'ceiling', 0.04, null, 0.1, :ef, 'correction', null, 'ui', :sup, 'tao_admin', 'threshold keyed wrong')"), {"ef": orig.effective_from, "sup": orig.id})
+    d = mf.load_deal(mf.MONEDA); uid = new_upload(conn, status="extracting", reporting="2026-07")
+    store = adapter.SqlStore(conn)
+    defs = store.covenant_definitions(d["deal_slug"])
+    assert len(defs) == 7 and orig.id not in {x["id"] for x in defs}
+    assert set(defs[0]) == {"id", "deal_slug", "legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "source"}
+    covs = adapter.build_context(store, store.upload(uid), d).master["covenants"]
+    assert [(c["id"], c["threshold"]) for c in covs if c["legal_ref"] == "SLFA 9.1 (e)"] == [("fix-e", 0.04)]
+    adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d), conn=conn, enqueue=FakeQueue())
+    eid = conn.execute(text("select id from extraction where upload_id = :u"), {"u": uid}).scalar()
+    r14 = [f for f in store.findings(eid) if f["rule_id"] == "R14"]
+    assert [(f["severity"], f["context"]["legal_ref"], f["context"]["effective_from"]) for f in r14] == [("review", "SLFA 9.1 (e)", str(orig.effective_from)[:10])]
+    # covenants_as_of on its own: of two current rows per legal_ref, the latest effective_from <= the period end wins
+    later = {**covs[0], "id": "v2", "effective_from": "2026-08-15", "threshold": 0.05}
+    assert [c["id"] for c in adapter.covenants_as_of([covs[0], later], adapter.period_end("2026-08")) if c["legal_ref"] == covs[0]["legal_ref"]] == ["v2"]
+    assert [c["id"] for c in adapter.covenants_as_of([covs[0], later], adapter.period_end("2026-07")) if c["legal_ref"] == covs[0]["legal_ref"]] == [covs[0]["id"]]
+
+def test_stride_before_its_definitions_gets_r14_notes(conn):
+    """A Stride December 2025 report: no definition in force (first version 2026-01-22), so the adapter's master has
+    none for the period and R14 stores one note per ceiling covenant, counted in the upload's note total."""
+    d = mf.load_deal(mf.STRIDE); d["collection_period"] = "December 2025"
+    uid = new_upload(conn, deal_slug=d["deal_slug"], period="2025-12", status="extracting")
+    out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(d), conn=conn, enqueue=FakeQueue())
+    rows = conn.execute(text("select severity, context from finding where rule_id = 'R14'")).all()
+    assert [(r.severity, json.loads(r.context)["legal_ref"]) for r in rows] == [("note", x) for x in ("SLFA 9.1(d)", "SLFA 9.1(e)", "SLFA 9.1(f)", "SLFA 9.1(g)")]
+    assert out["counts"]["note"] >= 4
+
 def test_wrong_deal_selected_blocks(conn):
     uid = new_upload(conn, deal_slug="f-pil-2-0-stride-capital", status="extracting")
     out = adapter.handle_extraction({"upload_id": uid, "pass": 1}, doc(mf.load_deal(mf.MONEDA)), conn=conn, enqueue=FakeQueue())
