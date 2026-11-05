@@ -24,7 +24,7 @@ describe('help pages render through the shell', () => {
   it('opens /admin/help for TAO Admin from the sidebar registry', async () => {
     localStorage.setItem(KEY, 'tao_admin')
     render(<MemoryRouter initialEntries={['/admin/help']}><App /></MemoryRouter>)
-    expect(await screen.findByRole('heading', { level: 2, name: 'Approve and publish' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Approve and publish' }, { timeout: 20_000 })).toBeTruthy()  // first lazy load of the whole app: cold compile
     expect(screen.getByRole('heading', { level: 1, name: 'Help & support' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'What the words mean' })).toBeTruthy()
   })
