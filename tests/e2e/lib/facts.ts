@@ -76,6 +76,33 @@ export const STEP9 = {
   finloc: { revaluation: { '2026-05': 64_124.04, '2026-06': 106_968.53, '2026-07': -47_609.31 } as Record<string, number> },
 }
 
+/** Step 10 (phase 2 wave B): editing. Every edited value is a real extracted value moved by $100.00, the size of the
+ * seeded R05 error, so the change is easy to spot; nothing else is invented. */
+export const STEP10 = {
+  /** 10a: Essex June 2026 (the month after step 9's May) in review. The closing edit raises R05 (page 2 closing no longer
+   * equals the roll-forward row); it is reverted, then interest (read by no block rule) is edited and published. */
+  edit: {
+    deal: 'essex' as DealKey, month: '202606', period: '2026-06',
+    raise: { label: 'Tranche balance, Closing', pointer: '/tranche_balance/closing', delta: 100 },
+    keep: { label: 'Tranche balance, Interest', pointer: '/tranche_balance/interest', delta: 100 },
+    reason: 'QA demo: value edited by hand to show the rules re-run',
+    revertReason: 'QA demo: edit reverted',
+  },
+  /** 10b: corrections of published months. TLFC LP June interest publishes at once as version 2; Finloc July closing opens
+   * an R05 block, waits in the queue while version 1 stays live, and is acknowledged and approved. */
+  correctClean: { deal: 'tlfcLp' as DealKey, period: '2026-06', name: 'TLFC LP (Leases)', pointer: '/tranche_balance/interest', search: 'Interest', pick: /^Tranche balance · interest/i, delta: 100 },
+  correctBlock: { deal: 'finloc' as DealKey, period: '2026-07', name: 'Finloc 2000 Inc.', pointer: '/tranche_balance/closing', search: 'Closing', pick: /^Tranche balance · closing/i, delta: 100 },
+  correctionReason: 'QA demo: correction after publication, no new PDF',
+  noteToPartners: 'QA demo note: one value corrected after publication.',
+  ackReason: 'QA demo: acknowledged, the corrected closing is intended',
+  /** 10c: a new version of Moneda SLFA 9.1 (e) from 2026-09-01, after every published month, with the threshold
+   * unchanged and the watch buffer widened. A test change, not a real amendment. */
+  covenant: {
+    deal: 'moneda' as DealKey, dealName: 'Moneda Capital Corp.', legalRef: 'SLFA 9.1 (e)', currentFrom: '2022-12-09',
+    newFrom: '2026-09-01', watchBuffer: 0.15, reason: 'QA demo: watch buffer widened from Sep 2026 (test change, not a real amendment)',
+  },
+}
+
 export const samplePath = (deal: DealKey, month: string) => path.join(SAMPLES, DEALS[deal].file(month))
 export const period = (month: string) => `${month.slice(0, 4)}-${month.slice(4)}`
 
