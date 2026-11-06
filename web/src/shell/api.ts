@@ -1,33 +1,71 @@
-import { loadRole, ROLES } from './roles'
+import { loadRole, loadUserId, ROLES } from './roles'
+import { sessionStore } from './session'
+import type { Me, UnreadCount } from './types'
 export const API_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
-/** The role headers every call carries: X-Role, plus X-Partner for partner roles. */
-export function roleHeaders(): Record<string, string> {
+/** The demo headers: X-Role, plus X-Partner for partner roles (phase 1 behaviour). */
+export function demoHeaders(): Record<string, string> {
   const role = loadRole(); const meta = ROLES.find(r => r.id === role)!
   const headers: Record<string, string> = { 'X-Role': role }
   if (meta.partner) headers['X-Partner'] = meta.partner
   return headers
 }
 
+/** The headers every call carries: the demo headers always (so an older API keeps working), plus X-User when signed in
+ * as a user and GET /me has not failed. With X-User the API takes role and partner from the user record.
+ * Code that calls fetch itself spreads this, so it sends X-User too. */
+export function roleHeaders(): Record<string, string> {
+  const headers = demoHeaders()
+  const id = loadUserId()
+  if (id && sessionStore.get().mode !== 'role-only') headers['X-User'] = id
+  return headers
+}
+export const callerHeaders = roleHeaders
+
 async function fail(res: Response): Promise<never> {
   const err = await res.json().catch(() => ({ code: 'http_' + res.status, message: res.statusText }))
   throw Object.assign(new Error(err.message), { code: err.code, status: res.status })
 }
 
-/** Every call carries X-Role (and X-Partner for partner roles). The API, not the UI, is the tenancy boundary. */
+/** Every call carries X-Role (and X-Partner for partner roles), and X-User when signed in as a user. The API, not the
+ * UI, is the tenancy boundary. */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { ...roleHeaders(), ...(init.headers as Record<string, string> || {}) }
+  const headers: Record<string, string> = { ...callerHeaders(), ...(init.headers as Record<string, string> || {}) }
   if (!(init.body instanceof FormData)) headers['Content-Type'] = 'application/json'
   const res = await fetch(API_BASE + path, { ...init, headers })
   if (!res.ok) return fail(res)
   return res.status === 204 ? (undefined as T) : res.json()
 }
 
-/** Binary GET with the role headers, e.g. a page image: `URL.createObjectURL(await apiBlob('/uploads/x/pages/2.png'))`.
+/** Binary GET with the caller headers, e.g. a page image: `URL.createObjectURL(await apiBlob('/uploads/x/pages/2.png'))`.
  * Errors throw like api(): Error with `code` and `status`. */
 export async function apiBlob(path: string, init: RequestInit = {}): Promise<Blob> {
-  const headers: Record<string, string> = { ...roleHeaders(), ...(init.headers as Record<string, string> || {}) }
+  const headers: Record<string, string> = { ...callerHeaders(), ...(init.headers as Record<string, string> || {}) }
   const res = await fetch(API_BASE + path, { ...init, headers })
   if (!res.ok) return fail(res)
   return res.blob()
+}
+
+/** Resolves the stored user with GET /me. No user stored, a failed call (older API without /me, unknown or deactivated
+ * user) or a reply without a user: role-only mode, and X-User stops being sent. */
+export async function refreshMe(): Promise<void> {
+  const id = loadUserId()
+  if (!id) { sessionStore.set({ mode: 'role-only', userId: null, me: null, unread: null, fallback: undefined }); return }
+  sessionStore.set({ mode: 'pending', userId: id, me: null, unread: null, fallback: undefined })
+  try {
+    const me = await api<Me>('/me')
+    if (loadUserId() !== id) return
+    if (me && me.user) sessionStore.set({ mode: 'user', me })
+    else sessionStore.set({ mode: 'role-only', me: null, fallback: 'no_user' })
+  } catch (e) {
+    if (loadUserId() !== id) return
+    sessionStore.set({ mode: 'role-only', me: null, fallback: (e as { code?: string }).code ?? 'network' })
+  }
+}
+
+/** Unread counts for the sidebar badge and the Notifications tabs. Only for a signed-in user. */
+export async function refreshUnread(): Promise<void> {
+  if (sessionStore.get().mode !== 'user') { if (sessionStore.get().unread) sessionStore.set({ unread: null }); return }
+  try { sessionStore.set({ unread: await api<UnreadCount>('/notifications/unread-count') }) }
+  catch { sessionStore.set({ unread: null }) }
 }

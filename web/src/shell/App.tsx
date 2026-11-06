@@ -1,10 +1,16 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react'
 import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastProvider, PageHeader, StatePanel, Button, SkeletonBlock, icons, type Crumb, type LinkLike } from '@/design/components'
-import { ROLES, loadRole, saveRole, type Role } from './roles'
+import { ROLES, loadRole, loadUserId, saveRole, saveUser, type Role } from './roles'
 import { ADMIN_PAGES, PARTNER_PAGES, type Page } from './pages'
 import { RoleSwitcher } from './RoleSwitcher'
 import { usePageHeaderMeta } from './header'
+import { useSession, type Session } from './session'
+import { refreshMe, refreshUnread } from './api'
+import type { SeedUser } from './users'
+
+/** How often the sidebar badge re-reads the unread count, besides on every navigation. */
+export const UNREAD_POLL_MS = 60_000
 
 type ShellId = 'admin' | 'investor' | 'manager'
 const SHELL_TITLE: Record<ShellId, string> = { admin: 'TAO Admin', investor: 'Investor Portal', manager: 'Manager Portal' }
@@ -103,7 +109,7 @@ function TopBar({ current, crumbs }: { current: Page | undefined; crumbs: Crumb[
   )
 }
 
-function NavGroup({ label, pages, isActive }: { label: string; pages: Page[]; isActive: (p: Page) => boolean }) {
+function NavGroup({ label, pages, isActive, badge }: { label: string; pages: Page[]; isActive: (p: Page) => boolean; badge?: (p: Page) => number | undefined }) {
   if (pages.length === 0) return null
   return (
     <>
@@ -112,19 +118,40 @@ function NavGroup({ label, pages, isActive }: { label: string; pages: Page[]; is
         {pages.map(p => {
           const I = NAV_ICON[p.title] ?? icons.IconFile
           const on = isActive(p)
-          return <Link key={p.path} to={p.path || '/'} className={on ? 'active' : undefined} aria-current={on ? 'page' : undefined}><I width={17} height={17} /><span>{p.title}</span></Link>
+          const n = badge?.(p)
+          return (
+            <Link key={p.path} to={p.path || '/'} className={on ? 'active' : undefined} aria-current={on ? 'page' : undefined}>
+              <I width={17} height={17} /><span>{p.title}</span>
+              {n ? <span className="navbadge" data-testid="unread-badge"><span aria-hidden="true">{n > 99 ? '99+' : n}</span><span className="ds-visually-hidden">, {n} unread</span></span> : null}
+            </Link>
+          )
         })}
       </nav>
     </>
   )
 }
 
-function Shell({ shell, role, setRole }: { shell: ShellId; role: Role; setRole: (r: Role) => void }) {
+/** Unread count for the sidebar badge: on every navigation and every UNREAD_POLL_MS, only when signed in as a user. */
+function useUnreadBadge(session: Session, pathname: string) {
+  const signedIn = session.mode === 'user'
+  useEffect(() => { if (signedIn) void refreshUnread() }, [signedIn, session.userId, pathname])
+  useEffect(() => {
+    if (!signedIn) return
+    const t = setInterval(() => { void refreshUnread() }, UNREAD_POLL_MS)
+    return () => clearInterval(t)
+  }, [signedIn, session.userId])
+  return signedIn ? session.unread?.total : undefined
+}
+
+function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u: SeedUser) => void }) {
   const base = shell === 'admin' ? '' : '/' + shell
   const home = shell === 'admin' ? '/admin' : base + '/portfolio'
   const pages = shell === 'admin' ? ADMIN_PAGES : PARTNER_PAGES.map(p => ({ ...p, path: base + p.path }))
   const visible = (p: Page) => !p.roles || p.roles.includes(role)
   const loc = useLocation()
+  const session = useSession()
+  const unread = useUnreadBadge(session, loc.pathname)
+  const badge = (p: Page) => (p.title === 'Notifications' ? unread : undefined)
   const current = pages.find(p => matchPath(p.path || '/', loc.pathname))
   const title = SHELL_TITLE[shell]
   const crumbs = current ? routeCrumbs(pages, loc.pathname, title) : [{ label: title }, { label: 'Page not found' }]
@@ -140,9 +167,11 @@ function Shell({ shell, role, setRole }: { shell: ShellId; role: Role; setRole: 
           <span className="brand__mark" aria-hidden="true"><icons.IconLayers width={18} height={18} /></span>
           <span><b>{title}</b><small>{SHELL_SUB[shell]}</small></span>
         </div>
-        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && visible(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} />
+        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && visible(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} badge={badge} />
         <NavGroup label="Account" pages={pages.filter(p => p.nav === 'account' && visible(p))} isActive={isActive} />
-        <div className="foot"><RoleSwitcher role={role} onChange={setRole} /></div>
+        <div className="foot">
+          <RoleSwitcher role={role} userId={session.userId} userName={session.me?.user?.name} mode={session.mode} onPick={onPick} />
+        </div>
       </aside>
       <div className="main">
         <TopBar current={current} crumbs={crumbs} />
@@ -162,7 +191,16 @@ function Shell({ shell, role, setRole }: { shell: ShellId; role: Role; setRole: 
 
 export function App() {
   const [role, setRoleState] = useState<Role>(loadRole())
-  const setRole = (r: Role) => { saveRole(r); setRoleState(r) }
+  const [userId, setUserId] = useState<string | null>(loadUserId())
+  const session = useSession()
+  // Sign in as a seeded user: store the id and the user's role together, then resolve the user with GET /me.
+  const onPick = (u: SeedUser) => { saveUser(u.id, u.role); setRoleState(u.role); setUserId(u.id) }
+  useEffect(() => { void refreshMe() }, [userId])
+  // The API is the source of truth for a user's role (a TAO Admin may have changed it in User management).
+  const apiRole = session.mode === 'user' ? session.me?.role : undefined
+  useEffect(() => {
+    if (apiRole && apiRole !== role && ROLES.some(r => r.id === apiRole)) { saveRole(apiRole, apiRole); setRoleState(apiRole) }
+  }, [apiRole, role])
   const shell = ROLES.find(r => r.id === role)!.shell
   const home = shell === 'admin' ? '/admin' : '/' + shell + '/portfolio'
   const loc = useLocation()
@@ -171,6 +209,6 @@ export function App() {
   // A role may only see its own shell: a role never sees another shell's URLs; the API enforces the same.
   if (loc.pathname === '/') body = <Navigate to={home} replace />
   else if (!loc.pathname.startsWith(shell === 'admin' ? '/admin' : '/' + shell)) body = <Navigate to={home} replace />
-  else body = <Shell shell={shell} role={role} setRole={setRole} />
+  else body = <Shell shell={shell} role={role} onPick={onPick} />
   return <ToastProvider>{body}</ToastProvider>
 }

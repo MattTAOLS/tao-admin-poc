@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@/design/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
@@ -8,6 +8,7 @@ import { App, routeCrumbs } from '../App'
 import { KEY } from '../roles'
 import { ADMIN_PAGES } from '../pages'
 import { usePageHeader, headerStore } from '../header'
+import { sessionStore } from '../session'
 import { Button } from '@/design/components'
 
 function Where() { const l = useLocation(); return <output data-testid="where">{l.pathname}</output> }
@@ -17,7 +18,7 @@ function renderAt(path: string, role?: string) {
 }
 const where = () => screen.getByTestId('where').textContent
 
-beforeEach(() => { localStorage.clear(); headerStore.clear() })
+beforeEach(() => { localStorage.clear(); headerStore.clear(); sessionStore.reset() })
 
 describe('shell routing', () => {
   it('sends / to the role home', () => {
@@ -95,6 +96,8 @@ describe('shell routing', () => {
 })
 
 describe('role switcher (sidebar user card)', () => {
+  beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404 }))) })
+  afterEach(() => { vi.unstubAllGlobals() })
   it('opens with the keyboard, moves with arrows, picks with Enter and changes shell', async () => {
     renderAt('/admin')
     const btn = screen.getByTestId('role-switcher')
@@ -102,10 +105,10 @@ describe('role switcher (sidebar user card)', () => {
     btn.focus(); await userEvent.keyboard('{ArrowUp}')
     const menu = screen.getByRole('menu')
     const opts = within(menu).getAllByRole('menuitemradio')
-    expect(opts.length).toBe(6)
+    expect(opts.length).toBe(8) // seeded users, two per TAO role and one per partner role
     expect(document.activeElement).toBe(opts[0])
-    expect(opts[0].getAttribute('aria-checked')).toBe('true')
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}') // investor_viewer
+    expect(opts[0].getAttribute('aria-checked')).toBe('false') // role-only: no user is signed in yet
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{Enter}') // D. Alvarez, investor_viewer
     expect(screen.queryByRole('menu')).toBeNull()
     expect(localStorage.getItem(KEY)).toBe('investor_viewer')
     expect(where()).toBe('/investor/portfolio')
