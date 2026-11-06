@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@/design/test-utils'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -11,8 +11,11 @@ import { headerStore } from '@/shell/header'
 import { ToastProvider } from '@/design/components'
 import { HelpView, contentFor, forRole, linkTargets, matchesSection, parseInline, resolveLink, GLOSSARY_ID, type HelpShell } from '../HelpPage'
 import { ADMIN_HELP, PARTNER_HELP } from '../content'
+import { mockApi } from '@/shell/__tests__/mockApi'
 
-beforeEach(() => { localStorage.clear(); headerStore.clear() })
+// The shell reads GET /me in every mode (wave D); no API here, so /me is 404.
+beforeEach(() => { localStorage.clear(); headerStore.clear(); mockApi({}) })
+afterEach(() => { vi.unstubAllGlobals() })
 
 function renderView(shell: HelpShell, role: Role, path = shell === 'admin' ? '/admin/help' : `/${shell}/help`) {
   return render(<MemoryRouter initialEntries={[path]}><ToastProvider><HelpView shell={shell} role={role} /></ToastProvider></MemoryRouter>)
@@ -112,6 +115,57 @@ describe('wave C sections', () => {
     const text = JSON.stringify([ADMIN_HELP, PARTNER_HELP])
     expect(text).not.toContain('POC role switcher')
     expect(text).toContain('Sign in as (POC)')
+  })
+})
+
+describe('wave D sections', () => {
+  const titles = (c: ReturnType<typeof forRole>) => c.sections.map(s => s.title)
+  const text = (c: ReturnType<typeof forRole>) => JSON.stringify(c)
+  const COMMON = ['Find a company', 'Read a company profile', 'News and adverse media', 'Add an analyst note']
+  it('gives TAO Admin every company section, the record and the settings', () => {
+    const t = titles(forRole(ADMIN_HELP, 'tao_admin'))
+    for (const x of [...COMMON, 'Keep the company record and contacts', 'Turn on the news feed and partner access']) expect(t).toContain(x)
+    expect(t.indexOf('Find a company')).toBe(t.indexOf('Look at the portfolio, a program and a deal') + 1)
+    const settings = forRole(ADMIN_HELP, 'tao_admin').sections.find(s => s.id === 'companies-settings')!
+    expect(text(forRole({ ...ADMIN_HELP, sections: [settings] }, 'tao_admin'))).toContain('**Run now**')
+  })
+  it('gives TAO Analyst the list, profile, news and notes, but not the record or settings, and says who reviews', () => {
+    const c = forRole(ADMIN_HELP, 'tao_analyst')
+    for (const x of COMMON) expect(titles(c)).toContain(x)
+    expect(titles(c)).not.toContain('Keep the company record and contacts')
+    expect(titles(c)).not.toContain('Turn on the news feed and partner access')
+    const news = c.sections.find(s => s.id === 'news-adverse')!
+    expect(text({ ...c, sections: [news] })).toContain('Only a TAO Admin marks an item Reviewed')
+    expect(text({ ...c, sections: [news] })).not.toContain('Mark it **Reviewed** with a note')
+  })
+  it('explains median vs mean, grey months and recomputed covenant cells on the profile', () => {
+    const p = ADMIN_HELP.sections.find(s => s.id === 'company-profile')!
+    const all = JSON.stringify(p)
+    expect(all).toContain('Median or mean')
+    expect(all).toContain('A grey month has no number yet')
+    expect(all).toMatch(/recomputed from the ratio history/)
+  })
+  it('says sanctions is a keyword hit, the sources are free and daily, and partners see reviewed items only', () => {
+    const n = JSON.stringify(ADMIN_HELP.sections.find(s => s.id === 'news-adverse'))
+    for (const x of ['Google News and GDELT', 'once a day', 'keyword screening', 'It is not a check against any sanctions list', 'Partners see an adverse item only after a TAO Admin marks it Reviewed']) expect(n).toContain(x)
+  })
+  it('gives partners a company section without notes, record or settings; analyst notes stay TAO only', () => {
+    for (const role of ['investor_admin', 'investor_viewer', 'manager_admin', 'manager_viewer'] as Role[]) {
+      const c = forRole(PARTNER_HELP, role)
+      expect(titles(c)).toContain('Look up a company')
+      for (const x of ['Add an analyst note', 'Keep the company record and contacts', 'Turn on the news feed and partner access']) expect(titles(c)).not.toContain(x)
+    }
+    const p = JSON.stringify(PARTNER_HELP.sections.find(s => s.id === 'companies'))
+    expect(p).toContain('When TAO turns it on')
+    expect(p).toContain('only after TAO has reviewed it')
+    expect(p).toContain('never shown here')
+  })
+  it('puts the three new notification kinds under Reports, report late for TAO only', () => {
+    const tao = JSON.stringify(ADMIN_HELP.sections.find(s => s.id === 'notifications'))
+    expect(tao).toContain('rejected, adverse media, negative news, report late)')
+    const partner = JSON.stringify(PARTNER_HELP.sections.find(s => s.id === 'notifications'))
+    expect(partner).toContain('**Adverse media** and **Negative news** for companies you follow sit under Reports')
+    expect(JSON.stringify(PARTNER_HELP)).not.toMatch(/report late/i)
   })
 })
 

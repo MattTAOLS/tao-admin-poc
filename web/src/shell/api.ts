@@ -1,6 +1,6 @@
 import { loadRole, loadUserId, ROLES } from './roles'
 import { sessionStore } from './session'
-import type { Me, UnreadCount } from './types'
+import type { Features, Me, UnreadCount } from './types'
 export const API_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
 /** The demo headers: X-Role, plus X-Partner for partner roles (phase 1 behaviour). */
@@ -46,21 +46,40 @@ export async function apiBlob(path: string, init: RequestInit = {}): Promise<Blo
   return res.blob()
 }
 
+/** Me.features from a /me reply; an older API without the field shows nothing feature-gated. */
+export const featuresOf = (me: Me | null | undefined): Features => ({ companies: me?.features?.companies === true })
+const FEATURES_OFF: Features = { companies: false }
+
 /** Resolves the stored user with GET /me. No user stored, a failed call (older API without /me, unknown or deactivated
- * user) or a reply without a user: role-only mode, and X-User stops being sent. */
+ * user) or a reply without a user: role-only mode, and X-User stops being sent.
+ * GET /me is read in role-only mode too (demo headers only): it answers with user null and the role's features. */
 export async function refreshMe(): Promise<void> {
   const id = loadUserId()
-  if (!id) { sessionStore.set({ mode: 'role-only', userId: null, me: null, unread: null, fallback: undefined }); return }
-  sessionStore.set({ mode: 'pending', userId: id, me: null, unread: null, fallback: undefined })
+  const role = loadRole()
+  if (!id) {
+    sessionStore.set({ mode: 'role-only', userId: null, me: null, unread: null, fallback: undefined, features: null })
+    return roleOnlyFeatures(id, role)
+  }
+  sessionStore.set({ mode: 'pending', userId: id, me: null, unread: null, fallback: undefined, features: null })
   try {
     const me = await api<Me>('/me')
     if (loadUserId() !== id) return
-    if (me && me.user) sessionStore.set({ mode: 'user', me })
-    else sessionStore.set({ mode: 'role-only', me: null, fallback: 'no_user' })
+    if (me && me.user) sessionStore.set({ mode: 'user', me, features: featuresOf(me) })
+    else sessionStore.set({ mode: 'role-only', me: null, fallback: 'no_user', features: featuresOf(me) })
   } catch (e) {
     if (loadUserId() !== id) return
     sessionStore.set({ mode: 'role-only', me: null, fallback: (e as { code?: string }).code ?? 'network' })
+    // The user was refused; the role still works, so ask again without X-User for the role's features.
+    return roleOnlyFeatures(id, role)
   }
+}
+
+/** GET /me with the demo headers only, for Me.features. A reply that arrives after the user or role changed is dropped. */
+async function roleOnlyFeatures(id: string | null, role: string): Promise<void> {
+  const current = () => loadUserId() === id && loadRole() === role && sessionStore.get().mode === 'role-only'
+  let features = FEATURES_OFF
+  try { features = featuresOf(await api<Me>('/me')) } catch { /* older API: nothing feature-gated */ }
+  if (current()) sessionStore.set({ features })
 }
 
 /** Unread counts for the sidebar badge and the Notifications tabs. Only for a signed-in user. */

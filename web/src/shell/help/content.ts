@@ -28,6 +28,7 @@ export type HelpContent = { intro: string; sections: HelpSection[]; glossary: Gl
 const ADMIN: Role[] = ['tao_admin']
 const ANALYST: Role[] = ['tao_analyst']
 const COMPANY_ADMIN: Role[] = ['investor_admin', 'manager_admin']
+const TAO: Role[] = ['tao_admin', 'tao_analyst']
 
 // ---------------------------------------------------------------------------------------------------------------
 // Testing: shared by both pages.
@@ -347,6 +348,94 @@ export const ADMIN_HELP: HelpContent = {
       ],
     },
     {
+      id: 'companies',
+      title: 'Find a company',
+      intro: 'A company is the lender behind one or more deals. TLFC’s three MOVE Trust deals are one company. Every figure on the company pages comes from published reports.',
+      steps: [
+        { text: 'Select [Companies](/admin/companies) in the sidebar, under Portfolio Executive Summary.' },
+        { text: 'Each row is one company. Its covenant status is the worst across its deals. Its balance adds up each deal’s closing tranche balance in that deal’s latest published month, so **Latest month** can differ between rows.' },
+        { text: 'Delinquency shows the latest ratio. A company with several deals shows the range. The arrow gives the direction since the month before; rising delinquency is the bad way.' },
+        { text: 'Type in search to match company and deal names. Narrow by program, industry, covenant status or adverse media. The filters stay in the address, so you can bookmark or share a filtered list.' },
+        { text: 'Select a row to open the company profile. See [Read a company profile](#company-profile).' },
+      ],
+      points: [
+        { text: '**Follow** a company with the star. Followed companies send you adverse media and negative news alerts. You can narrow the list to the companies you follow. Following needs a signed-in user; see [Sign in as a user](#sign-in).' },
+        { text: '**News this week** counts items found in the last 7 days. **Adverse media** reads Clear, To review (open items wait for a TAO Admin) or Not screened (no news run has covered the company yet).' },
+        { text: 'The **Notes** column counts analyst notes. Partners never see it.' },
+        { text: 'A deal not yet linked to a company shows as its own row, named after the deal.' },
+      ],
+    },
+    {
+      id: 'company-profile',
+      title: 'Read a company profile',
+      intro: 'One page per company: its record, its deals, what to watch, how it compares with the rest of its program, and the news. Everything computed comes from published reports, never from typed-in figures.',
+      steps: [
+        { text: 'The header shows the company record (industry, headquarters, website, relationship since, relationship owner) and the figures from the latest published report of each deal. **Next report due** comes from the reporting calendar in System settings.' },
+        { text: '**What to watch** lists plain-language signals worked out from published data: a covenant at WATCH, a ratio moving the bad way 3 months or more running, the largest obligor above 90% of its limit, the highest losses in the loaded history, utilization above 85%, a restatement or correction, or a late report. Each one links to the chart or table behind it.' },
+        { text: 'The comparison charts draw this deal against the **program median**: the other companies with a deal in the same program that reports the same ratio that month. Each other company counts once, whatever its size. A company with several such deals, like TLFC, counts at the middle of its deals. This company’s own deals are left out. Choose the mean to see it instead.' },
+        { text: 'Loss comparison names only the peers that report the same loss measure. A peer far off the scale is listed but not drawn.' },
+        { text: '**Covenant history** shows one cell per covenant per month. Select a cell to open that month’s covenant detail on the deal page.' },
+        { text: '**Obligors** shows the largest obligors from the latest report. **Restatements** lists figures the company changed in a later report, and values TAO corrected after publishing.' },
+      ],
+      points: [
+        { text: 'Median or mean: the median is the middle company, so one company with very high losses does not drag it. The mean adds every company and divides, so one outlier moves it. Use the median for a typical company; check the mean when you want to see the outlier’s pull.' },
+        { text: 'A grey month has no number yet: no report for that month has been published for the deal, or fewer than 2 other companies report it, so there is no program line. Uploading older reports fills the months in.' },
+        { text: 'Covenant cells for months with a published report show the published status. Earlier months are recomputed from the ratio history the latest report prints, with the covenant definitions in force that month and the program watch buffer. A recomputed cell says so when you point at it. It was never a published status.' },
+        { text: 'A covenant with no monthly series, such as a yes or no test, shows a dash in its earlier months.' },
+        { text: 'There is no industry average on the charts. The program median is the comparison.' },
+      ],
+    },
+    {
+      id: 'news-adverse',
+      title: 'News and adverse media',
+      intro: 'A separate news worker searches free sources, Google News and GDELT, for each company’s name and aliases. It runs once a day while the feed is on. It never changes a deal number or a covenant status.',
+      steps: [
+        { text: 'Open a company profile. **News** lists what the last runs found, newest first: source, time, a link out and a sentiment word, Positive, Neutral or Negative.' },
+        { text: '**Adverse media** lists items whose text hit a keyword in one of five categories: litigation, regulatory, fraud, insolvency and sanctions. A new item arrives **Open**.' },
+        { roles: ADMIN, text: 'Read the item at its source. Mark it **Reviewed** with a note, or **Dismiss** it with a reason, for example a different company with the same name. Each change is in the Audit log.' },
+        { roles: ANALYST, text: 'You can read every item. Only a TAO Admin marks an item Reviewed or dismisses it.' },
+      ],
+      points: [
+        { text: 'Sentiment and categories come from our own keyword screening, not from a person or a model. Expect false matches. That is why a TAO Admin reviews every adverse item.' },
+        { text: '**Sanctions** is a keyword hit in the news text. It is not a check against any sanctions list.' },
+        { text: 'An item is kept only when the company name or an alias appears as a whole phrase in its title or summary.' },
+        { text: 'Partners see an adverse item only after a TAO Admin marks it Reviewed. Open and dismissed items stay with TAO, so a wrong name match never reaches a partner.' },
+        { text: 'Followers get an **Adverse media** or **Negative news** notification. See [Read your notifications](#notifications).' },
+      ],
+    },
+    {
+      id: 'company-notes',
+      title: 'Add an analyst note',
+      roles: TAO,
+      intro: 'Notes are internal to TAO. They never reach a partner page, export or notification.',
+      steps: [
+        { text: 'On a company profile, write in **Analyst notes**. You can tie the note to a report month.' },
+        { text: 'Type @ and a name to mention a TAO colleague. They get a mention notification that opens the note.' },
+        { text: 'Edit your own note at any time. The Audit log keeps the old text.' },
+      ],
+      points: [
+        { text: 'The author can remove a note, and so can a TAO Admin. It disappears from the page; the Audit log records the removal.' },
+        { text: 'Notes belong to a person, so they need a signed-in user. See [Sign in as a user](#sign-in).' },
+      ],
+    },
+    {
+      id: 'company-record',
+      title: 'Keep the company record and contacts',
+      roles: ADMIN,
+      intro: 'The company record groups deals and holds what the reports do not: industry, headquarters, website, aliases, relationship owner and key contacts. TAO Admin only.',
+      steps: [
+        { text: 'Open the company profile and edit the record. Give a reason of at least three characters. Each change is on the Platform tab of the Audit log, with before and after.' },
+        { text: 'Link deals to the company. A deal belongs to one company. A deal you take away shows as its own row, named after the deal, until you link it again.' },
+        { text: 'Add aliases, such as a short form of the name. The news search uses them too.' },
+        { text: '**Relationship since** starts at the earliest vintage in the deal reports. Set it to override; clear it to go back.' },
+        { text: 'Add, edit or remove key contacts: name, role, email and what they receive. Removing asks for a reason and is audited.' },
+      ],
+      points: [
+        { text: 'A new company needs a short id (lowercase words joined by hyphens), a name and at least one deal.' },
+        { text: 'Partners see the record and the contacts, but not the relationship owner.' },
+      ],
+    },
+    {
       id: 'audit',
       title: 'Check the audit log',
       intro: 'Every upload, extraction, resolution, approval, publication and regeneration is an entry on the **Reports** tab. Master data changes and exports are on the **Platform** tab.',
@@ -367,12 +456,13 @@ export const ADMIN_HELP: HelpContent = {
       intro: 'Your own notifications: someone mentioned you or replied to you, a report needs review, was published or rejected, a covenant changed, or something changed on your account.',
       steps: [
         { text: 'Select [Notifications](/admin/notifications) in the sidebar. The number next to it is how many you have not read. It refreshes as you move around and every minute.' },
-        { text: 'Choose a tab: **All**, **Mentions** (mentions and replies), **Reports** (needs review, published, correction, covenant changed, rejected) or **System** (your account and platform events). Tick **Unread only** to hide the rest.' },
+        { text: 'Choose a tab: **All**, **Mentions** (mentions and replies), **Reports** (needs review, published, correction, covenant changed, rejected, adverse media, negative news, report late) or **System** (your account and platform events). Tick **Unread only** to hide the rest.' },
         { text: 'Unread rows are tinted and marked **Unread**. Select the button on a row, such as **Open review** or **Open thread**, to go where it happened. Opening a row marks it read.' },
         { text: 'Select **Mark all read** to mark everything on the tab you are on as read.' },
       ],
       points: [
         { text: 'Report notifications come only for the deals you receive, set by a TAO Admin in User management. Mentions reach you whatever you receive.' },
+        { text: '**Adverse media** and **Negative news** come for the companies you follow. **Report late** comes when a deal you receive has no report 5 business days after it was due, once per deal and month.' },
         { text: 'Notifications arrive in the portal only. Email is coming later.' },
         { text: 'Turn types on or off in [Profile](/admin/settings/profile). Covenant changes and corrections are always on.' },
         { text: 'Notifications belong to a person, so they need a signed-in user. See [Sign in as a user](#sign-in).' },
@@ -453,6 +543,24 @@ export const ADMIN_HELP: HelpContent = {
       ],
     },
     {
+      id: 'companies-settings',
+      title: 'Turn on the news feed and partner access',
+      roles: ADMIN,
+      intro: 'Two settings under **System settings › Companies and news**. Both start off. TAO Admin only.',
+      steps: [
+        { text: 'Open System settings under Account in the sidebar (/admin/settings/system) and go to **Companies and news**.' },
+        { text: 'Switch the **news feed** on. Pick the time it runs each day (06:00 Toronto time unless you change it) and the sources: Google News, GDELT or both.' },
+        { text: 'Select **Run now** to search at once instead of waiting for the next day. The line under it shows the last runs: when, how many companies, items and adverse items found, and any source that failed.' },
+        { text: 'Switch **company profiles for partners** on when partners should see Companies. Until then their portals show no Companies entry, and a direct link reads Page not found.' },
+        { text: 'Give a reason of at least three characters and save. Each change is on the Platform tab of the Audit log.' },
+      ],
+      points: [
+        { text: 'Run now cannot start while the feed is off, or while another run is queued or running.' },
+        { text: 'A run can end **Partial**: some company or source failed and the rest worked. The errors name which.' },
+        { text: 'With company profiles off for partners, partners also get no adverse media or negative news notifications.' },
+      ],
+    },
+    {
       id: 'testing',
       title: 'Testing the portal',
       intro: 'For people testing the POC with the sample reports.',
@@ -495,6 +603,10 @@ export const ADMIN_HELP: HelpContent = {
     { term: 'Program', meaning: 'A facility that holds several deals: F-PIL 2.0 or MOVE Trust.' },
     { term: 'Deal', meaning: 'One servicer’s portfolio inside a program, with its own report each month.' },
     { term: 'Partner', meaning: 'An outside party who sees published data in its own portal: Investor or Manager.' },
+    { term: 'Company', meaning: 'The lender behind one or more deals. A TAO Admin links deals to it on the company record.' },
+    { term: 'Program median', meaning: 'The middle value of the other companies with a deal in the same program that reports a ratio that month. Each company counts once.' },
+    { term: 'Adverse media', meaning: 'A news item whose text hit a litigation, regulatory, fraud, insolvency or sanctions keyword. A TAO Admin reviews or dismisses it.' },
+    { term: 'Recomputed', meaning: 'A covenant status worked out from the printed ratio history for a month before the first published one. Never published.' },
     { term: 'Extraction', meaning: 'The system reading the numbers off the PDF. Pass 2 is a second, targeted read of the pages that did not add up.' },
     { term: 'Finding', meaning: 'A rule that did not pass, shown as a card on the review page.' },
     { term: 'Block / Review / Note', meaning: 'Severity. Block stops publishing until resolved. Review asks for a look. Note is information only.' },
@@ -620,6 +732,27 @@ export const PARTNER_HELP: HelpContent = {
       ],
     },
     {
+      id: 'companies',
+      title: 'Look up a company',
+      intro: 'When TAO turns it on, **Companies** appears in the sidebar under Portfolio Executive Summary. Until then the portal has no company pages.',
+      steps: [
+        { text: 'Select [Companies](/companies). Each row is one lender behind the deals shared with you, with its worst covenant status, balance, latest month, delinquency, news this week and adverse media.' },
+        { text: 'Search by company or deal name, or narrow by program, industry, status or adverse media.' },
+        { text: 'Select a row to open the company profile: what to watch, how the deal compares with the program median, covenant history, obligors, restatements, news and adverse media.' },
+        { text: '**Follow** a company with the star to get its adverse media and negative news in [Notifications](/notifications).' },
+      ],
+      points: [
+        { text: 'You see only the deals in programs shared with your company. A company in two programs shows only the shared deals.' },
+        { text: 'The program median is the middle of the other companies with a deal in the same program that reports the same ratio that month. Each company counts once, even one with several deals.' },
+        { text: 'A grey month has no number yet: no report for it has been published, or fewer than 2 other companies report it, so there is no program line.' },
+        { text: 'Covenant cells before the first published month are recomputed from the ratio history the report prints. They say so when you point at them; they were never a published status.' },
+        { text: 'News comes from free sources once a day, screened by keywords. **Sanctions** is a keyword in the news text, not a check against a sanctions list.' },
+        { text: 'You see an adverse media item only after TAO has reviewed it.' },
+        { text: 'TAO’s internal notes about a company are never shown here.' },
+        { text: 'Following needs a signed-in user. See [Sign in as a user](#sign-in).' },
+      ],
+    },
+    {
       id: 'sign-in',
       title: 'Sign in as a user',
       intro: 'The POC has no real sign-in. **Sign in as (POC)** stands in for it: whoever opens the app picks one of the sample users, and the app acts as that person, with their role.',
@@ -636,10 +769,10 @@ export const PARTNER_HELP: HelpContent = {
     {
       id: 'notifications',
       title: 'Read your notifications',
-      intro: 'The {portal} tells you when a report is published or corrected, or a covenant changes, for the deals you receive.',
+      intro: 'The {portal} tells you when a report is published or corrected, or a covenant changes, for the deals you receive. With company pages on, it also tells you about the companies you follow.',
       steps: [
         { text: 'Select [Notifications](/notifications) in the sidebar. The number next to it is how many you have not read.' },
-        { text: 'Choose **All**, **Reports** or **System**. Tick **Unread only** to hide the rest.' },
+        { text: 'Choose **All**, **Reports** or **System**. Tick **Unread only** to hide the rest. **Adverse media** and **Negative news** for companies you follow sit under Reports.' },
         { text: 'A new report or a correction shows the **Note from TAO** exactly as TAO typed it, or **No note from TAO**. A correction lists each changed value, old → new.' },
         { text: 'Select **Open report** or **Open covenant** on a row to go there. Opening a row marks it read; **Mark all read** clears the tab.' },
       ],
@@ -726,5 +859,8 @@ export const PARTNER_HELP: HelpContent = {
     { term: 'Note from TAO', meaning: 'Text TAO adds when it publishes or corrects a report, shown on the notification exactly as typed.' },
     { term: 'Subscription', meaning: 'A deal or a whole program you receive notifications about. It never changes what you can see.' },
     { term: 'Sign in as (POC)', meaning: 'The sidebar menu that stands in for real sign-in: pick a sample user. No password.' },
+    { term: 'Company', meaning: 'The lender behind one or more deals in your programs.' },
+    { term: 'Program median', meaning: 'The middle value of the other companies in the same program that report a ratio that month. Each company counts once.' },
+    { term: 'Adverse media', meaning: 'A news item about litigation, regulation, fraud, insolvency or sanctions, shown once TAO has reviewed it.' },
   ],
 }

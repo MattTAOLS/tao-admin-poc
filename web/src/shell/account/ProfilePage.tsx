@@ -6,7 +6,7 @@ import { usePageHeader } from '../header'
 import { loadRole, roleLabel, type Role } from '../roles'
 import { sessionStore, useSession } from '../session'
 import type { AppUser, AuditRow, DateFormat, Me, MePatch, NotificationKind, NotificationPref, NumberFormat, Subscription } from '../types'
-import { SignInNote, formatAmount, formatDate, formatDateTime, periodLabel, useShell, withDefaults, type ShellId } from './common'
+import { SignInNote, TAO_ONLY_KINDS, formatAmount, formatDate, formatDateTime, periodLabel, useShell, withDefaults, type ShellId } from './common'
 import './account.css'
 
 const TAO_ROLES: Role[] = ['tao_admin', 'tao_analyst']
@@ -32,6 +32,25 @@ export const PREF_LABEL: Record<NotificationKind, string> = {
   report_rejected: 'Report rejected',
   user_change: 'Changes to your account or the reports you receive',
   system: 'System events, such as a failed extraction',
+  adverse_media: 'Adverse media',
+  negative_news: 'Negative news',
+  report_late: 'Report late',
+}
+
+/** One line under the event name, where the name alone does not say who it is for. */
+export const PREF_HELP: Partial<Record<NotificationKind, { tao: string; partner: string }>> = {
+  adverse_media: {
+    tao: 'A new adverse media item (litigation, regulatory, fraud, insolvency or sanctions keywords) on a company you follow.',
+    partner: 'An adverse media item on a company you follow, once TAO has reviewed it.',
+  },
+  negative_news: {
+    tao: 'A news item screened Negative on a company you follow.',
+    partner: 'A news item screened Negative on a company you follow.',
+  },
+  report_late: {
+    tao: 'A deal you receive has no report 5 business days after it was due. Once per deal and month.',
+    partner: '',
+  },
 }
 
 const ACTION_LABEL: Record<string, string> = {
@@ -155,6 +174,9 @@ function DisplayCard({ me }: { me: Me }) {
   )
 }
 
+/** report_late is TAO only (decision S3): never offered in a partner's preferences, whatever the API lists. */
+export const forShell = (rows: NotificationPref[], partner: boolean) => (partner ? rows.filter(r => !TAO_ONLY_KINDS.includes(r.kind)) : rows)
+
 function PrefsCard({ partner }: { partner: boolean }) {
   const [saved, setSaved] = useState<NotificationPref[] | null>(null)
   const [rows, setRows] = useState<NotificationPref[]>([])
@@ -162,20 +184,23 @@ function PrefsCard({ partner }: { partner: boolean }) {
   const [busy, setBusy] = useState(false)
   const { toast } = useToast()
   useEffect(() => {
-    api<NotificationPref[]>('/me/notification-prefs').then(r => { setSaved(r); setRows(r) }).catch(e => setError((e as Error).message || 'Could not load your notification settings.'))
+    api<NotificationPref[]>('/me/notification-prefs').then(r => { const own = forShell(r, partner); setSaved(own); setRows(own) }).catch(e => setError((e as Error).message || 'Could not load your notification settings.'))
   }, [])
   const dirty = useMemo(() => JSON.stringify(rows) !== JSON.stringify(saved), [rows, saved])
   const put = async (body: NotificationPref[], done: string) => {
     setBusy(true)
     try {
       const r = await api<NotificationPref[]>('/me/notification-prefs', { method: 'PUT', body: JSON.stringify(body.map(({ kind, in_app, digest }) => ({ kind, in_app, digest }))) })
-      setSaved(r); setRows(r); toast({ tone: 'ok', title: done })
+      const own = forShell(r, partner); setSaved(own); setRows(own); toast({ tone: 'ok', title: done })
     } catch (e) { toast({ tone: 'bad', title: 'Could not save notification settings', message: (e as Error).message }) }
     finally { setBusy(false) }
   }
   const set = (kind: NotificationKind, patch: Partial<NotificationPref>) => setRows(rs => rs.map(r => (r.kind === kind ? { ...r, ...patch } : r)))
   const columns: Column<NotificationPref>[] = [
-    { key: 'kind', header: 'Event', emphasis: true, render: r => PREF_LABEL[r.kind] ?? r.kind },
+    { key: 'kind', header: 'Event', emphasis: true, render: r => {
+      const help = PREF_HELP[r.kind]?.[partner ? 'partner' : 'tao']
+      return <>{PREF_LABEL[r.kind] ?? r.kind}{help && <span className="acct-hint">{help}</span>}</>
+    } },
     { key: 'in_app', header: 'In the portal', render: r => r.required
       ? <span className="acct-lock"><input type="checkbox" checked disabled aria-label={`${PREF_LABEL[r.kind]}: in the portal (always on)`} /> Always on</span>
       : <input type="checkbox" checked={r.in_app} onChange={e => set(r.kind, { in_app: e.target.checked })} aria-label={`${PREF_LABEL[r.kind]}: in the portal`} /> },

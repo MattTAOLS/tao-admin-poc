@@ -21,7 +21,7 @@ const NAV_ICON: Record<string, ComponentType<{ width?: number; height?: number }
   'Dashboard': icons.IconGrid, 'Home': icons.IconGrid, 'Uploads': icons.IconUpload, 'Approval queue': icons.IconInbox, 'Reports library': icons.IconBook, 'Reports': icons.IconBook,
   'Partners': icons.IconBuilding, 'Portfolio Executive Summary': icons.IconChart, 'Notifications': icons.IconBell, 'Help & support': icons.IconHelp,
   'User management': icons.IconUsers, 'Audit log': icons.IconBook, 'Profile': icons.IconUser, 'System settings': icons.IconSettings, 'Data room': icons.IconFolder,
-  "What's new": icons.IconSparkle, 'Team members': icons.IconUsers,
+  "What's new": icons.IconSparkle, 'Team members': icons.IconUsers, 'Companies': icons.IconBriefcase,
 }
 
 const RouterLink: LinkLike = ({ to, className, children }) => <Link to={to} className={className}>{children}</Link>
@@ -147,16 +147,22 @@ function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u
   const base = shell === 'admin' ? '' : '/' + shell
   const home = shell === 'admin' ? '/admin' : base + '/portfolio'
   const pages = shell === 'admin' ? ADMIN_PAGES : PARTNER_PAGES.map(p => ({ ...p, path: base + p.path }))
-  const visible = (p: Page) => !p.roles || p.roles.includes(role)
   const loc = useLocation()
   const session = useSession()
+  // A feature-gated page (Me.features) is shown only once /me says it is on; null = still reading /me.
+  const featureState = (p: Page): 'on' | 'off' | 'loading' =>
+    !p.feature ? 'on' : session.features == null ? 'loading' : session.features[p.feature] ? 'on' : 'off'
+  const visible = (p: Page) => !p.roles || p.roles.includes(role)
+  const inNav = (p: Page) => visible(p) && featureState(p) === 'on'
   const unread = useUnreadBadge(session, loc.pathname)
   const badge = (p: Page) => (p.title === 'Notifications' ? unread : undefined)
-  const current = pages.find(p => matchPath(p.path || '/', loc.pathname))
+  const matched = pages.find(p => matchPath(p.path || '/', loc.pathname))
+  // A page whose feature is off reads as not found in the top bar too.
+  const current = matched && featureState(matched) === 'off' ? undefined : matched
   const title = SHELL_TITLE[shell]
   const crumbs = current ? routeCrumbs(pages, loc.pathname, title) : [{ label: title }, { label: 'Page not found' }]
   const end = (p: Page) => p.path === '/admin' || p.path === base || p.path === base + '/portfolio'
-  const navPages = pages.filter(p => p.nav && visible(p))
+  const navPages = pages.filter(p => p.nav && inNav(p))
   const matches = (p: Page) => toRegex(p.path || '/', end(p)).test(loc.pathname)
   // A nav item is active on its own subtree, unless a more specific nav item (Approval queue under Uploads) matches.
   const isActive = (p: Page) => matches(p) && !navPages.some(q => q !== p && q.path.startsWith(p.path + '/') && matches(q))
@@ -167,8 +173,8 @@ function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u
           <span className="brand__mark" aria-hidden="true"><icons.IconLayers width={18} height={18} /></span>
           <span><b>{title}</b><small>{SHELL_SUB[shell]}</small></span>
         </div>
-        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && visible(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} badge={badge} />
-        <NavGroup label="Account" pages={pages.filter(p => p.nav === 'account' && visible(p))} isActive={isActive} />
+        <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && inNav(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} badge={badge} />
+        <NavGroup label="Account" pages={pages.filter(p => p.nav === 'account' && inNav(p))} isActive={isActive} />
         <div className="foot">
           <RoleSwitcher role={role} userId={session.userId} userName={session.me?.user?.name} mode={session.mode} onPick={onPick} />
         </div>
@@ -179,7 +185,10 @@ function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u
           <Routes>
             {pages.map(p => (
               <Route key={p.path} path={p.path || '/'}
-                element={!visible(p) ? <NoAccess /> : (shell !== 'admin' && p.path === base) ? <Navigate to={home} replace /> : <PageView page={p} />} />
+                element={!visible(p) ? <NoAccess />
+                  : featureState(p) === 'loading' ? <RouteLoading />
+                  : featureState(p) === 'off' ? <NotFound home={home} />
+                  : (shell !== 'admin' && p.path === base) ? <Navigate to={home} replace /> : <PageView page={p} />} />
             ))}
             <Route path="*" element={<NotFound home={home} />} />
           </Routes>
@@ -195,7 +204,8 @@ export function App() {
   const session = useSession()
   // Sign in as a seeded user: store the id and the user's role together, then resolve the user with GET /me.
   const onPick = (u: SeedUser) => { saveUser(u.id, u.role); setRoleState(u.role); setUserId(u.id) }
-  useEffect(() => { void refreshMe() }, [userId])
+  // GET /me on sign-in, and on a role change without a user (Me.features depends on the role).
+  useEffect(() => { void refreshMe() }, [userId, userId ? null : role])
   // The API is the source of truth for a user's role (a TAO Admin may have changed it in User management).
   const apiRole = session.mode === 'user' ? session.me?.role : undefined
   useEffect(() => {

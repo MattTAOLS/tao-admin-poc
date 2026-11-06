@@ -66,7 +66,7 @@ describe('Sign in as (POC) menu', () => {
     expect(localStorage.getItem(USER_KEY)).toBe('00000000-0000-4000-8000-000000000006')
     expect(where()).toBe('/investor/portfolio')
     await waitFor(() => expect(sessionStore.get().mode).toBe('user'))
-    const me = calls.find(c => c.path === '/me')!
+    const me = calls.find(c => c.path === '/me' && c.headers['X-User'])! // the first /me is the role-only one, for Me.features
     expect(me.headers).toMatchObject({ 'X-User': '00000000-0000-4000-8000-000000000006', 'X-Role': 'investor_viewer', 'X-Partner': 'investor' })
     const card = screen.getByTestId('role-switcher')
     expect(card.textContent).toContain('D. Alvarez')
@@ -111,11 +111,13 @@ describe('role-only fallback', () => {
     await refreshMe()
     expect(sessionStore.get()).toMatchObject({ mode: 'role-only', fallback: 'no_user' })
   })
-  it('without a stored user makes no /me call and sends the phase 1 headers', async () => {
-    const calls = mockApi({})
+  it('without a stored user reads /me with the phase 1 headers only (wave D: for Me.features) and stays role-only', async () => {
+    const calls = mockApi({ 'GET /me': ME({ user: null, role: 'manager_admin', partner_slug: 'manager', features: { companies: true } }) })
     localStorage.setItem(KEY, 'manager_admin')
     await refreshMe()
-    expect(calls.length).toBe(0)
+    expect(calls.map(c => c.path)).toEqual(['/me'])
+    expect(calls[0].headers).toEqual({ 'X-Role': 'manager_admin', 'X-Partner': 'manager', 'Content-Type': 'application/json' })
+    expect(sessionStore.get()).toMatchObject({ mode: 'role-only', me: null, features: { companies: true } })
     expect(roleHeaders()).toEqual({ 'X-Role': 'manager_admin', 'X-Partner': 'manager' })
   })
   it('loadRole / saveRole still work; saving another role clears a user of a different role', () => {

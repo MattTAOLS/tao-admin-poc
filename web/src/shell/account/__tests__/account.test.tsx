@@ -91,7 +91,8 @@ describe('Notifications page (D7 a)', () => {
     render(<MemoryRouter initialEntries={['/admin/notifications']}><App /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Sign in as a user' })).toBeTruthy()
     expect(screen.getByText(/stands in for real sign-in/)).toBeTruthy()
-    expect(calls.length).toBe(0)
+    // Only the role-only /me (wave D, for Me.features), without X-User; nothing person-only is read.
+    expect(calls.every(c => c.path === '/me' && !c.headers['X-User'])).toBe(true)
   })
 })
 
@@ -207,5 +208,42 @@ describe('display formats', () => {
     expect(formatDate('2026-08-08T02:00:00Z', { time_zone: 'America/Vancouver', date_format: 'DD/MM/YYYY' })).toBe('07/08/2026')
     expect(formatAmount(1916709163)).toBe('1,916,709,163.00')
     expect(formatAmount(1916709163, '1 234,56')).toBe('1 916 709 163,00')
+  })
+})
+
+describe('company alerts (wave D)', () => {
+  const NEW_KINDS = [
+    { id: 'c1', kind: 'adverse_media', title: 'Adverse media: TLFC · litigation', link: '/admin/companies/tlfc#adverse', created_at: NOW, read_at: null },
+    { id: 'c2', kind: 'negative_news', title: 'Negative news: Essex Lease Financial Corp.', link: '/admin/companies/essex#news', created_at: NOW, read_at: null },
+    { id: 'c3', kind: 'report_late', title: 'Report late: Stride Capital · Oct 2026', link: '/admin/portfolio/f-pil-2-0/deals/f-pil-2-0-stride-capital', created_at: NOW, read_at: null, collection_period: '2026-10' },
+  ]
+  it('labels the three kinds, puts them under Reports and opens each notification link', async () => {
+    const { KIND, KIND_TAB } = await import('../NotificationsPage')
+    expect([KIND.adverse_media.label, KIND.negative_news.label, KIND.report_late.label]).toEqual(['Adverse media', 'Negative news', 'Report late'])
+    for (const k of ['adverse_media', 'negative_news', 'report_late'] as const) { expect(KIND_TAB[k]).toBe('reports'); expect(typeof KIND[k].icon).toBe('function') }
+    const calls = mockApi({ 'GET /me': ME(), 'GET /notifications/unread-count': { total: 3, mentions: 0, reports: 3, system: 0 }, 'GET /notifications': NEW_KINDS })
+    signIn('tao_admin', TAO_ID, '/admin/notifications?tab=reports')
+    const rows = await screen.findAllByTestId('notification')
+    expect(rows.map(r => within(r).getByText(/^(Adverse media|Negative news|Report late)$/).textContent)).toEqual(['Adverse media', 'Negative news', 'Report late'])
+    expect(calls.some(c => c.path.startsWith('/notifications?tab=reports'))).toBe(true)
+    await userEvent.click(within(rows[0]).getByRole('button', { name: 'Open adverse media: Adverse media: TLFC · litigation' }))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/admin/companies/tlfc'))
+    expect(calls.some(c => c.method === 'POST' && c.path === '/notifications/c1/read')).toBe(true)
+  })
+  it('preferences: the three kinds with help text for TAO; report_late never offered to a partner', async () => {
+    const WAVE_D = [...PREFS, ...['adverse_media', 'negative_news', 'report_late'].map(kind => ({ kind, in_app: true, digest: 'daily', required: false }))]
+    mockApi({ 'GET /me': ME(), 'GET /notifications/unread-count': UNREAD, 'GET /me/notification-prefs': WAVE_D, 'GET /audit': [] })
+    const { unmount } = signIn('tao_admin', TAO_ID, '/admin/settings/profile')
+    expect(await screen.findByRole('checkbox', { name: 'Adverse media: in the portal' })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: 'Negative news: in the portal' })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: 'Report late: in the portal' })).toBeTruthy()
+    expect(screen.getByText(/no report 5 business days after it was due/)).toBeTruthy()
+    expect(screen.getByText(/A new adverse media item .* on a company you follow\./)).toBeTruthy()
+    unmount(); localStorage.clear(); headerStore.clear()
+    mockApi({ 'GET /me': PARTNER_ME(), 'GET /notifications/unread-count': UNREAD, 'GET /me/notification-prefs': WAVE_D, 'GET /audit': [], [`GET /users/${PARTNER_ID}/subscriptions`]: [], 'GET /published/portfolio': { partner: 'investor', programs: [] } })
+    signIn('investor_viewer', PARTNER_ID, '/investor/settings/profile')
+    expect(await screen.findByRole('checkbox', { name: 'Adverse media: in the portal' })).toBeTruthy()
+    expect(screen.getByText('An adverse media item on a company you follow, once TAO has reviewed it.')).toBeTruthy()
+    expect(screen.queryByRole('checkbox', { name: 'Report late: in the portal' })).toBeNull()
   })
 })

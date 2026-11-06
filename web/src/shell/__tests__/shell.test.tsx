@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import '@/design/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, within, act } from '@testing-library/react'
+import { render, screen, within, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { App, routeCrumbs } from '../App'
 import { KEY } from '../roles'
-import { ADMIN_PAGES } from '../pages'
+import { ADMIN_PAGES, PARTNER_PAGES, type Page } from '../pages'
 import { usePageHeader, headerStore } from '../header'
 import { sessionStore } from '../session'
 import { Button } from '@/design/components'
+import { mockApi, ME } from './mockApi'
 
 function Where() { const l = useLocation(); return <output data-testid="where">{l.pathname}</output> }
 function renderAt(path: string, role?: string) {
@@ -18,7 +19,9 @@ function renderAt(path: string, role?: string) {
 }
 const where = () => screen.getByTestId('where').textContent
 
-beforeEach(() => { localStorage.clear(); headerStore.clear(); sessionStore.reset() })
+// The shell reads GET /me in every mode (wave D, Me.features). No API here unless a test sets one: /me is 404.
+beforeEach(() => { localStorage.clear(); headerStore.clear(); sessionStore.reset(); mockApi({}) })
+afterEach(() => { vi.unstubAllGlobals() })
 
 describe('shell routing', () => {
   it('sends / to the role home', () => {
@@ -147,5 +150,92 @@ describe('page registration', () => {
       expect(await screen.findByText('Uploads page body')).toBeTruthy()
       expect(screen.queryByRole('progressbar')).toBeNull()
     } finally { delete entry.load }
+  })
+})
+
+describe('companies (wave D)', () => {
+  const NAV_ORDER_TAO = ['Dashboard', 'Uploads', 'Approval queue', 'Reports library', 'Partners', 'Portfolio Executive Summary', 'Companies', 'Notifications', 'Help & support']
+  const fake = (name: string) => () => Promise.resolve({ default: () => <p>{name} body</p> })
+  const entries = (pages: Page[], paths: string[]) => paths.map(p => pages.find(x => x.path === p)!)
+  let saved: [Page, Page['load']][] = []
+  beforeEach(() => {
+    // UI-Partner's page files may not be merged yet: render stand-ins.
+    const all = [...entries(ADMIN_PAGES, ['/admin/companies', '/admin/companies/:companySlug']), ...entries(PARTNER_PAGES, ['/companies', '/companies/:companySlug'])]
+    saved = all.map(e => [e, e.load])
+    for (const e of all) e.load = fake(e.title)
+  })
+  afterEach(() => { for (const [e, l] of saved) e.load = l })
+  const meFor = (role: string, partner: string | null, companies: boolean) => ({ 'GET /me': ME({ user: null, role, partner_slug: partner, features: { companies } }) })
+
+  it('registers the four routes against the UI-Partner page files', () => {
+    const [list, profile] = entries(ADMIN_PAGES, ['/admin/companies', '/admin/companies/:companySlug'])
+    expect(list).toMatchObject({ title: 'Companies', nav: 'main', roles: ['tao_admin', 'tao_analyst'], owner: 'portfolio', built: true })
+    expect(profile).toMatchObject({ title: 'Company profile', roles: ['tao_admin', 'tao_analyst'], owner: 'portfolio', built: true })
+    expect(profile.nav).toBeUndefined()
+    const [plist, pprofile] = entries(PARTNER_PAGES, ['/companies', '/companies/:companySlug'])
+    expect(plist).toMatchObject({ title: 'Companies', nav: 'main', feature: 'companies', owner: 'portfolio', built: true })
+    expect(pprofile).toMatchObject({ title: 'Company profile', feature: 'companies', owner: 'portfolio', built: true })
+    expect(pprofile.nav).toBeUndefined()
+    expect(routeCrumbs(ADMIN_PAGES, '/admin/companies/tlfc', 'TAO Admin').map(c => [c.label, c.href])).toEqual([
+      ['TAO Admin', undefined], ['Companies', '/admin/companies'], ['Company profile', '/admin/companies/tlfc']])
+  })
+  it('puts Companies right after Portfolio Executive Summary for both TAO roles, whatever /me says', async () => {
+    for (const role of ['tao_admin', 'tao_analyst']) {
+      const { unmount } = renderAt('/admin/companies', role)
+      const ws = screen.getByRole('navigation', { name: 'Workspace' })
+      expect(within(ws).getAllByRole('link').map(a => a.textContent)).toEqual(NAV_ORDER_TAO)
+      expect(within(ws).getByRole('link', { name: 'Companies' }).getAttribute('aria-current')).toBe('page')
+      expect(await screen.findByText('Companies body')).toBeTruthy()
+      unmount()
+    }
+  })
+  it('keeps Companies active on a company profile and names it in the breadcrumb', async () => {
+    renderAt('/admin/companies/tlfc', 'tao_analyst')
+    expect(await screen.findByText('Company profile body')).toBeTruthy()
+    const ws = screen.getByRole('navigation', { name: 'Workspace' })
+    expect(within(ws).getByRole('link', { name: 'Companies' }).className).toContain('active')
+    expect(screen.getByRole('heading', { level: 1, name: 'Company profile' })).toBeTruthy()
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Companies' }).getAttribute('href')).toBe('/admin/companies')
+  })
+  it('shows partners Companies after Portfolio Executive Summary when Me.features.companies is true (role-only, no X-User)', async () => {
+    const calls = mockApi(meFor('investor_viewer', 'investor', true))
+    renderAt('/investor/companies/tlfc', 'investor_viewer')
+    expect(await screen.findByText('Company profile body')).toBeTruthy()
+    const ws = screen.getByRole('navigation', { name: 'Workspace' })
+    const names = within(ws).getAllByRole('link').map(a => a.textContent)
+    expect(names.indexOf('Companies')).toBe(names.indexOf('Portfolio Executive Summary') + 1)
+    expect(within(ws).getByRole('link', { name: 'Companies' }).getAttribute('href')).toBe('/investor/companies')
+    expect(calls[0]).toMatchObject({ path: '/me', headers: { 'X-Role': 'investor_viewer', 'X-Partner': 'investor' } })
+    expect(calls[0].headers['X-User']).toBeUndefined()
+  })
+  it('hides Companies from partners while it is off, and a direct visit reads Page not found', async () => {
+    mockApi(meFor('manager_admin', 'manager', false))
+    renderAt('/manager/companies/tlfc', 'manager_admin')
+    expect(await screen.findByRole('heading', { level: 2, name: 'Page not found' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeTruthy()
+    expect(screen.queryByText('Company profile body')).toBeNull()
+    expect(within(screen.getByRole('navigation', { name: 'Workspace' })).queryByRole('link', { name: 'Companies' })).toBeNull()
+  })
+  it('fails closed for partners when /me fails (older API), and waits for /me before deciding', async () => {
+    let answer!: (r: Response) => void
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(r => { answer = r })))
+    renderAt('/investor/companies', 'investor_admin')
+    expect(screen.getByRole('progressbar', { name: 'Loading page' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Companies' })).toBeNull()
+    await act(async () => { answer(new Response('{}', { status: 404 })) })
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Page not found' })).toBeTruthy())
+    expect(screen.queryByText('Companies body')).toBeNull()
+  })
+  it('reads /me again after signing in as a user of another shell, and the nav follows', async () => {
+    mockApi(meFor('investor_viewer', 'investor', true))
+    renderAt('/investor/portfolio', 'investor_viewer')
+    expect(await screen.findByRole('link', { name: 'Companies' })).toBeTruthy()
+    const calls = mockApi({ 'GET /me': ME(), 'GET /notifications/unread-count': { total: 0, mentions: 0, reports: 0, system: 0 } })
+    await userEvent.click(screen.getByTestId('role-switcher'))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /A\. Patel/ }))
+    expect(where()).toBe('/admin')
+    await waitFor(() => expect(sessionStore.get().mode).toBe('user'))
+    expect(calls.find(c => c.path === '/me')!.headers['X-User']).toBeTruthy()
+    expect(within(screen.getByRole('navigation', { name: 'Workspace' })).getByRole('link', { name: 'Companies' }).getAttribute('href')).toBe('/admin/companies')
   })
 })

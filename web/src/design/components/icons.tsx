@@ -34,3 +34,7 @@ export const IconSwap = (p: P) => <svg {...base(p)}><path d="M16 3l4 4-4 4" /><p
 export const IconPlus = (p: P) => <svg {...base(p)}><path d="M12 5v14" /><path d="M5 12h14" /></svg>
 export const IconRefresh = (p: P) => <svg {...base(p)}><path d="M21 12a9 9 0 01-15.5 6.2L3 16" /><path d="M3 12A9 9 0 0118.5 5.8L21 8" /><path d="M21 3v5h-5" /><path d="M3 21v-5h5" /></svg>
 export const IconZoom = (p: P) => <svg {...base(p)}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" /></svg>
+export const IconBriefcase = (p: P) => <svg {...base(p)}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /><path d="M3 13h18" /></svg>
+export const IconNews = (p: P) => <svg {...base(p)}><path d="M4 5h13v14H6a2 2 0 01-2-2z" /><path d="M17 9h3v8a2 2 0 01-2 2" /><path d="M8 9h5" /><path d="M8 13h5" /></svg>
+export const IconShield = (p: P) => <svg {...base(p)}><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /><path d="M12 8v4" /><path d="M12 15.5v.01" /></svg>
+export const IconClock = (p: P) => <svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { Me, UnreadCount } from './types'
+import type { Features, Me, UnreadCount } from './types'
 import { loadUserId } from './roles'
 
 /** Who is using the app (wave C, risk R1).
@@ -15,10 +15,13 @@ export type Session = {
   /** Why a chosen user fell back to role-only: an API error code (`unknown_user`, `inactive_user`, `http_404`, ...). */
   fallback?: string
   unread: UnreadCount | null
+  /** Me.features for the current role, read from GET /me in every mode (role-only too, without X-User).
+   * null while it is being read; all false when /me fails (an older API), so partner-only gates stay closed. */
+  features: Features | null
 }
 
 // A user stored from an earlier visit starts as pending, so the very first calls already carry X-User.
-const fresh = (): Session => { const userId = loadUserId(); return { mode: userId ? 'pending' : 'role-only', userId, me: null, unread: null } }
+const fresh = (): Session => { const userId = loadUserId(); return { mode: userId ? 'pending' : 'role-only', userId, me: null, unread: null, features: null } }
 let current: Session = fresh()
 const listeners = new Set<() => void>()
 export const sessionStore = {

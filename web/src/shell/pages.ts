@@ -5,12 +5,23 @@ import type { ComponentType } from 'react'
  * To register a page, add `load` to its entry (one line, tell the Design System agent who owns this file):
  *   { path: '/admin/uploads', ..., load: () => import('@/admin/UploadsPage') }
  * The module's default export is rendered inside the shell (lazy, with the route progress bar while it loads).
- * Read route params with react-router's useParams; set the top bar with usePageHeader from '@/shell/header'. */
+ * Read route params with react-router's useParams; set the top bar with usePageHeader from '@/shell/header'.
+ *
+ * `feature` gates a page on Me.features (GET /me): while it is off the page has no nav entry and a direct visit shows
+ * Not found, as the API's 404 does. */
 export type Page = {
   path: string; title: string; nav?: 'main' | 'account'; roles?: string[]; built?: boolean
   owner: 'admin' | 'review' | 'portfolio' | 'shell'; purpose?: string
+  feature?: 'companies'
   load?: () => Promise<{ default: ComponentType }>
 }
+
+/** UI-Partner's company pages (wave D, designs D5 and D6), default exports at web/src/portfolio/companies/. Found with a
+ * glob so the shell builds before they are merged: a file not there yet leaves its route as the placeholder. */
+type PageModule = { default: ComponentType }
+const COMPANY_PAGES = import.meta.glob<PageModule>('../portfolio/companies/{CompaniesPage,CompanyProfilePage}.tsx')
+export const companyPage = (name: 'CompaniesPage' | 'CompanyProfilePage'): Page['load'] => COMPANY_PAGES[`../portfolio/companies/${name}.tsx`]
+const TAO: string[] = ['tao_admin', 'tao_analyst']
 export const ADMIN_PAGES: Page[] = [
   { path: '/admin', title: 'Dashboard', nav: 'main', built: true, owner: 'admin', purpose: 'Queue counts, recent uploads, covenant status across programs', load: () => import('@/admin/DashboardPage') },
   { path: '/admin/uploads', title: 'Uploads', nav: 'main', built: true, owner: 'admin', load: () => import('@/admin/UploadsPage') },
@@ -26,6 +37,8 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/portfolio/:programId', title: 'Program Executive Summary', built: true, owner: 'portfolio', load: () => import('@/portfolio/ProgramPage') },
   { path: '/admin/portfolio/:programId/dashboard', title: 'Program Dashboard', built: true, owner: 'portfolio', purpose: 'Portfolio Metrics + Covenant Status & Review, watch threshold, print', load: () => import('@/portfolio/ProgramDashboardPage') },
   { path: '/admin/portfolio/:programId/deals/:dealId', title: 'Deal page', built: true, owner: 'portfolio', purpose: 'Deal Metrics + covenant detail, prev/next deal', load: () => import('@/portfolio/DealRoute') },
+  { path: '/admin/companies', title: 'Companies', nav: 'main', roles: TAO, built: true, owner: 'portfolio', purpose: 'One row per lending company: covenant status, balance, delinquency, news, adverse media, follow', load: companyPage('CompaniesPage') },
+  { path: '/admin/companies/:companySlug', title: 'Company profile', roles: TAO, built: true, owner: 'portfolio', purpose: 'Record, what to watch, program comparison, covenant history, news and adverse media, notes, contacts', load: companyPage('CompanyProfilePage') },
   { path: '/admin/notifications', title: 'Notifications', nav: 'main', built: true, owner: 'shell', purpose: 'Your own notifications: mentions, reports, system; needs a signed-in user', load: () => import('@/shell/account/NotificationsPage') },
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to do each task, filtered to the role; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
@@ -41,6 +54,8 @@ export const PARTNER_PAGES: Page[] = [
   { path: '/portfolio/:programId', title: 'Program Executive Summary', built: true, owner: 'portfolio', load: () => import('@/portfolio/ProgramPage') },
   { path: '/portfolio/:programId/dashboard', title: 'Program Dashboard', built: true, owner: 'portfolio', purpose: 'Portfolio Metrics + Covenant Status & Review, watch threshold, print', load: () => import('@/portfolio/ProgramDashboardPage') },
   { path: '/portfolio/:programId/deals/:dealId', title: 'Deal page', built: true, owner: 'portfolio', purpose: 'Deal Metrics + covenant detail, prev/next deal', load: () => import('@/portfolio/DealRoute') },
+  { path: '/companies', title: 'Companies', nav: 'main', feature: 'companies', built: true, owner: 'portfolio', purpose: 'Lending companies in the programs shared with you; shown while TAO turns company profiles on', load: companyPage('CompaniesPage') },
+  { path: '/companies/:companySlug', title: 'Company profile', feature: 'companies', built: true, owner: 'portfolio', load: companyPage('CompanyProfilePage') },
   { path: '/reports', title: 'Reports', nav: 'main', owner: 'portfolio' },
   { path: '/reports/:reportId', title: 'Report viewer', owner: 'portfolio' },
   { path: '/data-room', title: 'Data room', nav: 'main', owner: 'portfolio' },
