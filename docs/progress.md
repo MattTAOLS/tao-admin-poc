@@ -2,6 +2,23 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-06 — QA & Demo, phase 2 wave C (merged integration/wave-c): R1 must-pass first. The existing 25 tests,
+  unchanged, from `down -v`: 20 passed. Step 2 timed out waiting for the review page (its first API call came about
+  10 s after navigation; the host was at 98% CPU) and step 3 followed from it. Step 9b hit its 6-minute limit on
+  extraction, and step 10b followed from 9b. None traced to wave C logic: the role switcher's first user per role keeps
+  every role-id pick working. Harness: expect/action timeouts 30 s, step 9 limits 15/12/12 min, `Api` takes an `X-User`,
+  `signInAsUser` in lib/ui.ts, USERS and STEP11 in lib/facts.ts. New `specs/11-people.spec.ts`: 11a users (A. Patel on
+  the card, 8 seeded users, add Q. Tester with all MOVE Trust deals, deactivate -> 401 inactive_user, reactivate,
+  self_change and last_admin refused in UI and API, user_change in the Platform audit, analyst no access); 11b Team
+  members for M. Chen (investor users only, tree = programs shared with Investor, other partner 404, viewer no
+  access); 11c Essex 2026-07 thread on R14 with an @mention of A. Patel, bell, Mentions tab, Open thread -> ?thread=,
+  reply, resolve (finding stays open), comment / thread_resolve audit, partners 403; 11d D. Alvarez subscribed, "off"
+  reason with notifications off, System settings switch on with a reason, publish with a note, D. Alvarez's "Note from
+  TAO" and Open report -> ?period=2026-07, managers get nothing; 11e profile name and time zone, locked required kinds,
+  422 required. Two full runs from `down -v`: 31/31 and 31/31 (one is a `test.fail` known-bug check), 40 min 37 s
+  and 40 min 41 s. Bug filed in
+  requests.md › QA & Demo: an analyst's @ list is empty (GET /users omits status for analysts; the composer filters on
+  it); 11c starts that thread through the API until fixed. Lead's covenant-table fix verified by the 1440 regression test.
 - 2026-11-05 — UI-Partner, wave C: partner Team members page (D8 c) at `/<investor|manager>/settings/team`, Company
   Admins only (`web/src/portfolio/TeamPage.tsx`, logic in `team.ts`; pages.ts entry set to built + load, owner portfolio).
   Table: name (initials, "you" when /me names a user), email, role (Company Admin / Viewer), status (dot plus word),

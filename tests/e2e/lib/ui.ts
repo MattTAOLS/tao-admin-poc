@@ -63,3 +63,14 @@ export async function openReview(page: Page, uploadId: string) {
 export function auditRow(page: Page, log: ReturnType<Page['getByRole']>, action: string) {
   return log.getByRole('row').filter({ has: page.getByRole('cell', { name: action, exact: true }) }).first()
 }
+
+/** Wave C: "Sign in as (POC)" a seeded user by name (seed/users.json); the card then shows the name and the app moves
+ * to that user's shell. */
+export async function signInAsUser(page: Page, user: { name: string; role: Role }) {
+  await page.goto('/')
+  await page.getByTestId('role-switcher').click()
+  // Item names read "A. Patel, TAO Admin (tao_admin)"; "<name>, " is a unique substring.
+  await page.getByRole('menuitemradio', { name: `${user.name}, ` }).click()
+  await expect(page.getByTestId('role-switcher')).toContainText(user.name)
+  await expect(page).toHaveURL(new RegExp(`^[^?#]*//[^/]+${SHELL[user.role]}(/|$)`))
+}

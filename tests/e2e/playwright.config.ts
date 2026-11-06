@@ -10,13 +10,14 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 300_000,
-  expect: { timeout: 15_000 },
+  // 30 s: on a CPU-starved host (antivirus plus several stacks) the Vite dev server has taken 10-20 s to serve a page.
+  expect: { timeout: 30_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: WEB_URL,
     ...devices['Desktop Chrome'],
     viewport: { width: 1440, height: 900 },
-    actionTimeout: 20_000,
+    actionTimeout: 30_000,
     navigationTimeout: 30_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
