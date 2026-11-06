@@ -1,8 +1,9 @@
 # TAO Admin POC — demo walkthrough
 
 The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
-9), run in order from a fresh database, with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test in
-`tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
+9) and the wave B editing steps (step 10), run in order from a fresh database, with the screenshots the Playwright
+tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a few) in `tests/e2e/specs/`; the
+negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
 
 ## Run it
@@ -18,7 +19,7 @@ docker compose exec api python -m app.seed  # Git Bash: prefix MSYS_NO_PATHCONV=
 cd tests/e2e
 npm ci
 npx playwright install chromium
-npm run test:e2e                            # setup + steps 1-7 + negatives + step 9, about 8 minutes
+npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-10, about 10-20 minutes
 npm run lighthouse                          # optional: accessibility on the four main pages, after test:e2e
 ```
 
@@ -271,6 +272,71 @@ deal offers four periods (2026-04 to 2026-07).
 ![MOVE Trust in July](demo/09-program-july.png)
 ![Finloc deal page](demo/09-finloc-deal-page.png)
 
+## Journey 5 — editing values and covenants (phase 2, wave B)
+
+### Step 10. Edit in review, correct after publish, change a covenant
+
+Every edited number below is a real extracted value moved by $100.00, the size of the seeded R05 error, so the change
+is easy to spot. The covenant change is a test change, not a real amendment. `specs/10-editing.spec.ts`.
+
+**10a. Edit a value in review.** The analyst uploads Essex Lease Financial Corp. 2026-06, the month after step 9's
+May; it reaches needs review with no Block. The analyst sees Extracted values with no Edit control, and
+`POST /uploads/{id}/edits` answers 403. Switched to TAO Admin: Extracted values › Tranche balance, Closing › Edit, new
+value $100.00 higher, reason of at least 10 characters, Save and re-run rules. The value shows Edited with the original
+underneath, and the rules re-run: R05 blocks, because the page 2 closing no longer equals the roll-forward row.
+
+![Edit dialog](demo/10-edit-dialog.png)
+![The edit raises R05](demo/10-edit-raises-r05.png)
+
+Revert, with its own reason: the original is back, R05 closes, and the footer reads Ready to publish. Then Tranche
+balance, Interest › Edit, $100.00 higher; no block rule reads interest, so nothing opens. Publish to partner lists "1
+value edit by hand, listed below" with the old and new value and the reason; Approve and publish.
+
+![Publish dialog lists the edit](demo/10-publish-lists-edit.png)
+
+The Audit log, filtered to the upload, has two Value edited rows and one Value edit reverted row on the Reports tab.
+On the investor deal page for June 2026, Data corrections shows Balance · Interest, Was and Now, the reason and
+Corrected by TAO; the page prints the same numbers as the published object.
+
+![Audit, value edits](demo/10-audit-value-edits.png)
+![Corrected by TAO](demo/10-deal-corrected-by-tao.png)
+
+**10b. Correct a published report.** The analyst sees no Correct a value… in the Reports library and no Correct… on a
+published report, and the API answers 403. As TAO Admin, Reports library › Correct a value of TLFC LP (Leases) Jun
+2026: pick Tranche balance · interest, type the new value, a reason and a note to partners, Correct and re-publish. No
+block opens, so it is published at once: "Published as version 2." The investor deal page shows Corrected and Version
+2 of 2; the menu lists both versions with the reason, and Version 1 (original) opens the earlier numbers under the
+banner "You are looking at version 1. The current version is 2."
+
+![Correct a published value](demo/10-correct-dialog.png)
+![Versions menu](demo/10-version-menu.png)
+![Version 1 with the banner](demo/10-version-1-banner.png)
+
+Then Finloc 2000 Inc. Jul 2026, Tranche balance · closing $100.00 higher. R05 blocks, so nothing is published: "Waiting
+in the approval queue: 1 block finding … Version 1 stays live", and the investor still gets version 1. The Approval
+queue lists it tagged Correction, version 2. On the correction, Approve and publish v2 is disabled until R05 is
+acknowledged with a reason; then it publishes version 2 and the audit log has correction, correction_approve and
+publish. The analyst gets 403 on the correction's approve.
+
+![Correction in the queue](demo/10-queue-correction.png)
+![Correction review](demo/10-correction-review.png)
+
+**10c. Change a covenant.** Partners › Investor › F-PIL 2.0, Covenant definitions. The analyst reads the page ("Read
+only. Only TAO Admin can change master data."), opens History, has no Edit, and `PUT /master/covenants` answers 403. As
+TAO Admin: Edit SLFA 9.1 (e) for Moneda Capital Corp. › New version from a date, watch buffer 0.15 from 2026-09-01,
+threshold unchanged, with a reason; What this change does states the date. Save new version. The covenant now has two
+rows (2022-12-09 and 2026-09-01), History lists the new version with the reason, and the Audit log's Platform tab has a
+Master data change with before and after. A second new version from 2026-09-01 or 2026-08-01 is refused with 409
+`effective_not_later`.
+
+![New covenant version](demo/10-covenant-new-version.png)
+![Covenant history](demo/10-covenant-history.png)
+![Audit, Platform tab](demo/10-audit-platform.png)
+
+**Known bug.** At 1440 x 900 the Covenant definitions table is wider than its card and the Edit and History column is
+cut off with no scroll (`docs/requests.md`, QA 2026-11-05). Step 10c runs at 1920 x 1080; a separate test marked
+`test.fail` checks 1440 and will turn red when the table is fixed.
+
 ## Acceptance (build plan), measured 2026-11-04
 
 Two runs on the QA stack (Windows 11, Docker Desktop), each from `docker compose down -v`, then `up -d` (images
@@ -288,3 +354,9 @@ built), seed, `npm run test:e2e`; both 21 of 21 green (18 for steps 1–8 as bef
 | Full demo from `docker compose up` on a clean Windows machine | Under 10 minutes including seed | Yes. Run 1: 8 min 38 s (start and seed 47 s, tests 7 min 51 s, of which step 9 about 3 min 10 s). Run 2: 7 min 25 s (36 s, 6 min 49 s; step 9 about 3 min). Images were already built and web dependencies already in `web/node_modules`; a first `up --build` added about 2 minutes in earlier runs. |
 
 Per-report extraction times are written to `tests/e2e/.cache/measurements.jsonl` on every run.
+
+**Wave B runs, 2026-11-05.** After merging `integration/wave-b` and adding step 10: two runs from `down -v`, up, seed,
+`npm run test:e2e`; both 25 of 25 (24 steps and negatives, plus the known-bug test, which passes as an expected
+failure). Run 1: 20 min 43 s (start and seed 1 min 39 s, tests 19 min 4 s; step 10 about 2 min 50 s). Run 2: 24 min
+17 s (3 min 42 s, 20 min 35 s; step 10 about 2 min 25 s). The host was slow throughout (antivirus load: F-PIL extraction
+took 30–60 s per report against 3–26 s on 2026-11-04), so these runs do not show the 10-minute target either way.

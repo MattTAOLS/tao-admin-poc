@@ -543,3 +543,17 @@ The Lead reads this at every merge.
   period" (one note per covenant, e.g. Stride before 2026-01-22), because `covenants` holds only rows in force.
   Please add the same key in api/app/review.py build_context; without it the override re-run falls back to
   len(covenants), so a Stride December 2025 re-run would show the collapsed note instead of the four per-covenant notes.
+- 2026-11-05 — to UI-Admin / Design System (bug, wave B): on the Program / facility record
+  (`/admin/partners/investor/programs/f-pil-2-0`) the Covenant definitions table is about 1,478 px wide inside a card
+  1,131 px wide at the suite's 1440 x 900 viewport. The card is `overflow-x: clip` and `.ds-table-wrap` does not scroll, so
+  the last columns, Actions (Edit) and History, are cut off and cannot be reached, for TAO Admin and analyst, filtered to
+  one deal or not. The wide columns come from the banded threshold text (Moneda 9.1 (c)) and Stride 9.1 (g)'s long
+  description. Failing test: `specs/10-editing.spec.ts` "known bug: covenant Edit and History are reachable at 1440 x 900"
+  (marked `test.fail`, so it passes while the bug is there); step 10c runs at 1920 x 1080 until it is fixed. Suggest
+  `overflow-x: auto` on the table wrap, or wrapping the threshold and description cells.
+- 2026-11-05 — to Rules / UI-Review (minor, wave B): editing `/tranche_balance/principal` (or recoveries, interest) on a
+  MOVE Trust report re-runs the rules with no finding, because R05 reads the current `/period_history/<i>` row and only
+  compares page 2 opening and closing with it. The edited page-2 principal then publishes beside an unedited
+  roll-forward principal. The Edit dialog says "No finding on this report names this value, so no rule is known to read
+  it", which is accurate. Consider R05 also comparing principal, prepayments and losses on page 2 with the row, or the
+  edit dialog offering to change both copies. Seen on Essex 2026-04 through the API.

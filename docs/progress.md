@@ -2,6 +2,19 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — QA & Demo, phase 2 wave B (merged integration/wave-b): `specs/10-editing.spec.ts`, after step 9.
+  10a: Essex 2026-06 uploaded by the analyst; analyst sees no Edit and gets 403; TAO Admin edits Tranche balance closing
+  (+$100.00, R05 Block raised), reverts (R05 closed), edits interest (+$100.00), publishes; the Publish dialog lists the
+  edit, the Reports audit has value_edit x2 and value_edit_revert, the investor deal page shows Corrected by TAO with
+  Was / Now. 10b: Reports library › Correct a value… on TLFC LP June interest publishes version 2 at once (Corrected,
+  Version 2 of 2, version 1 with the Earlier version banner); Finloc July closing opens R05, waits in the queue tagged
+  Correction while version 1 stays live, Acknowledge R05, Approve and publish v2; analyst sees no correct control, 403 on
+  create and approve. 10c: Moneda SLFA 9.1 (e) new version from 2026-09-01 (watch buffer 0.15, test change) with a
+  reason; History and the Platform audit master_change (before / after); 409 effective_not_later for 2026-09-01 and
+  2026-08-01; analyst reads History, no Edit, 403. Facts in `lib/facts.ts` (STEP10). Two runs from `down -v`: 25/25 and
+  25/25 (one is a `test.fail` known-bug check), 20 min 43 s and 24 min 17 s on a slow host. Bugs filed in requests.md ›
+  QA & Demo: the covenant table clips Edit / History at 1440 px (step 10c runs at 1920 until fixed); a MOVE page-2
+  principal edit is not checked by R05 (minor). docs/demo.md step 10 with 13 screenshots.
 - 2026-11-05 — UI-Partner, phase 2 wave B (publication versions, decisions B2 and B3): merged lead/wave-b (35e3abc).
   Deal page, admin and partner shells: when the published deal's current version is above 1, the header shows a
   "Corrected" pill (blue, dot plus word) and a "Version N of M" button that opens the versions menu (newest first:
