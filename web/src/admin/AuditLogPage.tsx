@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, DataTable, Field, Input, Select, formatNumber, formatPeriod, icons, useToast, type Column } from '@/design/components'
+import { Button, Card, DataTable, Field, Input, Select, StatusPill, formatNumber, formatPeriod, icons, useToast, type Column } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import {
   adminApi, PLATFORM_ACTIONS, REPORT_ACTIONS, auditScope,
@@ -21,10 +21,13 @@ export const ACTION_LABEL: Record<string, string> = {
   user_change: 'User change', prefs_change: 'Own settings changed', settings_change: 'Settings change',
   // wave C: Reports (internal comment threads)
   comment: 'Comment', comment_edit: 'Comment edited', thread_resolve: 'Thread resolved', thread_reopen: 'Thread reopened',
+  // wave D: Platform (companies and news)
+  company_change: 'Company change', company_note: 'Company note', company_note_edit: 'Company note edited',
+  adverse_change: 'Adverse media decision', news_run: 'News run',
 }
 /** Actions whose detail carries before → after values (shown in the Detail cell and the expanded row). */
 const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
-  'user_change', 'prefs_change', 'settings_change', 'comment_edit']
+  'user_change', 'prefs_change', 'settings_change', 'comment_edit', 'company_change', 'company_note_edit']
 const MODE_LABEL: Record<string, string> = { new_version: 'new version', correct: 'correction', add: 'added' }
 /** The User filter: the actor roles the API writes (`system` is the extraction worker, `seed` the reference data). */
 export const ACTOR_LABEL: Record<string, string> = {
@@ -93,10 +96,74 @@ export function changes(d: Record<string, unknown>): Change[] {
   return JSON.stringify(b) === JSON.stringify(a) ? [] : [{ field: fieldOf(d), before: b, after: a }]
 }
 
+// ---- Wave D: companies, notes, adverse media and news runs (all Platform). Detail shapes as requested in
+// docs/requests.md (UI-Admin, wave D); every field is read defensively. ----
+const COMPANY_FIELD: Record<string, string> = {
+  name: 'Name', aliases: 'Aliases', industry: 'Industry', naics: 'NAICS', headquarters: 'Headquarters', website: 'Website',
+  relationship_since: 'Relationship since', owner_user_id: 'Owner', owner: 'Owner', deal_slugs: 'Deals', role: 'Role', email: 'Email', receives: 'Receives',
+}
+export const COMPANY_CHANGE_LABEL: Record<string, string> = {
+  created: 'Company created', updated: 'Record updated', contact_added: 'Contact added', contact_updated: 'Contact edited', contact_removed: 'Contact removed',
+}
+const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
+const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {})
+const isContact = (d: Record<string, unknown>) => typeof d.change === 'string' && d.change.startsWith('contact')
+const contactName = (d: Record<string, unknown>) => str(obj(d.after).name) ?? str(obj(d.before).name)
+/** Deals linked and unlinked by a company_change (deal_slugs before → after), as names when the context has them. */
+export function dealLinks(d: Record<string, unknown>, c?: Pick<Ctx, 'deals' | 'programs'>): { linked: string[]; unlinked: string[] } {
+  const b = obj(d.before).deal_slugs, a = obj(d.after).deal_slugs
+  if (!Array.isArray(a) && !Array.isArray(b)) return { linked: [], unlinked: [] }
+  const bs = (Array.isArray(b) ? b : []) as string[], as = (Array.isArray(a) ? a : []) as string[]
+  const name = (s: string) => (c ? dealName(c as Ctx, s)! : s)
+  return { linked: as.filter(s => !bs.includes(s)).map(name), unlinked: bs.filter(s => !as.includes(s)).map(name) }
+}
+function companyValue(field: string, v: unknown, c?: Pick<Ctx, 'deals' | 'programs'>, users?: AppUser[]): unknown {
+  if (v === null || v === undefined) return v
+  if (field === 'deal_slugs' && Array.isArray(v)) return v.length ? v.map(s => (c ? dealName(c as Ctx, s) : s)).join(', ') : 'none'
+  if (Array.isArray(v)) return v.length ? v.join(', ') : 'none'
+  if (field === 'owner' && typeof v === 'object') return str((v as Record<string, unknown>).name) ?? JSON.stringify(v)
+  if (field === 'owner_user_id' && typeof v === 'string') return users?.find(u => u.id === v)?.name ?? v
+  return v
+}
+export function companyChanges(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs' | 'users'>): Change[] {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  const contact = isContact(d)
+  return changes(d).filter(x => x.field !== 'id' && x.field !== 'company_slug' && !(x.before == null && x.after == null)).map(x => ({
+    field: contact ? `Contact · ${COMPANY_FIELD[x.field] ?? x.field}` : COMPANY_FIELD[x.field] ?? x.field,
+    before: companyValue(x.field, x.before, c, c?.users), after: companyValue(x.field, x.after, c, c?.users),
+  }))
+}
+export function noteEditChanges(e: AuditEntry): Change[] {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  const removed = d.change === 'removed' || d.after === null || d.removed === true
+  const before = str(d.before) ?? str(d.old_body) ?? str(obj(d.before).body)
+  const after = removed ? 'removed' : str(d.after) ?? str(d.new_body) ?? str(obj(d.after).body)
+  return before === after ? [] : [{ field: 'Note', before, after }]
+}
+const ADVERSE_STATE: Record<string, { tone: 'ok' | 'neutral' | 'warn'; label: string }> = {
+  reviewed: { tone: 'ok', label: 'Reviewed' }, dismissed: { tone: 'neutral', label: 'Dismissed' }, open: { tone: 'warn', label: 'Open' },
+}
+export function adverseDecision(e: AuditEntry): { state: string; label: string; tone: 'ok' | 'neutral' | 'warn'; note?: string; item?: string } {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  const state = str(d.state) ?? str(obj(d.after).state) ?? str(d.decision) ?? 'changed'
+  const s = ADVERSE_STATE[state] ?? { tone: 'neutral' as const, label: cap(state) }
+  const note = str(d.note) ?? str(obj(d.after).note) ?? e.reason ?? undefined
+  const item = [str(d.category) && cap(str(d.category)!), str(d.title)].filter(Boolean).join(' · ') || undefined
+  return { state, ...s, note, item }
+}
+const actorName = (e: AuditEntry) => (e.actor_label && e.actor_label !== e.actor_role ? e.actor_label : ACTOR_LABEL[e.actor_role] ?? e.actor_role)
+export function newsRunText(e: AuditEntry): string {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  return d.trigger === 'schedule' ? 'Scheduled run' : `Manual run by ${actorName(e)}`
+}
+const clip = (s: string, n = 80) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+
 /** changes() with names from the context: a subscription list reads as programs and deals, a calendar row as the
  * deal, and a one-value setting as the setting's name. */
-export function entryChanges(e: AuditEntry, c: Pick<Ctx, 'deals' | 'programs'>): Change[] {
+export function entryChanges(e: AuditEntry, c: Pick<Ctx, 'deals' | 'programs'> & { users?: AppUser[] }): Change[] {
   const d = (e.detail ?? {}) as Record<string, unknown>
+  if (e.action === 'company_change') return companyChanges(e, c)
+  if (e.action === 'company_note_edit') return noteEditChanges(e)
   if (e.action === 'user_change' && d.change === 'subscriptions') {
     const b = subsText(d.before, c.programs, c.deals), a = subsText(d.after, c.programs, c.deals)
     return b === a ? [] : [{ field: 'Reports received', before: b, after: a }]
@@ -114,8 +181,31 @@ export function entryChanges(e: AuditEntry, c: Pick<Ctx, 'deals' | 'programs'>):
 }
 
 /** One line from `detail` for the table; the full detail is in the expanded row. */
-export function summary(e: AuditEntry): string {
+export function summary(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs'> & { users?: AppUser[] }): string {
   const d = (e.detail ?? {}) as Record<string, unknown>
+  if (e.action === 'company_change') {
+    const kind = str(d.change) ?? 'updated'
+    const head = COMPANY_CHANGE_LABEL[kind] ?? cap(kind)
+    if (isContact(d)) return [head, contactName(d)].filter(Boolean).join(' · ')
+    const links = dealLinks(d, c)
+    const ch = companyChanges(e, c).filter(x => x.field !== 'Deals')
+    return [head, links.linked.length ? `Linked ${links.linked.join(', ')}` : null, links.unlinked.length ? `Unlinked ${links.unlinked.join(', ')}` : null,
+      ...ch.slice(0, 2).map(x => `${x.field} ${show(x.before)} → ${show(x.after)}`), ch.length > 2 ? `+${ch.length - 2} more` : null].filter(Boolean).join(' · ')
+  }
+  if (e.action === 'company_note') {
+    const per = str(d.collection_period)
+    return [per ? monthName(per) : null, str(d.body) ? clip(str(d.body)!) : 'Note added'].filter(Boolean).join(' · ')
+  }
+  if (e.action === 'company_note_edit') {
+    const ch = noteEditChanges(e)[0]
+    if (ch?.after === 'removed') return `Note removed · ${clip(show(ch.before))}`
+    return ch ? `Note ${clip(show(ch.before), 40)} → ${clip(show(ch.after), 40)}` : 'Note edited'
+  }
+  if (e.action === 'adverse_change') {
+    const a = adverseDecision(e)
+    return [a.label, a.item, a.note ? `Note: ${a.note}` : null].filter(Boolean).join(' · ')
+  }
+  if (e.action === 'news_run') return newsRunText(e)
   if (e.action === 'upload') return [d.file_name, d.page_count != null ? `${d.page_count} pages` : null, d.collection_period].filter(Boolean).join(' · ')
   if (e.action === 'user_change') {
     const kind = typeof d.change === 'string' ? d.change : 'updated'
@@ -163,6 +253,14 @@ function subject(e: AuditEntry, c: Ctx): { title: string; sub?: string; href?: s
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
   const slug = e.deal_slug ?? u?.deal_slug ?? (typeof d.deal_slug === 'string' ? d.deal_slug : undefined)
   const per = e.collection_period ?? u?.collection_period ?? (typeof d.collection_period === 'string' ? d.collection_period : undefined)
+  if (e.action === 'news_run') return { title: 'Company news', sub: 'News run', href: '/admin/settings/system#set-companies' }
+  if (e.action === 'company_change' || e.action === 'company_note' || e.action === 'company_note_edit' || e.action === 'adverse_change') {
+    const cs = str(d.company_slug)
+    const name = str(d.company_name) ?? (e.action === 'company_change' && !isContact(d) ? str(obj(d.after).name) ?? str(obj(d.before).name) : undefined) ?? (cs ? cap(cs) : 'Company')
+    const note = str(d.note_id)
+    const sub = e.action === 'adverse_change' ? 'Company · adverse media' : e.action === 'company_change' ? 'Company' : 'Company · note'
+    return { title: name, sub, href: cs ? `/admin/companies/${encodeURIComponent(cs)}${note && e.action !== 'company_change' ? `?note=${encodeURIComponent(note)}` : ''}` : undefined }
+  }
   if (slug) {
     const name = e.deal_name ?? dealName(c, slug)!
     const period = per ? formatPeriod(per) : undefined
@@ -219,7 +317,12 @@ function DetailCell({ e, q, c }: { e: AuditEntry; q?: string; c: Ctx }) {
     const x = ch[0]
     return <span><Highlight text={x.field} q={q} /> <span className="adm-before"><Highlight text={show(x.before)} q={q} /></span><span className="adm-arrow" aria-label="changed to">→</span><span className="adm-after"><Highlight text={show(x.after)} q={q} /></span></span>
   }
-  return <Highlight text={summary(e)} q={q} />
+  if (e.action === 'adverse_change') {
+    const a = adverseDecision(e)
+    const rest = [a.item, a.note ? `Note: ${a.note}` : null].filter(Boolean).join(' · ')
+    return <span><StatusPill tone={a.tone} size="sm">{a.label}</StatusPill>{rest && <> <Highlight text={rest} q={q} /></>}</span>
+  }
+  return <Highlight text={summary(e, c)} q={q} />
 }
 
 /** The expanded entry: before → after per field, the reason, the report and every id. */
@@ -239,6 +342,16 @@ function EntryDetail({ e, c }: { e: AuditEntry; c: Ctx }) {
             <tbody>{ch.map(x => <tr key={x.field}><td>{x.field}</td><td className="adm-before">{show(x.before)}</td><td className="adm-after">{show(x.after)}</td></tr>)}</tbody>
           </table>
         )}
+        {e.action === 'company_change' && (() => {
+          const l = dealLinks((e.detail ?? {}) as Record<string, unknown>, c)
+          return l.linked.length || l.unlinked.length ? (
+            <div className="adm-reason">
+              {l.linked.length > 0 && <><b>Deals linked</b>: {l.linked.join(', ')}</>}
+              {l.linked.length > 0 && l.unlinked.length > 0 && ' · '}
+              {l.unlinked.length > 0 && <><b>Deals unlinked</b>: {l.unlinked.join(', ')}</>}
+            </div>
+          ) : null
+        })()}
         {e.reason && <div className="adm-reason"><b>Reason</b>: {e.reason}</div>}
         {rest.length > 0 && (
           <dl className="adm-dl">

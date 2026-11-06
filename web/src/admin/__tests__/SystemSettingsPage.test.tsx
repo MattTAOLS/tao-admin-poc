@@ -33,7 +33,7 @@ const SETTINGS: Setting[] = [
 ]
 function settingsApi(over: Record<string, unknown> = {}, settings = SETTINGS) {
   return fakeApi({
-    'GET /settings': settings, 'GET /master/programs': PROGRAMS, 'GET /master/deals': DEALS12, 'GET /master/partners': PARTNERS,
+    'GET /settings': settings, 'GET /master/programs': PROGRAMS, 'GET /master/deals': DEALS12, 'GET /master/partners': PARTNERS, 'GET /news/runs': [],
     'PUT /settings/partner_notifications_enabled': (_p: string, i?: RequestInit) => ({ key: 'partner_notifications_enabled', value: JSON.parse(String(i!.body)).value, updated_at: '2026-11-05T15:00:00Z', updated_by: 'tao_admin' }),
     'PUT /settings/reporting_calendar': (_p: string, i?: RequestInit) => ({ key: 'reporting_calendar', value: JSON.parse(String(i!.body)).value, updated_at: '2026-11-05T15:00:00Z', updated_by: 'tao_admin' }),
     ...over,
@@ -183,10 +183,10 @@ describe('System settings page', () => {
     expect(within(rules).getByText('Provenance and second-pass agreement')).toBeInTheDocument()
     expect(within(rules).queryByRole('textbox')).toBeNull()
     expect(within(screen.getByRole('region', { name: /3 · Reporting calendar/ })).getByText('New')).toBeInTheDocument()
-    const ret = screen.getByRole('region', { name: /5 · Data retention/ })
+    const ret = screen.getByRole('region', { name: /6 · Data retention/ })
     expect(within(ret).getAllByText(/Kept indefinitely/).length).toBeGreaterThanOrEqual(4)
     expect(within(ret).getByRole('button', { name: 'Export this month, Platform (CSV)' })).toBeInTheDocument()
-    const maint = screen.getByRole('region', { name: /8 · Maintenance/ })
+    const maint = screen.getByRole('region', { name: /9 · Maintenance/ })
     expect(within(maint).getByRole('link', { name: 'Reports library, Regenerate' })).toBeInTheDocument()
     expect(within(maint).queryByRole('button', { name: /Reset/ })).toBeNull()
     expect(within(maint).getByText('python scripts/reset_demo.py')).toBeInTheDocument()

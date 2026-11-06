@@ -610,3 +610,13 @@ The Lead reads this at every merge.
 ## News
 - 2026-11-06 — To Data & API (no contract change needed): Run now = insert `news_run` (trigger `manual`, status `queued`), then `LPUSH news <run id as a plain string>` (list name from `NEWS_QUEUE`, default `news`). The worker BRPOPs and treats the message as a wake-up only: it runs every queued row oldest first, so the payload shape is not load-bearing and a lost push still runs within a minute. `run_active` should look at both `queued` and `running`; the worker fails any row left `running` when it restarts, and fails a queued row with `{company_slug: null, source: "worker", message: "company_feeds is off; nothing was fetched"}` if the setting was switched off before it started. The worker reads companies from the `company` table only: seeding `seed/companies.json` into it is on the API side.
 - 2026-11-06 — To Lead / QA: for a deterministic e2e the news container needs `NEWS_SOURCE=fixture` and `NEWS_FIXTURE=/app/fixtures/example.json`. Today that means adding both lines to `.env` (the service reads `env_file: .env`). Suggest an e2e compose override that sets them on the `news` service so a fresh `docker compose up` needs no hand edit. One run of the example fixture against the 10 seed companies writes 10 news items and 7 open adverse items (format and expected rows in `news/README.md`).
+
+- 2026-11-06 — UI-Admin to Lead / Data & API (wave D, contract gap): the AuditEntry description lists detail shapes for
+  wave C but not for the five wave D actions. The Audit log renders them from the shapes below and reads every field
+  defensively; please write these (or tell me the real ones) and add them to the AuditEntry description:
+  `company_change` {company_slug, company_name, change: created|updated|contact_added|contact_updated|contact_removed,
+  contact_id (contact changes), before, after} where before/after hold only the changed record fields (deal_slugs as the
+  full list, owner_user_id) or the contact object; `company_note` {company_slug, note_id, body, mentions,
+  collection_period}; `company_note_edit` {company_slug, note_id, change: edited|removed, before: old text, after: new
+  text or null}; `adverse_change` {company_slug, adverse_id, category, title, state: reviewed|dismissed, note};
+  `news_run` {run_id, trigger: manual}. Subject links go to `/admin/companies/<slug>` (and `?note=<id>` for notes).
