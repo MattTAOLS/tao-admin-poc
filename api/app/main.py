@@ -274,6 +274,8 @@ def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depe
             raise HTTPException(409, {"code": "correction_inconsistent", "message": "the corrected deal raises "
                                       f"{len(knock_on)} new block finding(s): {', '.join(sorted({k['rule_id'] for k in knock_on}))}; "
                                       "use report or re-extract instead", "findings": knock_on})
+    if published_deal.get("source_file") == "source.pdf" and u.file_name:   # the stored copy's name, not the operator's file
+        published_deal = {**published_deal, "source_file": u.file_name}
     u.status = "approved"
     views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides,
                                                           "corrections": corrections, "value_edits": manual})

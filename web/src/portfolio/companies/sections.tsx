@@ -84,7 +84,7 @@ function SeriesChart({ s, months, compare, dealLabel }: { s: MetricSeries; month
   const kind = unitKind(s.unit)
   const peers = latest(s.peers_in_month.map(p => ({ month: p.month, value: p.count })))?.value ?? 0
   const lines: Line[] = [{ id: 'deal', label: dealLabel, cls: 'deal', points: s.deal, dots: true }]
-  if (compare !== 'mean') lines.push({ id: 'median', label: `Program median${peers ? `, ${peers} other deals` : ''}`, cls: 'median', points: s.program_median })
+  if (compare !== 'mean') lines.push({ id: 'median', label: `Program median${peers ? `, ${peers} other ${peers === 1 ? 'company' : 'companies'}` : ''}`, cls: 'median', points: s.program_median })
   if (compare !== 'median') lines.push({ id: 'mean', label: 'Program mean', cls: 'mean', points: s.program_mean })
   const last = latest(s.deal)
   return (
@@ -112,7 +112,7 @@ export function PerformanceSection({ ins, dealLabel, compare, setCompare, exclud
   const series = ins.series.filter(s => !LOSS_METRICS.includes(s.metric) && s.metric !== exclude)
   return (
     <Section id="performance" title="Performance from the monthly reports"
-      subtitle={`${shortMonth(months[0] ?? '')} to ${shortMonth(months[months.length - 1] ?? '')} · ratio history from each published report · program lines use the other deals in the same program, same month, one point per deal`}
+      subtitle={`${shortMonth(months[0] ?? '')} to ${shortMonth(months[months.length - 1] ?? '')} · ratio history from each published report · program lines use the other companies in the same program, same month, one point per company`}
       actions={
         <div className="co-toggle" role="group" aria-label="Compare with the program">
           {(['median', 'mean', 'both'] as Compare[]).map(c => (

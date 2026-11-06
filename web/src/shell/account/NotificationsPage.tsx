@@ -159,6 +159,7 @@ export function NotificationsView({ shell, display }: { shell: ShellId; display?
 
 export function NotificationRow({ n, partner, prefs, onOpen }: { n: AppNotification; partner: boolean; prefs: Required<DisplayPrefs>; onOpen: () => void }) {
   const k = KIND[n.kind] ?? KIND.system
+  const openLabel = n.kind === 'mention' && n.link.includes('?note=') ? 'Open note' : k.open   // company note vs comment thread
   const unread = !n.read_at
   const today = dayKey(n.created_at, prefs) === dayKey(new Date().toISOString(), prefs)
   return (
@@ -181,7 +182,7 @@ export function NotificationRow({ n, partner, prefs, onOpen }: { n: AppNotificat
       </div>
       <div className="ntf__side">
         <time dateTime={n.created_at}>{today ? formatTime(n.created_at, prefs) : `${formatDate(n.created_at, prefs)}, ${formatTime(n.created_at, prefs)}`}</time>
-        <Button size="sm" variant={unread ? 'primary' : 'ghost'} onClick={onOpen} aria-label={`${k.open}: ${n.title}`}>{k.open}</Button>
+        <Button size="sm" variant={unread ? 'primary' : 'ghost'} onClick={onOpen} aria-label={`${openLabel}: ${n.title}`}>{openLabel}</Button>
       </div>
     </li>
   )
