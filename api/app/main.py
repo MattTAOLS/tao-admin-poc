@@ -8,16 +8,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import Annotated, Literal
-from .auth import caller, tao_only, admin_only, Caller
+from .auth import caller, tao_only, admin_only, company_admin_only, user_required, Caller, PARTNER as PARTNER_OF
 from .db import get_db, file_store, engine
 from .jobs import get_queue
 from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
-                     PublicationVersion, Correction, ValueEdit, new_id, utcnow)
-from . import views, review, rollup, pdf, migrate, auditlog
+                     PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, new_id, utcnow)
+from . import views, review, rollup, pdf, migrate, auditlog, people
 
 log = logging.getLogger("api")
 
@@ -915,16 +915,20 @@ def _audit_gate(c: Caller, scope: str | None) -> Caller:
 
 @app.get(API + "/audit")
 def audit(upload_id: str | None = None, action: str | None = None, scope: Scope | None = None, month: str | None = None,
-          q: str | None = Query(default=None, min_length=2), actor_role: str | None = None, deal_slug: str | None = None,
-          limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0),
+          q: str | None = Query(default=None, min_length=2), actor_role: str | None = None, actor_user_id: str | None = None,
+          deal_slug: str | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0),
           c: Caller = Depends(caller), s: Session = Depends(get_db)):
-    """Newest first. Every filter narrows; q searches across all months unless month is given."""
-    _audit_gate(c, scope)
+    """Newest first. Every filter narrows; q searches across all months unless month is given. actor_user_id equal to the
+    caller's own user (Profile, My activity) is readable by every role; anyone else's needs the scope rule."""
+    if actor_user_id is not None and not _is_uuid(actor_user_id):
+        raise err(422, "invalid", "actor_user_id must be a uuid")
+    if not (actor_user_id is not None and c.user_id is not None and actor_user_id.lower() == c.user_id):
+        _audit_gate(c, scope)
     if upload_id is not None and not _is_uuid(upload_id):
         raise err(422, "invalid", "upload_id must be a uuid")
     _check_period(month, "month")
     return auditlog.entries(s, limit, offset, scope=scope, month=month, q=q, actor_role=actor_role, deal_slug=deal_slug,
-                            upload_id=upload_id, action=action)
+                            upload_id=upload_id, action=action, actor_user_id=actor_user_id.lower() if actor_user_id else None)
 
 
 @app.get(API + "/audit/months")
@@ -944,3 +948,307 @@ def audit_export(scope: Scope, month: str, c: Caller = Depends(caller), s: Sessi
     s.commit()
     return Response(body, media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="audit-{scope}-{month}.csv"'})
+
+
+# ---- wave C: people (users, subscriptions, /me, prefs, settings) ----
+def _refused(e: people.Refused) -> HTTPException:
+    return err(e.status, e.code, e.message)
+
+
+def user_caller(c: Caller = Depends(caller)) -> Caller:
+    return user_required(c)
+
+
+def users_caller(c: Caller = Depends(caller)) -> Caller:
+    """tao_admin, or a partner's Company Admin (scoped to its partner in _user_in_scope); others 403 company_admin_only."""
+    return company_admin_only(c)
+
+
+def _me(s: Session, c: Caller) -> AppUser | None:
+    return s.get(AppUser, c.user_id) if c.user_id else None
+
+
+def _user_in_scope(s: Session, c: Caller, user_id: str) -> AppUser:
+    """The user, if the caller may manage them: tao_admin any, a Company Admin only its own partner's (else 404, as missing)."""
+    u = s.get(AppUser, user_id) if _is_uuid(user_id) else None
+    if u is None or (not c.is_admin and u.partner_slug != c.partner):
+        raise err(404, "not_found", "no such user")
+    return u
+
+
+def _user_change(s: Session, c: Caller, u: AppUser, change: str, before, after, reason: str | None = None):
+    views.audit(s, c, "user_change", reason=reason, detail={"user_id": u.id, "partner_slug": u.partner_slug, "change": change,
+                                                           "before": before, "after": after})
+
+
+def _me_dict(s: Session, c: Caller) -> dict:
+    u = _me(s, c)
+    return {"user": people.user_dict(s, u) if u else None, "role": c.role, "partner_slug": c.partner if not c.is_tao else None,
+            "display": people.display(s, u)}
+
+
+class AppUserCreate(BaseModel):
+    email: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    role: Literal["tao_admin", "tao_analyst", "investor_admin", "investor_viewer", "manager_admin", "manager_viewer"]
+    partner_slug: str | None = None
+
+
+class AppUserPatch(BaseModel):
+    email: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")] | None = None
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] | None = None
+    role: Literal["tao_admin", "tao_analyst", "investor_admin", "investor_viewer", "manager_admin", "manager_viewer"] | None = None
+    partner_slug: str | None = None
+
+
+class StatusChangeRequest(BaseModel):
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
+
+
+class SubscriptionIn(BaseModel):
+    program_slug: str
+    deal_slug: str | None = None
+    channels: list[Literal["in_app", "email"]] = Field(min_length=1)
+
+
+class MePatch(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] | None = None
+    time_zone: str | None = None
+    date_format: Literal["D MMM YYYY", "YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY"] | None = None
+    number_format: Literal["1,234.56", "1 234,56"] | None = None
+
+
+class NotificationPrefIn(BaseModel):
+    kind: str
+    in_app: bool
+    digest: Literal["instant", "daily"]
+
+
+class SettingChange(BaseModel):
+    value: object = None
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
+
+
+@app.get(API + "/me")
+def get_me(c: Caller = Depends(caller), s: Session = Depends(get_db)):
+    return _me_dict(s, c)
+
+
+@app.patch(API + "/me")
+def patch_me(body: MePatch, c: Caller = Depends(user_caller), s: Session = Depends(get_db)):
+    """Own name and display settings. Role, email and partner are not self-editable (not in the body)."""
+    fields = body.model_dump(exclude_unset=True)
+    if not fields or any(v is None for v in fields.values()):
+        raise err(422, "invalid", "send at least one of name, time_zone, date_format, number_format (not null)")
+    try:
+        if "time_zone" in fields:
+            people.check_time_zone(fields["time_zone"])
+    except people.Refused as e:
+        raise _refused(e)
+    u = _me(s, c)
+    before = {"name": u.name, **people.display(s, u)}
+    if "name" in fields:
+        u.name = fields.pop("name")
+    if fields:
+        p = s.get(UserPref, u.id)
+        if p is None:
+            p = UserPref(user_id=u.id); s.add(p)
+        for k, v in fields.items():
+            setattr(p, k, v)
+        p.updated_at = utcnow()
+    s.flush()
+    after = {"name": u.name, **people.display(s, u)}
+    c.label = u.name
+    views.audit(s, c, "prefs_change", detail={"user_id": u.id, "before": before, "after": after})
+    s.commit()
+    return _me_dict(s, c)
+
+
+@app.get(API + "/me/notification-prefs")
+def get_my_prefs(c: Caller = Depends(user_caller), s: Session = Depends(get_db)):
+    return people.prefs(s, _me(s, c))
+
+
+@app.put(API + "/me/notification-prefs")
+def put_my_prefs(body: list[NotificationPrefIn], c: Caller = Depends(user_caller), s: Session = Depends(get_db)):
+    """Kinds left out go back to the defaults. covenant_changed / correction_published off: 422 required."""
+    u = _me(s, c)
+    before = people.prefs(s, u)
+    try:
+        people.set_prefs(s, u, [b.model_dump() for b in body])
+    except people.Refused as e:
+        s.rollback()
+        raise _refused(e)
+    after = people.prefs(s, u)
+    views.audit(s, c, "prefs_change", detail={"user_id": u.id, "before": {"notification_prefs": before}, "after": {"notification_prefs": after}})
+    s.commit()
+    return after
+
+
+@app.get(API + "/users")
+def list_users(partner_slug: str | None = None, status: Literal["active", "deactivated"] | None = None,
+               q: str | None = Query(default=None, min_length=2), c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    """tao_admin: everyone (partner_slug=tao: TAO users). A Company Admin: its own partner only, whatever partner_slug says."""
+    qry = select(AppUser)
+    scope = partner_slug if c.is_admin else c.partner
+    if scope == "tao":
+        qry = qry.where(AppUser.partner_slug.is_(None))
+    elif scope is not None:
+        qry = qry.where(AppUser.partner_slug == scope)
+    if status:
+        qry = qry.where(AppUser.status == status)
+    if q:
+        pat = "%" + q.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        qry = qry.where(or_(func.lower(AppUser.name).like(pat, escape="\\"), func.lower(AppUser.email).like(pat, escape="\\")))
+    rows = s.scalars(qry.order_by(AppUser.partner_slug.is_not(None), AppUser.partner_slug, AppUser.name)).all()
+    return [people.user_dict(s, u) for u in rows]
+
+
+@app.post(API + "/users", status_code=201)
+def create_user(body: AppUserCreate, c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    """Active, no subscriptions. A Company Admin adds only its own partner's admin or viewer (409 other_partner)."""
+    try:
+        people.check_company_admin_scope(c, body.role, body.partner_slug)
+        people.check_role_partner(s, body.role, body.partner_slug)
+        if people.email_taken(s, body.email):
+            raise people.Refused(409, "email_taken", f"{body.email} is already a user")
+    except people.Refused as e:
+        raise _refused(e)
+    u = AppUser(id=new_id(), email=body.email.lower(), name=body.name, role=body.role, partner_slug=body.partner_slug, status="active",
+                created_at=utcnow())
+    s.add(u)
+    try:
+        s.flush()
+    except IntegrityError:
+        s.rollback()
+        raise err(409, "email_taken", f"{body.email} is already a user")
+    _user_change(s, c, u, "created", None, people.user_audit(u))
+    s.commit()
+    return people.user_dict(s, u)
+
+
+@app.get(API + "/users/{user_id}")
+def get_user(user_id: str, c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    return people.user_dict(s, _user_in_scope(s, c, user_id))
+
+
+@app.patch(API + "/users/{user_id}")
+def patch_user(user_id: str, body: AppUserPatch, c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    """Name, email, role or partner. Not your own role or partner (409 self_change); never the last active tao_admin or a
+    partner's last active Company Admin (409 last_admin). partner_slug left out follows the role (TAO: none; investor_* /
+    manager_*: that partner)."""
+    u = _user_in_scope(s, c, user_id)
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        raise err(422, "invalid", "send at least one of email, name, role, partner_slug")
+    if any(fields.get(k) is None for k in ("email", "name", "role") if k in fields):
+        raise err(422, "invalid", "email, name and role cannot be null")
+    role = fields.get("role", u.role)
+    partner = fields["partner_slug"] if "partner_slug" in fields else (u.partner_slug if role == u.role else PARTNER_OF.get(role))
+    try:
+        people.check_company_admin_scope(c, role, partner)
+        if u.id == c.user_id and (role != u.role or partner != u.partner_slug):
+            raise people.Refused(409, "self_change", "you cannot change your own role or partner")
+        if "email" in fields and people.email_taken(s, fields["email"], other_than=u.id):
+            raise people.Refused(409, "email_taken", f"{fields['email']} is already a user")
+        people.check_role_partner(s, role, partner)
+        if people.is_last_admin(s, u, role, partner, u.status):
+            raise people.Refused(409, "last_admin", "this would leave no active tao_admin (or the partner without an active Company Admin)")
+    except people.Refused as e:
+        raise _refused(e)
+    before = people.user_audit(u)
+    if "email" in fields:
+        u.email = fields["email"].lower()
+    if "name" in fields:
+        u.name = fields["name"]
+    u.role, u.partner_slug = role, partner
+    s.flush()
+    after = people.user_audit(u)
+    if after != before:
+        _user_change(s, c, u, "updated", before, after)
+    s.commit()
+    return people.user_dict(s, u)
+
+
+@app.post(API + "/users/{user_id}/deactivate")
+def deactivate_user(user_id: str, body: StatusChangeRequest, c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    u = _user_in_scope(s, c, user_id)
+    try:
+        if u.id == c.user_id:
+            raise people.Refused(409, "self_change", "you cannot deactivate yourself")
+        if u.status == "deactivated":
+            raise people.Refused(409, "already_deactivated", "this user is already deactivated")
+        if people.is_last_admin(s, u, u.role, u.partner_slug, "deactivated"):
+            raise people.Refused(409, "last_admin", "this would leave no active tao_admin (or the partner without an active Company Admin)")
+    except people.Refused as e:
+        raise _refused(e)
+    before = people.user_audit(u)
+    u.status, u.deactivated_at, u.deactivation_reason = "deactivated", utcnow(), body.reason
+    s.flush()
+    _user_change(s, c, u, "deactivated", before, people.user_audit(u), reason=body.reason)
+    s.commit()
+    return people.user_dict(s, u)
+
+
+@app.post(API + "/users/{user_id}/reactivate")
+def reactivate_user(user_id: str, body: StatusChangeRequest, c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    u = _user_in_scope(s, c, user_id)
+    if u.status == "active":
+        raise err(409, "already_active", "this user is already active")
+    before = people.user_audit(u)
+    u.status, u.deactivated_at, u.deactivation_reason = "active", None, None
+    s.flush()
+    _user_change(s, c, u, "reactivated", before, people.user_audit(u), reason=body.reason)
+    s.commit()
+    return people.user_dict(s, u)
+
+
+@app.get(API + "/users/{user_id}/subscriptions")
+def get_subscriptions(user_id: str, c: Caller = Depends(caller), s: Session = Depends(get_db)):
+    """tao_admin; a Company Admin for its own partner's users; the user themselves (read-only)."""
+    if c.user_id is None or c.user_id != user_id:
+        company_admin_only(c)
+        u = _user_in_scope(s, c, user_id)
+    else:
+        u = s.get(AppUser, user_id)
+    return [people.subscription_dict(x) for x in people.subscriptions(s, u.id)]
+
+
+@app.put(API + "/users/{user_id}/subscriptions")
+def put_subscriptions(user_id: str, body: list[SubscriptionIn], c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
+    u = _user_in_scope(s, c, user_id)
+    try:
+        rows = people.check_subscriptions(s, u, body)
+    except people.Refused as e:
+        raise _refused(e)
+    before = [people.subscription_dict(x) for x in people.subscriptions(s, u.id)]
+    people.replace_subscriptions(s, u, rows)
+    after = [people.subscription_dict(x) for x in people.subscriptions(s, u.id)]
+    if after != before:
+        _user_change(s, c, u, "subscriptions", before, after)
+    s.commit()
+    return after
+
+
+@app.get(API + "/settings")
+def get_settings(c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    return [people.setting_dict(s, k) for k in people.SETTING_KEYS]
+
+
+@app.put(API + "/settings/{key}")
+def put_setting(key: str, body: SettingChange, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    if key not in people.SETTING_KEYS:
+        raise err(422, "unknown_setting", f"no setting {key}")
+    try:
+        value = people.check_setting(s, key, body.value)
+    except people.Refused as e:
+        raise _refused(e)
+    before = people.get_setting(s, key)
+    row = s.get(SystemSetting, key)
+    if row is None:
+        row = SystemSetting(key=key); s.add(row)
+    row.value, row.updated_at, row.updated_by = value, utcnow(), c.label or c.role
+    s.flush()
+    views.audit(s, c, "settings_change", reason=body.reason, detail={"key": key, "before": before, "after": value})
+    s.commit()
+    return people.setting_dict(s, key)

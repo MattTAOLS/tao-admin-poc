@@ -41,7 +41,8 @@ def _like(q: str) -> str:
 
 
 def query(s: Session, *, scope: str | None = None, month: str | None = None, q: str | None = None, actor_role: str | None = None,
-          deal_slug: str | None = None, upload_id: str | None = None, action: str | None = None, columns=None) -> Select:
+          deal_slug: str | None = None, upload_id: str | None = None, action: str | None = None, actor_user_id: str | None = None,
+          columns=None) -> Select:
     """Entries matching every filter given; joined to the upload and its deal so search and deal_slug see them."""
     stmt = (select(*(columns or [ReviewAction]))
             .outerjoin(SetrepUpload, SetrepUpload.id == ReviewAction.upload_id)
@@ -59,6 +60,8 @@ def query(s: Session, *, scope: str | None = None, month: str | None = None, q: 
         stmt = stmt.where(ReviewAction.action == action)
     if actor_role:
         stmt = stmt.where(ReviewAction.actor_role == actor_role)
+    if actor_user_id:
+        stmt = stmt.where(ReviewAction.actor_user_id == actor_user_id)
     if deal_slug:
         stmt = stmt.where(or_(SetrepUpload.deal_slug == deal_slug, ReviewAction.detail["deal_slug"].as_string() == deal_slug))
     if q:
