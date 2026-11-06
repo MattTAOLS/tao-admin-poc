@@ -66,7 +66,7 @@ def test_recipients_reasons(client, people):
     assert [(x["user_id"], x["channels"]) for x in rec["notified"]] == [(A1, ["in_app"])]
     why = {x["user_id"]: x["reason"] for x in rec["not_notified"]}
     assert why == {AN: "deactivated", A2: "not_subscribed", AN2: "not_subscribed",
-                   IV: "partner_notifications_off", MV: "partner_notifications_off", IA: "not_subscribed", MA: "not_subscribed"}
+                   IV: "partner_notifications_off", MV: "partner_notifications_off", IA: "partner_notifications_off", MA: "partner_notifications_off"}
     partners_on(client)
     client.put(V1 + "/me/notification-prefs", headers=H(A1), json=[{"kind": "report_published", "in_app": False, "digest": "daily"}])
     rec = client.get(V1 + f"/uploads/{uid}/recipients", headers=H(AN2)).json()          # the other analyst, via X-User

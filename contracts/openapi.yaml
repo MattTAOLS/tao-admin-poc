@@ -1128,7 +1128,7 @@ paths:
       summary: Users (tao_admin sees all; a partner Company Admin sees only its own partner's users; others 403 `company_admin_only`)
       description: >
         partner_slug filters by partner (`tao` lists TAO users); for a Company Admin it is forced to their own partner. q
-        matches name and email. TAO Analyst may read only `partner_slug=tao&status=active` (the @mention list: id, name, email, role); every other query is 403 for an analyst (C3).
+        matches name and email. TAO Analyst may read only `partner_slug=tao&status=active` (the @mention list: id, name, email, role, status); every other query is 403 for an analyst (C3).
       parameters:
         - { $ref: '#/components/parameters/XRole' }
         - { $ref: '#/components/parameters/XPartner' }

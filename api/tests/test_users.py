@@ -263,10 +263,10 @@ def test_seed_never_overwrites_an_edited_user(client):
 def test_analyst_reads_only_the_mention_list(client):
     r = client.get(V1 + "/users", headers=H(AN), params={"partner_slug": "tao", "status": "active"})
     assert r.status_code == 200
-    assert r.json() == [{"id": A1, "name": "A. Patel", "email": "tao.admin@example.com", "role": "tao_admin"},
-                        {"id": AN, "name": "J. Moreau", "email": "tao.analyst@example.com", "role": "tao_analyst"},
-                        {"id": "00000000-0000-4000-8000-000000000002", "name": "R. Okafor", "email": "tao.admin2@example.com", "role": "tao_admin"},
-                        {"id": "00000000-0000-4000-8000-000000000004", "name": "S. Lindqvist", "email": "tao.analyst2@example.com", "role": "tao_analyst"}]
+    assert r.json() == [{"id": A1, "name": "A. Patel", "email": "tao.admin@example.com", "role": "tao_admin", "status": "active"},
+                        {"id": AN, "name": "J. Moreau", "email": "tao.analyst@example.com", "role": "tao_analyst", "status": "active"},
+                        {"id": "00000000-0000-4000-8000-000000000002", "name": "R. Okafor", "email": "tao.admin2@example.com", "role": "tao_admin", "status": "active"},
+                        {"id": "00000000-0000-4000-8000-000000000004", "name": "S. Lindqvist", "email": "tao.analyst2@example.com", "role": "tao_analyst", "status": "active"}]
     assert client.get(V1 + "/users", headers={"X-Role": "tao_analyst"}, params={"partner_slug": "tao", "status": "active"}).status_code == 200
     for params in ({}, {"partner_slug": "tao"}, {"status": "active"}, {"partner_slug": "investor", "status": "active"},
                    {"partner_slug": "tao", "status": "deactivated"}, {"partner_slug": "tao", "status": "active", "q": "patel"}):

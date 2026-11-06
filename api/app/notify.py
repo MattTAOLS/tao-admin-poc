@@ -87,10 +87,10 @@ def recipients(s: Session, deal_slug: str, kind: str = "report_published") -> di
             reason = "deactivated"
         elif partner and u.partner_slug not in shared:
             reason = "not_visible"
+        elif partner and not partners_on:             # the system switch outranks a missing subscription
+            reason = "partner_notifications_off"
         elif channels is None:
             reason = "not_subscribed"
-        elif partner and not partners_on:
-            reason = "partner_notifications_off"
         elif not people.wants(s, u, kind):
             reason = "switched_off"
         if reason:

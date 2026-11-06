@@ -570,6 +570,9 @@ The Lead reads this at every merge.
   there (the API already filters status=active). Failing test: `specs/11-people.spec.ts` "known bug: an analyst can
   pick a TAO user from the @ list" (marked `test.fail`); step 11c starts the analyst's thread with the mention through
   the API until it is fixed.
+  Fixed 2026-11-06 by the Lead on integration/wave-c: the analyst rows now carry `status`. The publish dialog's
+  reason order also changed: for partner users the system switch (`partner_notifications_off`) now outranks
+  `not_subscribed`, so the "Partner notifications are off" line shows even when no partner is subscribed.
 - 2026-11-06 — to Lead (note, wave C, not a bug): `GET /uploads/{id}/recipients` gives an unsubscribed partner user
   `not_subscribed` even while partner notifications are off, so with nobody subscribed the Publish dialog's "Partner
   notifications are off" line does not show. Step 11d subscribes D. Alvarez first, then checks the "off" reason.

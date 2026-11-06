@@ -1119,7 +1119,7 @@ def put_my_prefs(body: list[NotificationPrefIn], c: Caller = Depends(user_caller
 def list_users(partner_slug: str | None = None, status: Literal["active", "deactivated"] | None = None,
                q: str | None = Query(default=None, min_length=2), c: Caller = Depends(list_users_caller), s: Session = Depends(get_db)):
     """tao_admin: everyone (partner_slug=tao: TAO users). A Company Admin: its own partner only, whatever partner_slug says.
-    A tao_analyst: only partner_slug=tao&status=active, as {id, name, email, role} (the @mention list)."""
+    A tao_analyst: only partner_slug=tao&status=active, as {id, name, email, role, status} (the @mention list)."""
     qry = select(AppUser)
     scope = c.partner if c.is_company_admin else partner_slug          # the analyst gate allows only tao
     if scope == "tao":
@@ -1133,7 +1133,7 @@ def list_users(partner_slug: str | None = None, status: Literal["active", "deact
         qry = qry.where(or_(func.lower(AppUser.name).like(pat, escape="\\"), func.lower(AppUser.email).like(pat, escape="\\")))
     rows = s.scalars(qry.order_by(AppUser.partner_slug.is_not(None), AppUser.partner_slug, AppUser.name)).all()
     if not (c.is_admin or c.is_company_admin):                  # the analyst's @mention list
-        return [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in rows]
+        return [{"id": u.id, "name": u.name, "email": u.email, "role": u.role, "status": u.status} for u in rows]
     return [people.user_dict(s, u) for u in rows]
 
 

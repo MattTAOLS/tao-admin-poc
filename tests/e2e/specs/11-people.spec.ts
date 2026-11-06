@@ -144,10 +144,8 @@ test('step 11c: comments: the analyst comments on a finding and @mentions an adm
   const f = (await findings(u.id))[0]
   expect(f, 'a finding to comment on').toBeTruthy()
 
-  // J. Moreau comments on the finding and mentions A. Patel. Known bug (docs/requests.md, QA 2026-11-06): an analyst's
-  // @ list is empty, because GET /users answers an analyst without `status` and the composer keeps only status
-  // 'active'. So the analyst starts the thread with the mention through the API, exactly as the composer would send
-  // it, and the known-bug test at the end of this file checks the @ list in the UI.
+  // J. Moreau comments on the finding and mentions A. Patel. The thread starts through the API, exactly as the
+  // composer would send it; the test at the end of this file checks the analyst's @ list in the UI.
   await signInAsUser(page, USERS.moreau)
   const started = await moreau.post(`/uploads/${u.id}/threads`, { anchor: { finding_id: f.id }, body: `${STEP11.comment} @${USERS.patel.name}`, mentions: [USERS.patel.id] })
   expect(started.status, JSON.stringify(started.body)).toBe(201)
@@ -214,11 +212,11 @@ test('step 11d: publish note: who gets notified, partner notifications on, the v
     [expect.objectContaining({ program_slug: MOVE.program, deal_slug: slug })])
 
   // With partner notifications off: nobody at a partner is notified. D. Alvarez (subscribed) is under Not notified
-  // with the "off" reason; M. Chen (not subscribed) with not_subscribed, which the API ranks first.
+  // with the "off" reason; so is M. Chen (not subscribed): the system switch ranks first.
   const before = (await patel.get(`/uploads/${u.id}/recipients`)).body
   expect(before.notified.filter((x: any) => x.partner_slug)).toEqual([])
   expect(before.not_notified).toContainEqual(expect.objectContaining({ user_id: USERS.alvarez.id, reason: 'partner_notifications_off' }))
-  expect(before.not_notified).toContainEqual(expect.objectContaining({ user_id: USERS.chen.id, reason: 'not_subscribed' }))
+  expect(before.not_notified).toContainEqual(expect.objectContaining({ user_id: USERS.chen.id, reason: 'partner_notifications_off' }))
   await openReview(page, u.id)
   await page.getByRole('region', { name: 'Decision' }).getByRole('button', { name: 'Publish to partner…' }).click()
   let pub = page.getByRole('dialog', { name: 'Publish to partner' })
@@ -303,12 +301,9 @@ test('step 11e: profile: display name and time zone change; required notificatio
   expect(((await patel.get('/audit?scope=platform&action=prefs_change')).body as any[]).some(e => e.actor_user_id === me.id)).toBe(true)
 })
 
-/** Known bug (docs/requests.md, QA 2026-11-06): typing @ in a comment as a TAO Analyst lists nobody. GET
- * /users?partner_slug=tao&status=active answers an analyst with {id, name, email, role} (no status) and the composer's
- * mentionMatches keeps only status 'active'. Marked test.fail: it passes while the bug is there and turns red when it
- * is fixed; then drop the marker and the API thread start in step 11c. */
-test('known bug: an analyst can pick a TAO user from the @ list', async ({ page }) => {
-  test.fail()
+/** Was a bug (docs/requests.md, QA 2026-11-06, fixed by the Lead the same day): GET /users?partner_slug=tao&status=active
+ * answered an analyst without status, so the composer's mentionMatches dropped everyone. */
+test('an analyst can pick a TAO user from the @ list (fixed 2026-11-06)', async ({ page }) => {
   const u = await findUpload(r.deal, r.period)
   expect(u).toBeTruthy()
   await signInAsUser(page, USERS.moreau)
