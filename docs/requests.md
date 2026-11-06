@@ -578,3 +578,12 @@ The Lead reads this at every merge.
   notifications are off" line does not show. Step 11d subscribes D. Alvarez first, then checks the "off" reason.
   If the dialog should always say notifications are off when they are, the banner could read the setting rather than
   the reasons.
+- 2026-11-06 — UI-Admin to Lead / Data & API (wave D, contract gap): the AuditEntry description lists detail shapes for
+  wave C but not for the five wave D actions. The Audit log renders them from the shapes below and reads every field
+  defensively; please write these (or tell me the real ones) and add them to the AuditEntry description:
+  `company_change` {company_slug, company_name, change: created|updated|contact_added|contact_updated|contact_removed,
+  contact_id (contact changes), before, after} where before/after hold only the changed record fields (deal_slugs as the
+  full list, owner_user_id) or the contact object; `company_note` {company_slug, note_id, body, mentions,
+  collection_period}; `company_note_edit` {company_slug, note_id, change: edited|removed, before: old text, after: new
+  text or null}; `adverse_change` {company_slug, adverse_id, category, title, state: reviewed|dismissed, note};
+  `news_run` {run_id, trigger: manual}. Subject links go to `/admin/companies/<slug>` (and `?note=<id>` for notes).

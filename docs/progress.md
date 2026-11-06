@@ -1035,3 +1035,21 @@ Append an entry when a work package lands. Newest first.
   Notification.link examples are the old paths; the kinds a partner role can receive are not listed; the sweep timing
   (needs_review and extraction-failed notifications appear when someone next opens notifications or the badge polls)
   is worth a line under Notification. A system notification about an upload (extraction failed) links to its review page; /admin/settings/users is for user_change (and system without an upload).
+
+## UI-Admin, wave D (2026-11-06)
+
+Built: System settings has a new section 5, "Companies and news" (later sections move down one). The daily news search
+switch (company_feeds: enabled, run time HH:MM, IANA time zone defaulting to America/Toronto, Google News RSS and GDELT
+checkboxes, at least one) and "Partners can see company pages" (company_profiles_partner_enabled) both save through the
+existing Save changes dialog: one reason, one PUT and one settings_change entry per setting, with field-level before and
+after. An empty company_feeds value reads as the contract defaults. News runs lists GET /news/runs?limit=10 (trigger,
+status as dot and word, started, finished, companies, items added, adverse added, errors in an expandable list). Run now
+posts /news/runs; 409 feeds_off and run_active show plain messages; a 202 adds the queued run and refreshes the list every
+5 s until it finishes, for at most 2 minutes. The reporting calendar says it drives "Next report due" and the late-report
+alert on company pages. Audit log: labels and rendering for company_change (field-level before and after, deals by name,
+linked and unlinked, contact changes), company_note (month and text), company_note_edit (old and new text, or "removed"),
+adverse_change (Reviewed or Dismissed as dot and word, with the note) and news_run ("Manual run by <who>"); all five sit
+on the Platform tab and in its action filter. Company subjects link to /admin/companies/<slug> (?note=<id> for notes).
+Run: `cd web && npx vitest run src/admin`. Stubbed: nothing on the page; the audit detail shapes for the five actions are
+my reading, since the contract does not give them (request in docs/requests.md, UI-Admin wave D). Needs: Data & API to
+confirm those detail shapes; the /admin/companies route belongs to another agent.
