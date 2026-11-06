@@ -2,6 +2,24 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-06 — QA & Demo, phase 2 wave D (merged integration/wave-d): must-pass first: the 31 existing tests, unchanged,
+  31/31 from `down -v` with the news fixture override (58 min 30 s on a busy host; no failure, so nothing to attribute
+  to wave D). New `specs/12-companies.spec.ts` (7 tests), STEP12 in `lib/facts.ts`: 12a Companies list (10 rows, TLFC one
+  row with 3 deals, "Breach or watch" = 4 and `?status=flagged` survives a reload, "Loans" finds TLFC by deal, star
+  follow, Essex and Xpedite balance and status equal the published objects); 12b Essex profile (KPIs = July 2026
+  publication = reference object, "MSA 8.1 (h) near its limit", delinquency median by default then mean, median
+  recomputed from Finloc and TLFC LP, published covenant cells Apr-Jul outlined, both April restatements, TLFC picker
+  over 3 deals); 12c feed off -> 409 feeds_off, feed on with a reason, Run now -> Done with 10 items and 7 adverse,
+  fixture-only titles, false friends unmatched, Essex Negative news, review (Essex) and dismiss (Moneda), adverse_media
+  notification to the follower, adverse_change and news_run audit, analyst 403; 12d analyst note with an @A. Patel
+  pick, mention Open -> `?note=`, partners 404/403 on notes; 12e partner off (no nav, Page not found, 404), on with a
+  reason, investor sees the 10 shared companies (both programs are shared with both partners, so no outside company
+  exists; hidden open and dismissed items checked instead), no Notes column or TAO-only parts, reviewed item only, note
+  text in no investor or manager response; 12f record edit and contact, company_change before/after, analyst 403;
+  12g News runs list. Two full runs from `down -v`: 38/38 (46 min 37 s) and 38/38 (30 min 18 s). docs/demo.md step 12
+  with 19 screenshots `docs/demo/12-*.png`. Run: add `-f scripts/compose.news-fixture.yml` to the compose command.
+  Filed in requests.md (QA & Demo, wave D): published `source_file` is "source.pdf" (worker reads the stored name),
+  "Open thread" on note mentions, "1 other deals" and "one point per deal" wording.
 - 2026-11-06 — UI-Partner, phase 2 wave D (agent/ui-partner): Companies list, Company profile and the Companies section on
   the Portfolio Executive Summary, all in `web/src/portfolio/companies/`, one set of files for the TAO Admin shell and both
   partner portals. `CompaniesPage.tsx` (default export, D5 screens B and C): one row per company (TLFC is one row with three

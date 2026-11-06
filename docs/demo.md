@@ -1,7 +1,7 @@
 # TAO Admin POC — demo walkthrough
 
 The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
-9), the wave B editing steps (step 10) and the wave C people steps (step 11), run in order from a fresh database,
+9), the wave B editing steps (step 10) and the wave C people steps (step 11) and the wave D company pages (step 12), run in order from a fresh database,
 with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a
 few) in `tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
@@ -14,12 +14,12 @@ On a clean Windows machine with Docker Desktop, Node 20+, Python 3.11+ (`pip ins
 cp .env.example .env                        # fill in ANTHROPIC_API_KEY
 # put the 12 F-PIL SetRep PDFs in data/samples/ (Moneda, Stride, Xpedite, 202605-202608)
 # and the MOVE Trust PDFs in data/samples/move-trust/ (step 9 uses Essex, TLFC_LP and Finloc, 202604-202607)
-docker compose up -d --build
+docker compose -f docker-compose.yml -f scripts/compose.news-fixture.yml up -d --build   # step 12: news worker on its test fixture
 docker compose exec api python -m app.seed  # Git Bash: prefix MSYS_NO_PATHCONV=1 if a path argument is mangled
 cd tests/e2e
 npm ci
 npx playwright install chromium
-npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-10, about 10-20 minutes
+npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-12, 40-70 minutes on a busy host
 npm run lighthouse                          # optional: accessibility on the four main pages, after test:e2e
 ```
 
@@ -28,7 +28,7 @@ For a private stack beside the default one (the agent setup), from the repo root
 
 ```sh
 export API_PORT=18500 WEB_PORT=15500
-docker compose -p tao-qa -f docker-compose.yml -f scripts/compose.agent.yml up -d --build
+docker compose -p tao-qa -f docker-compose.yml -f scripts/compose.agent.yml -f scripts/compose.news-fixture.yml up -d --build
 docker compose -p tao-qa -f docker-compose.yml -f scripts/compose.agent.yml exec -T api python -m app.seed
 cd tests/e2e && E2E_WEB_URL=http://localhost:15500 E2E_API_URL=http://localhost:18500 npm run test:e2e
 ```
@@ -400,6 +400,87 @@ Platform tab.
 
 ![Profile](demo/11-profile.png)
 
+## Journey 7 — companies (phase 2, wave D)
+
+### Step 12. Companies, the company profile, news and adverse media
+
+Wave D groups the deals by lending company: ten companies over the twelve deals (`seed/companies.json`), TLFC being
+one company with three MOVE Trust deals. Every figure on the company pages comes from the published deal objects. The
+news worker runs on its labelled test fixture (`scripts/compose.news-fixture.yml`): every headline starts with "Test
+item:", is invented and says nothing true about any company. `specs/12-companies.spec.ts`; the record values, contact,
+note and reasons are test data.
+
+**12a. Companies list.** A. Patel opens Companies: 10 companies, TLFC one row with "3 deals". Status "Breach or watch"
+leaves the companies whose worst status is BREACH or WATCH (4 after steps 1–11: Finloc in breach, Essex, Moneda and
+Xpedite at watch), and the URL holds `?status=flagged` through a reload. Searching "Loans" finds TLFC through its deal
+TLFC (Loans). The star follows Essex (the API lists it under `following=true`). Balance and status on the Essex and
+Xpedite rows equal the published objects: $179,272,568 at Watch (July 2026) and $39,651,581 at Watch (August 2026).
+
+![Companies](demo/12-companies-list.png)
+![Breach or watch](demo/12-companies-filtered.png)
+
+**12b. Essex profile.** The KPIs are the July 2026 publication, equal to the shared dashboard object: closing tranche
+balance $179,272,568, 826 contracts, 88.54% of the $200,000,000 program limit, 0 breach and 1 watch. What to watch
+starts with "MSA 8.1 (h) near its limit" (interest coverage 1.11 against a floor of 1.0). The delinquency chart shows
+Essex (1.31% in July) and the program median; Mean swaps the median for the mean. The median is checked against the
+other MOVE Trust companies' publications (Finloc and TLFC LP: the median of the two where both report; no line in
+July, when only Finloc does). Covenant status history outlines the published months, Apr–Jul 2026. Restatements list
+April's interest coverage 1.15 → 1.12 and debt to equity 6.35 → 6.22, restated by the company in the May report. For
+TLFC the Deal picker holds its three deals: TLFC LP (Leases) shows its own KPIs (`?deal=`), and TLFC (Leases) and
+TLFC (Loans) say "Not published yet".
+
+![Essex profile](demo/12-essex-profile.png)
+![Delinquency with the program median](demo/12-delinquency-median.png)
+![Covenant history](demo/12-covenant-history.png)
+![TLFC deal picker](demo/12-tlfc-deal-picker.png)
+
+**12c. News and adverse media.** With the feed off, Run now is 409 `feeds_off`. System settings › Daily news search
+on, with a reason; Run now; the list refreshes to "Run finished: Done. 10 news items and 7 adverse items added." The
+worker then starts the day's scheduled run as well (06:00 Toronto has passed), which finds nothing new. Every item
+is a fixture item and the two false friends (TLFCX Holdings, Essex Lease Financing Ltd) match nobody. The Essex
+profile shows its one item marked Negative, and one Open adverse item (Litigation, "1 to review"). Mark reviewed with
+a note: the row shows Reviewed, A. Patel and the note. On Moneda, Dismiss with a reason. A. Patel follows Essex, so
+she has an "Adverse media to review" and a "Negative news" notification. The Platform audit has the two adverse_change
+entries and the news_run. J. Moreau (analyst) gets 403 on review and dismiss and sees no buttons.
+
+![Run now](demo/12-news-run-ok.png)
+![News and adverse media](demo/12-news-and-adverse.png)
+![Adverse item reviewed](demo/12-adverse-reviewed.png)
+![Audit, adverse changes](demo/12-audit-adverse.png)
+
+**12d. Analyst notes.** J. Moreau adds a note on Essex and picks A. Patel from the @ list. The company_note entry is in
+the Platform audit. A. Patel's Mentions tab has "J. Moreau mentioned you: Essex Lease Financial Corp., analyst note";
+Open lands on `/admin/companies/essex-lease-financial-corp?note=<id>` with that note marked current. Partners get
+404 on the notes route while company pages are off for them, 403 once on.
+
+![Analyst note](demo/12-analyst-note.png)
+![Note mention](demo/12-note-mention.png)
+
+**12e. Partner view.** Off by default: D. Alvarez (Investor Viewer) has no Companies entry, `/investor/companies` is
+"Page not found" and `/companies` is 404. A. Patel switches "Partners can see company pages" on with a reason. Both
+programs are shared with both partners in the seed, so no company is outside the investor's programs; the test
+records that and checks the hidden states instead. D. Alvarez sees all 10 companies, no Notes column, and on Essex no
+analyst notes, no Edit record, no relationship owner and no "View as partner". Only the reviewed adverse item shows:
+Moneda's dismissed item and VCC IV LP's two open items are absent in the page and the API. The note text appears in no
+investor or manager response (companies, profile, news, adverse, insights, notifications, published objects).
+
+![Partner, feature off](demo/12-partner-off.png)
+![Partner companies](demo/12-partner-companies.png)
+![Partner profile](demo/12-partner-profile.png)
+
+**12f. Company record.** A. Patel edits the Essex record (industry and headquarters, test values) with a reason and
+adds a key contact. The Platform audit has a company_change `record` entry whose before and after hold only the two
+changed fields, and a `contact_added` entry. J. Moreau sees no Edit record or Add contact and gets 403 from the API.
+
+![Edit record](demo/12-edit-record.png)
+![Record and contact](demo/12-record-and-contact.png)
+![Audit, company change](demo/12-audit-company-change.png)
+
+**12g. News runs.** System settings lists the runs, newest first: the scheduled run and the manual run from 12c (Done,
+10 companies, 10 items, 7 adverse, no errors). Analysts may read the runs; partners get 403.
+
+![News runs](demo/12-news-runs.png)
+
 ## Acceptance (build plan), measured 2026-11-04
 
 Two runs on the QA stack (Windows 11, Docker Desktop), each from `docker compose down -v`, then `up -d` (images
@@ -434,3 +515,11 @@ steps and negatives, the covenant regression check, and the analyst @mention kno
 expected failure): 40 min 37 s (start and seed 4 min 8 s, tests 36 min 29 s; step 11 about 3 min 50 s). The same host
 ran the wave B suite in about 21 minutes the day before and the phase 1 suite in 7–9 minutes. A second run from `down -v` was
 also 31 of 31: 40 min 41 s (start and seed 3 min 22 s, tests 37 min 19 s).
+
+**Wave D runs, 2026-11-06.** After merging `integration/wave-d`, the 31 existing tests were first run unchanged from
+`down -v` (stack with `scripts/compose.news-fixture.yml`, up, seed): 31 of 31, tests 58 min 30 s, start and seed about
+4 min (the host was again at high CPU; step 9 alone took 22.5 min). With step 12 added, two full runs from `down -v`,
+up, seed and `npx playwright test --project=demo`: run 1, 38 of 38 in 46 min 37 s (start and seed 4 min 41 s, tests
+41 min 56 s; step 12 about 5 min 50 s); run 2, 38 of 38 in 30 min 18 s (2 min 11 s, 28 min 7 s; step 12 about 3 min).
+Screens in the TAO shell were re-taken because the sidebar now has Companies; partner-shell screenshots of earlier
+steps did not change and were kept.

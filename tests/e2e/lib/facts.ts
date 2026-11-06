@@ -136,3 +136,31 @@ export const STEP11 = {
   note: 'QA demo note to partners: the July report is published.',
   profile: { name: 'S. Lindqvist-Berg', timeZone: 'America/Vancouver' },
 }
+
+/** Step 12 (phase 2 wave D): companies. seed/companies.json has 10 companies over the 12 deals; TLFC is one company with
+ * three MOVE Trust deals. The news worker runs on its labelled test fixture (news/fixtures/example.json, NEWS_SOURCE=fixture):
+ * one run writes 10 news items and 7 open adverse items against the seed companies, every title starts with "Test item:",
+ * and two false friends (TLFCX Holdings, Essex Lease Financing Ltd) must not match. The record values, contact, notes and
+ * reasons are test data. */
+export const STEP12 = {
+  companies: 10,
+  essex: { slug: 'essex-lease-financial-corp', name: 'Essex Lease Financial Corp.', deal: 'essex' as DealKey, period: '2026-07' },
+  tlfc: { slug: 'tlfc', name: 'TLFC', deals: ['move-trust-tlfc-leases', 'move-trust-tlfc-loans', 'move-trust-tlfc-lp-leases'] },
+  moneda: { slug: 'moneda-capital-corp', name: 'Moneda Capital Corp.' },
+  vcc: { slug: 'vcc-iv-lp', name: 'VCC IV LP' },
+  /** A deal name that is not a company name: finds TLFC through its deal "TLFC (Loans)". */
+  searchByDeal: { q: 'Loans', finds: 'TLFC' },
+  fixture: {
+    prefix: 'Test item:', items: 10, adverse: 7,
+    essexTitle: 'Test item: Essex Lease Financial named in a fictional lawsuit over equipment leases',
+    monedaTitle: 'Test item: securities commission fined Moneda Capital Corp. in a fictional hearing',
+    falseFriends: ['TLFCX Holdings', 'Essex Lease Financing Ltd'],
+  },
+  feedReason: 'QA demo: switch the daily news search on (test fixture source)',
+  reviewNote: 'QA demo: checked, a fictional test item; no impact on the deal',
+  dismissReason: 'QA demo: dismissed, test fixture item about a different hearing',
+  note: 'QA demo note: watch the interest coverage covenant next month',
+  partnerReason: 'QA demo: let partners see company pages',
+  record: { industry: 'Equipment leasing (QA demo value)', headquarters: 'QA demo HQ, not a real address', reason: 'QA demo: record filled in for the walkthrough' },
+  contact: { name: 'Q. Contact', role: 'Servicer reporting (QA demo)', email: 'qa.contact@example.com', receives: 'Monthly SetRep', reason: 'QA demo: contact added for the walkthrough' },
+}
