@@ -11,6 +11,7 @@ const ACTION: Record<string, string> = {
   approve: 'Approved', reject: 'Rejected', publish: 'Published', regenerate: 'Dashboards regenerated', master_change: 'Master data changed',
   export: 'Exported', value_edit: 'Value edited', value_edit_revert: 'Edit reverted', correction: 'Value corrected',
   correction_approve: 'Correction approved', correction_reject: 'Correction rejected',
+  comment: 'Comment added', comment_edit: 'Comment edited', thread_resolve: 'Thread resolved', thread_reopen: 'Thread reopened',
 }
 export const actionLabel = (a: string) => ACTION[a] ?? a.replace(/_/g, ' ')
 const choiceLabel = (c: unknown) => CHOICES.find(x => x.id === c)?.label ?? String(c)
@@ -45,11 +46,23 @@ function editLine(deal: Record<string, unknown> | undefined, x: EditDetail, key:
     {(x.old_value !== undefined || to !== undefined) && <>: <b>{fmt(x.old_value)}</b> → <b>{fmt(to)}</b></>}</span>
 }
 
+const clip = (s: string, n = 120) => (s.length > n ? s.slice(0, n) + '…' : s)
+
 function Detail({ e, unit, deal }: { e: AuditEntry; unit: Finding['unit']; deal?: Record<string, unknown> }) {
   const d = e.detail ?? {}
   const parts: ReactNode[] = []
   if (typeof d.pointer === 'string') parts.push(editLine(deal, d as EditDetail, 'e'))
   if (Array.isArray(d.edits)) (d.edits as EditDetail[]).forEach((x, i) => parts.push(editLine(deal, x, 'e' + i)))
+  // Wave C comment entries: the anchor, the text (or before → after for an edit) and the mention count.
+  if (d.anchor && typeof d.anchor === 'object') {
+    const a = d.anchor as { pointer?: string; rule_id?: string | null; finding_id?: string }
+    parts.push(<span key="an">{a.rule_id ? <b>{a.rule_id}</b> : a.pointer ? pointerLabel(deal, a.pointer) : 'finding'} thread</span>)
+  }
+  if (typeof d.body === 'string') parts.push(<span key="bd">“{clip(d.body)}”</span>)
+  if (typeof d.before === 'string' && typeof d.after === 'string' && e.action === 'comment_edit') parts.push(<span key="ba">“{clip(d.before)}” → “{clip(d.after)}”</span>)
+  if (Array.isArray(d.mentions) && d.mentions.length > 0) parts.push(<span key="mn">{d.mentions.length} mention{d.mentions.length === 1 ? '' : 's'}</span>)
+  if (typeof d.note_to_partners === 'string' && d.note_to_partners) parts.push(<span key="nt">note to partners “{clip(d.note_to_partners)}”</span>)
+  if (Array.isArray(d.recipients)) parts.push(<span key="rc">{d.recipients.length} recipient{d.recipients.length === 1 ? '' : 's'} notified</span>)
   if (typeof d.version === 'number') parts.push(<span key="ver">version {d.version}</span>)
   if (d.rule_id) parts.push(<b key="r">{String(d.rule_id)}</b>)
   if (d.choice) parts.push(<span key="c">{choiceLabel(d.choice)}</span>)

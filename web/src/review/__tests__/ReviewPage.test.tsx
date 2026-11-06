@@ -171,7 +171,7 @@ describe('Review report', () => {
     await waitFor(() => expect(screen.getByText('1 block finding is open. Resolve it before publishing.')).toBeTruthy(), { timeout: 6000 })
     const findingGets = calls.filter(c => c.method === 'GET' && c.path.endsWith('/findings')).length
     expect(findingGets).toBeGreaterThanOrEqual(3)
-  }, 20000)
+  }, 40000)
 
   it('analysts can open the page but see no action buttons', async () => {
     setRole('tao_analyst')

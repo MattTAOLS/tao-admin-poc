@@ -61,7 +61,7 @@
 .rv-chip:hover { background: var(--lav); }
 .rv-chip[aria-pressed="true"] { background: var(--lav-2); border-color: var(--lav-2); }
 .rv-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 28px; }
-.rv-kv__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--border-table); font-family: var(--data); font-size: var(--fs-table); }
+.rv-kv__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--border-table); font-family: var(--data); font-size: var(--fs-table); }
 .rv-kv__label { color: var(--text); }
 .rv-kv__value { text-align: right; font-feature-settings: var(--tabular); color: var(--indigo); font-weight: 600; }
 .rv-kv__group { grid-column: 1 / -1; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 0 2px; }
@@ -158,3 +158,45 @@
 .rv-footer--inline { position: static; box-shadow: none; }
 .rv-plain { font-family: var(--font); font-weight: 400; color: var(--text); }
 .rv-warnline { color: var(--warn); }
+
+/* ---- Wave C: comment threads (D7 b) and the publish note and recipients (D7 c) ---- */
+.rv-cbtn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-card); background: var(--card); color: var(--purple);
+  border-radius: var(--r-chip); padding: 2px 9px; min-height: 24px; font: 600 11.5px var(--font); cursor: pointer; white-space: nowrap;
+  transition: background var(--t-control) var(--ease), border-color var(--t-control) var(--ease); }
+.rv-cbtn:hover { background: var(--lav); }
+.rv-cbtn:focus-visible { box-shadow: var(--focus); outline: none; }
+.rv-cbtn__n { background: var(--lav-2); color: var(--indigo); border-radius: var(--r-chip); padding: 0 6px; font: 600 11px var(--data); font-feature-settings: var(--tabular); }
+.ds-finding__actions .rv-cbtn { margin-left: auto; }
+/* In value rows the control is quiet until the row is hovered or focused, unless the row already has comments. */
+.rv-cbtn--compact { border-color: transparent; background: none; padding: 2px 4px; opacity: 0; }
+.rv-cbtn--compact.rv-cbtn--has, .rv-kv__row:hover .rv-cbtn--compact, tr:hover .rv-cbtn--compact, .rv-cbtn--compact:focus-visible { opacity: 1; }
+@media (hover: none) { .rv-cbtn--compact { opacity: 1; } }
+.rv-threadlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rv-threadlist__item { border: 1px solid var(--border-card); border-radius: var(--r-control); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.rv-threadlist__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rv-threadlist__head > button { margin-left: auto; }
+.rv-thread { border: 1px solid var(--border-card); border-radius: var(--r-control); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rv-thread--resolved { background: var(--canvas-deep); }
+.rv-thread__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-small); }
+.rv-thread__actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.rv-comments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rv-comment { display: flex; flex-direction: column; gap: 2px; }
+.rv-comment__head { display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-small); }
+.rv-comment__head b { color: var(--indigo); }
+.rv-comment__edit { margin-left: auto; font-size: var(--fs-small); }
+.rv-comment__body { margin: 0; white-space: pre-wrap; color: var(--text); }
+.rv-mention { color: var(--purple); font-weight: 600; }
+.rv-composer { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.rv-composer__input { width: 100%; resize: vertical; min-height: 56px; font: 13px var(--font); }
+.rv-composer__bar { display: flex; align-items: center; gap: 8px; }
+.rv-composer__bar .rv-hint { margin-right: auto; }
+.rv-mentions { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--border-card); border-radius: var(--r-control); background: var(--card);
+  box-shadow: var(--sh-panel); max-height: 220px; overflow: auto; }
+.rv-mentions__opt { display: flex; gap: 10px; align-items: baseline; padding: 6px 8px; border-radius: var(--r-chip); cursor: pointer; font-size: 13px; }
+.rv-mentions__opt[aria-selected="true"], .rv-mentions__opt:hover { background: var(--lav); }
+.rv-mentions__opt b { color: var(--indigo); }
+.rv-newthread { border-top: 1px solid var(--border-table); padding-top: 10px; }
+.rv-notify { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.rv-notify__off { margin: 0; padding: 8px 10px; border-radius: var(--r-control); background: var(--warn-bg); color: var(--text); font-size: var(--fs-table); }
+.rv-notify__off b { color: var(--warn); }
+.rv-counter { font-family: var(--data); font-feature-settings: var(--tabular); }

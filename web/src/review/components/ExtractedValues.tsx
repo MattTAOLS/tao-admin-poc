@@ -5,6 +5,7 @@ import { getPointer, provenance } from '../lib/provenance'
 import { byFormat, count, covenantValue, money, pct, ratio, text, yesNo } from '../lib/format'
 import type { ViewerTarget } from './PageImage'
 import { EditableValue, useEdits } from './EditValue'
+import { CommentButton } from './Comments'
 
 type Open = (t: ViewerTarget) => void
 type Fmt = (v: unknown) => ReactNode
@@ -44,6 +45,7 @@ function Kv({ ex, items, onOpen }: { ex: Extraction; items: KvItem[]; onOpen: Op
             <span className="rv-kv__label">{i.label}</span>
             <span className="rv-kv__value"><EditableValue ex={ex} pointer={i.ptr} label={name} fmt={i.fmt} /></span>
             <SourceRef ex={ex} pointer={i.ptr} label={name} onOpen={onOpen} />
+            <CommentButton anchor={{ pointer: i.ptr }} label={name} compact />
           </div>
         )
       })}
@@ -70,6 +72,7 @@ function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
         : <span className={c.className}>{fmt(r[c.key])}</span>
     } })),
     { key: '__src', header: 'Source', align: 'right' as const, render: (r: Row) => <SourceRef ex={ex} pointer={`${base}/${r.__i}`} label={`${title}, ${rowName(r)}`} onOpen={onOpen} /> },
+    { key: '__c', header: 'Comments', align: 'right' as const, render: (r: Row) => <CommentButton anchor={{ pointer: `${base}/${r.__i}` }} label={`${title}, ${rowName(r)}`} rows compact /> },
   ]
   return <div className="rv-scroll"><DataTable<Row> caption={title} captionHidden columns={columns} rows={rows} rowKey={r => String(r.__i)} density="compact" /></div>
 }
@@ -251,6 +254,7 @@ function CovenantTable({ ex, onOpen }: { ex: Extraction; onOpen: Open }) {
     { key: 'status', header: 'Status', render: c => (c.status ? <CovenantPill status={String(c.status)} size="sm" /> : '—') },
     { key: 'reported_triggered', header: 'Report says', render: c => text(c.reported_triggered) },
     { key: '__src', header: 'Source', align: 'right', render: c => <SourceRef ex={ex} pointer={`/covenants/${c.__i}`} label={`Covenant ${text(c.legal_ref)}`} onOpen={onOpen} /> },
+    { key: '__c', header: 'Comments', align: 'right', render: c => <CommentButton anchor={{ pointer: `/covenants/${c.__i}` }} label={`Covenant ${text(c.legal_ref)}`} rows compact /> },
   ]
   return <div className="rv-scroll"><DataTable<C> caption="Covenants" captionHidden columns={columns} rows={rows} rowKey={c => String(c.__i)} density="compact" /></div>
 }

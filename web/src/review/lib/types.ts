@@ -141,3 +141,44 @@ export type CorrectionDetail = Correction & { findings?: Finding[] }
 export type PublicationVersion = { version: number; published_at: string; published_by: string; correction_id?: string | null; reason?: string | null; note_to_partners?: string | null; current?: boolean }
 
 export type CorrectionRequest = { edits: { pointer: string; value: number }[]; reason: string; note_to_partners?: string | null }
+
+// Wave C: comments, the caller, publish note and recipients (contracts/openapi.yaml).
+
+/** contracts/openapi.yaml › ThreadAnchor: exactly one of finding_id or pointer. */
+export type ThreadAnchor = { finding_id?: string; pointer?: string; rule_id?: string | null }
+export type CommentAuthor = { id: string; name: string }
+export type Comment = {
+  id: string
+  thread_id: string
+  author: CommentAuthor
+  body: string
+  mentions: string[]
+  created_at: string
+  edited_at: string | null
+}
+export type Thread = {
+  id: string
+  upload_id: string
+  anchor: ThreadAnchor
+  status: 'open' | 'resolved'
+  /** Publication version current when the thread started; null before the first publish. */
+  version?: number | null
+  created_by: CommentAuthor
+  created_at: string
+  resolved_by?: CommentAuthor | null
+  resolved_at?: string | null
+  /** Oldest first. */
+  comments: Comment[]
+}
+
+/** contracts/openapi.yaml › AppUser (the fields the review pages use). */
+export type AppUser = { id: string; email: string; name: string; role: string; partner_slug: string | null; status: 'active' | 'deactivated' }
+/** contracts/openapi.yaml › Me: user is null in demo mode (no X-User). */
+export type Me = { user: AppUser | null; role: string; partner_slug: string | null }
+
+export type RecipientChannel = 'in_app' | 'email'
+export type NotReason = 'not_subscribed' | 'deactivated' | 'not_visible' | 'switched_off' | 'partner_notifications_off'
+export type Recipients = {
+  notified: { user_id: string; name: string; partner_slug: string | null; channels: RecipientChannel[] }[]
+  not_notified: { user_id: string; name: string; partner_slug?: string | null; reason: NotReason }[]
+}

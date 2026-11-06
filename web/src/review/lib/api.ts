@@ -3,7 +3,8 @@
 import { api, apiBlob, API_BASE, roleHeaders } from '@/shell/api'
 import { loadRole, type Role } from '@/shell/roles'
 import type {
-  AuditEntry, Correction, CorrectionDetail, CorrectionRequest, CorrectionStatus, Deal, Extraction, Finding, OverrideChoice, Program, Upload, ValueEdit, ValueEditResult,
+  AppUser, AuditEntry, Comment, Correction, CorrectionDetail, CorrectionRequest, CorrectionStatus, Deal, Extraction, Finding, Me, OverrideChoice, Program,
+  Recipients, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult,
 } from './types'
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
@@ -16,8 +17,10 @@ export const reviewApi = {
   override: (id: string, findingId: string, choice: OverrideChoice, reason: string) =>
     api<Finding[]>(`/uploads/${id}/findings/${findingId}/override`, json({ choice, reason })),
   /** Own fetch so a 409's `conflicts` / `findings` reach the dialog (the shell client keeps only code and status). */
-  approve: async (id: string): Promise<Upload> => {
-    const res = await fetch(`${API_BASE}/uploads/${id}/approve`, { method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' } })
+  approve: async (id: string, noteToPartners: string | null = null): Promise<Upload> => {
+    const res = await fetch(`${API_BASE}/uploads/${id}/approve`, {
+      method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ note_to_partners: noteToPartners }),
+    })
     const body = await res.json().catch(() => ({ code: 'http_' + res.status, message: res.statusText }))
     if (!res.ok) throw Object.assign(new Error(body.message), { code: body.code, status: res.status, conflicts: body.conflicts, findings: body.findings })
     return body as Upload
@@ -42,6 +45,18 @@ export const reviewApi = {
     api<unknown>(`/corrections/${cid}/findings/${findingId}/override`, json({ choice, reason })),
   approveCorrection: (cid: string) => api<Correction>(`/corrections/${cid}/approve`, { method: 'POST' }),
   rejectCorrection: (cid: string, reason: string) => api<Correction>(`/corrections/${cid}/reject`, json({ reason })),
+  // Wave C: the caller, comment threads, @mention candidates, publish recipients.
+  me: () => api<Me>('/me'),
+  threads: (id: string) => api<Thread[]>(`/uploads/${id}/threads`),
+  startThread: (id: string, anchor: ThreadAnchor, body: string, mentions: string[]) =>
+    api<Thread>(`/uploads/${id}/threads`, json({ anchor, body, mentions })),
+  addComment: (threadId: string, body: string, mentions: string[]) => api<Comment>(`/threads/${threadId}/comments`, json({ body, mentions })),
+  editComment: (commentId: string, body: string, mentions: string[]) =>
+    api<Comment>(`/comments/${commentId}`, { method: 'PATCH', body: JSON.stringify({ body, mentions }) }),
+  resolveThread: (threadId: string) => api<Thread>(`/threads/${threadId}/resolve`, { method: 'POST' }),
+  reopenThread: (threadId: string) => api<Thread>(`/threads/${threadId}/reopen`, { method: 'POST' }),
+  taoUsers: () => api<AppUser[]>('/users?partner_slug=tao&status=active'),
+  recipients: (id: string) => api<Recipients>(`/uploads/${id}/recipients`),
   regenerate: (programSlug?: string) =>
     api<{ queued?: boolean; programs?: string[]; publications?: number } | undefined>('/published/regenerate', json(programSlug ? { program_slug: programSlug } : {})),
 }
@@ -92,6 +107,10 @@ export function errorText(e: unknown): string {
     case 'bad_choice': return 'A correction\'s values are its edits, so only Accept as restatement or Acknowledge apply here.'
     case 'invalid': return err.message || 'The API could not find that value, or it is not a number.'
     case 'admin_only': case 'tao_only': return 'Your role cannot do this. Only a TAO admin can.'
+    case 'user_required': return 'Sign in as a user to comment.'
+    case 'not_author': return 'You can edit only your own comments.'
+    case 'bad_mention': return 'You can mention only active TAO users. Pick a name from the list.'
+    case 'inactive_user': return 'Your account is deactivated.'
   }
   if (err?.status === 403) return 'Your role cannot do this. Only a TAO admin can.'
   return err?.message || 'The request failed. Try again in a moment.'

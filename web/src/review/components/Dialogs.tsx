@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button, Dialog, Field, Textarea, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
 import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
-import type { ApiError, Extraction, Finding, OverrideChoice, Upload, ValueEdit } from '../lib/types'
+import type { ApiError, Extraction, Finding, NotReason, OverrideChoice, Recipients, Upload, ValueEdit } from '../lib/types'
+import { useLoad } from '../lib/useLoad'
 import { EditsTable } from './Corrections'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
 import { isReissueFinding, type ReissueInfo } from '../lib/reissue'
@@ -138,8 +139,12 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
   )
 }
 
-export function PublishDialog({ upload, open, title, partner, findings, ex, edits = [], reissue, replacedPublishedAt, onClose, onDone, onGoTo }: {
+export const NOTE_MAX = 2000
+
+export function PublishDialog({ upload, open, title, partner, findings, ex, edits = [], reissue, replacedPublishedAt, threadCount = 0, onClose, onDone, onGoTo }: {
   upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; ex?: Extraction
+  /** Comment threads on the upload: internal, never sent; the dialog says so. */
+  threadCount?: number
   /** Value edits in force from review (not reverted, not part of a correction): publishing writes each one. */
   edits?: ValueEdit[]
   reissue?: ReissueInfo | null; replacedPublishedAt?: string | null
@@ -147,7 +152,9 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
 }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<ApiError>()
-  useEffect(() => { if (open) setErr(undefined) }, [open])
+  const [note, setNote] = useState('')
+  useEffect(() => { if (open) { setErr(undefined); setNote('') } }, [open])
+  const recipients = useLoad(() => reviewApi.recipients(upload.id), [upload.id, open], open)
   const resolved = findings.filter(f => f.status !== 'open').length
   const openReview = findings.filter(f => f.status === 'open' && f.severity === 'review').length
   const openNotes = findings.filter(f => f.status === 'open' && f.severity === 'note').length
@@ -157,7 +164,7 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   const byId = (id: string) => findings.find(f => f.id === id)
   const submit = async () => {
     setBusy(true); setErr(undefined)
-    try { onDone(await reviewApi.approve(upload.id)) }
+    try { onDone(await reviewApi.approve(upload.id, note.trim() || null)) }
     catch (e) { setErr(e as ApiError) }
     finally { setBusy(false) }
   }
@@ -166,7 +173,7 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
     return f ? <Button key={id} size="sm" onClick={() => onGoTo(id)}>Go to {f.rule_id}</Button> : null
   }
   return (
-    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size={changes.length > 0 || edits.length > 0 || err ? 'lg' : 'md'}
+    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size="lg"
       description={`${title} goes to ${partner}. Partner portals show it straight away and the program roll-up regenerates.`}
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Approve and publish</Button></>}>
       <ul className="rv-summary">
@@ -212,8 +219,65 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
         <p className="rv-hint">No values change: the published deal is the extraction as shown.</p>
       ) : null}
       {unchanged.length > 0 && <p className="rv-hint">{unchanged.map(id => byId(id)?.rule_id).join(', ')}: the chosen value is already the extracted one, so nothing is written.</p>}
+      <div className="rv-notify">
+        <Field label="Note to partners (optional)"
+          hint={<>Sent with the publish notification as a note from TAO, signed by the company. Plain text. <span className="rv-counter" data-testid="note-count">{note.length.toLocaleString('en-US')} / {NOTE_MAX.toLocaleString('en-US')}</span></>}>
+          <Textarea rows={3} value={note} maxLength={NOTE_MAX} onChange={e => setNote(e.target.value)} />
+        </Field>
+      </div>
+      <RecipientsList load={recipients} threadCount={threadCount} />
       {err && <PublishError err={err} findings={findings} ex={ex} goTo={goTo} />}
     </Dialog>
+  )
+}
+
+const PARTNER: Record<string, string> = { investor: 'Investor', manager: 'Manager' }
+const partnerName = (s?: string | null) => (s ? PARTNER[s] ?? s : 'TAO')
+export const NOT_REASON: Record<NotReason, string> = {
+  not_subscribed: 'does not receive this deal',
+  deactivated: 'deactivated',
+  not_visible: 'the program is not shared with their partner',
+  switched_off: 'turned off report notifications',
+  partner_notifications_off: 'partner notifications are off',
+}
+export const NOTIFICATIONS_OFF = 'Partner notifications are off, so no partner is notified.'
+const channelText = (c: string) => (c === 'email' ? 'Email (coming later)' : c === 'in_app' ? 'In-app' : c)
+
+/** D7 c "Who gets notified": GET /uploads/{id}/recipients, worked out by the API from subscriptions, partner
+ * visibility, user status, prefs and the partner notifications setting. Shows what it says; decides nothing. */
+export function RecipientsList({ load, threadCount = 0 }: { load: { data?: Recipients; error: unknown; loading: boolean; reload: () => void }; threadCount?: number }) {
+  const r = load.data
+  const off = !!r && r.not_notified.some(x => x.reason === 'partner_notifications_off')
+  const partners = r ? new Set(r.notified.map(x => x.partner_slug ?? '')).size : 0
+  return (
+    <section className="rv-notify" aria-label="Who gets notified" data-testid="recipients">
+      <h3 className="rv-section__title">Who gets notified{r && <span className="rv-muted"> · {r.notified.length === 0 ? 'nobody' : `${r.notified.length} ${r.notified.length === 1 ? 'person' : 'people'} at ${partners} partner${partners === 1 ? '' : 's'}`}</span>}</h3>
+      {load.error != null && !r ? (
+        <p className="rv-hint" role="status">Could not load the recipients: {errorText(load.error)} Publishing still works. <button type="button" className="rv-linkbtn" onClick={() => load.reload()}>Retry</button></p>
+      ) : !r ? (
+        <p className="rv-hint" aria-busy="true">Loading recipients…</p>
+      ) : <>
+        {off && <p className="rv-notify__off" data-testid="notifications-off"><b>{NOTIFICATIONS_OFF}</b> A TAO Admin can turn them on in System settings.</p>}
+        {r.notified.length > 0 && (
+          <div className="rv-scroll">
+            <table className="ds-table ds-table--compact" aria-label="Notified">
+              <thead><tr><th scope="col">Partner</th><th scope="col">User</th><th scope="col">Channel</th></tr></thead>
+              <tbody>
+                {r.notified.map(x => <tr key={x.user_id}><td>{partnerName(x.partner_slug)}</td><td>{x.name}</td><td>{x.channels.map(channelText).join(' · ')}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {r.notified.length === 0 && !off && <p className="rv-hint">Nobody is notified: no active partner user receives this deal.</p>}
+        {r.not_notified.length > 0 && <>
+          <h4 className="rv-section__title">Not notified ({r.not_notified.length})</h4>
+          <ul className="rv-summary" aria-label="Not notified">
+            {r.not_notified.map(x => <li key={x.user_id}><b>{x.name}</b>{x.partner_slug !== undefined && <> · {partnerName(x.partner_slug)}</>}: {NOT_REASON[x.reason] ?? x.reason.replace(/_/g, ' ')}.</li>)}
+          </ul>
+        </>}
+      </>}
+      <p className="rv-hint">{threadCount > 0 ? `The ${threadCount} internal comment thread${threadCount === 1 ? '' : 's'} on this upload ${threadCount === 1 ? 'is' : 'are'} not sent.` : 'Comments on this upload are internal and never sent.'}</p>
+    </section>
   )
 }
 

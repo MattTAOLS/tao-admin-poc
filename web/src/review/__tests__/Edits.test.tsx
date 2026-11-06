@@ -216,7 +216,7 @@ describe('Corrections after publish (D1 c)', () => {
     const dlg = await screen.findByRole('dialog', { name: 'Correct a published value' })
     expect(within(dlg).getByText(/published version 1\. A correction creates version 2/)).toBeTruthy()
     expect(within(dlg).getByText('Note to partners (optional)')).toBeTruthy()
-    expect(within(dlg).getByText(/Sent to partners in a later release/)).toBeTruthy()
+    expect(within(dlg).getByText(/Sent to partners with the correction/)).toBeTruthy()
     const submit = within(dlg).getByRole('button', { name: 'Correct and re-publish' }) as HTMLButtonElement
     await userEvent.type(within(dlg).getByRole('textbox', { name: 'New value for Tranche balance · closing' }), '15020071.52')
     await userEvent.type(within(dlg).getByRole('textbox', { name: /^Reason/ }), 'by email')
