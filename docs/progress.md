@@ -1073,3 +1073,33 @@ Append an entry when a work package lands. Newest first.
 - Stubbed / not here: the news worker itself (News agent). Contract gaps and choices: docs/requests.md, Data & API
   2026-11-06 (unlinked-deal row slug, partner owner null, MOVE Trust has no covenant definitions so its history is
   published months only, signal severities and anchors, interpretations).
+
+## News, wave D (2026-11-06)
+
+Built: `news/`, the news worker. `main.py` reads `company_feeds` every minute (defaults when absent: off, 06:00,
+America/Toronto, google_news + gdelt), runs queued Run-now rows oldest first (BRPOP on `NEWS_QUEUE` is a wake-up; the
+queued rows are the source of truth), and starts one `schedule` run per local day at or after run_at (zoneinfo; tested
+around local and UTC midnight, the March skipped hour and the November repeated hour). One run at a time; a run left
+`running` by a restart is failed; a queued run that meets `enabled: false` is failed without fetching. Sources: Google
+News RSS (one quoted query per name and alias, 2 s apart, last 7 days), GDELT DOC 2.0 (one OR query per company, 5.5 s
+apart), fixture (`NEWS_SOURCE=fixture`, `NEWS_FIXTURE=<json>`). urllib, 20 s timeout, User-Agent "tao-admin-poc news
+worker", nothing personal sent. Matching: whole phrase, case-insensitive, name and aliases, title or description.
+Screening: `screen.py` + `screen_terms.json`, five adverse categories (one open adverse_item per category hit) and
+positive / neutral / negative sentiment; keywords only. Errors per company and source as `{company_slug, source,
+message}`; status ok / partial / failed. Logs: run start and end with counts.
+
+Run: `python -m pytest news/tests` (72 tests, SQLite, network refused). Fixture format and expected rows:
+`news/README.md`; example `news/fixtures/example.json` (10 items and 7 adverse items against the seed companies, two
+false friends that must not match).
+
+Checked on PostgreSQL 16 in a private stack (tao-news): container idles while off; a queued run while off is failed with
+the "company_feeds is off" error; with the fixture a manual run wrote 10 items and 7 adverse items (status ok); the
+scheduled run started once, deduped to 0 new items, and did not repeat. Companies were inserted by hand because the
+API on lead/wave-d does not seed them or serve `/news/runs` yet; the `/companies/{slug}/news` read was not checked.
+
+Live smoke test (once, Google News only, 17 requests): status ok, 10 companies, no errors, every response parsed as
+RSS, 0 items kept (nothing within 7 days that names a company in the title or description). Setting switched back off,
+stack removed with `down -v`; nothing fetched was committed.
+
+Needs: API seeds `company` and implements POST `/news/runs` as described under "News" in docs/requests.md; Lead or QA
+sets NEWS_SOURCE / NEWS_FIXTURE on the news service for the e2e.

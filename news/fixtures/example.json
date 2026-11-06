@@ -1,0 +1,90 @@
+{
+  "_note": "Test data only. Every headline is invented, starts with 'Test item:' and says nothing true about any real company. URLs point at example.com.",
+  "fail_companies": [],
+  "items": [
+    {
+      "title": "Test item: Essex Lease Financial named in a fictional lawsuit over equipment leases",
+      "url": "https://example.com/tao-news-test/01-litigation",
+      "publisher": "Test Wire",
+      "published_at": "-1d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: securities commission fined Moneda Capital Corp. in a fictional hearing",
+      "url": "https://example.com/tao-news-test/02-regulatory",
+      "publisher": "Test Wire",
+      "published_at": "-2d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: TLFC describes a fictional fraud attempt against a customer",
+      "url": "https://example.com/tao-news-test/03-fraud",
+      "publisher": "Test Wire",
+      "published_at": "-3h",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: Finloc 2000 customer files a fictional CCAA application",
+      "url": "https://example.com/tao-news-test/04-insolvency",
+      "publisher": "Test Ledger",
+      "published_at": "-2d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: Stride Capital counterparty screened for sanctions in a fictional check",
+      "url": "https://example.com/tao-news-test/05-sanctions",
+      "publisher": "Test Ledger",
+      "published_at": "-4d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: regulator opens a fictional enforcement review after a fraud allegation",
+      "url": "https://example.com/tao-news-test/06-regulatory-and-fraud",
+      "publisher": "Test Ledger",
+      "published_at": "-5d",
+      "description": "Fictional test data about VCC IV LP, not a real report."
+    },
+    {
+      "title": "Test item: Dynamic Capital expands into a fictional new region after record growth",
+      "url": "https://example.com/tao-news-test/07-positive",
+      "publisher": "Test Wire",
+      "published_at": "-1d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: Meridian OneCap publishes its fictional quarterly newsletter",
+      "url": "https://example.com/tao-news-test/08-neutral",
+      "publisher": "Test Wire",
+      "published_at": "2026-11-02T14:00:00Z",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: Xpedite Leasing reports a fictional decline in volumes",
+      "url": "https://example.com/tao-news-test/09-negative",
+      "publisher": "Test Wire",
+      "published_at": "-6d",
+      "description": "Fictional test data, not a real report."
+    },
+    {
+      "title": "Test item: fictional leasing roundup",
+      "url": "https://example.com/tao-news-test/10-alias-in-description",
+      "publisher": "Test Ledger",
+      "published_at": "-2d",
+      "description": "Fictional test data: TPine Leasing launches a partnership, not a real report."
+    },
+    {
+      "title": "Test item: TLFCX Holdings sued in a fictional dispute",
+      "url": "https://example.com/tao-news-test/11-false-friend",
+      "publisher": "Test Wire",
+      "published_at": "-1d",
+      "description": "Fictional test data about a made-up company whose name only looks like TLFCX, not a real report."
+    },
+    {
+      "title": "Test item: Essex Lease Financing Ltd faces a fictional bankruptcy petition",
+      "url": "https://example.com/tao-news-test/12-false-friend",
+      "publisher": "Test Wire",
+      "published_at": "-1d",
+      "description": "Fictional test data about a made-up company, not a real report."
+    }
+  ]
+}

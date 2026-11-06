@@ -605,3 +605,8 @@ The Lead reads this at every merge.
      linked back by the next seed run. If that matters, the seed needs a marker for "unlinked on purpose".
   7. Partners see a reviewed adverse item's `note` (AdverseItem.note, the TAO review note). Say if that note should be
      TAO only.
+
+
+## News
+- 2026-11-06 — To Data & API (no contract change needed): Run now = insert `news_run` (trigger `manual`, status `queued`), then `LPUSH news <run id as a plain string>` (list name from `NEWS_QUEUE`, default `news`). The worker BRPOPs and treats the message as a wake-up only: it runs every queued row oldest first, so the payload shape is not load-bearing and a lost push still runs within a minute. `run_active` should look at both `queued` and `running`; the worker fails any row left `running` when it restarts, and fails a queued row with `{company_slug: null, source: "worker", message: "company_feeds is off; nothing was fetched"}` if the setting was switched off before it started. The worker reads companies from the `company` table only: seeding `seed/companies.json` into it is on the API side.
+- 2026-11-06 — To Lead / QA: for a deterministic e2e the news container needs `NEWS_SOURCE=fixture` and `NEWS_FIXTURE=/app/fixtures/example.json`. Today that means adding both lines to `.env` (the service reads `env_file: .env`). Suggest an e2e compose override that sets them on the `news` service so a fresh `docker compose up` needs no hand edit. One run of the example fixture against the 10 seed companies writes 10 news items and 7 open adverse items (format and expected rows in `news/README.md`).
