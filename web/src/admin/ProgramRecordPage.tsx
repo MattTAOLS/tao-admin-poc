@@ -128,10 +128,14 @@ export default function ProgramRecordPage() {
           {canEdit && <Button icon={<icons.IconPlus width={16} height={16} />} onClick={() => { setLastSave(undefined); setCovenantMode({ kind: 'add', dealSlug: dealFilter || undefined }) }}>Add covenant</Button>}
         </div>}>
         {lastSave && <div className="adm-note" role="status" style={{ margin: '0 18px 12px' }}><b>{lastSave.title}.</b> {lastSave.message}</div>}
+        {/* The covenant table is wider than the card at common widths (about 1,480 px of columns); it scrolls sideways
+            inside the card so Edit and History stay reachable (QA bug report, wave B). */}
+        <div className="adm-hscroll" tabIndex={0} role="region" aria-label="Covenant definitions table, scrolls sideways">
         <DataTable columns={covCols} rows={shown} rowKey={rowId} caption="Covenant definitions" captionHidden
           renderExpanded={c => (firstOfGroup.has(c) ? <CovenantHistory rows={all.filter(x => covenantKey(x) === covenantKey(c))} title={`${dealName(c.deal_slug)} · ${c.legal_ref} ${c.description}`} /> : null)}
           expandedKeys={historyOpen} onExpandedChange={setHistoryOpen} rowLabel={c => `history of ${c.legal_ref} for ${dealName(c.deal_slug)}`}
           empty={{ title: 'No covenant definitions', message: dealFilter ? 'None for this deal yet.' : 'None for this program’s deals yet.' }} />
+        </div>
       </Card>
       {editProgram && <ProgramDialog program={program} partners={partners} onClose={() => setEditProgram(false)} onSaved={saved(() => setEditProgram(false))} />}
       {editDeal && <DealDialog deal={editDeal} onClose={() => setEditDeal(undefined)} onSaved={saved(() => setEditDeal(undefined))} />}

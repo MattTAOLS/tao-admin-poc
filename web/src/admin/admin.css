@@ -113,3 +113,7 @@ section:first-child > .adm-group { border-top: 0; }
 .adm-covhist .adm-ba td { vertical-align: top; }
 .adm-covhist__change { display: grid; gap: 2px; }
 .adm-lastchange { white-space: nowrap; }
+
+/* A wide table that scrolls sideways inside its card (covenant definitions). */
+.adm-hscroll { overflow-x: auto; max-width: 100%; }
+.adm-hscroll:focus-visible { outline: none; box-shadow: var(--focus); }

@@ -251,9 +251,6 @@ test('step 10b: corrections after publish: one publishes as version 2, one waits
 })
 
 test('step 10c: admin adds a covenant version from a date; History and the Platform audit show it; analysts read only', async ({ page }) => {
-  // At 1440 x 900 the Covenant definitions table is wider than its card and the Actions / History column is clipped
-  // (docs/requests.md, QA 2026-11-05). This step runs at 1920 wide; the known-bug test below checks 1440.
-  await page.setViewportSize({ width: 1920, height: 1080 })
   const c = STEP10.covenant
   const slug = slugOf(c.deal)
   const before = ((await tao.get(`/master/covenants?deal_slug=${slug}`)).body as any[]).find(x => x.legal_ref === c.legalRef)
@@ -320,12 +317,9 @@ test('step 10c: admin adds a covenant version from a date; History and the Platf
   }
 })
 
-/** Known bug (docs/requests.md, QA 2026-11-05): at the suite's 1440 x 900 viewport the Program / facility record's Covenant
- * definitions table (about 1,480 px) is clipped by its card (overflow-x: clip, no scroll), so Edit and History cannot be
- * reached. Marked test.fail: it passes while the bug is there and turns red when it is fixed; then drop the marker and
- * the 1920 viewport in step 10c. */
-test('known bug: covenant Edit and History are reachable at 1440 x 900', async ({ page }) => {
-  test.fail()
+/** Regression (QA bug report 2026-11-05, fixed by the Lead): at the suite's 1440 x 900 viewport the Covenant definitions table
+ * (about 1,480 px) is wider than its card; it now scrolls sideways inside the card, so Edit and History stay reachable. */
+test('covenant Edit and History are reachable at 1440 x 900', async ({ page }) => {
   const c = STEP10.covenant
   await signInAs(page, 'tao_admin')
   await page.goto(`/admin/partners/investor/programs/${PROGRAM}`)
