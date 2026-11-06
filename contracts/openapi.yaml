@@ -475,7 +475,7 @@ components:
         last_active_at: { type: [string, 'null'], format: date-time }
         deactivated_at: { type: [string, 'null'], format: date-time }
         deactivation_reason: { type: [string, 'null'] }
-        receives_summary: { type: string, readOnly: true, description: 'one line from the subscriptions, e.g. "MOVE Trust: all deals; F-PIL 2.0: 2 deals"; "None" when empty' }
+        receives_summary: { type: string, readOnly: true, description: 'one line from the subscriptions, e.g. "All MOVE Trust deals; Moneda Capital Corp. (F-PIL 2.0)"; "Nothing yet" when empty' }
     AppUserCreate:
       type: object
       required: [email, name, role]
@@ -557,7 +557,9 @@ components:
       type: object
       required: [id, kind, title, link, created_at, read_at]
       description: |
-        Only ever the caller's own. Who gets what:
+        Only ever the caller's own. Partner roles receive only report_published, correction_published and user_change.
+        Events the worker causes (needs review, extraction failed, R19 status moves) are picked up when someone next reads
+        notifications or the badge polls (at most a minute later), not at the moment they happen. Who gets what:
         report_published and correction_published: users subscribed to the deal (directly or through its program), at a
         partner the program is shared with (the partner_filter rule), plus subscribed TAO users. Partner users get them
         only while the setting partner_notifications_enabled is true.
@@ -573,7 +575,7 @@ components:
         kind: { $ref: '#/components/schemas/NotificationKind' }
         title: { type: string }
         body: { type: [string, 'null'] }
-        link: { type: string, description: 'app path, e.g. /admin/review/<upload_id>?thread=<id> or /investor/programs/<p>/deals/<d>?period=2026-08' }
+        link: { type: string, description: 'app route. Review, mention, reply, rejected and extraction failed: /admin/uploads/queue/<upload_id> (?thread=<id> for a thread). Published and corrections: /admin/portfolio/<program>/deals/<deal>?period=YYYY-MM for TAO, /<investor|manager>/portfolio/<program>/deals/<deal>?period=YYYY-MM for partners. covenant_changed: /admin/partners/<partner>/programs/<program>. user_change: /admin/settings/users, or /settings/profile for a partner.' }
         upload_id: { type: [string, 'null'], format: uuid }
         deal_slug: { type: [string, 'null'] }
         collection_period: { type: [string, 'null'] }
