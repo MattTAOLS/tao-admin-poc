@@ -1,0 +1,125 @@
+/** Wave D shapes, copied from contracts/openapi.yaml (CompanyDealRef onwards). Field names and nullability follow the
+ * contract exactly; the UI never adds a figure the API does not send. */
+
+export type WorstStatus = 'BREACH' | 'WATCH' | 'OK' | null
+export type Month = string // YYYY-MM
+
+export type NextReport = { period: Month; due_on: string; late: boolean; business_days_late: number } | null
+
+export type CompanyDealRef = {
+  deal_slug: string
+  deal_name: string
+  program_slug: string
+  program_name: string
+  latest_period: Month | null
+  worst_status: WorstStatus
+  next_report: NextReport
+}
+
+export type CompanyRow = {
+  slug: string
+  name: string
+  deals: CompanyDealRef[]
+  industry: string | null
+  status: WorstStatus
+  breach: number
+  watch: number
+  balance: number | null
+  delinquency: { min: number | null; max: number | null; direction: 'up' | 'down' | 'flat' | null }
+  news_7d: number
+  adverse: { state: 'clear' | 'to_review' | 'not_screened'; to_review: number }
+  /** TAO only; absent for partners. */
+  notes?: number
+  following: boolean
+}
+
+export type Person = { id: string; name: string }
+
+export type CompanyContact = { id: string; name: string; role: string | null; email: string | null; receives: string | null }
+
+export type Company = {
+  slug: string
+  name: string
+  aliases: string[]
+  industry: string | null
+  naics: string | null
+  headquarters: string | null
+  website: string | null
+  relationship_since: Month | null
+  relationship_since_source: 'record' | 'first_vintage' | null
+  /** Absent for partners. */
+  owner?: Person | null
+  deals: CompanyDealRef[]
+  contacts: CompanyContact[]
+  following: boolean
+  updated_at: string
+}
+
+export type CompanyPatch = {
+  name?: string; aliases?: string[]; industry?: string | null; naics?: string | null; headquarters?: string | null
+  website?: string | null; relationship_since?: Month | null; owner_user_id?: string | null; deal_slugs?: string[]; reason: string
+}
+
+export type ContactInput = { name: string; role: string | null; email: string | null; receives: string | null; reason: string }
+
+export type SeriesPoint = { month: Month; value: number | null }
+export type SeriesMetric = 'delinquency_ratio_pct' | 'rolling_3month_loss_ratio_pct' | 'rolling_12month_loss_ratio_pct' | 'loss_ratio_pct'
+  | 'interest_coverage_ratio' | 'debt_equity_ratio' | 'total_equity'
+export type MetricSeries = {
+  metric: SeriesMetric | string
+  label: string
+  unit: 'fraction' | 'ratio' | 'currency'
+  deal: SeriesPoint[]
+  program_median: SeriesPoint[]
+  program_mean: SeriesPoint[]
+  peers_in_month: { month: Month; count: number }[]
+  limit: { legal_ref: string; threshold: number; kind: 'ceiling' | 'floor' } | null
+}
+export type LossPeer = { deal_slug: string; deal_name: string; metric: string; series: SeriesPoint[]; drawn: boolean }
+export type WatchSignal = {
+  kind: 'covenant_near_limit' | 'rising_3m' | 'obligor_near_limit' | 'losses_high' | 'utilization_high' | 'restated' | 'report_late' | string
+  severity: 'watch' | 'rising' | 'info'
+  title: string
+  detail: string
+  anchor: string
+}
+export type CovenantHistoryRow = {
+  legal_ref: string
+  description: string
+  cells: { month: Month; status: 'BREACH' | 'WATCH' | 'OK' | 'AVAILABLE' | null; source: 'published' | 'recomputed' | null }[]
+}
+export type Restatement = {
+  month: string; field: string; first_reported: number | null; now: number | null; changed_in: string
+  type: 'restated_by_company' | 'tao_correction'
+}
+export type CompanyInsights = {
+  deal_slug: string
+  collection_period: string
+  signals: WatchSignal[]
+  series: MetricSeries[]
+  loss_peers: LossPeer[]
+  balance_median_change?: SeriesPoint[]
+  covenant_history: CovenantHistoryRow[]
+  restatements: Restatement[]
+}
+
+export type NewsItem = {
+  id: string; company_slug: string; title: string; url: string; publisher: string | null; published_at: string | null
+  source: 'google_news' | 'gdelt' | 'fixture'; sentiment: 'positive' | 'neutral' | 'negative'; found_at: string
+}
+
+export type AdverseCategory = 'litigation' | 'regulatory' | 'fraud' | 'insolvency' | 'sanctions'
+export type AdverseItem = {
+  id: string; company_slug: string; news_item_id?: string | null; category: AdverseCategory; title: string; url: string
+  publisher: string | null; found_at: string; state: 'open' | 'reviewed' | 'dismissed'; note: string | null
+  state_by: Person | null; state_at: string | null
+}
+
+export type CompanyNote = {
+  id: string; company_slug: string; author: Person; body: string; mentions: Person[]
+  collection_period: Month | null; created_at: string; edited_at: string | null
+}
+export type NoteInput = { body: string; mentions?: string[]; collection_period?: Month | null }
+
+/** GET /users?partner_slug=tao&status=active: the TAO people for @mentions and the owner picker. */
+export type TaoUser = { id: string; name: string; email: string; role: string; status: string }

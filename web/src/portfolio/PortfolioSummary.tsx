@@ -7,6 +7,7 @@ import { links, useShell } from './nav'
 import { Num } from './Num'
 import { AsOfPill, BehindNote, LoadGate, ProgramTiles, SHELL_TITLE, behindOf, dealMonth, isFlagged, programName, programSlug } from './shared'
 import type { DealIndex, Portfolio, PortfolioProgram } from './types'
+import { CompaniesSection } from './companies/CompaniesSection'
 
 type FlagRow = DealIndex & { program: string; programName: string; prefix: string; p: PortfolioProgram }
 
@@ -66,6 +67,7 @@ export function PortfolioView({ data }: { data: Portfolio }) {
           </Card>
         )
       })}
+      <CompaniesSection />
       <Card title="Flagged deals" subtitle="Deals at WATCH or BREACH in their latest published period" padding="flush">
         <DataTable columns={cols} rows={flagged} rowKey={r => r.program + '/' + r.deal_slug} rowLabel={r => r.deal_name}
           caption="Flagged deals" captionHidden empty={{ title: 'No flagged deals', message: 'Every deal is OK in its latest published period.' }} />

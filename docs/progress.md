@@ -2,6 +2,36 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-06 — UI-Partner, phase 2 wave D (agent/ui-partner): Companies list, Company profile and the Companies section on
+  the Portfolio Executive Summary, all in `web/src/portfolio/companies/`, one set of files for the TAO Admin shell and both
+  partner portals. `CompaniesPage.tsx` (default export, D5 screens B and C): one row per company (TLFC is one row with three
+  deals), status dot + word with "n breach · n watch", balance, delinquency range with direction arrow and good/bad colour
+  from `polarity.ts` (rising is bad), news in 7 days, adverse media state, Notes for TAO only. Search covers company and deal
+  names; program, industry, status (incl. "Breach or watch"), adverse media and "only companies I follow" all live in the URL;
+  every column sorts; Export CSV writes the filtered rows (raw numbers). The star does PUT / DELETE follow and is disabled with
+  a hint in role-only mode. `CompanyProfilePage.tsx` (default export, D6): record with "Not set" for empty fields and a TAO
+  Admin "Edit record" dialog (industry, NAICS, HQ, website, relationship since, owner from the active TAO users, aliases, deal
+  links, required reason; PATCH sends only what changed), KPIs from the published deal object, What to watch with anchor
+  links, performance charts with a Median / Mean / Both control and the covenant limit line (no industry averages), rolling
+  loss ratios with named peers (peers with drawn false listed, not drawn), the covenant at watch (else interest coverage),
+  pool balance with grey slots for months not loaded and the program median change, covenant status history (published cells
+  outlined, recomputed cells say so on hover and focus), Top 10 obligors (existing panel), restatements and TAO corrections,
+  news (All / Negative, sentiment word, source, link out; "Not screened yet" or "No news in 30 days"), adverse media (state,
+  category counts, "sanctions is a keyword hit, not a list check"; TAO Admin Mark reviewed with a note and Dismiss with a
+  reason), watchlist and alerts (follow, link to Profile, email "coming later"), analyst notes (TAO only: add with @mentions
+  and an optional report month, edit own, remove own or as TAO Admin; writing needs a signed-in user), key contacts (TAO
+  Admin add / edit / remove with a reason), documents (this deal's SetReps, linking to the Reports library or the Data room;
+  no other uploads this wave). `?deal=` picks the deal for multi-deal companies (first by default); "View as partner" hides
+  every TAO-only part; a partner gets Not found on a 404 or while the feature is off. `CompaniesSection.tsx` sits between the
+  program cards and Flagged deals for TAO, and for partners while `Me.features.companies` is true (read from the session, else
+  `GET /me`); off or unreadable, it renders nothing and `/companies` is not called.
+  Tests: `companies.test.tsx` (list, filters in the URL, sort, follow, CSV, partner columns, feature off, summary section) and
+  `profile.test.tsx` (sections in order, compare control, loss peers, covenant history, news, both adverse dialogs, analyst
+  rights, notes rights and @mention, Edit record, contacts, TLFC deal picker, partner view and Not found), with a fake API
+  (`companyApi.tsx`) and fixtures (`companyFixtures.ts`) computed from docs/dashboard-json; news, adverse items, notes and
+  contacts are test records. Run: `cd web && npx vitest run src/portfolio`.
+  Stubbed / needs: routes and partner nav gating come from Design (`pages.ts`); `Me.features` is read through a cast until
+  `shell/types.ts` has it; the profile reads `/companies` for the screened state (see requests.md, UI-Partner).
 - 2026-11-06 — QA & Demo, phase 2 wave C (merged integration/wave-c): R1 must-pass first. The existing 25 tests,
   unchanged, from `down -v`: 20 passed. Step 2 timed out waiting for the review page (its first API call came about
   10 s after navigation; the host was at 98% CPU) and step 3 followed from it. Step 9b hit its 6-minute limit on
