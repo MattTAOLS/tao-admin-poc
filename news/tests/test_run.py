@@ -119,7 +119,7 @@ class Boom:
     def queries(self, company):
         return [company["slug"]]
 
-    def fetch(self, query, now):
+    def fetch(self, query, now, max_age=None):
         self.calls.append(query)
         if query in self.fail_on or "*" in self.fail_on:
             raise SourceError(f"{self.name} down")
@@ -180,7 +180,7 @@ def test_queued_manual_runs_go_one_at_a_time_oldest_first(eng):
     order = []
 
     class Spy(Boom):
-        def fetch(self, query, now):
+        def fetch(self, query, now, max_age=None):
             with eng.connect() as c:
                 running = [r for r in c.execute(select(store.news_run.c.id).where(store.news_run.c.status == "running"))]
             order.append(len(running))

@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 
 import match
+from sources.net import SourceSkipped, lookback
 import screen
 import store
 
@@ -18,8 +19,9 @@ def execute(eng, run_id, sources, now=store.utcnow, pre_errors=()):
     """Run a claimed (running) news_run row to the end. Returns the finished row's counts."""
     with eng.connect() as conn:
         companies = store.companies(conn)
+        have_items = store.companies_with_items(conn)
     errors = list(pre_errors)
-    started = now()                     # one reference time per run (fixture relative dates, Google's 7-day cut)
+    started = now()                     # one reference time per run (fixture relative dates, look-back)
     successes = 0
     items_added = adverse_added = 0
     fetched = matched = 0
@@ -29,12 +31,19 @@ def execute(eng, run_id, sources, now=store.utcnow, pre_errors=()):
         slug = company["slug"]
         hit = match.matcher(company)
         found = {}
+        max_age = lookback(first=slug not in have_items)     # first search: FIRST_LOOKBACK_DAYS, later LOOKBACK_DAYS
         for src in sources:
             for q in src.queries(company):
+                if getattr(src, "skipped", False):
+                    break
                 try:
-                    items = src.fetch(q, started)
+                    items = src.fetch(q, started, max_age)
+                except SourceSkipped:
+                    break
                 except Exception as exc:
                     errors.append(_err(slug, src.name, exc))
+                    if getattr(src, "skipped", False):      # this failure made the source give up for the run
+                        errors.append(_err(None, src.name, getattr(src, "SKIP_MESSAGE", None) or "source skipped"))
                     continue
                 successes += 1
                 fetched += len(items)

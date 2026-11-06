@@ -44,7 +44,7 @@ class Fixture:
     def queries(self, company):
         return [company["slug"]]
 
-    def fetch(self, query, now):
+    def fetch(self, query, now, max_age=None):          # fixture items are never dropped for age
         data = self._load()
         if query in (data.get("fail_companies") or []):
             raise SourceError("fixture: simulated source failure")
