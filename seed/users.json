@@ -1,0 +1,10 @@
+[
+  { "id": "00000000-0000-4000-8000-000000000001", "email": "tao.admin@example.com", "name": "A. Patel", "role": "tao_admin", "partner_slug": null },
+  { "id": "00000000-0000-4000-8000-000000000002", "email": "tao.admin2@example.com", "name": "R. Okafor", "role": "tao_admin", "partner_slug": null },
+  { "id": "00000000-0000-4000-8000-000000000003", "email": "tao.analyst@example.com", "name": "J. Moreau", "role": "tao_analyst", "partner_slug": null },
+  { "id": "00000000-0000-4000-8000-000000000004", "email": "tao.analyst2@example.com", "name": "S. Lindqvist", "role": "tao_analyst", "partner_slug": null },
+  { "id": "00000000-0000-4000-8000-000000000005", "email": "investor.admin@example.com", "name": "M. Chen", "role": "investor_admin", "partner_slug": "investor" },
+  { "id": "00000000-0000-4000-8000-000000000006", "email": "investor.viewer@example.com", "name": "D. Alvarez", "role": "investor_viewer", "partner_slug": "investor" },
+  { "id": "00000000-0000-4000-8000-000000000007", "email": "manager.admin@example.com", "name": "K. Novak", "role": "manager_admin", "partner_slug": "manager" },
+  { "id": "00000000-0000-4000-8000-000000000008", "email": "manager.viewer@example.com", "name": "L. Haddad", "role": "manager_viewer", "partner_slug": "manager" }
+]

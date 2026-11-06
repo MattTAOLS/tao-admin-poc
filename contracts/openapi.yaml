@@ -1013,6 +1013,7 @@ paths:
         - { name: month, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' }, description: 'YYYY-MM, America/Toronto' }
         - { name: q, in: query, schema: { type: string, minLength: 2 } }
         - { name: actor_role, in: query, schema: { type: string } }
+        - { name: actor_user_id, in: query, schema: { type: string, format: uuid }, description: 'entries by one user (Profile, My activity). A user may always read their own; other users need the scope rule above.' }
         - { name: deal_slug, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
