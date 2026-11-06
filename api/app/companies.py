@@ -439,7 +439,7 @@ def insights(s: Session, deal_row: Deal, pub: Publication, now: dt.date | None =
         way = ("up" if lim["kind"] == "ceiling" else "down") if lim else bad
         if _rising(points, way):
             signals.append({"kind": "rising_3m", "severity": "rising", "title": f"{label} {'rising' if way == 'up' else 'falling'} 3 months running",
-                            "detail": f"{label} moved {'up' if way == 'up' else 'down'} in each of the last 3 months to {points[-1]['value']} ({points[-1]['month']}).",
+                            "detail": f"{label} moved {'up' if way == 'up' else 'down'} in each of the last 3 months, to {_fmt(points[-1]['value'], unit)} in {_month(points[-1]['month'])}.",
                             "anchor": f"chart-{field}"})
     loss_peers = []
     for field in LOSS_FIELDS:
@@ -473,6 +473,27 @@ def _pct(x: float) -> str:
     return f"{x * 100:.2f}%"
 
 
+def _fmt(x, unit: str | None) -> str:
+    """A value as people read it: fraction 0.0131 -> 1.31%, ratio 7.65 -> 7.65x, currency -> $1,606,020."""
+    if not _num(x):
+        return "n/a"
+    if unit == "fraction":
+        return _pct(x)
+    if unit == "ratio":
+        return f"{x:.2f}x"
+    if unit == "currency":
+        return f"${x:,.0f}"
+    return f"{x:,.2f}"
+
+
+def _month(m: str) -> str:
+    """'2026-07' -> 'Jul 2026'."""
+    try:
+        return dt.date(int(m[:4]), int(m[5:7]), 1).strftime("%b %Y")
+    except (TypeError, ValueError):
+        return str(m)
+
+
 def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -> list[dict]:
     """covenant_near_limit, obligor_near_limit, losses_high, utilization_high, restated (rising_3m and report_late are added
     by insights)."""
@@ -484,8 +505,10 @@ def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -
             continue
         m = ch.covenant_metric(c) if c.get("kind") in ("ceiling", "floor") else None
         anchor = f"chart-{m[1]}" if m and m[1] in charted else "covenant-history"
+        label, unit = (METRICS[m[1]][0], METRICS[m[1]][1]) if m and m[1] in METRICS else (c.get("legal_ref"), None)
         out.append({"kind": "covenant_near_limit", "severity": "watch", "title": f"{c.get('legal_ref')} near its limit",
-                    "detail": f"{c.get('description')}: {c.get('current_value')} against a {c.get('kind')} of {c.get('threshold')}, inside the watch buffer.",
+                    "detail": f"{label} {_fmt(c.get('current_value'), unit)} against a {c.get('kind')} of {_fmt(c.get('threshold'), unit)}, "
+                              "inside the program watch buffer.",
                     "anchor": anchor})
     obligors = [o for o in deal.get("top10_obligors") or [] if isinstance(o, dict)]
     if obligors:
@@ -496,14 +519,14 @@ def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -
         if _num(pct) and _num(lim) and lim > 0:
             use, what = pct / lim, f"{_pct(pct)} of the pool against a limit of {_pct(lim)}"
         elif _num(amt) and _num(cap) and cap > 0:
-            use, what = amt / cap, f"{amt:,.2f} against a per-obligor limit of {cap:,.2f}"
+            use, what = amt / cap, f"{_fmt(amt, 'currency')} against a per-obligor limit of {_fmt(cap, 'currency')}"
         if use is not None and use > OBLIGOR_NEAR:
             out.append({"kind": "obligor_near_limit", "severity": "watch", "title": f"{top.get('obligor_name') or 'Largest obligor'} above 90% of its limit",
                         "detail": f"Largest obligor: {what} ({use * 100:.0f}% used).", "anchor": "obligors"})
     ph = sorted((p for p in deal.get("period_history") or [] if isinstance(p.get("period"), str) and _num(p.get("losses"))), key=lambda p: p["period"])
     if len(ph) >= 2 and ph[-1]["losses"] > 0 and all(ph[-1]["losses"] > p["losses"] for p in ph[:-1]):
         out.append({"kind": "losses_high", "severity": "watch", "title": "Highest monthly losses on record",
-                    "detail": f"Losses of {ph[-1]['losses']:,.2f} in {ph[-1]['period']}, the highest of the {len(ph)} months in the report.",
+                    "detail": f"Losses of {_fmt(ph[-1]['losses'], 'currency')} in {_month(ph[-1]['period'])}, the highest of the {len(ph)} months in the report.",
                     "anchor": "losses"})
     util = (deal.get("program") or {}).get("program_utilization_pct")
     if _num(util) and util > UTILIZATION_HIGH:
@@ -513,7 +536,8 @@ def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -
     if rs:
         by = sorted({r["type"] for r in rs})
         out.append({"kind": "restated", "severity": "info", "title": "Figures restated or corrected",
-                    "detail": f"{len(rs)} figure(s) changed after first being reported ({', '.join(x.replace('_', ' ') for x in by)}).",
+                    "detail": f"{len(rs)} figure{'s' if len(rs) != 1 else ''} changed after first being reported "
+                              f"({' and '.join({'restated_by_company': 'restated by the company', 'tao_correction': 'corrected by TAO'}.get(x, x) for x in by)}).",
                     "anchor": "restatements"})
     return out
 
