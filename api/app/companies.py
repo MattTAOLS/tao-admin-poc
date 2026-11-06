@@ -184,7 +184,7 @@ def row(s: Session, slug: str, name: str, company: Company | None, deals: list[D
     news = 0
     if company is not None and ok:
         news = s.scalar(select(func.count()).select_from(NewsItem).where(NewsItem.company_slug == slug,
-                                                                         NewsItem.found_at >= utcnow() - dt.timedelta(days=7)))
+                                                                         news_date() >= utcnow() - dt.timedelta(days=7)))
     state = "not_screened" if not ok else ("to_review" if tao and open_items else "clear")
     out = {"slug": slug, "name": name, "deals": refs, "industry": company.industry if company else None,
            "status": max(statuses, key=RANK.get) if statuses else None, "breach": breach, "watch": watch,
@@ -275,6 +275,12 @@ def note_dict(s: Session, n: CompanyNote) -> dict:
     return {"id": n.id, "company_slug": n.company_slug, "author": author(s, n.author_id), "body": n.body,
             "mentions": [author(s, m) for m in n.mentions or []], "collection_period": n.collection_period,
             "created_at": views.iso(n.created_at), "edited_at": views.iso(n.edited_at)}
+
+
+def news_date():
+    """When a news item happened: its published date, or when the worker found it if the source gave none. Counts and
+    filters use this, so a first search that brings in older stories does not make them look new."""
+    return func.coalesce(NewsItem.published_at, NewsItem.found_at)
 
 
 def news_dict(n: NewsItem) -> dict:

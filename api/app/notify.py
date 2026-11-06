@@ -302,7 +302,9 @@ def company_sweep(s: Session) -> None:
             to_followers(s, a.company_slug, "adverse_media", f"Adverse media reviewed by TAO: {name} · {a.category.capitalize()}",
                          f"{a.title}." + (f" TAO note: {a.note}" if a.note else ""), tao=False, partners=True)
     sent = _sent(s, "negative_news:")
-    for n in s.scalars(select(NewsItem).where(NewsItem.sentiment == "negative").order_by(NewsItem.found_at, NewsItem.id)).all():
+    recent = utcnow() - dt.timedelta(days=7)                  # a first search brings in older stories; alert only on recent ones
+    for n in s.scalars(select(NewsItem).where(NewsItem.sentiment == "negative", companies.news_date() >= recent)
+                       .order_by(NewsItem.found_at, NewsItem.id)).all():
         key = f"negative_news:{n.id}"
         if key not in sent and _once(s, key):
             to_followers(s, n.company_slug, "negative_news", f"Negative news: {names.get(n.company_slug, n.company_slug)}",

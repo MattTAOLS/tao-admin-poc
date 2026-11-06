@@ -1757,10 +1757,10 @@ def company_news(company_slug: str, days: int = Query(default=30, ge=1, le=365),
     co, _, _ = _company_view(s, partner, company_slug)
     if co is None:
         return []
-    q = select(NewsItem).where(NewsItem.company_slug == co.slug, NewsItem.found_at >= utcnow() - dt.timedelta(days=days))
+    q = select(NewsItem).where(NewsItem.company_slug == co.slug, companies.news_date() >= utcnow() - dt.timedelta(days=days))
     if sentiment:
         q = q.where(NewsItem.sentiment == sentiment)
-    return [companies.news_dict(n) for n in s.scalars(q.order_by(NewsItem.found_at.desc(), NewsItem.id)).all()]
+    return [companies.news_dict(n) for n in s.scalars(q.order_by(companies.news_date().desc(), NewsItem.id)).all()]
 
 
 @app.get(API + "/companies/{company_slug}/adverse")

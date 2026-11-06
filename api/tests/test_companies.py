@@ -681,3 +681,22 @@ def test_report_late_once_per_deal_and_period_to_subscribed_tao(client, publishe
     assert got[0]["link"] == "/admin/companies/moneda-capital-corp" and "September 2026" in got[0]["title"]
     assert len(notes_of(client, AN, "report_late")) == 1
     assert notes_of(client, IV, "report_late") == [] and notes_of(client, A1, "report_late") == []      # TAO only; A1 not subscribed
+
+
+def test_older_stories_from_a_first_search_are_listed_not_counted_or_alerted(client, published):
+    """Lead, wave D live check: a company's first search keeps up to 90 days of stories. They are found today but happened
+    earlier, so news_7d, the default 30-day list and negative_news go by published_at (found_at only when it is missing)."""
+    assert client.put(V1 + "/companies/essex-lease-financial-corp/follow", headers=H(A1)).status_code == 204
+    finished_run("ok")
+    with db.session() as s:
+        s.add(NewsItem(company_slug="essex-lease-financial-corp", source="fixture", title="Essex Lease Financial faces older claim",
+                       url="https://example.com/old-claim", publisher="Sample wire", published_at=utcnow() - dt.timedelta(days=60),
+                       sentiment="negative", found_at=utcnow()))
+        s.commit()
+    assert rows(client, TAO)["essex-lease-financial-corp"]["news_7d"] == 0
+    assert client.get(V1 + "/companies/essex-lease-financial-corp/news", headers=TAO).json() == []
+    assert len(client.get(V1 + "/companies/essex-lease-financial-corp/news", headers=TAO, params={"days": 90}).json()) == 1
+    assert notes_of(client, A1, "negative_news") == []
+    recent = news("essex-lease-financial-corp", "Essex Lease Financial faces new claim", "negative")
+    assert rows(client, TAO)["essex-lease-financial-corp"]["news_7d"] == 1
+    assert [n["title"] for n in notes_of(client, A1, "negative_news")] == ["Negative news: Essex Lease Financial Corp."] and recent
