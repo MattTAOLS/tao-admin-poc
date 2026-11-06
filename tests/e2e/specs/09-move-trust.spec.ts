@@ -136,7 +136,7 @@ async function expectFinlocNoR11(uploadId: string, per: string) {
 }
 
 test('step 9a: MOVE Trust April for three deals; Essex May restates April, the reviewer accepts and publishes; two deals show as of April', async ({ page }) => {
-  test.setTimeout(8 * 60_000)
+  test.setTimeout(15 * 60_000)   // nine MOVE extractions; a loaded host has taken 6.7 min for this test
   for (const [d, m] of STEP9.order) {
     expect(fs.existsSync(samplePath(d, m)), `sample PDF ${samplePath(d, m)}`).toBe(true)
     const u = await findUpload(d, period(m))
@@ -196,7 +196,7 @@ test('step 9a: MOVE Trust April for three deals; Essex May restates April, the r
 })
 
 test('step 9b: TLFC LP June restates the April and May RVL ratio; Finloc May raises no R11', async ({ page }) => {
-  test.setTimeout(6 * 60_000)
+  test.setTimeout(12 * 60_000)
   const tlfcMay = await analystUploads('tlfcLp', '202605')
   expect((await findings(tlfcMay.id)).filter(f => f.severity === 'block')).toEqual([])
   await adminPublishes(tlfcMay.id)
@@ -216,7 +216,7 @@ test('step 9b: TLFC LP June restates the April and May RVL ratio; Finloc May rai
 })
 
 test('step 9c: Finloc June and July raise no R11; the Finloc July deal page matches the shared dashboard', async ({ page }) => {
-  test.setTimeout(6 * 60_000)
+  test.setTimeout(12 * 60_000)
   for (const m of ['202606', '202607']) {
     const u = await analystUploads('finloc', m)
     await expectFinlocNoR11(u.id, period(m))

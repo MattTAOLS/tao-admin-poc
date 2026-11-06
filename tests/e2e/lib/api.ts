@@ -12,11 +12,15 @@ export type Res<T = any> = { status: number; body: T }
 
 /** The role-header client: every request carries X-Role and, for partner roles, X-Partner (contracts/openapi.yaml). */
 export class Api {
-  constructor(readonly role: Role, readonly partner: string | undefined = PARTNER[role]) {}
+  /** `user`: an app_user id sent as X-User (wave C); the API then takes role and partner from the user. */
+  constructor(readonly role: Role, readonly partner: string | undefined = PARTNER[role], readonly user?: string) {}
 
   headers(extra: Record<string, string> = {}): Record<string, string> {
-    return { 'X-Role': this.role, ...(this.partner ? { 'X-Partner': this.partner } : {}), ...extra }
+    return { 'X-Role': this.role, ...(this.partner ? { 'X-Partner': this.partner } : {}), ...(this.user ? { 'X-User': this.user } : {}), ...extra }
   }
+
+  /** The same role acting as one seeded user. */
+  as(user: { id: string }) { return new Api(this.role, this.partner, user.id) }
 
   async req<T = any>(method: string, route: string, body?: unknown): Promise<Res<T>> {
     const init: RequestInit = { method, headers: this.headers(body === undefined ? {} : { 'Content-Type': 'application/json' }) }
@@ -29,6 +33,8 @@ export class Api {
   }
   get<T = any>(route: string) { return this.req<T>('GET', route) }
   post<T = any>(route: string, body: unknown = {}) { return this.req<T>('POST', route, body) }
+  put<T = any>(route: string, body: unknown) { return this.req<T>('PUT', route, body) }
+  patch<T = any>(route: string, body: unknown) { return this.req<T>('PATCH', route, body) }
 
   async upload(dealSlug: string, collectionPeriod: string, file: string | { name: string; bytes: Buffer }): Promise<Res> {
     const name = typeof file === 'string' ? path.basename(file) : file.name

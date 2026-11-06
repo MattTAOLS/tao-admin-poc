@@ -110,3 +110,29 @@ export const period = (month: string) => `${month.slice(0, 4)}-${month.slice(4)}
 export function referenceDeal(deal: DealKey): any {
   return JSON.parse(fs.readFileSync(path.join(REPO, 'docs', 'dashboard-json', `${DEALS[deal].slug}.dashboard.json`), 'utf8'))
 }
+
+/** Wave C: the seeded users (seed/users.json). */
+export const USERS = {
+  patel: { id: '00000000-0000-4000-8000-000000000001', name: 'A. Patel', role: 'tao_admin' },
+  okafor: { id: '00000000-0000-4000-8000-000000000002', name: 'R. Okafor', role: 'tao_admin' },
+  moreau: { id: '00000000-0000-4000-8000-000000000003', name: 'J. Moreau', role: 'tao_analyst' },
+  lindqvist: { id: '00000000-0000-4000-8000-000000000004', name: 'S. Lindqvist', role: 'tao_analyst' },
+  chen: { id: '00000000-0000-4000-8000-000000000005', name: 'M. Chen', role: 'investor_admin' },
+  alvarez: { id: '00000000-0000-4000-8000-000000000006', name: 'D. Alvarez', role: 'investor_viewer' },
+  novak: { id: '00000000-0000-4000-8000-000000000007', name: 'K. Novak', role: 'manager_admin' },
+  haddad: { id: '00000000-0000-4000-8000-000000000008', name: 'L. Haddad', role: 'manager_viewer' },
+} as const
+
+/** Step 11 (phase 2 wave C): people. Essex July 2026, the month after step 10's June, is the report the analyst
+ * comments on and the admin publishes with a note. The added user and the profile changes are test data. */
+export const STEP11 = {
+  review: { deal: 'essex' as DealKey, month: '202607', period: '2026-07', dealName: 'Essex Lease Financial Corp.' },
+  newUser: { name: 'Q. Tester', email: 'qa.tester@example.com', role: 'tao_analyst' },
+  deactivateReason: 'QA demo: left the team',
+  reactivateReason: 'QA demo: back on the team',
+  comment: 'Please check this finding before we publish',
+  reply: 'Checked: it is a note, nothing to change.',
+  settingReason: 'QA demo: switch partner notifications on',
+  note: 'QA demo note to partners: the July report is published.',
+  profile: { name: 'S. Lindqvist-Berg', timeZone: 'America/Vancouver' },
+}
