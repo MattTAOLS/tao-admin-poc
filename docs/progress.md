@@ -879,4 +879,4 @@ Append an entry when a work package lands. Newest first.
   Needs from the Lead: contract text still says receives_summary "None" when empty (now "Nothing yet") and the
   Notification.link examples are the old paths; the kinds a partner role can receive are not listed; the sweep timing
   (needs_review and extraction-failed notifications appear when someone next opens notifications or the badge polls)
-  is worth a line under Notification. system (extraction failed) links to User management per the table, not the upload.
+  is worth a line under Notification. A system notification about an upload (extraction failed) links to its review page; /admin/settings/users is for user_change (and system without an upload).

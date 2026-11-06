@@ -160,7 +160,7 @@ def published(s: Session, u_up: SetrepUpload, version: int, by: str, note: str |
 def to_tao(s: Session, u_up: SetrepUpload, kind: str, title: str, body: str | None) -> list[str]:
     """report_needs_review, report_rejected, covenant_changed, system: subscribed TAO users of the upload's deal."""
     ids = []
-    link = {"covenant_changed": covenant_link(s, u_up.deal_slug)}.get(kind) or (account_link_tao() if kind == "system" else review_link(u_up.id))
+    link = covenant_link(s, u_up.deal_slug) if kind == "covenant_changed" else review_link(u_up.id)   # system about an upload: its page
     for u in subscribed_tao(s, u_up.deal_slug):
         if create(s, u, kind, title, link, body=body, upload_id=u_up.id, deal_slug=u_up.deal_slug,
                   collection_period=u_up.collection_period) is not None:
@@ -171,10 +171,6 @@ def to_tao(s: Session, u_up: SetrepUpload, kind: str, title: str, body: str | No
 def rejected(s: Session, u_up: SetrepUpload, reason: str, by: str, what: str = "Report") -> None:
     to_tao(s, u_up, "report_rejected", f"{what} rejected: {_deal_name(s, u_up.deal_slug)} · {month_label(u_up.collection_period)}",
            f"Reason: {reason}. By {by}.")
-
-
-def account_link_tao() -> str:
-    return "/admin/settings/users"
 
 
 def user_changed(s: Session, u: AppUser, title: str, body: str | None = None) -> None:

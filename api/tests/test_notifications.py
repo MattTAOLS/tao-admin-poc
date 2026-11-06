@@ -265,7 +265,7 @@ def test_every_kind_links_to_a_real_app_route(client, people):
         "report_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=\d{{4}}-\d{{2}}$"),
         "correction_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=2026-08$"),
         "covenant_changed": re.compile(r"^/admin/partners/investor/programs/f-pil-2-0$"),
-        "system": re.compile(r"^/admin/settings/users$"), "user_change": re.compile(r"^/admin/settings/users$")}
+        "system": re.compile(rf"^/admin/uploads/queue/{failed}$"), "user_change": re.compile(r"^/admin/settings/users$")}
     seen = {}
     for who in (A1, AN):
         for n in mine(client, who, limit=200):
