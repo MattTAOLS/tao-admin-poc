@@ -6,6 +6,11 @@ Who gets what:
   partner_notifications_enabled is true. Subscribed TAO users always.
 - report_needs_review, report_rejected, covenant_changed, system: subscribed TAO users.
 - mention: the mentioned user; reply: the thread's other people (threads.py). user_change: the user changed.
+- wave D, made in the sweep: adverse_media (a new open item, to TAO followers of the company; once a TAO Admin marks it
+  reviewed, to partner followers), negative_news (a news item screened negative, to followers), report_late (a deal's next
+  report late, to TAO users subscribed to the deal, once per deal and period). Partner followers only while both
+  partner_notifications_enabled and company_profiles_partner_enabled are true, and only if a program of one of the
+  company's deals is shared with their partner. A mention in a company note is kind mention (company_note_mentions).
 A kind the user switched off is not created (required kinds cannot be switched off). Deactivated users get nothing.
 
 Status changes the worker makes (needs_review, extraction_failed) happen outside the API, so `sweep` notices them when
@@ -16,7 +21,8 @@ from sqlalchemy import select, delete, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .auth import TAO
-from .models import AppUser, Subscription, Notification, NotificationEvent, SetrepUpload, Deal, Program, Finding, utcnow
+from .models import (AppUser, Subscription, Notification, NotificationEvent, SetrepUpload, Deal, Program, Finding, Company, CompanyFollow,
+                     CompanyNote, NewsItem, AdverseItem, utcnow)
 from . import people, views
 
 KEEP = dt.timedelta(days=365)                      # notifications are kept 12 months (decision C11)
@@ -225,7 +231,116 @@ def sweep(s: Session) -> None:
                                               f"{ctx.get('prior_status') or f.our_value} to {ctx.get('status') or f.report_value}",
                    f"{label}: {ctx.get('value')} ({ctx.get('status') or f.report_value}); prior {ctx.get('prior_value')} "
                    f"({ctx.get('prior_status') or f.our_value}).")
+    company_sweep(s)
     s.commit()
+
+
+# ---- wave D: companies ----
+def company_link(u: AppUser, slug: str) -> str:
+    return f"/admin/companies/{slug}" if u.role in TAO else f"/{u.partner_slug}/companies/{slug}"
+
+
+def note_link(slug: str, note_id: str) -> str:
+    return f"/admin/companies/{slug}?note={note_id}"
+
+
+def _partners_may(s: Session) -> bool:
+    return people.get_setting(s, "partner_notifications_enabled") is True and people.get_setting(s, "company_profiles_partner_enabled") is True
+
+
+def _partner_deal(s: Session, slug: str, partner: str) -> str | None:
+    """The first of the company's deals in a program shared with the partner (None: the partner cannot see the company)."""
+    for d in s.scalars(select(Deal).where(Deal.company_slug == slug).order_by(Deal.slug)).all():
+        if partner in views.partner_slugs(s, s.get(Program, d.program_slug)):
+            return d.slug
+    return None
+
+
+def _followers(s: Session, slug: str) -> list[AppUser]:
+    ids = s.scalars(select(CompanyFollow.user_id).where(CompanyFollow.company_slug == slug)).all()
+    return [u for u in (s.get(AppUser, i) for i in ids) if u is not None and u.status == "active"]
+
+
+def to_followers(s: Session, slug: str, kind: str, title: str, body: str | None, tao: bool, partners: bool) -> list[str]:
+    """One notification per follower of the company: TAO followers when `tao`; partner followers when `partners` and the
+    flags allow, and only those who can see the company. Returns the user ids notified."""
+    first = s.scalars(select(Deal.slug).where(Deal.company_slug == slug).order_by(Deal.slug)).first()
+    partners = partners and _partners_may(s)
+    ids = []
+    for u in _followers(s, slug):
+        if u.role in TAO:
+            if not tao:
+                continue
+            deal = first
+        else:
+            deal = _partner_deal(s, slug, u.partner_slug) if partners else None
+            if deal is None:
+                continue
+        if create(s, u, kind, title, company_link(u, slug), body=body, deal_slug=deal) is not None:
+            ids.append(u.id)
+    return ids
+
+
+def _sent(s: Session, prefix: str) -> set[str]:
+    return set(s.scalars(select(NotificationEvent.key).where(NotificationEvent.key.like(prefix + "%"))).all())
+
+
+def company_sweep(s: Session) -> None:
+    """adverse_media, negative_news and report_late events not yet sent (notification_event keys; each goes out once).
+    An adverse item still open when first seen goes to TAO followers (adverse_open:<id>); once reviewed it goes to partner
+    followers (adverse_reviewed:<id>). An item dismissed before the sweep saw it goes to nobody."""
+    from . import companies
+    names = {c.slug: c.name for c in s.scalars(select(Company)).all()}
+    sent = _sent(s, "adverse_")
+    for a in s.scalars(select(AdverseItem).order_by(AdverseItem.found_at, AdverseItem.id)).all():
+        k_open, k_rev = f"adverse_open:{a.id}", f"adverse_reviewed:{a.id}"
+        name = names.get(a.company_slug, a.company_slug)
+        if k_open not in sent and _once(s, k_open) and a.state == "open":
+            to_followers(s, a.company_slug, "adverse_media", f"Adverse media to review: {name} · {a.category.capitalize()}",
+                         f"{a.title}" + (f" ({a.publisher})" if a.publisher else ""), tao=True, partners=False)
+        if a.state == "reviewed" and k_rev not in sent and _once(s, k_rev):
+            to_followers(s, a.company_slug, "adverse_media", f"Adverse media reviewed by TAO: {name} · {a.category.capitalize()}",
+                         f"{a.title}." + (f" TAO note: {a.note}" if a.note else ""), tao=False, partners=True)
+    sent = _sent(s, "negative_news:")
+    for n in s.scalars(select(NewsItem).where(NewsItem.sentiment == "negative").order_by(NewsItem.found_at, NewsItem.id)).all():
+        key = f"negative_news:{n.id}"
+        if key not in sent and _once(s, key):
+            to_followers(s, n.company_slug, "negative_news", f"Negative news: {names.get(n.company_slug, n.company_slug)}",
+                         f"{n.title}" + (f" ({n.publisher})" if n.publisher else ""), tao=True, partners=True)
+    sent = _sent(s, "report_late:")
+    for d in s.scalars(select(Deal).order_by(Deal.slug)).all():
+        nr = companies.next_report(s, d, companies.latest_pub(s, d.slug))
+        if not nr or not nr["late"]:
+            continue
+        key = f"report_late:{d.slug}:{nr['period']}"
+        if key in sent or not _once(s, key):
+            continue
+        for u in subscribed_tao(s, d.slug):
+            link = f"/admin/companies/{d.company_slug}" if d.company_slug else report_link(s, u, d.slug, add_period(nr["period"], -1))
+            create(s, u, "report_late", f"Report late: {d.name} · {month_label(nr['period'])}", link,
+                   body=f"Expected on {nr['due_on']}; nothing uploaded {nr['business_days_late']} business days later.",
+                   deal_slug=d.slug, collection_period=nr["period"])
+
+
+def add_period(period: str, n: int) -> str:
+    y, m = int(period[:4]), int(period[5:7]) + n
+    y += (m - 1) // 12; m = (m - 1) % 12 + 1
+    return f"{y:04d}-{m:02d}"
+
+
+def company_note_mentions(s: Session, note: CompanyNote, by: AppUser, new_mentions: list[str]) -> list[str]:
+    """kind mention, to each newly mentioned TAO user except the author, linking to the note on the company page."""
+    c = s.get(Company, note.company_slug)
+    body = note.body if len(note.body) <= 280 else note.body[:277] + "..."
+    ids = []
+    for uid in new_mentions:
+        if uid == by.id:
+            continue
+        u = s.get(AppUser, uid)
+        if u is not None and create(s, u, "mention", f"{by.name} mentioned you: {c.name if c else note.company_slug}, analyst note",
+                                    note_link(note.company_slug, note.id), body=body, collection_period=note.collection_period) is not None:
+            ids.append(uid)
+    return ids
 
 
 def visible_to_partner(q, partner_programs: list[str]):

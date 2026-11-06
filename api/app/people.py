@@ -1,6 +1,6 @@
 """Wave C people: users, subscriptions, display and notification preferences, system settings (contract abdda6d).
 Row -> contract dict, defaults, and the checks the routes in main.py share. No routes here."""
-import datetime as dt
+import datetime as dt, re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -10,11 +10,13 @@ from . import views
 
 ROLES = ["tao_admin", "tao_analyst", "investor_admin", "investor_viewer", "manager_admin", "manager_viewer"]
 KINDS = ["mention", "reply", "report_needs_review", "report_published", "correction_published", "covenant_changed", "report_rejected",
-         "user_change", "system"]
-PARTNER_KINDS = ["report_published", "correction_published", "user_change"]    # what a partner role can receive
+         "user_change", "system", "adverse_media", "negative_news", "report_late"]
+PARTNER_KINDS = ["report_published", "correction_published", "user_change", "adverse_media", "negative_news"]    # what a partner role can receive
+COMPANY_KINDS = ["adverse_media", "negative_news"]                             # partners: only while company profiles are on
 REQUIRED = {"covenant_changed", "correction_published"}                        # in_app cannot be switched off (422 required)
 TABS = {"mentions": ["mention", "reply"],
-        "reports": ["report_needs_review", "report_published", "correction_published", "covenant_changed", "report_rejected"],
+        "reports": ["report_needs_review", "report_published", "correction_published", "covenant_changed", "report_rejected",
+                    "adverse_media", "negative_news", "report_late"],
         "system": ["user_change", "system"]}
 DISPLAY_DEFAULTS = {"time_zone": "America/Toronto", "date_format": "D MMM YYYY", "number_format": "1,234.56"}
 DATE_FORMATS = ["D MMM YYYY", "YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY"]
@@ -43,24 +45,36 @@ DEFAULT_TEMPLATES = {
                   "Covenant summary: {covenant_summary}.",
     "correction": "We have corrected the {collection_period} report for {deal_name}. What changed: {change_list}. Reason: {reason}. "
                   "The earlier version stays in your history."}
-SETTING_KEYS = ["partner_notifications_enabled", "reporting_calendar", "notification_defaults", "publish_note_templates", "company_feeds"]
+SETTING_KEYS = ["partner_notifications_enabled", "reporting_calendar", "notification_defaults", "publish_note_templates", "company_feeds",
+                "company_profiles_partner_enabled"]
+FEED_SOURCES = ["google_news", "gdelt"]
+FEED_DEFAULTS = {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": list(FEED_SOURCES)}
+RUN_AT = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 def setting_default(key: str):
     return {"partner_notifications_enabled": False, "reporting_calendar": {}, "notification_defaults": {r: _builtin_prefs(r) for r in ROLES},
-            "publish_note_templates": dict(DEFAULT_TEMPLATES), "company_feeds": {}}[key]
+            "publish_note_templates": dict(DEFAULT_TEMPLATES), "company_feeds": {**FEED_DEFAULTS, "sources": list(FEED_SOURCES)},
+            "company_profiles_partner_enabled": False}[key]
+
+
+def _stored(key: str, value):
+    """company_feeds stored before wave D was a placeholder ({}): read it over the defaults so every field is there."""
+    if key == "company_feeds" and isinstance(value, dict):
+        return {**setting_default(key), **value}
+    return value
 
 
 def get_setting(s: Session, key: str):
     row = s.get(SystemSetting, key)
-    return setting_default(key) if row is None else row.value
+    return setting_default(key) if row is None else _stored(key, row.value)
 
 
 def setting_dict(s: Session, key: str) -> dict:
     row = s.get(SystemSetting, key)
     if row is None:
         return {"key": key, "value": setting_default(key), "updated_at": None, "updated_by": None}
-    return {"key": key, "value": row.value, "updated_at": views.iso(row.updated_at), "updated_by": row.updated_by}
+    return {"key": key, "value": _stored(key, row.value), "updated_at": views.iso(row.updated_at), "updated_by": row.updated_by}
 
 
 def _check_prefs(role: str, rows, where: str) -> list[dict]:
@@ -104,9 +118,33 @@ def check_setting(s: Session, key: str, value):
             raise Refused(422, "invalid", "publish_note_templates is {new_report: text, correction: text}")
         value = {**get_setting(s, key), **value}
     elif key == "company_feeds":
-        if not isinstance(value, dict):
-            raise Refused(422, "invalid", "company_feeds is an object")
+        value = check_feeds(get_setting(s, key), value)
+    elif key == "company_profiles_partner_enabled":
+        if not isinstance(value, bool):
+            raise Refused(422, "invalid", "company_profiles_partner_enabled is true or false")
     return value
+
+
+def check_feeds(current: dict, value) -> dict:
+    """company_feeds: {enabled: bool, run_at: 'HH:MM', time_zone: IANA, sources: subset of [google_news, gdelt]}. Fields left
+    out keep their current value (the defaults while unset)."""
+    if not isinstance(value, dict):
+        raise Refused(422, "invalid", "company_feeds is {enabled, run_at, time_zone, sources}")
+    extra = set(value) - set(FEED_DEFAULTS)
+    if extra:
+        raise Refused(422, "invalid", f"company_feeds: unknown field(s) {', '.join(sorted(extra))}")
+    out = {**FEED_DEFAULTS, **(current or {}), **value}
+    if not isinstance(out["enabled"], bool):
+        raise Refused(422, "invalid", "company_feeds.enabled is true or false")
+    if not isinstance(out["run_at"], str) or not RUN_AT.match(out["run_at"]):
+        raise Refused(422, "invalid", "company_feeds.run_at is HH:MM (24-hour)")
+    if not isinstance(out["time_zone"], str):
+        raise Refused(422, "invalid", "company_feeds.time_zone is an IANA time zone")
+    check_time_zone(out["time_zone"])
+    src = out["sources"]
+    if not isinstance(src, list) or any(x not in FEED_SOURCES for x in src) or len(set(src)) != len(src):
+        raise Refused(422, "invalid", "company_feeds.sources is a list drawn from google_news, gdelt, each once")
+    return {k: out[k] for k in FEED_DEFAULTS}
 
 
 # ---- notification preferences ----
@@ -158,7 +196,7 @@ def display(s: Session, u: AppUser | None) -> dict:
 def check_time_zone(tz: str) -> None:
     try:
         ZoneInfo(tz)
-    except (ZoneInfoNotFoundError, ValueError):
+    except (ZoneInfoNotFoundError, ValueError, OSError):
         raise Refused(422, "invalid", f"unknown time zone {tz}")
 
 

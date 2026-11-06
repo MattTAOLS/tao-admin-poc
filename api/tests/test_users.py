@@ -164,7 +164,8 @@ def test_partner_user_only_on_shared_programs(client):
 def test_me_demo_and_user(client):
     r = client.get(V1 + "/me", headers=INV).json()
     assert r == {"user": None, "role": "investor_viewer", "partner_slug": "investor",
-                 "display": {"time_zone": "America/Toronto", "date_format": "D MMM YYYY", "number_format": "1,234.56"}}
+                 "display": {"time_zone": "America/Toronto", "date_format": "D MMM YYYY", "number_format": "1,234.56"},
+                 "features": {"companies": False}}
     r = client.get(V1 + "/me", headers=H(MA)).json()
     assert r["user"]["id"] == MA and r["role"] == "manager_admin" and r["partner_slug"] == "manager"
     assert client.get(V1 + "/me", headers=TAO).json()["partner_slug"] is None
@@ -201,10 +202,11 @@ def test_my_activity_through_audit_filter(client):
 def test_notification_prefs(client):
     tao = client.get(V1 + "/me/notification-prefs", headers=H(AN)).json()
     assert [p["kind"] for p in tao] == ["mention", "reply", "report_needs_review", "report_published", "correction_published",
-                                        "covenant_changed", "report_rejected", "user_change", "system"]
+                                        "covenant_changed", "report_rejected", "user_change", "system", "adverse_media", "negative_news",
+                                        "report_late"]
     assert all(p["in_app"] for p in tao) and {p["kind"] for p in tao if p["required"]} == {"correction_published", "covenant_changed"}
     partner = client.get(V1 + "/me/notification-prefs", headers=H(IV)).json()
-    assert [p["kind"] for p in partner] == ["report_published", "correction_published", "user_change"]
+    assert [p["kind"] for p in partner] == ["report_published", "correction_published", "user_change", "adverse_media", "negative_news"]
     r = client.put(V1 + "/me/notification-prefs", headers=H(AN), json=[{"kind": "report_published", "in_app": False, "digest": "daily"}])
     assert r.status_code == 200 and next(p for p in r.json() if p["kind"] == "report_published")["in_app"] is False
     assert code(client.put(V1 + "/me/notification-prefs", headers=H(AN), json=[{"kind": "covenant_changed", "in_app": False, "digest": "instant"}])) == (422, "required")
@@ -218,7 +220,8 @@ def test_notification_prefs(client):
 # ---- settings ----
 def test_settings_defaults_change_and_audit(client):
     rows = {x["key"]: x for x in client.get(V1 + "/settings", headers=H(A1)).json()}
-    assert set(rows) == {"partner_notifications_enabled", "reporting_calendar", "notification_defaults", "publish_note_templates", "company_feeds"}
+    assert set(rows) == {"partner_notifications_enabled", "reporting_calendar", "notification_defaults", "publish_note_templates", "company_feeds",
+                         "company_profiles_partner_enabled"}
     assert rows["partner_notifications_enabled"] == {"key": "partner_notifications_enabled", "value": False, "updated_at": None, "updated_by": None}
     r = client.put(V1 + "/settings/partner_notifications_enabled", headers=H(A1), json={"value": True, "reason": "pilot with Investor"})
     assert r.status_code == 200 and r.json()["value"] is True and r.json()["updated_by"] == "A. Patel" and r.json()["updated_at"]

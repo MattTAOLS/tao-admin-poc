@@ -1,6 +1,7 @@
 """Loads seed/*.json into the database, idempotently (run it twice, get the same rows).
 
-    python -m app.seed                          partners, programs, deals, covenant definitions, sample users (if missing)
+    python -m app.seed                          partners, programs, deals, covenant definitions, sample users and
+                                                companies (if missing)
     python -m app.seed --reference-publications also publish the 12 real deal objects in docs/dashboard-json
                                                 (demo data for the partner portals; skipped for periods
                                                 that already have a publication)
@@ -14,7 +15,7 @@ Only rows the seed created (origin = seed) are compared and superseded; rows a T
 import json, pathlib, sys, uuid, datetime as dt
 from sqlalchemy import select
 from . import db, views
-from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction, AppUser, new_id, utcnow
+from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction, AppUser, Company, new_id, utcnow
 
 HERE = pathlib.Path(__file__).resolve()
 NS = uuid.UUID("6f1d3c52-7d0e-4c8e-9a51-2b7f0a1c9e10")
@@ -67,6 +68,8 @@ def load(s, root: pathlib.Path = SEED) -> dict:
     counts["covenant_definitions_superseded"] = load_covenants(s, rows)
     if (root / "users.json").exists():
         counts["users_added"] = load_users(s, json.loads((root / "users.json").read_text(encoding="utf-8")))
+    if (root / "companies.json").exists():
+        counts["companies_added"], counts["deals_linked"] = load_companies(s, json.loads((root / "companies.json").read_text(encoding="utf-8")))
     s.commit()
     return counts
 
@@ -83,6 +86,26 @@ def load_users(s, rows: list[dict]) -> int:
         n += 1
     s.flush()
     return n
+
+
+def load_companies(s, rows: list[dict]) -> tuple[int, int]:
+    """seed/companies.json (wave D): add each company whose slug is missing, and link a deal to it only while the deal has
+    no company. An existing company (name, aliases, record fields) and every existing link are never changed, so edits and
+    re-links made in the app survive every seed run, the same rule as load_users. Returns (companies added, deals linked)."""
+    added = linked = 0
+    for r in rows:
+        if s.get(Company, r["slug"]) is None:
+            s.add(Company(slug=r["slug"], name=r["name"], aliases=list(r.get("aliases") or [])))
+            added += 1
+    s.flush()
+    for r in rows:
+        for slug in r.get("deal_slugs") or []:
+            d = s.get(Deal, slug)
+            if d is not None and d.company_slug is None:
+                d.company_slug = r["slug"]
+                linked += 1
+    s.flush()
+    return added, linked
 
 
 COVENANT_FIELDS = ("legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "unit", "source")

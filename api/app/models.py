@@ -59,6 +59,7 @@ class Deal(Base):
     program_slug: Mapped[str] = mapped_column(Text, ForeignKey("program.slug"))
     servicer: Mapped[str] = mapped_column(Text)
     template_id: Mapped[str] = mapped_column(Text)
+    company_slug: Mapped[str | None] = mapped_column(Text, ForeignKey("company.slug"), nullable=True)      # 012
 
 
 class CovenantDefinition(Base):
@@ -343,3 +344,103 @@ class Comment(Base):
     mentions: Mapped[list] = mapped_column(Json, default=list)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ---- wave D (012): companies, notes, follows, news and adverse media ----
+class Company(Base):
+    """012: a lending company grouping one or more deals. Every figure shown for it is read from published deal objects."""
+    __tablename__ = "company"
+    slug: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    aliases: Mapped[list] = mapped_column(Json, default=list)
+    industry: Mapped[str | None] = mapped_column(Text, nullable=True)
+    naics: Mapped[str | None] = mapped_column(Text, nullable=True)
+    headquarters: Mapped[str | None] = mapped_column(Text, nullable=True)
+    website: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relationship_since: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_user_id: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+class CompanyContact(Base):
+    __tablename__ = "company_contact"
+    __table_args__ = (Index("company_contact_company", "company_slug"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    company_slug: Mapped[str] = mapped_column(Text, ForeignKey("company.slug"))
+    name: Mapped[str] = mapped_column(Text)
+    role: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email: Mapped[str | None] = mapped_column(Text, nullable=True)
+    receives: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    removed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CompanyNote(Base):
+    """TAO-only analyst note. Never joined by a partner route."""
+    __tablename__ = "company_note"
+    __table_args__ = (Index("company_note_company", "company_slug"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    company_slug: Mapped[str] = mapped_column(Text, ForeignKey("company.slug"))
+    author_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"))
+    body: Mapped[str] = mapped_column(Text)
+    mentions: Mapped[list] = mapped_column(Json, default=list)
+    collection_period: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    removed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CompanyFollow(Base):
+    __tablename__ = "company_follow"
+    user_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"), primary_key=True)
+    company_slug: Mapped[str] = mapped_column(Text, ForeignKey("company.slug"), primary_key=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+class NewsRun(Base):
+    """One news worker run. The API inserts manual runs (queued); the news worker does the rest."""
+    __tablename__ = "news_run"
+    __table_args__ = (Index("news_run_queued", "queued_at"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    trigger: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, default="queued", server_default=text("'queued'"))
+    queued_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    companies: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    items_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    adverse_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    errors: Mapped[list] = mapped_column(Json, default=list)
+
+
+class NewsItem(Base):
+    __tablename__ = "news_item"
+    __table_args__ = (UniqueConstraint("company_slug", "url"), Index("news_item_company_found", "company_slug", "found_at"))
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    company_slug: Mapped[str] = mapped_column(Text, ForeignKey("company.slug"))
+    run_id: Mapped[str | None] = mapped_column(Id, ForeignKey("news_run.id"), nullable=True)
+    source: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text)
+    publisher: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sentiment: Mapped[str] = mapped_column(Text)
+    found_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+class AdverseItem(Base):
+    __tablename__ = "adverse_item"
+    __table_args__ = (UniqueConstraint("company_slug", "url", "category"), Index("adverse_item_company", "company_slug", "state"))
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    company_slug: Mapped[str] = mapped_column(Text, ForeignKey("company.slug"))
+    news_item_id: Mapped[str | None] = mapped_column(Id, ForeignKey("news_item.id"), nullable=True)
+    category: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text)
+    publisher: Mapped[str | None] = mapped_column(Text, nullable=True)
+    found_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    state: Mapped[str] = mapped_column(Text, default="open", server_default=text("'open'"))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state_by: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
+    state_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
