@@ -11,6 +11,7 @@ from .models import Deal, ReviewAction, SetrepUpload
 
 TZ = ZoneInfo("America/Toronto")
 SCOPES = ("reports", "platform")
+# wave D actions (company_change, company_note, company_note_edit, adverse_change, news_run) carry no upload: Platform.
 REPORT_ACTIONS_WITHOUT_UPLOAD = ("publish", "regenerate")
 
 

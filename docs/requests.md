@@ -578,3 +578,30 @@ The Lead reads this at every merge.
   notifications are off" line does not show. Step 11d subscribes D. Alvarez first, then checks the "off" reason.
   If the dialog should always say notifications are off when they are, the banner could read the setting rather than
   the reasons.
+- 2026-11-06 — Data & API to Lead (wave D, contract gaps and choices; built as below, change the contract if you want
+  otherwise):
+  1. A deal on no company (CompanyPatch: "shows as its own row named after the deal") has no slug in the contract. The
+     API gives that row the deal's slug, and `GET /companies/{deal_slug}`, `/deals/{deal_slug}/insights`, `/news` and
+     `/adverse` read it (no record fields, no contacts, `news` and `adverse` empty, `not_screened`). Writes (PATCH,
+     notes, contacts, follow) on it are 404: create a company for it first. A company slug equal to a deal slug would
+     hide that deal's row; worth a check in the contract (or a `kind` on CompanyRow).
+  2. `Company.owner` is required, but "Partners get the same object without owner": partners get `owner: null`.
+  3. Covenant history: MOVE Trust has no covenant definitions in master data (seed has F-PIL 2.0 only), so no definition
+     is in force for a MOVE month before its publication and those cells are `{status: null, source: null}`. Recompute
+     works for F-PIL 2.0 (Stride from 2026-01, when its definitions start). Needs MOVE Trust definitions in
+     `seed/covenant_definitions.json` or entered in Master data.
+  4. Months: series and covenant-history months are ratio_history months. F-PIL 2.0's 2026-08 report carries ratio month
+     2026-07, so its published cell is 2026-07 (a publication's ratio month = the last month of its ratio_history).
+  5. Not specified, chosen: WatchSignal severities (covenant_near_limit, obligor_near_limit, losses_high, report_late:
+     watch; rising_3m: rising; utilization_high, restated: info); anchors beyond the examples (`losses`,
+     `pool-balance`, `next-report`); rising_3m = the last three month-to-month moves all the bad way (up for a ceiling
+     metric, down for a floor; by the covenant's kind when there is one, else ICR and total equity are floors); LossPeer
+     "range" = the largest absolute value in the 13-month window; balance_median_change = median of
+     (closing_balance - opening_balance) / opening_balance over the other deals, null under 2;
+     restatements field for a TAO correction is `<record>.<field>` (e.g. `period_history.interest`), changed_in the
+     `applied` date; next_report counts any upload of that period (any status) as received, and business_days_late is
+     the Mon-Fri days after due_on while nothing is uploaded (so it can be 1-4 with late false).
+  6. The seed links a deal only when it has none, as asked, so a deal a TAO Admin deliberately left on no company is
+     linked back by the next seed run. If that matters, the seed needs a marker for "unlinked on purpose".
+  7. Partners see a reviewed adverse item's `note` (AdverseItem.note, the TAO review note). Say if that note should be
+     TAO only.

@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal
 from .auth import caller, tao_only, admin_only, company_admin_only, user_required, Caller, PARTNER as PARTNER_OF
 from .db import get_db, file_store, engine
-from .jobs import get_queue
+from .jobs import get_queue, get_news_queue
 from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
-                     PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, Notification, Thread, Comment, new_id, utcnow)
-from . import views, review, rollup, pdf, migrate, auditlog, people, notify, threads
+                     PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, Notification, Thread, Comment, Company,
+                     CompanyContact, CompanyNote, CompanyFollow, NewsRun, NewsItem, AdverseItem, new_id, utcnow)
+from . import views, review, rollup, pdf, migrate, auditlog, people, notify, threads, companies
 
 log = logging.getLogger("api")
 
@@ -1014,7 +1015,7 @@ def _user_change(s: Session, c: Caller, u: AppUser, change: str, before, after, 
 def _me_dict(s: Session, c: Caller) -> dict:
     u = _me(s, c)
     return {"user": people.user_dict(s, u) if u else None, "role": c.role, "partner_slug": c.partner if not c.is_tao else None,
-            "display": people.display(s, u)}
+            "display": people.display(s, u), "features": {"companies": c.is_tao or _profiles_on(s)}}
 
 
 class AppUserCreate(BaseModel):
@@ -1302,6 +1303,8 @@ def _my_notifications(s: Session, c: Caller, partner: str | None, tab: str = "al
     q = select(Notification).where(Notification.user_id == c.user_id)
     if partner is not None or not c.is_tao:
         q = notify.visible_to_partner(q, [p.slug for p in visible_programs(s, partner)])
+        if not _profiles_on(s):                           # company profiles switched off: their alerts go quiet too
+            q = q.where(Notification.kind.not_in(people.COMPANY_KINDS))
     if tab != "all":
         q = q.where(Notification.kind.in_(people.TABS[tab]))
     return q
@@ -1488,3 +1491,487 @@ def reopen_thread(thread_id: str, c: Caller = Depends(tao_user_caller), s: Sessi
     views.audit(s, c, "thread_reopen", upload_id=t.upload_id, detail={"thread_id": t.id})
     s.commit()
     return threads.thread_dict(s, t)
+
+
+# ---- wave D: companies, notes, contacts, follows, news and adverse media ----
+SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+PERIOD_RX = r"^\d{4}-(0[1-9]|1[0-2])$"
+Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
+
+
+def _profiles_on(s: Session) -> bool:
+    return people.get_setting(s, "company_profiles_partner_enabled") is True
+
+
+def company_caller(c: Caller = Depends(caller), s: Session = Depends(get_db)) -> Caller:
+    """Every /companies* route: a partner role reaches them only while company_profiles_partner_enabled is true; otherwise
+    404 not_found, as for anything it cannot see. TAO roles always."""
+    if not c.is_tao and not _profiles_on(s):
+        raise err(404, "not_found", "not found")
+    return c
+
+
+def company_admin_caller(c: Caller = Depends(company_caller)) -> Caller:
+    return admin_only(c)
+
+
+def company_tao_caller(c: Caller = Depends(company_caller)) -> Caller:
+    """Notes: TAO only. A partner (with company profiles on) gets 403 tao_only; notes never reach a partner route."""
+    return tao_only(c)
+
+
+def company_tao_user_caller(c: Caller = Depends(company_tao_caller)) -> Caller:
+    return user_required(c)
+
+
+def company_user_caller(c: Caller = Depends(company_caller)) -> Caller:
+    return user_required(c)
+
+
+def visible_deals(s: Session, partner: str | None) -> list[Deal]:
+    """The deals of the programs visible_programs gives the caller (every deal for TAO). The only partner scoping the
+    company routes do: everything below is built from this list."""
+    q = select(Deal).order_by(Deal.slug)
+    if partner is not None:
+        q = q.where(Deal.program_slug.in_([p.slug for p in visible_programs(s, partner)]))
+    return list(s.scalars(q).all())
+
+
+def _company_view(s: Session, partner: str | None, slug: str) -> tuple[Company | None, list[Deal], Deal | None]:
+    """(company, its visible deals, None), or (None, [deal], deal) for a deal on no company read as its own company (its slug
+    is the deal's). A partner with no visible deal in the company gets 404, exactly as a missing company."""
+    deals = visible_deals(s, partner)
+    co = s.get(Company, slug)
+    if co is not None:
+        mine = [d for d in deals if d.company_slug == slug]
+        if partner is not None and not mine:
+            raise err(404, "not_found", f"no company {slug}")
+        return co, mine, None
+    d = next((d for d in deals if d.slug == slug and d.company_slug is None), None)
+    if d is None:
+        raise err(404, "not_found", f"no company {slug}")
+    return None, [d], d
+
+
+def _real_company(s: Session, partner: str | None, slug: str) -> tuple[Company, list[Deal]]:
+    co, deals, _ = _company_view(s, partner, slug)
+    if co is None:
+        raise err(404, "not_found", f"{slug} is a deal on no company; create a company for it first")
+    return co, deals
+
+
+def _company_out(s: Session, c: Caller, partner: str | None, slug: str) -> dict:
+    co, deals, fallback = _company_view(s, partner, slug)
+    return companies.company_dict(s, co, deals, c.is_tao, c.user_id, fallback)
+
+
+def _deal_links(s: Session, slug: str) -> list[str]:
+    return list(s.scalars(select(Deal.slug).where(Deal.company_slug == slug).order_by(Deal.slug)).all())
+
+
+def _check_deals(s: Session, slugs: list[str]) -> list[Deal]:
+    out = []
+    for x in dict.fromkeys(slugs):
+        d = s.get(Deal, x)
+        if d is None:
+            raise err(422, "unknown_deal", f"no deal {x}")
+        out.append(d)
+    return out
+
+
+def _company_change(s: Session, c: Caller, slug: str, change: str, before, after, reason: str | None, contact_id: str | None = None):
+    """detail {company_slug, company_name, change, contact_id, before, after} (the Lead's shape for the audit page). change:
+    created | record | deals | contact_added | contact_edited | contact_removed; before / after hold the changed fields only
+    (deal links as {"deal_slugs": [...]}, a contact as the contact object)."""
+    co = s.get(Company, slug)
+    views.audit(s, c, "company_change", reason=reason, detail={"company_slug": slug, "company_name": co.name if co else slug, "change": change,
+                                                               "contact_id": contact_id, "before": before, "after": after})
+
+
+def _relink(s: Session, c: Caller, co: Company, deals: list[Deal], reason: str, only_add: bool = False) -> None:
+    """Make `deals` the company's deal list (only_add: add them, keep the rest). Writes a `deals` entry for this company and
+    for every other company a deal was moved away from."""
+    touched = {co.slug} | {d.company_slug for d in deals if d.company_slug}
+    before = {slug: _deal_links(s, slug) for slug in touched}
+    keep = {d.slug for d in deals}
+    if not only_add:
+        for d in s.scalars(select(Deal).where(Deal.company_slug == co.slug)).all():
+            if d.slug not in keep:
+                d.company_slug = None
+    for d in deals:
+        d.company_slug = co.slug
+    s.flush()
+    for slug in sorted(touched, key=lambda x: x != co.slug):
+        after = _deal_links(s, slug)
+        if after != before[slug]:
+            if slug != co.slug:
+                s.get(Company, slug).updated_at = utcnow()
+            _company_change(s, c, slug, "deals", {"deal_slugs": before[slug]}, {"deal_slugs": after}, reason)
+
+
+def _aliases(xs) -> list[str]:
+    return list(dict.fromkeys(a.strip() for a in (xs or []) if isinstance(a, str) and a.strip()))
+
+
+class CompanyCreateIn(BaseModel):
+    slug: Annotated[str, StringConstraints(pattern=SLUG)]
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    aliases: list[str] = Field(default_factory=list)
+    deal_slugs: list[str]
+    reason: Short
+
+
+class CompanyPatchIn(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] | None = None
+    aliases: list[str] | None = None
+    industry: str | None = None
+    naics: str | None = None
+    headquarters: str | None = None
+    website: str | None = None
+    relationship_since: Annotated[str, StringConstraints(pattern=PERIOD_RX)] | None = None
+    owner_user_id: str | None = None
+    deal_slugs: list[str] | None = None
+    reason: Short
+
+
+class ContactIn(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    role: str | None = None
+    email: str | None = None
+    receives: str | None = None
+    reason: Short
+
+
+class NoteIn(BaseModel):
+    body: Annotated[str, StringConstraints(min_length=1, max_length=4000)]
+    mentions: list[str] = Field(default_factory=list)
+    collection_period: Annotated[str, StringConstraints(pattern=PERIOD_RX)] | None = None
+
+
+class AdverseDecisionIn(BaseModel):
+    note: Short
+
+
+@app.get(API + "/companies")
+def list_companies(following: bool | None = None, c: Caller = Depends(company_caller), partner: str | None = Depends(partner_filter),
+                   s: Session = Depends(get_db)):
+    """One row per company over the deals the caller may see (TAO: every company, also one with no deal yet), plus one row
+    per visible deal on no company, named after the deal (its slug is the deal's)."""
+    deals = visible_deals(s, partner)
+    by: dict[str, list[Deal]] = {}
+    for d in deals:
+        if d.company_slug:
+            by.setdefault(d.company_slug, []).append(d)
+    rows = []
+    for co in s.scalars(select(Company)).all():
+        if partner is not None and co.slug not in by:
+            continue
+        rows.append(companies.row(s, co.slug, co.name, co, by.get(co.slug, []), c.is_tao, c.user_id))
+    for d in deals:
+        if d.company_slug is None and s.get(Company, d.slug) is None:
+            rows.append(companies.row(s, d.slug, d.name, None, [d], c.is_tao, c.user_id))
+    if following is not None:
+        rows = [r for r in rows if r["following"] == following]
+    return sorted(rows, key=lambda r: (r["name"].lower(), r["slug"]))
+
+
+@app.post(API + "/companies", status_code=201)
+def create_company(body: CompanyCreateIn, c: Caller = Depends(company_admin_caller), partner: str | None = Depends(partner_filter),
+                   s: Session = Depends(get_db)):
+    if s.get(Company, body.slug) is not None:
+        raise err(409, "slug_taken", f"a company {body.slug} already exists")
+    deals = _check_deals(s, body.deal_slugs)
+    now = utcnow()
+    co = Company(slug=body.slug, name=body.name, aliases=_aliases(body.aliases), created_at=now, updated_at=now)
+    s.add(co)
+    try:
+        s.flush()
+    except IntegrityError:
+        s.rollback()
+        raise err(409, "slug_taken", f"a company {body.slug} already exists")
+    _company_change(s, c, co.slug, "created", None, companies.record(co, []), body.reason)
+    if deals:
+        _relink(s, c, co, deals, body.reason, only_add=True)
+    s.commit()
+    return _company_out(s, c, partner, co.slug)
+
+
+@app.get(API + "/companies/{company_slug}")
+def get_company(company_slug: str, c: Caller = Depends(company_caller), partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    return _company_out(s, c, partner, company_slug)
+
+
+@app.patch(API + "/companies/{company_slug}")
+def patch_company(company_slug: str, body: CompanyPatchIn, c: Caller = Depends(company_admin_caller), partner: str | None = Depends(partner_filter),
+                  s: Session = Depends(get_db)):
+    """Only the fields sent change. deal_slugs is the full list: a deal taken away is left on no company."""
+    co, _ = _real_company(s, partner, company_slug)
+    fields = body.model_dump(exclude_unset=True, exclude={"reason"})
+    if not fields:
+        raise err(422, "invalid", "send at least one field to change")
+    for k in ("name", "aliases", "deal_slugs"):
+        if k in fields and fields[k] is None:
+            raise err(422, "invalid", f"{k} cannot be null")
+    if fields.get("owner_user_id") is not None:
+        u = s.get(AppUser, fields["owner_user_id"].lower()) if _is_uuid(fields["owner_user_id"]) else None
+        if u is None or u.status != "active" or u.role not in ("tao_admin", "tao_analyst"):
+            raise err(422, "invalid", "owner_user_id must be an active TAO user")
+        fields["owner_user_id"] = u.id
+    deals = _check_deals(s, fields.pop("deal_slugs")) if "deal_slugs" in fields else None
+    if "aliases" in fields:
+        fields["aliases"] = _aliases(fields["aliases"])
+    old = companies.record(co, [])
+    for k, v in fields.items():
+        setattr(co, k, v)
+    s.flush()
+    new = companies.record(co, [])
+    changed = [k for k in new if new[k] != old[k]]
+    if changed:
+        co.updated_at = utcnow()
+        _company_change(s, c, co.slug, "record", {k: old[k] for k in changed}, {k: new[k] for k in changed}, body.reason)
+    if deals is not None:
+        links = _deal_links(s, co.slug)
+        _relink(s, c, co, deals, body.reason)
+        if _deal_links(s, co.slug) != links:
+            co.updated_at = utcnow()
+    s.commit()
+    return _company_out(s, c, partner, co.slug)
+
+
+@app.get(API + "/companies/{company_slug}/deals/{deal_slug}/insights")
+def company_insights(company_slug: str, deal_slug: str, c: Caller = Depends(company_caller), partner: str | None = Depends(partner_filter),
+                     s: Session = Depends(get_db)):
+    _, deals, _ = _company_view(s, partner, company_slug)
+    d = next((x for x in deals if x.slug == deal_slug), None)
+    pub = companies.latest_pub(s, deal_slug) if d else None
+    if pub is None:
+        raise err(404, "not_found", f"no published deal {deal_slug} in {company_slug}")
+    return companies.insights(s, d, pub)
+
+
+@app.get(API + "/companies/{company_slug}/news")
+def company_news(company_slug: str, days: int = Query(default=30, ge=1, le=365), sentiment: Literal["positive", "neutral", "negative"] | None = None,
+                 c: Caller = Depends(company_caller), partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    co, _, _ = _company_view(s, partner, company_slug)
+    if co is None:
+        return []
+    q = select(NewsItem).where(NewsItem.company_slug == co.slug, NewsItem.found_at >= utcnow() - dt.timedelta(days=days))
+    if sentiment:
+        q = q.where(NewsItem.sentiment == sentiment)
+    return [companies.news_dict(n) for n in s.scalars(q.order_by(NewsItem.found_at.desc(), NewsItem.id)).all()]
+
+
+@app.get(API + "/companies/{company_slug}/adverse")
+def company_adverse(company_slug: str, state: Literal["open", "reviewed", "dismissed"] | None = None, c: Caller = Depends(company_caller),
+                    partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    """TAO: every state. Partners: reviewed only (decision D6); open and dismissed never leave the TAO routes."""
+    co, _, _ = _company_view(s, partner, company_slug)
+    if co is None:
+        return []
+    q = select(AdverseItem).where(AdverseItem.company_slug == co.slug)
+    if not c.is_tao:
+        q = q.where(AdverseItem.state == "reviewed")
+    if state:
+        q = q.where(AdverseItem.state == state)
+    return [companies.adverse_dict(s, a) for a in s.scalars(q.order_by(AdverseItem.found_at.desc(), AdverseItem.id)).all()]
+
+
+def _adverse_decide(s: Session, c: Caller, adverse_id: str, to: str, note: str) -> dict:
+    a = s.get(AdverseItem, adverse_id) if _is_uuid(adverse_id) else None
+    if a is None:
+        raise err(404, "not_found", "no such adverse media item")
+    if a.state != "open":
+        raise err(409, "bad_state", f"the item is already {a.state}")
+    a.state, a.note, a.state_by, a.state_at = to, note, c.user_id, utcnow()
+    s.flush()
+    views.audit(s, c, "adverse_change", reason=note, detail={"company_slug": a.company_slug, "adverse_id": a.id, "category": a.category,
+                                                             "title": a.title, "state": to, "note": note})
+    s.commit()
+    if to == "reviewed":                                  # following partners hear about it now, not at the next sweep
+        notify.company_sweep(s)
+        s.commit()
+    return companies.adverse_dict(s, a)
+
+
+@app.post(API + "/adverse/{adverse_id}/review")
+def review_adverse(adverse_id: str, body: AdverseDecisionIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    return _adverse_decide(s, c, adverse_id, "reviewed", body.note)
+
+
+@app.post(API + "/adverse/{adverse_id}/dismiss")
+def dismiss_adverse(adverse_id: str, body: AdverseDecisionIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    return _adverse_decide(s, c, adverse_id, "dismissed", body.note)
+
+
+# notes (TAO only; writes need a user)
+def _note_or_404(s: Session, note_id: str) -> CompanyNote:
+    n = s.get(CompanyNote, note_id.lower()) if _is_uuid(note_id) else None
+    if n is None or n.removed_at is not None:
+        raise err(404, "not_found", "no such note")
+    return n
+
+
+def _note_audit(n: CompanyNote) -> dict:
+    return {"body": n.body, "mentions": list(n.mentions or []), "collection_period": n.collection_period}
+
+
+@app.get(API + "/companies/{company_slug}/notes")
+def list_company_notes(company_slug: str, c: Caller = Depends(company_tao_caller), s: Session = Depends(get_db)):
+    co, _ = _real_company(s, None, company_slug)
+    rows = s.scalars(select(CompanyNote).where(CompanyNote.company_slug == co.slug, CompanyNote.removed_at.is_(None))
+                     .order_by(CompanyNote.created_at.desc(), CompanyNote.id)).all()
+    return [companies.note_dict(s, n) for n in rows]
+
+
+@app.post(API + "/companies/{company_slug}/notes", status_code=201)
+def add_company_note(company_slug: str, body: NoteIn, c: Caller = Depends(company_tao_user_caller), s: Session = Depends(get_db)):
+    co, _ = _real_company(s, None, company_slug)
+    try:
+        mentions = threads.check_mentions(s, body.mentions)
+    except people.Refused as e:
+        raise _refused(e)
+    n = CompanyNote(id=new_id(), company_slug=co.slug, author_id=c.user_id, body=body.body, mentions=mentions,
+                    collection_period=body.collection_period, created_at=utcnow())
+    s.add(n); s.flush()
+    views.audit(s, c, "company_note", detail={"company_slug": co.slug, "note_id": n.id, **_note_audit(n)})
+    notify.company_note_mentions(s, n, s.get(AppUser, c.user_id), mentions)
+    s.commit()
+    return companies.note_dict(s, n)
+
+
+@app.patch(API + "/company-notes/{note_id}")
+def edit_company_note(note_id: str, body: NoteIn, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    """Author only (403 not_author). mentions and collection_period left out stay as they are; only newly added mentions notify."""
+    n = _note_or_404(s, note_id)
+    if n.author_id != c.user_id:
+        raise err(403, "not_author", "only the author can edit a note")
+    sent = body.model_fields_set
+    try:
+        mentions = threads.check_mentions(s, body.mentions) if "mentions" in sent else list(n.mentions or [])
+    except people.Refused as e:
+        raise _refused(e)
+    before = _note_audit(n)
+    added = [m for m in mentions if m not in before["mentions"]]
+    n.body, n.mentions, n.edited_at = body.body, mentions, utcnow()
+    if "collection_period" in sent:
+        n.collection_period = body.collection_period
+    s.flush()
+    views.audit(s, c, "company_note_edit", detail={"company_slug": n.company_slug, "note_id": n.id, "change": "edited", "before": before,
+                                                   "after": _note_audit(n)})
+    notify.company_note_mentions(s, n, s.get(AppUser, c.user_id), added)
+    s.commit()
+    return companies.note_dict(s, n)
+
+
+@app.delete(API + "/company-notes/{note_id}", status_code=204)
+def remove_company_note(note_id: str, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    """The author or any TAO Admin. The row stays (removed_at); the company_note_edit entry keeps the text."""
+    n = _note_or_404(s, note_id)
+    if not (c.is_admin or n.author_id == c.user_id):
+        raise err(403, "forbidden", "only the author or a TAO Admin can remove a note")
+    n.removed_at = utcnow()
+    views.audit(s, c, "company_note_edit", detail={"company_slug": n.company_slug, "note_id": n.id, "change": "removed",
+                                                   "before": _note_audit(n), "after": None})
+    s.commit()
+    return Response(status_code=204)
+
+
+# contacts (tao_admin; rows are kept on removal)
+def _contact_or_404(s: Session, contact_id: str) -> CompanyContact:
+    x = s.get(CompanyContact, contact_id.lower()) if _is_uuid(contact_id) else None
+    if x is None or x.removed_at is not None:
+        raise err(404, "not_found", "no such contact")
+    return x
+
+
+@app.post(API + "/companies/{company_slug}/contacts", status_code=201)
+def add_contact(company_slug: str, body: ContactIn, c: Caller = Depends(company_admin_caller), s: Session = Depends(get_db)):
+    co, _ = _real_company(s, None, company_slug)
+    x = CompanyContact(id=new_id(), company_slug=co.slug, name=body.name, role=body.role, email=body.email, receives=body.receives, created_at=utcnow())
+    s.add(x); s.flush()
+    co.updated_at = utcnow()
+    _company_change(s, c, co.slug, "contact_added", None, companies.contact_dict(x), body.reason, contact_id=x.id)
+    s.commit()
+    return companies.contact_dict(x)
+
+
+@app.patch(API + "/company-contacts/{contact_id}")
+def edit_contact(contact_id: str, body: ContactIn, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """name is always sent; role, email and receives change only when sent (null clears)."""
+    x = _contact_or_404(s, contact_id)
+    before = companies.contact_dict(x)
+    for k, v in body.model_dump(exclude_unset=True, exclude={"reason"}).items():
+        setattr(x, k, v)
+    s.flush()
+    after = companies.contact_dict(x)
+    if after != before:
+        s.get(Company, x.company_slug).updated_at = utcnow()
+        _company_change(s, c, x.company_slug, "contact_edited", before, after, body.reason, contact_id=x.id)
+    s.commit()
+    return after
+
+
+@app.delete(API + "/company-contacts/{contact_id}", status_code=204)
+def remove_contact(contact_id: str, reason: str = Query(min_length=3), c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    x = _contact_or_404(s, contact_id)
+    if len(reason.strip()) < 3:
+        raise err(422, "invalid", "reason needs at least 3 characters")
+    x.removed_at = utcnow()
+    s.get(Company, x.company_slug).updated_at = utcnow()
+    _company_change(s, c, x.company_slug, "contact_removed", companies.contact_dict(x), None, reason.strip(), contact_id=x.id)
+    s.commit()
+    return Response(status_code=204)
+
+
+# follows (any role that can see the company; needs a user)
+@app.put(API + "/companies/{company_slug}/follow", status_code=204)
+def follow_company(company_slug: str, c: Caller = Depends(company_user_caller), partner: str | None = Depends(partner_filter),
+                   s: Session = Depends(get_db)):
+    co, _ = _real_company(s, partner, company_slug)
+    if s.get(CompanyFollow, (c.user_id, co.slug)) is None:
+        s.add(CompanyFollow(user_id=c.user_id, company_slug=co.slug, created_at=utcnow()))
+        try:
+            s.commit()
+        except IntegrityError:                            # a second click at the same moment: already following
+            s.rollback()
+    return Response(status_code=204)
+
+
+@app.delete(API + "/companies/{company_slug}/follow", status_code=204)
+def unfollow_company(company_slug: str, c: Caller = Depends(company_user_caller), partner: str | None = Depends(partner_filter),
+                     s: Session = Depends(get_db)):
+    co, _ = _real_company(s, partner, company_slug)
+    f = s.get(CompanyFollow, (c.user_id, co.slug))
+    if f is not None:
+        s.delete(f)
+        s.commit()
+    return Response(status_code=204)
+
+
+# news runs (TAO)
+@app.get(API + "/news/runs")
+def list_news_runs(limit: int = Query(default=10, ge=1, le=50), c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    return [companies.run_dict(r) for r in s.scalars(select(NewsRun).order_by(NewsRun.queued_at.desc(), NewsRun.id).limit(limit)).all()]
+
+
+@app.post(API + "/news/runs", status_code=202)
+def run_news_now(c: Caller = Depends(admin_caller), s: Session = Depends(get_db), q=Depends(get_news_queue)):
+    """Queues a manual run: a news_run row (trigger manual, status queued), its id LPUSHed to the news queue. If the queue
+    cannot be reached the run is recorded as failed (errors say why) and still returned."""
+    if not (people.get_setting(s, "company_feeds") or {}).get("enabled"):
+        raise err(409, "feeds_off", "company feeds are switched off (System settings, company_feeds.enabled)")
+    active = s.scalars(select(NewsRun).where(NewsRun.status.in_(("queued", "running")))).first()
+    if active is not None:
+        raise err(409, "run_active", f"a news run is already {active.status} (queued {views.iso(active.queued_at)})")
+    r = NewsRun(id=new_id(), trigger="manual", status="queued", queued_at=utcnow(), companies=0, items_added=0, adverse_added=0, errors=[])
+    s.add(r); s.flush()
+    views.audit(s, c, "news_run", detail={"run_id": r.id, "trigger": "manual"})
+    s.commit()
+    try:
+        q.push(r.id)
+    except Exception as e:                                # queue down: say so on the run instead of leaving it queued forever
+        log.error("news queue push failed for %s: %s", r.id, e)
+        r.status, r.finished_at = "failed", utcnow()
+        r.errors = [{"company_slug": None, "source": "api", "message": f"news queue unavailable: {str(e)[:200]}"}]
+        s.commit()
+    return companies.run_dict(r)
