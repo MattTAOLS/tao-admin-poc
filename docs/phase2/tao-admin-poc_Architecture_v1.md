@@ -202,3 +202,15 @@ recommendations for wave X". Design references are design ID and note number (e.
 Each wave: you approve the designs for that wave, the Lead lands the contract change and you see it, builders work in
 parallel in their own branches, QA extends the demo, the Lead integrates on an `integration/` branch, the full suite runs from a
 fresh database, and `main` moves only when you say so. Your stack is updated after each wave with data kept.
+
+## 9. Found during the build
+
+- **Wave B, minor (QA):** on MOVE Trust reports, an edit to page-2 `/tranche_balance/principal` (or recoveries, interest) raises
+  no finding, because R05 reads the period roll-forward row, not those fields. The edit publishes beside an unedited copy in
+  `period_history`. The edit dialog already says no rule reads the value. Options: have R05 also compare the page-2 totals with
+  the roll-forward row, or edit both together. Not blocking; queued for the Rules agent.
+- **Wave B, MOVE Trust covenants:** no MOVE deal has covenant definitions in the master data, so R14 raises one note per MOVE
+  report ("No covenant definitions recorded") and no MOVE threshold is checked. A TAO Admin can now add them with "Add covenant",
+  or they can be seeded from the reports as was done for Stride and Xpedite.
+- **Waves A and B, test speed:** demo runs took 20+ minutes against about 5 earlier, with the host CPU at 100% (antivirus and
+  the Docker VM) and every step slowed alike, extraction included. Re-time on a quiet machine before judging the 10-minute target.
