@@ -834,3 +834,29 @@ Append an entry when a work package lands. Newest first.
   open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
   publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
   from the correction (no schema change). active_edit_count is per value, as built.
+- 2026-11-05 — Design System (phase 2 wave C): sign in as a user, notification bell, Notifications, Profile, help.
+  Built: the sidebar card is "Sign in as (POC)", listing the seeded users (web/src/shell/users.ts, a copy of
+  seed/users.json kept equal by a test; the web container does not mount seed/) grouped by role, with a line saying it
+  stands in for real sign-in. `data-testid="role-switcher"` kept; the first user of each role has the role id in its
+  menu item's accessible name, so tests/e2e/lib/ui.ts still matches one item per role (a second user of the role does
+  not match). Choosing a user stores its id (`tao-admin-poc.user`) and role; api(), apiBlob() and roleHeaders() send
+  X-User with X-Role / X-Partner. GET /me resolves the user; any failure (older API, unknown_user, inactive_user, a reply
+  without a user) falls back to role-only mode and X-User stops being sent. No stored user = role-only, exactly as phase 1.
+  loadRole / saveRole unchanged; saveRole of another role clears the user. Pages read the person with
+  `useSession()` from '@/shell/session' (mode, userId, me). Notifications nav item: unread badge from
+  /notifications/unread-count on navigation and every 60 s, only for a signed-in user. Pages /admin/notifications,
+  /notifications, /admin/settings/profile, /settings/profile registered (web/src/shell/account/). Help: sections for
+  sign-in, notifications, comments, profile, user management, team members, system settings, and the publish note and
+  recipients.
+  Run: `npx vitest run src/shell src/design` (226 tests); full web suite 527 passed, 17 skipped; tsc clean;
+  check_contracts green.
+  Stubbed / notes: partner Notifications tabs are All / Reports / System (no Mentions: comments never reach partners).
+  Display preferences apply to the Notifications and Profile pages only; other pages keep their own formats. The help
+  text for User management, Team members, System settings and the review page comments follows the designs (D7, D8, D10);
+  UI-Admin, UI-Review and UI-Partner should check the button labels once built.
+  Needs from others: the Notification `link` example in the contract (`/admin/review/<id>`, `/investor/programs/<p>/deals/<d>`)
+  does not match the app routes (`/admin/uploads/queue/<id>`, `/investor/portfolio/<p>/deals/<d>`); the page navigates
+  to `link` as given, so the API should emit app routes (Data & API, Lead). UI-Admin / UI-Partner register User management
+  (/admin/settings/users), Team members (/settings/team) and System settings (/admin/settings/system) in pages.ts with
+  `load` and `built: true` (tell me, I own the file). review/lib/api.ts approve spreads roleHeaders(), which now carries
+  X-User, so it needs no change.
