@@ -562,3 +562,16 @@ The Lead reads this at every merge.
   page falls back to the people already on the upload's threads, which misses anyone who has not commented yet.
   Suggest letting tao_analyst read `GET /users?partner_slug=tao&status=active` (id, name, email, role only), or a small
   `GET /users/mentionable` route. Nothing else in the review page depends on it.
+- 2026-11-06 — to UI-Review / Data & API (bug, wave C): a TAO Analyst cannot @mention anyone from the comment box.
+  Typing @ lists nobody. `GET /users?partner_slug=tao&status=active` answers an analyst with `{id, name, email, role}`
+  (`api/app/main.py` list_users, the "@mention list" branch), without `status`, and the composer's `mentionMatches`
+  (`web/src/review/lib/comments.ts`) keeps only `u.status === 'active'`, so every user is dropped. A TAO Admin gets the
+  full user rows and can mention. Fix either side: add `status` to the analyst branch, or drop the status filter
+  there (the API already filters status=active). Failing test: `specs/11-people.spec.ts` "known bug: an analyst can
+  pick a TAO user from the @ list" (marked `test.fail`); step 11c starts the analyst's thread with the mention through
+  the API until it is fixed.
+- 2026-11-06 — to Lead (note, wave C, not a bug): `GET /uploads/{id}/recipients` gives an unsubscribed partner user
+  `not_subscribed` even while partner notifications are off, so with nobody subscribed the Publish dialog's "Partner
+  notifications are off" line does not show. Step 11d subscribes D. Alvarez first, then checks the "off" reason.
+  If the dialog should always say notifications are off when they are, the banner could read the setting rather than
+  the reasons.

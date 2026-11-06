@@ -1,9 +1,9 @@
 # TAO Admin POC — demo walkthrough
 
 The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
-9) and the wave B editing steps (step 10), run in order from a fresh database, with the screenshots the Playwright
-tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a few) in `tests/e2e/specs/`; the
-negative tests sit between the steps where their state exists. Every number here comes from
+9), the wave B editing steps (step 10) and the wave C people steps (step 11), run in order from a fresh database,
+with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a
+few) in `tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
 
 ## Run it
@@ -333,9 +333,72 @@ Master data change with before and after. A second new version from 2026-09-01 o
 ![Covenant history](demo/10-covenant-history.png)
 ![Audit, Platform tab](demo/10-audit-platform.png)
 
-**Known bug.** At 1440 x 900 the Covenant definitions table is wider than its card and the Edit and History column is
-cut off with no scroll (`docs/requests.md`, QA 2026-11-05). Step 10c runs at 1920 x 1080; a separate test marked
-`test.fail` checks 1440 and will turn red when the table is fixed.
+**Fixed bug.** At 1440 x 900 the Covenant definitions table used to be wider than its card with the Edit and History
+column cut off (`docs/requests.md`, QA 2026-11-05). The Lead made it scroll sideways inside the card; the regression
+test "covenant Edit and History are reachable at 1440 x 900" checks it, and step 10c runs at the suite's 1440 x 900.
+
+## Journey 6 — people (phase 2, wave C)
+
+### Step 11. Users, team members, comments, the publish note and profile
+
+Wave C puts real users behind the role switcher. The sidebar card is now "Sign in as (POC)": eight sample users from
+`seed/users.json`, grouped by role. The first user of each role carries the role id in its menu name, so steps 1–10
+still pick a role the way they did and now act as that role's first user (A. Patel for TAO Admin, J. Moreau for TAO
+Analyst, and so on). With no user chosen the app runs by role alone, as before. `specs/11-people.spec.ts`; the added
+user, the comments, the note and the profile changes are test data.
+
+**11a. Users.** Signed in as A. Patel, the card shows the name and TAO Admin. User management lists the eight seeded
+users. Add user: Q. Tester, TAO Analyst, receiving "All deals in MOVE Trust, including new ones". Deactivate with a
+reason: the API then answers that user with 401 `inactive_user`. Reactivate with a reason. A. Patel cannot deactivate
+herself ("You can’t change your own role or deactivate yourself."), and M. Chen, the only Investor Company Admin,
+cannot be deactivated or demoted ("This is the last active admin for its company"); the API answers 409 `self_change`
+and `last_admin`. The Platform tab of the Audit log has user_change entries (created, subscriptions, deactivated,
+reactivated) by A. Patel. J. Moreau, an analyst, gets "You don’t have access" on User management and 403 on `/users`.
+
+![User management](demo/11-user-management.png)
+![Add user](demo/11-add-user.png)
+![Last admin refused](demo/11-last-admin-refused.png)
+![Audit, user changes](demo/11-audit-user-change.png)
+
+**11b. Team members.** M. Chen (Investor Company Admin) opens Team members: M. Chen and D. Alvarez only, no TAO or
+Manager user, and the API keeps her to her own partner (another partner's user is 404). Editing D. Alvarez shows a
+subscription tree with only the programs shared with Investor. D. Alvarez (Viewer) gets no access.
+
+![Team members](demo/11-team-members.png)
+
+**11c. Comments and mentions.** The analyst uploads Essex Lease Financial Corp. 2026-07 (the month after step 10's
+June). J. Moreau starts a thread on its R14 note and mentions A. Patel. Known bug: an analyst's @ list is empty
+(`docs/requests.md`, QA 2026-11-06), so the test sends this first comment through the API, as the comment box would;
+a separate test marked `test.fail` checks the @ list. The finding card shows one comment with @A. Patel highlighted.
+Signed in as A. Patel, the Notifications badge shows unread; the Mentions tab has the mention, and Open thread lands
+on the review page with `?thread=` and the thread open. She replies and resolves the thread; the R14 finding stays
+open. The Reports tab of the audit log has two comment entries and a thread_resolve, and J. Moreau gets a Reply
+notification. Partners get 403 on the threads route.
+
+![Comment with a mention](demo/11-comment-mention.png)
+![Mention in Notifications](demo/11-notifications-mention.png)
+![Thread resolved](demo/11-thread-resolved.png)
+
+**11d. Publish note and partner notifications.** A. Patel subscribes D. Alvarez to Essex in User management. Partner
+notifications are off by default, so Publish to partner › Who gets notified says "Partner notifications are off" and
+lists D. Alvarez under Not notified with "partner notifications are off" (M. Chen, not subscribed, is listed with
+that reason). Cancel. System settings › Partner notifications on, with a reason (a settings_change on the Platform
+tab). Publish again: D. Alvarez is under Notified; type a note to partners; Approve and publish. The Publish audit
+entry carries the note and the recipients. Signed in as D. Alvarez, Notifications shows "Report published: Essex Lease
+Financial Corp. · July 2026" with "Note from TAO" and the note as typed; Open report goes to the deal at
+`?period=2026-07`. No comment text reaches her, in the page or the API. The Manager users, not subscribed, get
+nothing about it.
+
+![Notifications off](demo/11-publish-notifications-off.png)
+![Publish with a note](demo/11-publish-with-note.png)
+![Partner notification](demo/11-partner-notification.png)
+
+**11e. Profile.** S. Lindqvist changes her name to S. Lindqvist-Berg (the sidebar card follows) and her time zone to
+America/Vancouver. "Covenant status changed (WATCH or BREACH)" and "Correction published" are checked and locked
+(always on); switching one off through the API is 422 `required`. The changes are prefs_change entries on the
+Platform tab.
+
+![Profile](demo/11-profile.png)
 
 ## Acceptance (build plan), measured 2026-11-04
 
@@ -360,3 +423,13 @@ Per-report extraction times are written to `tests/e2e/.cache/measurements.jsonl`
 failure). Run 1: 20 min 43 s (start and seed 1 min 39 s, tests 19 min 4 s; step 10 about 2 min 50 s). Run 2: 24 min
 17 s (3 min 42 s, 20 min 35 s; step 10 about 2 min 25 s). The host was slow throughout (antivirus load: F-PIL extraction
 took 30–60 s per report against 3–26 s on 2026-11-04), so these runs do not show the 10-minute target either way.
+
+**Wave C runs, 2026-11-06.** After merging `integration/wave-c`: the existing steps 1–10 were first run unchanged from
+`down -v`. That run had 20 of 25 pass. Step 2 failed because the review page was still loading after the 15 s expect
+timeout (its first API call came about 10 s after navigation: the Vite dev server on a host at 98% CPU, from WSL and
+the antivirus); step 3 then followed from it. Step 9b hit its 6-minute limit on extraction time, and step 10b followed
+from 9b. None of these traced to wave C logic. The suite now uses 30 s expect and action timeouts and longer limits
+for step 9, and with step 11 added a full run from `down -v`, up, seed and `npm run test:e2e` was 31 of 31 green (29
+steps and negatives, the covenant regression check, and the analyst @mention known-bug test, which passes as an
+expected failure): 40 min 37 s (start and seed 4 min 8 s, tests 36 min 29 s; step 11 about 3 min 50 s). The same host
+ran the wave B suite in about 21 minutes the day before and the phase 1 suite in 7–9 minutes.
