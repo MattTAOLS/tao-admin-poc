@@ -841,10 +841,11 @@ components:
       required: [metric, label, unit, deal, program_median, program_mean, peers_in_month, limit]
       description: |
         One ratio_history field over the last 13 months of the deal's latest publication (decisions D2, D3). deal: this
-        deal. program_median and program_mean: over the other deals of the same program that report the same field for
-        that month in their own latest publication, one point per deal, unweighted (median is the default line); null for
-        a month with fewer than 2 such deals. peers_in_month: how many deals that is. limit: the covenant threshold whose
-        covenant reads this metric, if any. No industry average.
+        deal. program_median and program_mean: over the other companies with a deal in the same program that reports the
+        same field for that month in its latest publication, one point per company, unweighted (median is the default
+        line). A company with several such deals (TLFC) counts once, at the median of its deals' values. This company's own
+        deals are left out. null for a month with fewer than 2 such companies. peers_in_month: how many companies that is.
+        limit: the covenant threshold whose covenant reads this metric, if any. No industry average.
       properties:
         metric: { type: string, enum: [delinquency_ratio_pct, rolling_3month_loss_ratio_pct, rolling_12month_loss_ratio_pct, loss_ratio_pct, interest_coverage_ratio, debt_equity_ratio, total_equity] }
         label: { type: string }
@@ -906,7 +907,7 @@ components:
         signals: { type: array, items: { $ref: '#/components/schemas/WatchSignal' } }
         series: { type: array, items: { $ref: '#/components/schemas/MetricSeries' } }
         loss_peers: { type: array, items: { $ref: '#/components/schemas/LossPeer' } }
-        balance_median_change: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' }, description: 'program median of closing vs opening change per period_history month, other deals' }
+        balance_median_change: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' }, description: 'program median of closing vs opening change per period_history month, other companies, one point per company as in MetricSeries' }
         covenant_history: { type: array, items: { $ref: '#/components/schemas/CovenantHistoryRow' } }
         restatements:
           type: array
