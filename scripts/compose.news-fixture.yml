@@ -1,0 +1,6 @@
+# Wave D: run the news worker on its labelled test fixture instead of the internet (e2e demo, QA, agent stacks).
+# Add after the other files:  docker compose -p <name> -f docker-compose.yml -f scripts/compose.agent.yml -f scripts/compose.news-fixture.yml up -d
+# The feed still runs only while the System setting company_feeds.enabled is true.
+services:
+  news:
+    environment: { NEWS_SOURCE: fixture, NEWS_FIXTURE: /app/fixtures/example.json }
