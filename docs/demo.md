@@ -432,4 +432,5 @@ from 9b. None of these traced to wave C logic. The suite now uses 30 s expect an
 for step 9, and with step 11 added a full run from `down -v`, up, seed and `npm run test:e2e` was 31 of 31 green (29
 steps and negatives, the covenant regression check, and the analyst @mention known-bug test, which passes as an
 expected failure): 40 min 37 s (start and seed 4 min 8 s, tests 36 min 29 s; step 11 about 3 min 50 s). The same host
-ran the wave B suite in about 21 minutes the day before and the phase 1 suite in 7–9 minutes.
+ran the wave B suite in about 21 minutes the day before and the phase 1 suite in 7–9 minutes. A second run from `down -v` was
+also 31 of 31: 40 min 41 s (start and seed 3 min 22 s, tests 37 min 19 s).

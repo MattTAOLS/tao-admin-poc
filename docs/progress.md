@@ -15,7 +15,8 @@ Append an entry when a work package lands. Newest first.
   reply, resolve (finding stays open), comment / thread_resolve audit, partners 403; 11d D. Alvarez subscribed, "off"
   reason with notifications off, System settings switch on with a reason, publish with a note, D. Alvarez's "Note from
   TAO" and Open report -> ?period=2026-07, managers get nothing; 11e profile name and time zone, locked required kinds,
-  422 required. Full run from `down -v`: 31/31 (one is a `test.fail` known-bug check), 40 min 37 s. Bug filed in
+  422 required. Two full runs from `down -v`: 31/31 and 31/31 (one is a `test.fail` known-bug check), 40 min 37 s
+  and 40 min 41 s. Bug filed in
   requests.md › QA & Demo: an analyst's @ list is empty (GET /users omits status for analysts; the composer filters on
   it); 11c starts that thread through the API until fixed. Lead's covenant-table fix verified by the 1440 regression test.
 - 2026-11-05 — UI-Partner, wave C: partner Team members page (D8 c) at `/<investor|manager>/settings/team`, Company
