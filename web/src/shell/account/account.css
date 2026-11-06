@@ -1,0 +1,45 @@
+/* Notifications and Profile (shell account pages). Tokens only (contracts/tokens.css). */
+.acct { display: grid; gap: var(--gap); max-width: 980px; }
+.acct-muted { color: var(--muted); font-size: var(--fs-small); margin: 8px 0 0; }
+.acct-pad { padding: 12px 16px; margin: 0; }
+.acct-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.acct-form { display: grid; gap: 12px; }
+.acct-row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.acct-dl { margin: 0; display: grid; gap: 4px 16px; }
+.acct-dl dt { font-weight: 600; color: var(--indigo); }
+.acct-dl dd { margin: 0 0 8px; }
+.acct-dl--grid { grid-template-columns: max-content 1fr; }
+.acct-dl--grid dd { margin: 0; }
+.acct-lock { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.acct-select-sm { height: 30px; padding: 0 8px; font-size: var(--fs-table); width: auto; }
+.acct-table { margin-top: 4px; }
+.acct-signin p { margin: 0 0 8px; }
+
+/* Notifications inbox */
+.ntf-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 16px; border-bottom: 1px solid var(--border-card); }
+.ntf-tabs { display: flex; gap: 4px; }
+.ntf-tab { all: unset; box-sizing: border-box; cursor: pointer; padding: 10px 12px; font-weight: 600; font-size: var(--fs-body); color: var(--muted); border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 6px; }
+.ntf-tab[aria-selected="true"] { color: var(--indigo); border-bottom-color: var(--purple); }
+.ntf-tab:focus-visible { box-shadow: var(--focus); border-radius: var(--r-cell); }
+.ntf-tab__n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--r-chip); background: var(--lav-2); color: var(--indigo); font-size: 11px; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.ntf-unread { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text); }
+.ntf-panel { padding: 4px 0 8px; }
+.ntf-loading { padding: 16px; }
+.ntf-day { margin: 12px 16px 4px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.ntf-list { list-style: none; margin: 0; padding: 0; }
+.ntf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-table); }
+.ntf:last-child { border-bottom: 0; }
+.ntf.is-unread { background: var(--lav); }
+.ntf.is-unread .ntf__title { font-weight: 700; }
+.ntf__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--indigo); }
+.ntf__body { margin: 4px 0 0; color: var(--text); }
+.ntf__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; font-size: var(--fs-small); color: var(--muted); }
+.ntf__side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; white-space: nowrap; }
+.ntf__side time { font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ntf__note { margin-top: 8px; padding: 8px 12px; border-left: 3px solid var(--purple); background: var(--card); border-radius: var(--r-cell); }
+.ntf__note b { display: block; font-size: var(--fs-small); color: var(--indigo); }
+.ntf__note p { margin: 2px 0 0; white-space: pre-wrap; }
+.ntf__nonote { margin: 8px 0 0; font-size: var(--fs-small); color: var(--muted); }
+.ntf__changes { list-style: none; margin: 6px 0 0; padding: 0; font-family: var(--data); font-size: var(--fs-table); }
+.ntf__changes .num { font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .ntf { grid-template-columns: 1fr; } .ntf__side { align-items: flex-start; flex-direction: row; } }
