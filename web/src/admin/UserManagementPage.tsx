@@ -53,7 +53,7 @@ export default function UserManagementPage() {
     { key: 'name', header: 'Name', emphasis: true, sortValue: u => u.name.toLowerCase(), render: u => (
       <span className="adm-person">
         <span className="adm-avatar" aria-hidden="true">{initials(u.name)}</span>
-        <span><b>{u.name}</b>{meId === u.id && <span className="adm-tag adm-tag--muted">you</span>}<small>{u.email}</small></span>
+        <span><span><b>{u.name}</b>{meId === u.id && <span className="adm-tag adm-tag--muted">you</span>}</span><small>{u.email}</small></span>
       </span>
     ) },
     { key: 'role', header: 'Role', sortValue: u => ROLE_ORDER.indexOf(u.role), render: u => ROLE_LABEL[u.role] },
@@ -296,7 +296,7 @@ export function SubscriptionTree({ programs, deals, tree, onChange, loading, par
         return (
           <tbody key={p.slug}>
             <tr className="adm-subtree__prog">
-              <th scope="rowgroup" colSpan={1}>
+              <th scope="rowgroup">
                 <b>{p.name}</b> <span className="adm-muted">{formatNumber(n)} of {formatNumber(ds.length)} deals</span>
                 <label className="adm-check adm-subtree__all">
                   <input type="checkbox" checked={all} onChange={ev => onChange(setAll(tree, p.slug, ev.target.checked))} />

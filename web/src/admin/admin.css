@@ -60,7 +60,8 @@
 .adm-tabs__tab:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
 .adm-count { font: 600 11px/1 var(--data); background: var(--canvas-deep); color: var(--muted); border-radius: var(--r-chip); padding: 3px 7px; font-variant-numeric: var(--tabular); }
 .adm-tabs__tab[aria-current='page'] .adm-count { background: var(--lav); color: var(--indigo); }
-.adm-scroll { overflow-x: auto; }
+/* A scroll box is its own sticky context: the header sticks to its top, not 64 px down under the shell top bar. */
+.adm-scroll { overflow-x: auto; --ds-sticky-top: 0px; }
 .adm-scroll .ds-table { min-width: 860px; }
 .adm-actor small, .adm-subject small { display: block; color: var(--muted); font-size: 11.5px; }
 .adm-subject { white-space: nowrap; }
@@ -133,7 +134,7 @@ section:first-child > .adm-group { border-top: 0; }
 @keyframes adm-drawer-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
 .adm-drawer__head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border-card); }
 .adm-drawer__head h2 { margin: 0; font: 700 var(--fs-h2) var(--font); color: var(--indigo); }
-.adm-drawer__head h2:focus { outline: none; }
+.adm-drawer__head h2:focus, .adm-drawer__head h2:focus-visible { outline: none; box-shadow: none; }
 .adm-drawer__head small { color: var(--muted); font-size: var(--fs-small); }
 .adm-drawer__body { overflow-y: auto; padding: 16px 18px; display: grid; gap: 22px; align-content: start; }
 .adm-drawer__body section { display: grid; gap: 10px; }
@@ -144,7 +145,7 @@ section:first-child > .adm-group { border-top: 0; }
 .adm-subtree th, .adm-subtree td { padding: 6px 8px; border-bottom: 1px solid var(--border-table); text-align: left; vertical-align: middle; }
 .adm-subtree thead th { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .adm-subtree__prog th, .adm-subtree__prog td { background: var(--lav); }
-.adm-subtree__prog th { font-weight: 400; }
+.adm-subtree tbody th { font: 400 13px var(--data); text-transform: none; letter-spacing: normal; color: var(--text); }
 .adm-subtree__all { display: flex; margin-top: 4px; font-size: 12px; }
 .adm-subtree__deal { padding-left: 24px !important; }
 .adm-userhist td { font-size: 12px; vertical-align: top; }

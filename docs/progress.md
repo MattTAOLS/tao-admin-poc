@@ -834,3 +834,30 @@ Append an entry when a work package lands. Newest first.
   open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
   publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
   from the correction (no schema change). active_edit_count is per value, as built.
+
+## UI-Admin, wave C (2026-11-05)
+- Built: User management (/admin/settings/users, TAO Admin only). Users table (name and email, role, partner, status,
+  last active, reports received from receives_summary) with partner (TAO / Investor / Manager), status and search
+  filters; Add user and Invite by email (email + role; name = the address's local part, since AppUserCreate needs one).
+  Right-hand drawer (?user=<id> or ?user=new): details and role (PATCH with changed fields only), Deactivate / Reactivate
+  with a reason of 3+ characters (no delete), "Reports this user receives" Program -> deal tree of the 12 deals from
+  /master/deals ("All deals ... including new ones" = deal_slug null; per-deal ticks; in-app only, email "coming later";
+  partner users see only programs shared with their partner), and History from /audit?scope=platform&q=<email>.
+  Self and last-admin are guarded in the UI (needs /me to name the caller; demo mode has no user, so only the API guards
+  self_change there). Every wave C error code has a plain message in admin/ui.tsx errorText.
+- Built: Roles & permissions (/admin/settings/users/roles): read-only six-role matrix, dot plus Yes / No / Limited, New tags.
+- Built: System settings (/admin/settings/system, TAO Admin only). Editable: partner_notifications_enabled (off by default,
+  warning), reporting_calendar (pre-filled with the August 2026 settlement days per deal; a test checks them against
+  docs/dashboard-json; suggestions are saved only when edited or confirmed), notification_defaults (in-app per role and
+  kind; required kinds show Always), publish_note_templates (D10 wording suggested when empty). One reason per save,
+  one PUT /settings/{key} per changed key; a partial failure names what saved. Read-only: programs and deals with locked
+  template_id, rules.yaml catalogue (line-scanned; request a change from the Lead), retention "Kept indefinitely" with
+  this month's CSV export, branding and integrations placeholders, maintenance (Regenerate link; reset demo a script).
+- Audit log: labels for user_change, prefs_change, settings_change (Platform) and comment, comment_edit, thread_resolve,
+  thread_reopen (Reports); before -> after for user and settings changes with role, program, deal and setting names.
+  .adm-scroll now resets --ds-sticky-top so sticky table headers no longer sit 64 px down inside a scroll box.
+- pages.ts: built + load for the three routes (Lead-authorised lines only).
+- Tests: `npx vitest run src/admin` (new: UserManagementPage, SystemSettingsPage incl. Roles, AuditWaveC). Built
+  against the contract with fakes; not yet run against the real wave C API.
+- Needs: Data & API to return receives_summary and to include the user's email or name in user_change detail (the
+  drawer's History searches by email). Design System: the shell sending X-User so /me names the caller.
