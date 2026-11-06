@@ -31,9 +31,12 @@ Nothing is fetched while `company_feeds.enabled` is false.
 
 | Source | Request | Notes |
 | --- | --- | --- |
-| `google_news` | `https://news.google.com/rss/search?q="<term>"&hl=en-CA&gl=CA&ceid=CA:en`, one per name and alias | at least 2 s between requests; items older than 7 days dropped |
-| `gdelt` | `https://api.gdeltproject.org/api/v2/doc/doc?query=("<name>" OR "<alias>")&mode=artlist&format=json&maxrecords=50&timespan=7d`, one per company | at least 5.5 s between requests (GDELT asks for 5 s) |
+| `google_news` | `https://news.google.com/rss/search?q="<term>"&hl=en-CA&gl=CA&ceid=CA:en`, one per name and alias | at least 2 s between requests; items older than the look-back dropped |
+| `gdelt` | `https://api.gdeltproject.org/api/v2/doc/doc?query=("<name>" OR "<alias>")&mode=artlist&format=json&maxrecords=50&timespan=<look-back>d`, one per company | at least 10 s between requests; a 429 waits 20 s and retries once; after 3 companies in a row end in 429, GDELT is skipped for the rest of the run with one error "gdelt rate-limited; skipped remaining companies" |
 | `fixture` | the JSON file in `NEWS_FIXTURE` | only when `NEWS_SOURCE=fixture`; replaces the configured sources |
+
+Look-back (`sources/net.py`): a company with no `news_item` rows yet keeps items up to `FIRST_LOOKBACK_DAYS` (90) old;
+once it has rows, `LOOKBACK_DAYS` (7). Fixture items are never dropped for age.
 
 HTTP is `urllib` with a 20 s timeout, the User-Agent `tao-admin-poc news worker`, and no cookies, email address or other
 personal data.

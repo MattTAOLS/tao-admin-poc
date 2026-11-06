@@ -128,6 +128,11 @@ def get_run(conn, run_id):
     return dict(row) if row else None
 
 
+def companies_with_items(conn):
+    """Slugs that already have news_item rows; the others get the first-search look-back."""
+    return {r[0] for r in conn.execute(select(news_item.c.company_slug).distinct())}
+
+
 def existing_urls(conn, slug):
     return {r[0] for r in conn.execute(select(news_item.c.url).where(news_item.c.company_slug == slug))}
 

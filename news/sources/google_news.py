@@ -7,10 +7,9 @@ import re
 import urllib.parse
 import xml.etree.ElementTree as ET
 
-from .net import RateLimiter, SourceError, get
+from .net import LOOKBACK_DAYS, RateLimiter, SourceError, get
 
 BASE = "https://news.google.com/rss/search"
-MAX_AGE = dt.timedelta(days=7)        # the feed returns older stories too; keep the last week, as GDELT does
 MAX_ITEMS = 50
 _LIMIT = RateLimiter(2.0)             # a short pause between requests
 
@@ -34,7 +33,7 @@ def _date(s):
     return d.replace(tzinfo=dt.timezone.utc) if d.tzinfo is None else d.astimezone(dt.timezone.utc)
 
 
-def parse(body, now):
+def parse(body, now, max_age=dt.timedelta(days=LOOKBACK_DAYS)):
     try:
         root = ET.fromstring(body)
     except ET.ParseError as exc:
@@ -49,7 +48,7 @@ def parse(body, now):
         if publisher and title.endswith(f" - {publisher}"):
             title = title[: -len(f" - {publisher}")].strip()
         published = _date(el.findtext("pubDate"))
-        if published is not None and now - published > MAX_AGE:
+        if published is not None and now - published > max_age:          # the feed returns older stories too
             continue
         items.append({"title": title, "url": url, "publisher": publisher, "published_at": published,
                       "description": _strip_html(el.findtext("description"))})
@@ -68,5 +67,5 @@ class GoogleNews:
         from match import terms
         return terms(company)
 
-    def fetch(self, query, now):
-        return parse(get(search_url(query), self.limiter), now)
+    def fetch(self, query, now, max_age=dt.timedelta(days=LOOKBACK_DAYS)):
+        return parse(get(search_url(query), self.limiter), now, max_age)
