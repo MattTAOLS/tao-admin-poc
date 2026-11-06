@@ -76,13 +76,16 @@ export type CovenantChange = CovenantDefinition & { mode: CovenantChangeMode; re
 export type CovenantChangeResult = { definition: CovenantDefinition; superseded_id?: string | null; rerun_upload_ids: string[] }
 export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export',
   'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
-  'user_change', 'prefs_change', 'settings_change', 'comment', 'comment_edit', 'thread_resolve', 'thread_reopen'] as const
+  'user_change', 'prefs_change', 'settings_change', 'comment', 'comment_edit', 'thread_resolve', 'thread_reopen',
+  'company_change', 'company_note', 'company_note_edit', 'adverse_change', 'news_run'] as const
 export type AuditAction = typeof AUDIT_ACTIONS[number]
 /** The two audit tabs. The API derives the scope from the action (contracts/openapi.yaml /audit): reports = entries
  * with an upload_id, plus publish and regenerate; platform = everything else. */
 export type AuditScope = 'reports' | 'platform'
 /** Wave C: user_change, prefs_change and settings_change are Platform (no upload_id); the comment actions are Reports. */
-export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export', 'user_change', 'prefs_change', 'settings_change']
+/** Wave D: the company, note, adverse media and news run actions are Platform too (they never carry an upload_id). */
+export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export', 'user_change', 'prefs_change', 'settings_change',
+  'company_change', 'company_note', 'company_note_edit', 'adverse_change', 'news_run']
 export const REPORT_ACTIONS: readonly string[] = AUDIT_ACTIONS.filter(a => !PLATFORM_ACTIONS.includes(a))
 /** Wave B actions about one report: always on the Reports tab, even if an entry arrives without an upload_id. */
 const REPORT_ONLY: readonly string[] = ['publish', 'regenerate', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
