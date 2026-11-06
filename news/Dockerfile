@@ -4,3 +4,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 # News worker (wave D): daily company news and adverse-media screening. Own container, own Redis queue (NEWS_QUEUE).
+# Idle while company_feeds.enabled is false. Tests: pip install -r requirements-dev.txt && python -m pytest tests
+ENV PYTHONUNBUFFERED=1
+CMD ["python", "main.py"]

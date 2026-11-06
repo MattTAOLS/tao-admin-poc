@@ -1,0 +1,14 @@
+{
+  "_note": "Keyword screening, no model calls. Each term matches as a whole word or phrase, case-insensitive, in the title and description. A hit in any adverse category also makes the sentiment negative. Sanctions is a keyword hit, not a sanctions-list check.",
+  "adverse": {
+    "litigation": ["lawsuit", "lawsuits", "sued", "sues", "suing", "class action", "statement of claim", "claim filed", "litigation", "court action"],
+    "regulatory": ["regulator", "regulators", "securities commission", "fined", "fine of", "enforcement", "enforcement action", "cease trade order", "administrative penalty", "OSFI", "FCAC", "consent order"],
+    "fraud": ["fraud", "fraudulent", "misrepresentation", "ponzi", "embezzlement", "forged", "forgery"],
+    "insolvency": ["insolvency", "insolvent", "bankruptcy", "bankrupt", "receivership", "receiver appointed", "CCAA", "BIA proposal", "notice of intention to make a proposal", "creditor protection"],
+    "sanctions": ["sanctions", "sanctioned", "sanctions list"]
+  },
+  "sentiment": {
+    "positive": ["growth", "grows", "record", "expands", "expansion", "award", "awarded", "wins", "partnership", "raises", "secures", "launches", "milestone", "upgrade", "upgraded", "profit", "strong", "closes financing", "new facility"],
+    "negative": ["loss", "losses", "decline", "declines", "falls", "layoffs", "downgrade", "downgraded", "default", "defaults", "delinquency", "warning", "probe", "investigation", "writedown", "write-down"]
+  }
+}
