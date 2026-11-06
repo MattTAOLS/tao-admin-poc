@@ -114,10 +114,12 @@ def publication_versions(s: Session, pub: Publication) -> list[dict]:
     old = s.scalars(select(PublicationVersion).where(PublicationVersion.publication_id == pub.id).order_by(PublicationVersion.version)).all()
     ids = {x for x in [pub.correction_id, *(v.correction_id for v in old)] if x}
     notes = dict(s.execute(select(Correction.id, Correction.note_to_partners).where(Correction.id.in_(ids))).all()) if ids else {}
+    def note(v):                                 # a correction's note, else the approve note stored with the version (010)
+        return notes.get(v.correction_id) if v.correction_id else v.note_to_partners
     rows = [{"version": v.version, "published_at": iso(v.published_at), "published_by": v.published_by, "correction_id": v.correction_id,
-             "reason": v.version_reason, "note_to_partners": notes.get(v.correction_id), "current": False} for v in old]
+             "reason": v.version_reason, "note_to_partners": note(v), "current": False} for v in old]
     return rows + [{"version": pub.version, "published_at": iso(pub.published_at), "published_by": pub.published_by,
-                    "correction_id": pub.correction_id, "reason": pub.version_reason, "note_to_partners": notes.get(pub.correction_id),
+                    "correction_id": pub.correction_id, "reason": pub.version_reason, "note_to_partners": note(pub),
                     "current": True}]
 
 

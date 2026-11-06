@@ -16,8 +16,8 @@ from .auth import caller, tao_only, admin_only, company_admin_only, user_require
 from .db import get_db, file_store, engine
 from .jobs import get_queue
 from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
-                     PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, new_id, utcnow)
-from . import views, review, rollup, pdf, migrate, auditlog, people
+                     PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, Notification, Thread, Comment, new_id, utcnow)
+from . import views, review, rollup, pdf, migrate, auditlog, people, notify, threads
 
 log = logging.getLogger("api")
 
@@ -234,9 +234,16 @@ def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_ca
     return views.upload_dict(s, u)
 
 
+class ApproveRequest(BaseModel):
+    note_to_partners: str | None = Field(default=None, max_length=2000)
+
+
 @app.post(API + "/uploads/{upload_id}/approve")
-def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """Optional body {note_to_partners}: stored on the publication (its version) and sent as note_from_tao in the
+    report_published notifications; the publish entry records the note and the recipients."""
     admin_only(c)
+    note = body.note_to_partners if body else None
     u = get_upload_or_404(s, upload_id)
     if u.status != "needs_review":
         raise err(409, "bad_state", f"upload is {u.status}; only needs_review can be approved")
@@ -272,17 +279,20 @@ def approve(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depe
     pub = s.scalars(select(Publication).where(Publication.deal_slug == u.deal_slug, Publication.collection_period == u.collection_period)).first()
     replaced = pub.upload_id if pub else None
     if pub is None:
-        pub = Publication(upload_id=u.id, deal_slug=u.deal_slug, collection_period=u.collection_period, published_by=c.role, deal=published_deal)
+        pub = Publication(upload_id=u.id, deal_slug=u.deal_slug, collection_period=u.collection_period, published_by=c.role, deal=published_deal,
+                          note_to_partners=note)
         s.add(pub)
     else:                                                     # R12 replace: same (deal, period), new upload, next version
         archive_publication(s, pub)
         pub.upload_id, pub.published_by, pub.published_at, pub.deal = u.id, c.role, utcnow(), published_deal
         pub.version, pub.correction_id, pub.version_reason = (pub.version or 1) + 1, None, "corrected re-issue"
+        pub.note_to_partners = note
         pub.rollup_version += 1
     s.flush()
     u.status = "published"
+    told = notify.published(s, u, pub.version, c.label or c.role, note)
     views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced,
-                                                         "version": pub.version})
+                                                         "version": pub.version, "note_to_partners": note, "recipients": told})
     program_slug = s.get(Deal, u.deal_slug).program_slug
     views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": program_slug, "trigger": "approve"})
     s.commit()
@@ -293,7 +303,7 @@ def archive_publication(s: Session, pub: Publication) -> None:
     """Copy the live version to publication_version before the publication is overwritten (re-issue or correction)."""
     s.add(PublicationVersion(publication_id=pub.id, version=pub.version or 1, upload_id=pub.upload_id, deal=copy.deepcopy(pub.deal),
                              published_at=pub.published_at, published_by=pub.published_by, correction_id=pub.correction_id,
-                             version_reason=pub.version_reason))
+                             version_reason=pub.version_reason, note_to_partners=pub.note_to_partners))
 
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=10)]
@@ -431,12 +441,17 @@ def _publish_correction(s: Session, c: Caller, k: Correction, u: SetrepUpload, p
     archive_publication(s, pub)
     pub.deal, pub.published_by, pub.published_at = copy.deepcopy(k.deal), c.role, utcnow()
     pub.version, pub.correction_id, pub.version_reason = k.version, k.id, k.reason
+    pub.note_to_partners = k.note_to_partners
     pub.rollup_version += 1
     k.status, k.decided_at, k.decided_by = "published", utcnow(), c.role
     s.flush()
     rerun = _rerun_open_reviews(s, u.deal_slug, after_period=u.collection_period)
+    changes = [{"pointer": e["pointer"], "label": notify.field_label(e["pointer"]), "old_value": e["old_value"], "new_value": e["new_value"]}
+               for e in _audit_edits(s, k)]
+    told = notify.published(s, u, k.version, c.label or c.role, k.note_to_partners, changes=changes, correction=True)
     views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "version": k.version,
-                                                         "correction_id": k.id, "rerun_upload_ids": rerun})
+                                                         "correction_id": k.id, "rerun_upload_ids": rerun, "note_to_partners": k.note_to_partners,
+                                                         "recipients": told})
     views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": s.get(Deal, u.deal_slug).program_slug, "trigger": "correction"})
 
 
@@ -498,6 +513,10 @@ def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depen
                         "finding_counts": k.finding_counts, "queued": k.finding_counts["block"] > 0, "note_to_partners": body.note_to_partners})
     if k.finding_counts["block"] == 0:
         _publish_correction(s, c, k, u, pub)
+    else:
+        notify.needs_review_queued(s, u, "Correction needs review", f"correction:{k.id}",
+                                   f"Version {version} of the published report waits for approval: {k.finding_counts['block']} block finding(s). "
+                                   f"By {c.label or c.role}.")
     s.commit()
     return views.correction_dict(s, k)
 
@@ -578,6 +597,7 @@ def reject_correction(correction_id: str, body: RejectRequest, c: Caller = Depen
     k.status, k.decided_at, k.decided_by, k.reject_reason = "rejected", utcnow(), c.role, body.reason
     views.audit(s, c, "correction_reject", upload_id=k.upload_id, reason=body.reason,
                 detail={"correction_id": k.id, "version": k.version, "edits": _audit_edits(s, k)})
+    notify.rejected(s, s.get(SetrepUpload, k.upload_id), body.reason, c.label or c.role, what="Correction")
     s.commit()
     return views.correction_dict(s, k)
 
@@ -590,6 +610,7 @@ def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(admin_caller
         raise err(409, "bad_state", f"upload is {u.status}; it can no longer be rejected")
     u.status, u.reject_reason = "rejected", body.reason
     views.audit(s, c, "reject", upload_id=u.id, reason=body.reason)
+    notify.rejected(s, u, body.reason, c.label or c.role)
     s.commit()
     return views.upload_dict(s, u)
 
@@ -1123,6 +1144,7 @@ def create_user(body: AppUserCreate, c: Caller = Depends(users_caller), s: Sessi
         s.rollback()
         raise err(409, "email_taken", f"{body.email} is already a user")
     _user_change(s, c, u, "created", None, people.user_audit(u))
+    notify.user_changed(s, u, "Your account was created", f"By {c.label or c.role}. Role: {u.role}.")
     s.commit()
     return people.user_dict(s, u)
 
@@ -1166,6 +1188,8 @@ def patch_user(user_id: str, body: AppUserPatch, c: Caller = Depends(users_calle
     after = people.user_audit(u)
     if after != before:
         _user_change(s, c, u, "updated", before, after)
+        changed = ", ".join(k for k in after if after[k] != before[k])
+        notify.user_changed(s, u, "Your account was changed", f"{changed.capitalize()} changed by {c.label or c.role}.")
     s.commit()
     return people.user_dict(s, u)
 
@@ -1199,6 +1223,7 @@ def reactivate_user(user_id: str, body: StatusChangeRequest, c: Caller = Depends
     u.status, u.deactivated_at, u.deactivation_reason = "active", None, None
     s.flush()
     _user_change(s, c, u, "reactivated", before, people.user_audit(u), reason=body.reason)
+    notify.user_changed(s, u, "Your account was reactivated", f"By {c.label or c.role}.")
     s.commit()
     return people.user_dict(s, u)
 
@@ -1226,6 +1251,7 @@ def put_subscriptions(user_id: str, body: list[SubscriptionIn], c: Caller = Depe
     after = [people.subscription_dict(x) for x in people.subscriptions(s, u.id)]
     if after != before:
         _user_change(s, c, u, "subscriptions", before, after)
+        notify.user_changed(s, u, "Your report subscriptions changed", f"You now receive: {people.receives_summary(s, u.id)}. By {c.label or c.role}.")
     s.commit()
     return after
 
@@ -1252,3 +1278,201 @@ def put_setting(key: str, body: SettingChange, c: Caller = Depends(admin_caller)
     views.audit(s, c, "settings_change", reason=body.reason, detail={"key": key, "before": before, "after": value})
     s.commit()
     return people.setting_dict(s, key)
+
+
+# ---- wave C: notifications (every role, own only, partner-filtered on read: risk R7) ----
+Tab = Literal["all", "mentions", "reports", "system"]
+
+
+def _my_notifications(s: Session, c: Caller, partner: str | None, tab: str = "all"):
+    """The caller's own notifications. A partner's go through partner_filter again: partner kinds only, and only deals of
+    programs visible_programs gives them now, so a program TAO stops sharing drops out (and no TAO comment ever shows)."""
+    q = select(Notification).where(Notification.user_id == c.user_id)
+    if partner is not None or not c.is_tao:
+        q = notify.visible_to_partner(q, [p.slug for p in visible_programs(s, partner)])
+    if tab != "all":
+        q = q.where(Notification.kind.in_(people.TABS[tab]))
+    return q
+
+
+@app.get(API + "/notifications")
+def list_notifications(tab: Tab = "all", unread: bool | None = None, limit: int = Query(default=50, ge=1, le=200),
+                       offset: int = Query(default=0, ge=0), c: Caller = Depends(user_caller),
+                       partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    notify.sweep(s)
+    q = _my_notifications(s, c, partner, tab)
+    if unread is True:
+        q = q.where(Notification.read_at.is_(None))
+    elif unread is False:
+        q = q.where(Notification.read_at.is_not(None))
+    rows = s.scalars(q.order_by(Notification.created_at.desc(), Notification.id.desc()).limit(limit).offset(offset)).all()
+    return [notify.notification_dict(n) for n in rows]
+
+
+@app.get(API + "/notifications/unread-count")
+def unread_count(c: Caller = Depends(user_caller), partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    notify.sweep(s)
+    kinds = s.scalars(_my_notifications(s, c, partner).where(Notification.read_at.is_(None)).with_only_columns(Notification.kind)).all()
+    out = {tab: sum(1 for k in kinds if k in ks) for tab, ks in people.TABS.items()}
+    return {"total": len(kinds), **out}
+
+
+@app.post(API + "/notifications/{notification_id}/read")
+def read_notification(notification_id: str, c: Caller = Depends(user_caller), partner: str | None = Depends(partner_filter),
+                      s: Session = Depends(get_db)):
+    n = s.scalars(_my_notifications(s, c, partner).where(Notification.id == notification_id)).first() if _is_uuid(notification_id) else None
+    if n is None:                                         # another person's looks exactly like a missing one
+        raise err(404, "not_found", "no such notification")
+    if n.read_at is None:
+        n.read_at = utcnow()
+        s.commit()
+    return notify.notification_dict(n)
+
+
+@app.post(API + "/notifications/read-all")
+def read_all_notifications(tab: Tab = "all", c: Caller = Depends(user_caller), partner: str | None = Depends(partner_filter),
+                           s: Session = Depends(get_db)):
+    rows = s.scalars(_my_notifications(s, c, partner, tab).where(Notification.read_at.is_(None))).all()
+    now = utcnow()
+    for n in rows:
+        n.read_at = now
+    s.commit()
+    return {"marked": len(rows)}
+
+
+@app.get(API + "/uploads/{upload_id}/recipients")
+def upload_recipients(upload_id: str, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    """Who a publish (or a correction) of this upload's deal would notify, and who not and why."""
+    u = get_upload_or_404(s, upload_id)
+    return notify.recipients(s, u.deal_slug)
+
+
+# ---- wave C: comment threads (TAO only; writes need a user) ----
+def tao_user_caller(c: Caller = Depends(caller)) -> Caller:
+    return user_required(tao_only(c))
+
+
+class ThreadAnchorIn(BaseModel):
+    finding_id: str | None = None
+    pointer: str | None = None
+
+
+class ThreadCreate(BaseModel):
+    anchor: ThreadAnchorIn
+    body: Annotated[str, StringConstraints(min_length=1, max_length=4000)]
+    mentions: list[str] = Field(default_factory=list)
+
+
+class CommentRequest(BaseModel):
+    body: Annotated[str, StringConstraints(min_length=1, max_length=4000)]
+    mentions: list[str] = Field(default_factory=list)
+
+
+def _thread_or_404(s: Session, thread_id: str) -> Thread:
+    t = s.get(Thread, thread_id) if _is_uuid(thread_id) else None
+    if t is None:
+        raise err(404, "not_found", "no such thread")
+    return t
+
+
+def _comment_audit(s: Session, c: Caller, t: Thread, cm: Comment):
+    views.audit(s, c, "comment", upload_id=t.upload_id, detail={"thread_id": t.id, "comment_id": cm.id, "anchor": threads.anchor(t),
+                                                               "body": cm.body, "mentions": list(cm.mentions or [])})
+
+
+@app.get(API + "/uploads/{upload_id}/threads")
+def list_threads(upload_id: str, status: Literal["open", "resolved"] | None = None, c: Caller = Depends(tao_caller), s: Session = Depends(get_db)):
+    u = get_upload_or_404(s, upload_id)
+    return [threads.thread_dict(s, t) for t in threads.threads_of(s, u, status)]
+
+
+@app.post(API + "/uploads/{upload_id}/threads", status_code=201)
+def create_thread(upload_id: str, body: ThreadCreate, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    u = get_upload_or_404(s, upload_id)
+    try:
+        finding_id, pointer, rule_id = threads.check_anchor(s, u, body.anchor.finding_id, body.anchor.pointer)
+        mentions = threads.check_mentions(s, body.mentions)
+    except people.Refused as e:
+        raise _refused(e)
+    pub = s.scalars(select(Publication).where(Publication.upload_id == u.id)).first()
+    now = utcnow()
+    t = Thread(id=new_id(), upload_id=u.id, finding_id=finding_id, pointer=pointer, rule_id=rule_id, status="open",
+               version=views.published_version(s, u, pub), created_by=c.user_id, created_at=now)
+    s.add(t); s.flush()
+    cm = Comment(id=new_id(), thread_id=t.id, author_id=c.user_id, body=body.body, mentions=mentions, created_at=now)
+    s.add(cm); s.flush()
+    _comment_audit(s, c, t, cm)
+    threads.notify_comment(s, t, cm, s.get(AppUser, c.user_id), mentions, reply=False)
+    s.commit()
+    return threads.thread_dict(s, t)
+
+
+@app.post(API + "/threads/{thread_id}/comments", status_code=201)
+def add_comment(thread_id: str, body: CommentRequest, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    t = _thread_or_404(s, thread_id)
+    if t.status != "open":
+        raise err(409, "bad_state", "the thread is resolved; reopen it first")
+    try:
+        mentions = threads.check_mentions(s, body.mentions)
+    except people.Refused as e:
+        raise _refused(e)
+    cm = Comment(id=new_id(), thread_id=t.id, author_id=c.user_id, body=body.body, mentions=mentions, created_at=utcnow())
+    s.add(cm); s.flush()
+    _comment_audit(s, c, t, cm)
+    threads.notify_comment(s, t, cm, s.get(AppUser, c.user_id), mentions, reply=True)
+    s.commit()
+    return threads.comment_dict(s, cm)
+
+
+@app.patch(API + "/comments/{comment_id}")
+def edit_comment(comment_id: str, body: CommentRequest, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    """Author only. Shown as edited; the old text stays in the comment_edit audit entry. Only newly added mentions notify."""
+    cm = s.get(Comment, comment_id) if _is_uuid(comment_id) else None
+    if cm is None:
+        raise err(404, "not_found", "no such comment")
+    if cm.author_id != c.user_id:
+        raise err(403, "not_author", "only the author can edit a comment")
+    try:
+        mentions = threads.check_mentions(s, body.mentions)
+    except people.Refused as e:
+        raise _refused(e)
+    t = s.get(Thread, cm.thread_id)
+    before = {"body": cm.body, "mentions": list(cm.mentions or [])}
+    added = [m for m in mentions if m not in before["mentions"]]
+    cm.body, cm.mentions, cm.edited_at = body.body, mentions, utcnow()
+    s.flush()
+    views.audit(s, c, "comment_edit", upload_id=t.upload_id, detail={"thread_id": t.id, "comment_id": cm.id, "before": before,
+                                                                    "after": {"body": cm.body, "mentions": mentions}})
+    threads.notify_comment(s, t, cm, s.get(AppUser, c.user_id), added, reply=False)
+    s.commit()
+    return threads.comment_dict(s, cm)
+
+
+def _resolver(c: Caller, t: Thread):
+    """Any TAO Admin, or the person who started the thread (decision C10)."""
+    if not (c.is_admin or t.created_by == c.user_id):
+        raise err(403, "forbidden", "only a TAO Admin or the person who started the thread can resolve or reopen it")
+
+
+@app.post(API + "/threads/{thread_id}/resolve")
+def resolve_thread(thread_id: str, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    t = _thread_or_404(s, thread_id)
+    _resolver(c, t)
+    if t.status == "resolved":
+        raise err(409, "bad_state", "the thread is already resolved")
+    t.status, t.resolved_by, t.resolved_at = "resolved", c.user_id, utcnow()
+    views.audit(s, c, "thread_resolve", upload_id=t.upload_id, detail={"thread_id": t.id})
+    s.commit()
+    return threads.thread_dict(s, t)
+
+
+@app.post(API + "/threads/{thread_id}/reopen")
+def reopen_thread(thread_id: str, c: Caller = Depends(tao_user_caller), s: Session = Depends(get_db)):
+    t = _thread_or_404(s, thread_id)
+    _resolver(c, t)
+    if t.status == "open":
+        raise err(409, "bad_state", "the thread is already open")
+    t.status, t.resolved_by, t.resolved_at = "open", None, None
+    views.audit(s, c, "thread_reopen", upload_id=t.upload_id, detail={"thread_id": t.id})
+    s.commit()
+    return threads.thread_dict(s, t)
