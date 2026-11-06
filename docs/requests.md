@@ -557,3 +557,8 @@ The Lead reads this at every merge.
   roll-forward principal. The Edit dialog says "No finding on this report names this value, so no rule is known to read
   it", which is accurate. Consider R05 also comparing principal, prepayments and losses on page 2 with the row, or the
   edit dialog offering to change both copies. Seen on Essex 2026-04 through the API.
+- 2026-11-05 — UI-Review to Lead / Data & API (wave C, contract gap): D7 note 7 says both TAO roles can @mention, but
+  `GET /users` is TAO Admin only (C3), so a TAO Analyst gets 403 `company_admin_only` and has no mention list. The review
+  page falls back to the people already on the upload's threads, which misses anyone who has not commented yet.
+  Suggest letting tao_analyst read `GET /users?partner_slug=tao&status=active` (id, name, email, role only), or a small
+  `GET /users/mentionable` route. Nothing else in the review page depends on it.

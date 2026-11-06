@@ -2,6 +2,32 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — UI-Review (phase 2 wave C, item 8, D7 b and c): comment threads, publish note and recipients, comment
+  audit labels. Built against lead/wave-c (abdda6d, 5575406). Review page: every finding card has a "Comment" control
+  with its comment count ("2", or "1 · resolved"); every key/value row in Extracted values, and every table row
+  (roll-forward, aging, losses, ratios, covenants), has one too, anchored to the value or row pointer (a row counts the
+  threads on its cells). The top bar has "Comments (N)", a panel listing every thread on the upload with All / Open /
+  Resolved filters and Open per thread. The thread panel (one dialog) shows the threads on that finding or value, open
+  first, oldest comment first, resolved ones folded with who and when; "from version n" on threads carried from an
+  earlier publication version (C9), "from the replaced report" on a re-issue's inherited threads. Composer: @ lists
+  active TAO users from `GET /users?partner_slug=tao&status=active` (name, email, role; not yourself), filtered as you
+  type, arrows / Enter / Tab / Escape; picking inserts "@Name" and the id goes in `mentions` only while the name stays in
+  the text. Enter sends, Shift+Enter is a new line. Authors edit their own comments (shown "edited"). Resolve / Reopen
+  for any TAO Admin or the thread's starter (C10); others see who can; the panel says resolving does not resolve the
+  finding. Both TAO roles comment. `?thread=<id>` opens that thread (notification links). Without a user (`GET /me`
+  user null, or 401 user_required) the panel shows "Sign in as a user to comment." instead of the box and buttons.
+  Publish dialog keeps its content and adds "Note to partners (optional)" (2,000 max, counter; trimmed, empty sent as
+  null in the approve body) and "Who gets notified" from `GET /uploads/{id}/recipients`: a Partner / User / Channel table
+  (email shown "coming later"), "Not notified (n)" with each reason, "Partner notifications are off, so no partner is
+  notified." when any reason is partner_notifications_off, and a line that the internal threads are not sent. A failed
+  recipients call says so and does not block publishing. The correction dialog's note now reads "Sent to partners with
+  the correction". Activity: Comment added, Comment edited (before → after), Thread resolved, Thread reopened, with the
+  anchor, text and mention count; publish entries show the note and recipient count.
+  Files: `web/src/review/components/Comments.tsx`, `lib/comments.ts`, `__tests__/Comments.test.tsx` (new); ReviewPage,
+  ExtractedValues, Dialogs, Corrections, Activity, lib/api, lib/types, review.css. Tests: `npx vitest run src/review`
+  (count in the commit); `npx tsc --noEmit` and `python scripts/check_contracts.py` green. Not checked against the real
+  API (wave C API not merged). Assumes the shell sends X-User (Design System). Needs: see UI-Review in requests.md
+  (TAO Analyst cannot read `/users`, so analysts' @mention list falls back to people already on the upload's threads).
 - 2026-11-05 — Data & API (phase 2 wave B): covenant changes, value edits, corrections with publication versions.
   Migration `009_wave_b_editing.sql` (idempotent): covenant_definition gains origin (seed|ui; rows with an old
   master_change entry are backfilled to ui), supersedes_id, changed_by, change_reason, changed_at; publication gains

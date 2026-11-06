@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   Button, Card, FindingCard, SeverityPill, StatusPill, SkeletonBlock, StatePanel, UploadStatusPill, useToast, formatPeriod, type Severity,
@@ -10,11 +10,11 @@ import { useMasterNames } from './lib/master'
 import { ruleTitle } from './lib/rules'
 import { findingBoxes, focusBox, getPointer } from './lib/provenance'
 import { formatDateTime, formatMessage, pct, text } from './lib/format'
-import type { Correction, Finding, OverrideChoice, Upload, ValueEdit, ValueEditResult } from './lib/types'
+import type { AppUser, Correction, Finding, OverrideChoice, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
 import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, WriteEffect } from './components/Dialogs'
-import { hasTargets, isValueChoice } from './lib/corrections'
+import { hasTargets, isValueChoice, pointerLabel } from './lib/corrections'
 import { isReissueFinding, reissueInfo } from './lib/reissue'
 import { ReissueBanner } from './components/Reissue'
 import { Activity } from './components/Activity'
@@ -22,6 +22,8 @@ import { FindingCountPills } from './QueuePage'
 import { EditProvider, EditValueDialog, RevertDialog, type EditMode, type EditTarget } from './components/EditValue'
 import { CorrectionDialog, CorrectionReview, CorrectionsCard, correctionPath } from './components/Corrections'
 import { editsByPointer, plural, reviewEdits, type EditState } from './lib/edits'
+import { CommentButton, CommentsProvider, ThreadPanel, type PanelTarget } from './components/Comments'
+import { peopleFromThreads } from './lib/comments'
 import './review.css'
 
 const SEVERITIES: Severity[] = ['block', 'review', 'note']
@@ -39,7 +41,7 @@ function NoAccess() {
 }
 
 function Review({ uploadId }: { uploadId: string }) {
-  const { admin } = access()
+  const { admin, role } = access()
   const { toast } = useToast()
   const upload = useLoad(() => reviewApi.upload(uploadId), [uploadId])
   const findings = useLoad(() => reviewApi.findings(uploadId), [uploadId])
@@ -54,6 +56,21 @@ function Review({ uploadId }: { uploadId: string }) {
   const corrections = useLoad(() => (published ? reviewApi.uploadCorrections(uploadId).catch(() => [] as Correction[]) : Promise.resolve([] as Correction[])), [uploadId, published])
   const [params] = useSearchParams()
   const correctionId = params.get('correction')
+  // Wave C comments (D7 b). The routes need a signed-in user: without one (demo mode, or 401 user_required) the page
+  // shows the threads it can read and "Sign in as a user to comment" in place of the controls.
+  const meLoad = useLoad(() => reviewApi.me().catch(() => null), [])
+  const me = meLoad.data?.user ? { id: meLoad.data.user.id, name: meLoad.data.user.name } : null
+  const threads = useLoad(() => reviewApi.threads(uploadId), [uploadId])
+  const noUser = !meLoad.loading && (!me || (threads.error as { code?: string } | null)?.code === 'user_required')
+  const userList = useLoad(() => reviewApi.taoUsers().catch(() => [] as AppUser[]), [me?.id], !!me)
+  const [panel, setPanel] = useState<PanelTarget | null>(null)
+  const threadParam = params.get('thread')
+  useEffect(() => {
+    const t = threadParam && threads.data?.find(x => x.id === threadParam)
+    if (t) setPanel({ kind: 'anchor', anchor: t.anchor })
+  }, [threadParam, threads.data])
+  const openThread = useCallback((anchor: ThreadAnchor) => setPanel({ kind: 'anchor', anchor }), [])
+  const commentsCtx = useMemo(() => ({ threads: threads.data, enabled: true, open: openThread }), [threads.data, openThread])
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [reverting, setReverting] = useState<{ target: EditTarget; state: EditState } | null>(null)
   const [correcting, setCorrecting] = useState<{ pointer: string | null } | null>(null)
@@ -95,8 +112,10 @@ function Review({ uploadId }: { uploadId: string }) {
     else if (wasActive) { setWasActive(false); findings.reload(); extraction.reload(); if (admin) audit.reload() }
   }, [active]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const threadN = threads.data?.length ?? 0
   usePageHeader({
     title: u ? dealName(u.deal_slug) : 'Review report',
+    actions: u ? <Button onClick={() => setPanel({ kind: 'all' })} aria-label={`Comments (${threadN})`}>Comments ({threadN})</Button> : undefined,
     status: u ? <UploadStatusPill status={u.status} /> : undefined,
     subtitle: u ? `${programName(u.program_slug)} · ${u.file_name}` : undefined,
     crumbs: [{ label: 'TAO Admin' }, { label: 'Uploads', href: '/admin/uploads' }, { label: 'Approval queue', href: '/admin/uploads/queue' }, { label: title }],
@@ -148,22 +167,39 @@ function Review({ uploadId }: { uploadId: string }) {
     if (verb === 'reextract') toast({ tone: 'blue', title: 'Re-extraction queued', message: 'Findings refresh when the second pass finishes.' })
     refresh()
   }
+  // A thread came back from the API: merge it into the list, and reload the audit (comment entries are Reports).
+  const onThread = (t: Thread) => {
+    const cur = threads.data ?? []
+    threads.setData(cur.some(x => x.id === t.id) ? cur.map(x => (x.id === t.id ? t : x)) : [...cur, t])
+    if (admin) audit.reload()
+  }
+  const labelFor = (a: ThreadAnchor) => {
+    if (a.finding_id) {
+      const f = list.find(x => x.id === a.finding_id)
+      const rule = f?.rule_id ?? a.rule_id
+      return rule ? `${rule} ${ruleTitle(rule)}` : 'a finding'
+    }
+    return a.pointer ? pointerLabel(ex?.deal, a.pointer) : 'a value'
+  }
+  const mentionUsers = (userList.data && userList.data.length > 0 ? userList.data : peopleFromThreads(threads.data)).filter(x => x.id !== me?.id)
   const openCrop = (f: Finding) => () => setViewer({ page: f.source_page!, boxes: findingBoxes(ex, f.fields, f.source_page), tone: 'finding', caption: `${f.rule_id} · ${ruleTitle(f.rule_id)}` })
 
   // Open findings: the four choices (use ours / use report disabled when the finding has no targets).
   // Resolved use ours / use report: what publishing writes (or wrote).
   const cardActions = (f: Finding) => {
     const choice = f.resolution?.choice
+    const comment = <CommentButton anchor={{ finding_id: f.id }} label={`${f.rule_id} ${ruleTitle(f.rule_id)}`} />
     if (f.status === 'overridden' && isValueChoice(choice) && hasTargets(f)) {
-      return <p className="rv-pending" data-testid="pending-correction"><b>{u.status === 'published' ? 'Published.' : 'Pending on publish.'}</b>{' '}
-        <WriteEffect ex={ex} finding={f} choice={choice} done={u.status === 'published'} /></p>
+      return <><p className="rv-pending" data-testid="pending-correction"><b>{u.status === 'published' ? 'Published.' : 'Pending on publish.'}</b>{' '}
+        <WriteEffect ex={ex} finding={f} choice={choice} done={u.status === 'published'} /></p>{comment}</>
     }
-    if (!(admin && reviewable && f.status === 'open')) return undefined
+    if (!(admin && reviewable && f.status === 'open')) return comment
     // R12 on a corrected re-issue: accepting it as the replacement is the expected decision (Acknowledge + reason).
     if (reissue && isReissueFinding(f)) {
       return <>
         <Button size="sm" variant="primary" onClick={() => setOverride({ finding: f, choice: 'acknowledge' })} aria-label={`Accept as replacement for ${f.rule_id}`}>Accept as replacement</Button>
         <span className="rv-hint">Acknowledges the re-issue with a reason. To refuse it, use Reject below.</span>
+        {comment}
       </>
     }
     const noTarget = !hasTargets(f)
@@ -171,7 +207,7 @@ function Review({ uploadId }: { uploadId: string }) {
       const off = noTarget && isValueChoice(c.id)
       return <Button key={c.id} size="sm" disabled={off} title={off ? NO_TARGET_REASON : undefined} onClick={() => setOverride({ finding: f, choice: c.id })}
         aria-label={`${c.label} for ${f.rule_id}`}>{c.label}</Button>
-    })}{noTarget && <span className="rv-hint">{NO_TARGET_REASON}</span>}</>
+    })}{noTarget && <span className="rv-hint">{NO_TARGET_REASON}</span>}{comment}</>
   }
   const goToFinding = (id: string) => {
     setDialog(null)
@@ -188,6 +224,7 @@ function Review({ uploadId }: { uploadId: string }) {
 
   return (
     <EditProvider value={editCtx}>
+    <CommentsProvider value={commentsCtx}>
     <div className="rv-page">
       {correctionId && <CorrectionReview correctionId={correctionId} uploadId={uploadId} ex={ex} title={title} onOpen={setViewer} onChanged={refresh} />}
       {!correctionId && u.pending_correction_id && (
@@ -249,11 +286,13 @@ function Review({ uploadId }: { uploadId: string }) {
 
       <Footer upload={u} admin={admin} openBlocks={openBlocks.length} edited={editedValues} onCorrect={mode === 'correct' ? () => setCorrecting({ pointer: null }) : undefined} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
 
+      <ThreadPanel uploadId={uploadId} target={panel} threads={threads.data} me={noUser ? null : me} role={role} users={mentionUsers}
+        currentVersion={u.published_version} labelFor={labelFor} onClose={() => setPanel(null)} onTarget={setPanel} onThread={onThread} loadError={threads.error} />
       <PageViewer uploadId={uploadId} target={viewer} pageCount={u.page_count} onClose={() => setViewer(null)} />
       {admin && <>
         <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} title={title} partner={partnersLabel(u)} findings={list} ex={ex} edits={pending} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
+        <PublishDialog upload={u} open={dialog === 'publish'} threadCount={threadN} title={title} partner={partnersLabel(u)} findings={list} ex={ex} edits={pending} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} editedPages={editedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
         {ex && <EditValueDialog uploadId={uploadId} title={title} ex={ex} findings={list} target={editing} state={editing ? states.get(editing.pointer) : undefined}
           onClose={() => setEditing(null)} onOpen={setViewer} onDone={onEditDone('edited')} />}
@@ -262,6 +301,7 @@ function Review({ uploadId }: { uploadId: string }) {
           data={{ ex, findings: list, edits: edits.data ?? [], corrections: corrections.data ?? [] }} onClose={() => setCorrecting(null)} onDone={onCorrected} />}
       </>}
     </div>
+    </CommentsProvider>
     </EditProvider>
   )
 }

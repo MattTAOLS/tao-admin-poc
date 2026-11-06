@@ -174,7 +174,7 @@ export function CorrectionDialog({ upload, open, title, initialPointer, onClose,
           error={touched && !reasonOk ? `Give a reason of at least ${MIN_EDIT_REASON} characters (${reason.trim().length} so far).` : undefined}>
           <Textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} onBlur={() => setTouched(true)} />
         </Field>
-        <Field label="Note to partners (optional)" hint="Sent to partners in a later release. Stored with the correction now; nothing is sent today.">
+        <Field label="Note to partners (optional)" hint="Sent to partners with the correction, as a note from TAO in the correction notification.">
           <Textarea rows={2} value={note} maxLength={2000} onChange={e => setNote(e.target.value)} />
         </Field>
         <div className="rv-whensave">
@@ -242,7 +242,7 @@ export function CorrectionReview({ correctionId, uploadId, ex, title, onOpen, on
       <div className="rv-dialog-body">
         <dl className="rv-facts">
           <div><dt>Reason</dt><dd className="rv-plain">{k.reason}</dd></div>
-          <div><dt>Note to partners</dt><dd className="rv-plain">{k.note_to_partners || '—'}<small>sent to partners in a later release</small></dd></div>
+          <div><dt>Note to partners</dt><dd className="rv-plain">{k.note_to_partners || '—'}<small>sent with the correction</small></dd></div>
           {k.decided_at && <div><dt>{k.status === 'rejected' ? 'Rejected' : 'Approved'}</dt><dd>{formatDateTime(k.decided_at)}<small>{k.decided_by ?? ''}{k.reject_reason ? `: ${k.reject_reason}` : ''}</small></dd></div>}
         </dl>
         <EditsTable ex={ex} edits={k.edits} caption="Values this correction changes" />
