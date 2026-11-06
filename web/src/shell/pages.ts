@@ -26,13 +26,13 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/portfolio/:programId', title: 'Program Executive Summary', built: true, owner: 'portfolio', load: () => import('@/portfolio/ProgramPage') },
   { path: '/admin/portfolio/:programId/dashboard', title: 'Program Dashboard', built: true, owner: 'portfolio', purpose: 'Portfolio Metrics + Covenant Status & Review, watch threshold, print', load: () => import('@/portfolio/ProgramDashboardPage') },
   { path: '/admin/portfolio/:programId/deals/:dealId', title: 'Deal page', built: true, owner: 'portfolio', purpose: 'Deal Metrics + covenant detail, prev/next deal', load: () => import('@/portfolio/DealRoute') },
-  { path: '/admin/notifications', title: 'Notifications', nav: 'main', owner: 'shell' },
+  { path: '/admin/notifications', title: 'Notifications', nav: 'main', built: true, owner: 'shell', purpose: 'Your own notifications: mentions, reports, system; needs a signed-in user', load: () => import('@/shell/account/NotificationsPage') },
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to do each task, filtered to the role; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
   { path: '/admin/settings/users', title: 'User management', nav: 'account', roles: ['tao_admin'], owner: 'admin' },
   { path: '/admin/settings/users/audit', title: 'Audit log', nav: 'account', /* analysts read the Reports tab only (A4) */ roles: ['tao_admin', 'tao_analyst'], built: true, owner: 'admin', load: () => import('@/admin/AuditLogPage') },
   { path: '/admin/settings/users/roles', title: 'Roles & permissions', roles: ['tao_admin'], owner: 'admin' },
-  { path: '/admin/settings/profile', title: 'Profile', nav: 'account', owner: 'shell' },
+  { path: '/admin/settings/profile', title: 'Profile', nav: 'account', built: true, owner: 'shell', purpose: 'Details, display, notification preferences, my activity, security', load: () => import('@/shell/account/ProfilePage') },
   { path: '/admin/settings/system', title: 'System settings', nav: 'account', roles: ['tao_admin'], owner: 'shell' },
 ]
 export const PARTNER_PAGES: Page[] = [
@@ -44,9 +44,9 @@ export const PARTNER_PAGES: Page[] = [
   { path: '/reports', title: 'Reports', nav: 'main', owner: 'portfolio' },
   { path: '/reports/:reportId', title: 'Report viewer', owner: 'portfolio' },
   { path: '/data-room', title: 'Data room', nav: 'main', owner: 'portfolio' },
-  { path: '/notifications', title: 'Notifications', nav: 'main', owner: 'shell' },
+  { path: '/notifications', title: 'Notifications', nav: 'main', built: true, owner: 'shell', purpose: 'New reports, corrections and covenant changes for the deals you receive', load: () => import('@/shell/account/NotificationsPage') },
   { path: '/whats-new', title: "What's new", nav: 'main', owner: 'shell' },
   { path: '/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to read the portal; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
-  { path: '/settings/profile', title: 'Profile', nav: 'account', owner: 'shell' },
+  { path: '/settings/profile', title: 'Profile', nav: 'account', built: true, owner: 'shell', purpose: 'Details, display, notification preferences, report subscriptions, security', load: () => import('@/shell/account/ProfilePage') },
   { path: '/settings/team', title: 'Team members', nav: 'account', roles: ['investor_admin', 'manager_admin'], owner: 'shell' },
 ]

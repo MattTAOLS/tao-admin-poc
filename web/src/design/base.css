@@ -20,6 +20,7 @@ code { font-family: var(--mono); font-size: .92em; }
 .nav a.active { background: var(--purple); color: var(--text-on-purple); box-shadow: var(--sh-primary); }
 .nav a.active svg { opacity: 1; }
 .nav a:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--lav-2) 55%, transparent); }
+.navbadge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--lav-2); color: var(--indigo); font: 700 11px var(--font); font-variant-numeric: tabular-nums; display: grid; place-items: center; }
 .sidebar .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line-on-indigo); }
 
 /* ---------- User card / role switcher (sidebar footer) ---------- */
@@ -34,13 +35,18 @@ code { font-family: var(--mono); font-size: .92em; }
 .usercard__text small { display: block; color: color-mix(in srgb, var(--text-on-indigo) 80%, var(--indigo)); font-size: 11px; }
 .usercard__chev { color: var(--text-on-indigo); flex: none; transition: transform var(--t-control) var(--ease); }
 .usercard__btn[aria-expanded="false"] .usercard__chev { transform: rotate(180deg); }
-.rolemenu { position: absolute; left: 0; right: -12px; bottom: calc(100% + 8px); z-index: 30; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-panel); padding: 6px; box-shadow: var(--sh-panel); color: var(--text);
-  animation: ds-panel-in var(--t-panel) var(--ease); min-width: 250px; }
+.rolemenu { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 30; background: var(--card); border: 1px solid var(--border-card); border-radius: var(--r-panel); padding: 6px; box-shadow: var(--sh-panel); color: var(--text);
+  animation: ds-panel-in var(--t-panel) var(--ease); max-height: calc(100vh - 110px); overflow-y: auto; overflow-x: hidden; }
 .rolemenu__head { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 8px 10px 6px; }
+.rolemenu__note { margin: 0 10px 6px; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+.rolemenu__group { font-size: 11px; font-weight: 600; color: var(--muted); padding: 8px 10px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.rolemenu__group code { font-weight: 400; font-size: 10.5px; }
+.avatar--sm { width: 24px; height: 24px; font-size: 10px; }
 .rolemenu__opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--text); outline: none;
   transition: background var(--t-control) var(--ease); }
 .rolemenu__opt:hover, .rolemenu__opt:focus-visible, .rolemenu__opt:focus { background: var(--lav); }
-.rolemenu__opt small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+.rolemenu__opt > span:nth-child(2) { min-width: 0; }
+.rolemenu__opt small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rolemenu__opt.is-current { color: var(--indigo); font-weight: 600; }
 .rolemenu__check { margin-left: auto; color: var(--purple); opacity: 0; flex: none; }
 .rolemenu__opt.is-current .rolemenu__check { opacity: 1; }
