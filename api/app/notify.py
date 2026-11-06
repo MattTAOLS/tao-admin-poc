@@ -1,0 +1,234 @@
+"""Wave C notifications (contract abdda6d, Notification and Recipients). In-app only; email is reserved.
+
+Who gets what:
+- report_published / correction_published: users subscribed to the deal (directly or through its program). Partner users
+  only at a partner the program is shared with (the partner_filter rule: program_partner rows) and only while the setting
+  partner_notifications_enabled is true. Subscribed TAO users always.
+- report_needs_review, report_rejected, covenant_changed, system: subscribed TAO users.
+- mention: the mentioned user; reply: the thread's other people (threads.py). user_change: the user changed.
+A kind the user switched off is not created (required kinds cannot be switched off). Deactivated users get nothing.
+
+Status changes the worker makes (needs_review, extraction_failed) happen outside the API, so `sweep` notices them when
+someone reads their notifications and fans each out once (notification_event holds the keys already sent).
+Reads are filtered again in main.py through partner_filter (risk R7)."""
+import datetime as dt
+from sqlalchemy import select, delete, or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from .auth import TAO
+from .models import AppUser, Subscription, Notification, NotificationEvent, SetrepUpload, Deal, Program, Finding, utcnow
+from . import people, views
+
+KEEP = dt.timedelta(days=365)                      # notifications are kept 12 months (decision C11)
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+
+def month_label(period: str | None) -> str:
+    """'2026-08' -> 'August 2026'."""
+    try:
+        return f"{MONTHS[int(period[5:7]) - 1]} {period[:4]}"
+    except (TypeError, ValueError, IndexError):
+        return period or ""
+
+
+def field_label(pointer: str) -> str:
+    """'/tranche_balance/interest' -> 'Tranche balance, interest' (the changed field, for correction_published)."""
+    toks = [x.replace("~1", "/").replace("~0", "~").replace("_", " ") for x in pointer.split("/")[1:] if not x.isdigit()]
+    return ", ".join(toks).capitalize() if toks else pointer
+
+
+def notification_dict(n: Notification) -> dict:
+    return {"id": n.id, "kind": n.kind, "title": n.title, "body": n.body, "link": n.link, "upload_id": n.upload_id, "deal_slug": n.deal_slug,
+            "collection_period": n.collection_period, "version": n.version, "thread_id": n.thread_id, "note_from_tao": n.note_from_tao,
+            "changes": n.changes, "created_at": views.iso(n.created_at), "read_at": views.iso(n.read_at)}
+
+
+def create(s: Session, u: AppUser, kind: str, title: str, link: str, **fields) -> Notification | None:
+    """One notification for one user, unless they are deactivated or switched the kind off."""
+    if u.status != "active" or not people.wants(s, u, kind):
+        return None
+    n = Notification(user_id=u.id, kind=kind, title=title, link=link, created_at=utcnow(), **fields)
+    s.add(n)
+    return n
+
+
+# ---- who is subscribed ----
+def channels_for(subs: list[Subscription], deal: Deal) -> list[str] | None:
+    """The channels a user's subscriptions give for this deal: a deal entry overrides the program entry; None if neither."""
+    deal_row = next((x for x in subs if x.program_slug == deal.program_slug and x.deal_slug == deal.slug), None)
+    prog_row = next((x for x in subs if x.program_slug == deal.program_slug and x.deal_slug is None), None)
+    row = deal_row or prog_row
+    if row is None:
+        return None
+    return ["in_app"]                                  # email is refused at subscribe time (email_later) in phase 2
+
+
+def _subs_by_user(s: Session) -> dict[str, list[Subscription]]:
+    out: dict[str, list[Subscription]] = {}
+    for x in s.scalars(select(Subscription)).all():
+        out.setdefault(x.user_id, []).append(x)
+    return out
+
+
+def recipients(s: Session, deal_slug: str, kind: str = "report_published") -> dict:
+    """Who a publish of this deal would notify, and who not and why (contract Recipients), over every user."""
+    deal = s.get(Deal, deal_slug)
+    program = s.get(Program, deal.program_slug)
+    shared = set(views.partner_slugs(s, program))
+    partners_on = people.get_setting(s, "partner_notifications_enabled") is True
+    subs = _subs_by_user(s)
+    notified, not_notified = [], []
+    users = s.scalars(select(AppUser).order_by(AppUser.partner_slug.is_not(None), AppUser.partner_slug, AppUser.name)).all()
+    for u in users:
+        partner = u.role not in TAO
+        channels = channels_for(subs.get(u.id, []), deal)
+        reason = None
+        if u.status != "active":
+            reason = "deactivated"
+        elif partner and u.partner_slug not in shared:
+            reason = "not_visible"
+        elif channels is None:
+            reason = "not_subscribed"
+        elif partner and not partners_on:
+            reason = "partner_notifications_off"
+        elif not people.wants(s, u, kind):
+            reason = "switched_off"
+        if reason:
+            not_notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "reason": reason})
+        else:
+            notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "channels": channels})
+    return {"notified": notified, "not_notified": not_notified}
+
+
+def subscribed_tao(s: Session, deal_slug: str) -> list[AppUser]:
+    """Active TAO users subscribed to the deal (directly or through its program)."""
+    deal = s.get(Deal, deal_slug)
+    if deal is None:
+        return []
+    subs = _subs_by_user(s)
+    users = s.scalars(select(AppUser).where(AppUser.role.in_(sorted(TAO)), AppUser.status == "active").order_by(AppUser.name)).all()
+    return [u for u in users if channels_for(subs.get(u.id, []), deal) is not None]
+
+
+# ---- links ----
+def report_link(s: Session, u: AppUser, deal_slug: str, period: str) -> str:
+    program = s.get(Deal, deal_slug).program_slug
+    base = "/admin" if u.role in TAO else f"/{u.partner_slug}"
+    return f"{base}/portfolio/{program}/deals/{deal_slug}?period={period}"
+
+
+def review_link(upload_id: str, thread_id: str | None = None) -> str:
+    return f"/admin/uploads/queue/{upload_id}" + (f"?thread={thread_id}" if thread_id else "")
+
+
+def account_link(u: AppUser) -> str:
+    """user_change and system: User management for TAO, the profile page for a partner."""
+    return "/admin/settings/users" if u.role in TAO else "/settings/profile"
+
+
+def covenant_link(s: Session, deal_slug: str) -> str:
+    """The program record (any partner that has the program; the first one)."""
+    program = s.get(Program, s.get(Deal, deal_slug).program_slug)
+    return f"/admin/partners/{program.partner_slug}/programs/{program.slug}"
+
+
+def _deal_name(s: Session, slug: str) -> str:
+    d = s.get(Deal, slug)
+    return d.name if d else slug
+
+
+# ---- events ----
+def published(s: Session, u_up: SetrepUpload, version: int, by: str, note: str | None, changes: list[dict] | None = None,
+              correction: bool = False) -> list[str]:
+    """report_published (approve) or correction_published: one per notified recipient. Returns the recipient user ids."""
+    kind = "correction_published" if correction else "report_published"
+    rec = recipients(s, u_up.deal_slug, kind)
+    name, label = _deal_name(s, u_up.deal_slug), month_label(u_up.collection_period)
+    title = f"{'Correction' if correction else 'Report'} published: {name} · {label}"
+    body = (f"Version {version} published by {by}." if correction else f"Published by {by}.")
+    ids = []
+    for r in rec["notified"]:
+        u = s.get(AppUser, r["user_id"])
+        n = create(s, u, kind, title, report_link(s, u, u_up.deal_slug, u_up.collection_period), body=body, upload_id=u_up.id,
+                   deal_slug=u_up.deal_slug, collection_period=u_up.collection_period, version=version, note_from_tao=note,
+                   changes=changes if correction else None)
+        if n is not None:
+            ids.append(u.id)
+    return ids
+
+
+def to_tao(s: Session, u_up: SetrepUpload, kind: str, title: str, body: str | None) -> list[str]:
+    """report_needs_review, report_rejected, covenant_changed, system: subscribed TAO users of the upload's deal."""
+    ids = []
+    link = covenant_link(s, u_up.deal_slug) if kind == "covenant_changed" else review_link(u_up.id)   # system about an upload: its page
+    for u in subscribed_tao(s, u_up.deal_slug):
+        if create(s, u, kind, title, link, body=body, upload_id=u_up.id, deal_slug=u_up.deal_slug,
+                  collection_period=u_up.collection_period) is not None:
+            ids.append(u.id)
+    return ids
+
+
+def rejected(s: Session, u_up: SetrepUpload, reason: str, by: str, what: str = "Report") -> None:
+    to_tao(s, u_up, "report_rejected", f"{what} rejected: {_deal_name(s, u_up.deal_slug)} · {month_label(u_up.collection_period)}",
+           f"Reason: {reason}. By {by}.")
+
+
+def user_changed(s: Session, u: AppUser, title: str, body: str | None = None) -> None:
+    create(s, u, "user_change", title, account_link(u), body=body)
+
+
+def _once(s: Session, key: str) -> bool:
+    """Claim an event key; False if it was already sent (also by a concurrent request)."""
+    if s.get(NotificationEvent, key) is not None:
+        return False
+    try:
+        with s.begin_nested():
+            s.add(NotificationEvent(key=key))
+        return True
+    except IntegrityError:
+        return False
+
+
+def needs_review_queued(s: Session, u_up: SetrepUpload, title_prefix: str, key: str, body: str | None) -> None:
+    if _once(s, key):
+        to_tao(s, u_up, "report_needs_review", f"{title_prefix}: {_deal_name(s, u_up.deal_slug)} · {month_label(u_up.collection_period)}", body)
+
+
+def _uploader(s: Session, u_up: SetrepUpload) -> str:
+    who = s.get(AppUser, u_up.uploaded_by_user_id) if u_up.uploaded_by_user_id else None
+    return who.name if who else u_up.uploaded_by
+
+
+def sweep(s: Session) -> None:
+    """Fan out worker events not yet sent: an upload now in needs_review (plus covenant_changed for each R19 note on its
+    latest extraction) and an upload that failed extraction. Also drops notifications older than 12 months. Commits."""
+    s.execute(delete(Notification).where(Notification.created_at < utcnow() - KEEP))
+    ups = s.scalars(select(SetrepUpload).where(SetrepUpload.status.in_(("needs_review", "extraction_failed")))
+                    .order_by(SetrepUpload.uploaded_at)).all()
+    for up in ups:
+        key = f"{up.status}:{up.id}"
+        if not _once(s, key):
+            continue
+        name, label = _deal_name(s, up.deal_slug), month_label(up.collection_period)
+        if up.status == "extraction_failed":
+            why = views.failure_reason(s, up)
+            to_tao(s, up, "system", f"Extraction failed: {name} · {label}", f"{up.file_name}." + (f" {why}." if why else ""))
+            continue
+        to_tao(s, up, "report_needs_review", f"Report needs review: {name} · {label}",
+               f"{up.file_name}. Extraction finished; waiting in the approval queue. Uploaded by {_uploader(s, up)}.")
+        ex = views.latest_extraction(s, up.id)
+        if ex is None:
+            continue
+        for f in s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.rule_id == "R19").order_by(Finding.created_at)).all():
+            ctx = f.context or {}
+            to_tao(s, up, "covenant_changed", f"Covenant changed: {name} · {ctx.get('legal_ref') or 'covenant'}, "
+                                              f"{ctx.get('prior_status') or f.our_value} to {ctx.get('status') or f.report_value}",
+                   f"{label}: {ctx.get('value')} ({ctx.get('status') or f.report_value}); prior {ctx.get('prior_value')} "
+                   f"({ctx.get('prior_status') or f.our_value}).")
+    s.commit()
+
+
+def visible_to_partner(q, partner_programs: list[str]):
+    """A partner's notifications: partner kinds only, and only deals of programs they can see now (or no deal)."""
+    deals = select(Deal.slug).where(Deal.program_slug.in_(partner_programs))
+    return q.where(Notification.kind.in_(people.PARTNER_KINDS), or_(Notification.deal_slug.is_(None), Notification.deal_slug.in_(deals)))

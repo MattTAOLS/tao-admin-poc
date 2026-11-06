@@ -114,10 +114,12 @@ def publication_versions(s: Session, pub: Publication) -> list[dict]:
     old = s.scalars(select(PublicationVersion).where(PublicationVersion.publication_id == pub.id).order_by(PublicationVersion.version)).all()
     ids = {x for x in [pub.correction_id, *(v.correction_id for v in old)] if x}
     notes = dict(s.execute(select(Correction.id, Correction.note_to_partners).where(Correction.id.in_(ids))).all()) if ids else {}
+    def note(v):                                 # a correction's note, else the approve note stored with the version (010)
+        return notes.get(v.correction_id) if v.correction_id else v.note_to_partners
     rows = [{"version": v.version, "published_at": iso(v.published_at), "published_by": v.published_by, "correction_id": v.correction_id,
-             "reason": v.version_reason, "note_to_partners": notes.get(v.correction_id), "current": False} for v in old]
+             "reason": v.version_reason, "note_to_partners": note(v), "current": False} for v in old]
     return rows + [{"version": pub.version, "published_at": iso(pub.published_at), "published_by": pub.published_by,
-                    "correction_id": pub.correction_id, "reason": pub.version_reason, "note_to_partners": notes.get(pub.correction_id),
+                    "correction_id": pub.correction_id, "reason": pub.version_reason, "note_to_partners": note(pub),
                     "current": True}]
 
 
@@ -161,7 +163,7 @@ def covenant_dict(c: CovenantDefinition) -> dict:
 
 
 def audit_dict(a: ReviewAction) -> dict:
-    return {"id": a.id, "at": iso(a.at), "actor_role": a.actor_role, "actor_label": a.actor_label, "action": a.action,
+    return {"id": a.id, "at": iso(a.at), "actor_role": a.actor_role, "actor_label": a.actor_label, "actor_user_id": a.actor_user_id, "action": a.action,
             "upload_id": a.upload_id, "finding_id": a.finding_id, "reason": a.reason, "detail": a.detail or {}}
 
 
@@ -187,7 +189,8 @@ def covenants_as_of(s: Session, deal_slug: str | None, as_of: dt.date | None, in
 
 
 def audit(s: Session, c, action: str, upload_id=None, finding_id=None, reason=None, detail=None) -> ReviewAction:
+    """One audit row. actor_role stays the role string; with X-User the row also names the user (id, and name as label)."""
     a = ReviewAction(upload_id=upload_id, finding_id=finding_id, actor_role=c.role, actor_label=getattr(c, "label", None) or c.role,
-                     action=action, reason=reason, detail=detail or {})
+                     actor_user_id=getattr(c, "user_id", None), action=action, reason=reason, detail=detail or {})
     s.add(a)
     return a

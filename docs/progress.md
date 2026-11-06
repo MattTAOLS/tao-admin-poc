@@ -834,3 +834,49 @@ Append an entry when a work package lands. Newest first.
   open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
   publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
   from the correction (no schema change). active_edit_count is per value, as built.
+- 2026-11-05 — Data & API (phase 2 wave C): people, notifications, comments, settings (contract abdda6d + 5575406).
+  Auth seam (R1): `caller()` resolves `X-User` (an active app_user) to the same Caller (role, partner) plus user_id and
+  label (the name); X-Role / X-Partner are then ignored. Unknown id 401 `unknown_user`, deactivated 401 `inactive_user`.
+  Without X-User the demo headers behave exactly as before (no X-Role: 422 `invalid`); every gate, partner_filter and
+  the original test_roles.py lines are unchanged. Audit rows carry `actor_user_id` and the name as actor_label;
+  uploaded_by / published_by keep the role string, setrep_upload gains `uploaded_by_user_id`. last_active_at is written
+  at most every 5 minutes. `/audit?actor_user_id=` (own entries readable by every role; others need the scope rule).
+  Migration 010: app_user, subscription, user_pref, notification_pref, system_setting, review_action.actor_user_id,
+  setrep_upload.uploaded_by_user_id, publication(_version).note_to_partners. Migration 011: notification,
+  notification_event, thread, comment. Both idempotent; checked on PostgreSQL 16 (pg8000) from an existing 009 database
+  with data, then each file run again. The seed loads seed/users.json (adds a user only if id and email are new; never
+  changes one).
+  Users: `/users` (tao_admin all; Company Admins only their partner's, another partner's user is 404; others 403
+  `company_admin_only`), create / patch / deactivate / reactivate / subscriptions with self_change, last_admin,
+  other_partner, email_taken (case-insensitive), role_partner_mismatch, unknown_partner, already_active /
+  already_deactivated, not_visible, email_later. PATCH with a new role and no partner_slug takes the role's partner
+  (TAO: none). `/me` (demo: user null, defaults), PATCH /me, `/me/notification-prefs` (required: covenant_changed,
+  correction_published; partner roles receive report_published, correction_published, user_change), `/settings`
+  (five keys, defaults until set; publish_note_templates merges a partial value). Audit: user_change, prefs_change,
+  settings_change with before / after.
+  Notifications: approve takes `{note_to_partners}` (stored on the publication and its archived versions, shown in
+  `versions[]`), publish and correction publish notify per `/uploads/{id}/recipients` (subscribed users at a partner the
+  program is shared with, partner users only while partner_notifications_enabled, plus subscribed TAO users; reasons
+  deactivated, not_visible, not_subscribed, partner_notifications_off, switched_off). correction_published carries
+  `changes`. Reject and correction reject -> report_rejected; a queued correction -> report_needs_review; both to
+  subscribed TAO users. The worker moves uploads to needs_review / extraction_failed outside the API, so a sweep on
+  every notification read sends those once (report_needs_review plus covenant_changed per R19 note; system for a failed
+  extraction) to the TAO subscribers of that moment, keyed in notification_event; it also purges rows older than 12
+  months. Partner reads go through partner_filter again: partner kinds only, deals of programs visible now (R7).
+  Comments: TAO only (partners 403), writes need X-User (401 user_required), reads do not. Mentions only active TAO
+  users (422 bad_mention), each notified once; replies notify the thread's other people; edits author-only (403
+  not_author), new mentions only, old text in comment_edit; resolve / reopen by any TAO Admin or the starter (403
+  forbidden otherwise, 409 bad_state). Threads carry `version`; a correction keeps them, a re-issue lists the replaced
+  uploads' threads. Links (Lead's table): review queue `/admin/uploads/queue/<id>` (`?thread=<id>` for mention and
+  reply), published and correction `/admin|/<partner>/portfolio/<program>/deals/<deal>?period=`, covenant_changed
+  `/admin/partners/<first partner>/programs/<program>`, user_change and system `/admin/settings/users` (partner:
+  `/settings/profile`). Follow-ups: a tao_analyst may GET exactly `/users?partner_slug=tao&status=active` (id, name,
+  email, role: the @mention list), anything else 403; receives_summary reads "All MOVE Trust deals; Moneda Capital
+  Corp. (F-PIL 2.0)" or "Nothing yet"; every user_change detail carries the user's email and name.
+  Tests: test_auth_seam, test_users, test_notifications, test_threads, test_migrate (010/011 on PostgreSQL), test_roles
+  wave C lines; parity 49 / 61. Full api suite on SQLite (count in the final commit); wave C files plus audit, seed,
+  corrections, re-issue also on PostgreSQL 16 via pg8000. check_contracts green.
+  Needs from the Lead: contract text still says receives_summary "None" when empty (now "Nothing yet") and the
+  Notification.link examples are the old paths; the kinds a partner role can receive are not listed; the sweep timing
+  (needs_review and extraction-failed notifications appear when someone next opens notifications or the badge polls)
+  is worth a line under Notification. A system notification about an upload (extraction failed) links to its review page; /admin/settings/users is for user_change (and system without an upload).

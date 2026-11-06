@@ -55,3 +55,47 @@ def test_analyst_blocked_from_wave_b_writes(method, path): assert c.request(meth
 
 @pytest.mark.parametrize("method,path", WAVE_B_READS)
 def test_analyst_reads_wave_b(method, path): assert c.request(method, path, headers=ANALYST).status_code in (200, 404)
+
+# ---- wave C: people, notifications, comments, settings ----
+W = "/api/v1/users/00000000-0000-4000-8000-000000000001"
+T = "/api/v1/threads/00000000-0000-4000-8000-000000000005"
+WAVE_C_TAO = [("get", U + "/recipients"), ("get", U + "/threads"), ("post", U + "/threads"), ("post", T + "/comments"),
+              ("patch", "/api/v1/comments/00000000-0000-4000-8000-000000000006"), ("post", T + "/resolve"), ("post", T + "/reopen")]
+WAVE_C_ADMIN = [("get", "/api/v1/settings"), ("put", "/api/v1/settings/partner_notifications_enabled")]
+WAVE_C_USERS = [("get", "/api/v1/users"), ("post", "/api/v1/users"), ("get", W), ("patch", W), ("post", W + "/deactivate"),
+                ("post", W + "/reactivate"), ("get", W + "/subscriptions"), ("put", W + "/subscriptions")]
+WAVE_C_SELF = [("patch", "/api/v1/me"), ("get", "/api/v1/me/notification-prefs"), ("put", "/api/v1/me/notification-prefs"),
+               ("get", "/api/v1/notifications"), ("get", "/api/v1/notifications/unread-count"),
+               ("post", "/api/v1/notifications/00000000-0000-4000-8000-000000000007/read"), ("post", "/api/v1/notifications/read-all")]
+VIEWERS = [INV, {"X-Role": "manager_viewer", "X-Partner": "manager"}]
+
+@pytest.mark.parametrize("method,path", WAVE_C_TAO + WAVE_C_ADMIN)
+@pytest.mark.parametrize("h", [INV, MGR, {"X-Role": "investor_admin", "X-Partner": "investor"}, {"X-Role": "manager_viewer", "X-Partner": "manager"}])
+def test_partner_roles_blocked_from_wave_c(method, path, h): assert c.request(method, path, headers=h).status_code == 403
+
+@pytest.mark.parametrize("method,path", WAVE_C_ADMIN)
+def test_analyst_blocked_from_settings(method, path): assert c.request(method, path, headers=ANALYST).status_code == 403
+
+@pytest.mark.parametrize("method,path", WAVE_C_USERS)
+@pytest.mark.parametrize("h", [ANALYST] + VIEWERS)
+def test_users_routes_need_tao_admin_or_company_admin(method, path, h):
+    r = c.request(method, path, headers=h); assert r.status_code == 403 and r.json()["code"] == "company_admin_only"
+
+@pytest.mark.parametrize("method,path", WAVE_C_SELF)
+@pytest.mark.parametrize("h", [TAO, ANALYST, INV, MGR])
+def test_routes_about_one_person_need_a_user(method, path, h):
+    r = c.request(method, path, headers=h); assert r.status_code == 401 and r.json()["code"] == "user_required"
+
+@pytest.mark.parametrize("h", [TAO, ANALYST, INV, MGR])
+def test_me_reads_in_demo_mode(h): assert c.get("/api/v1/me", headers=h).json()["user"] is None
+
+@pytest.mark.parametrize("method,path", WAVE_C_TAO)
+def test_comment_writes_need_a_user_for_tao(method, path):
+    if method == "get": assert c.request(method, path, headers=ANALYST).status_code in (200, 404)
+    else: assert c.request(method, path, headers=ANALYST).status_code == 401
+
+def test_unknown_user_is_401_everywhere(): assert c.get("/api/v1/me", headers={"X-User": "00000000-0000-4000-8000-0000000000ff"}).status_code == 401
+
+def test_analyst_may_read_only_the_mention_list():
+    assert c.get("/api/v1/users?partner_slug=tao&status=active", headers=ANALYST).status_code == 200
+    assert c.get("/api/v1/users?partner_slug=tao", headers=ANALYST).status_code == 403
