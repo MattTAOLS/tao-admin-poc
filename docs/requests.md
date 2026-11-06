@@ -615,6 +615,16 @@ The Lead reads this at every merge.
      linked back by the next seed run. If that matters, the seed needs a marker for "unlinked on purpose".
   7. Partners see a reviewed adverse item's `note` (AdverseItem.note, the TAO review note). Say if that note should be
      TAO only.
+- 2026-11-06 — QA & Demo to Lead (wave D, step 12; nothing blocks the demo, all three are small): (1) Every
+  published object has `source_file: "source.pdf"` (e.g. Essex 2026-07; the reference object says
+  `Essex_-_202607_-_SETTREP.pdf`), and wave D now shows it to partners in the profile header and the Documents section.
+  Cause: `api/app/main.py` stores each upload as `<upload dir>/source.pdf` and `worker/main.py` hands that path to the
+  extraction, so the stored name wins over `SetrepUpload.file_name` (the original name). Suggest the worker pass
+  `file_name` as the source file. (2) A note mention in Notifications says "Open thread" (`MENTION` in
+  `web/src/shell/account/NotificationsPage.tsx` uses one label for comments and notes); for a company note "Open note"
+  would read better. (3) The delinquency legend reads "Program median, 1 other deals" (plural with 1), and the
+  Performance subtitle says "one point per deal" where the contract (MetricSeries) and the API use one point per
+  company. Seen in `specs/12-companies.spec.ts` screenshots; no test depends on them.
 
 ## News
 - 2026-11-06 — To Data & API (no contract change needed): Run now = insert `news_run` (trigger `manual`, status `queued`), then `LPUSH news <run id as a plain string>` (list name from `NEWS_QUEUE`, default `news`). The worker BRPOPs and treats the message as a wake-up only: it runs every queued row oldest first, so the payload shape is not load-bearing and a lost push still runs within a minute. `run_active` should look at both `queued` and `running`; the worker fails any row left `running` when it restarts, and fails a queued row with `{company_slug: null, source: "worker", message: "company_feeds is off; nothing was fetched"}` if the setting was switched off before it started. The worker reads companies from the `company` table only: seeding `seed/companies.json` into it is on the API side.
