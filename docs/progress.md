@@ -834,3 +834,20 @@ Append an entry when a work package lands. Newest first.
   open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
   publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
   from the correction (no schema change). active_edit_count is per value, as built.
+- 2026-11-05 — UI-Partner, wave C: partner Team members page (D8 c) at `/<investor|manager>/settings/team`, Company
+  Admins only (`web/src/portfolio/TeamPage.tsx`, logic in `team.ts`; pages.ts entry set to built + load, owner portfolio).
+  Table: name (initials, "you" when /me names a user), email, role (Company Admin / Viewer), status (dot plus word),
+  last active, reports received (`receives_summary`). Header actions Add user and Invite (same form; the invite email
+  shows "coming later"). Edit dialog: name, email, role limited to the partner's admin / viewer (own role locked),
+  deactivate / reactivate with a reason (no delete; own deactivation locked), and "Reports this person receives": a tree
+  of the programs in `/published/portfolio` for this caller, each with "All deals in this program, including new ones"
+  (deal_slug null) and per-deal boxes; in-app only, email "coming later". Saves PATCH only changed fields and PUT the
+  whole subscription list only when it changed; unshared programs drop out. Notes on the page: Receives is notifications
+  only, one active Company Admin always, nobody changes their own role. 409 last_admin / self_change / email_taken /
+  other_partner and the 422 subscription codes show as plain sentences in the dialog. Viewers get the shell no-access
+  state. Role-only mode works: every call carries X-Role + X-Partner through the shell api(), `/users?partner_slug=` is
+  the caller's partner, and rows from any other partner are filtered out client-side too.
+  Run: `npx vitest run src/portfolio` (team.test.tsx, 13 tests). Stubbed / needs: the drawer history (note 13) needs a
+  Company Admin readable audit route (/audit is TAO only); the edit view is the Design System Dialog (size lg), there is
+  no drawer component; "you" and the self locks appear only once the shell sends X-User (in role-only mode the API's
+  409 self_change message shows instead).

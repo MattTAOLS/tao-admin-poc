@@ -48,5 +48,5 @@ export const PARTNER_PAGES: Page[] = [
   { path: '/whats-new', title: "What's new", nav: 'main', owner: 'shell' },
   { path: '/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to read the portal; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
   { path: '/settings/profile', title: 'Profile', nav: 'account', owner: 'shell' },
-  { path: '/settings/team', title: 'Team members', nav: 'account', roles: ['investor_admin', 'manager_admin'], owner: 'shell' },
+  { path: '/settings/team', title: 'Team members', nav: 'account', roles: ['investor_admin', 'manager_admin'], built: true, owner: 'portfolio', purpose: 'Company Admin: the partner team, roles, deactivate, reports each person receives', load: () => import('@/portfolio/TeamPage') },
 ]
