@@ -85,6 +85,36 @@ describe('role filtering', () => {
   })
 })
 
+describe('wave C sections', () => {
+  const titles = (c: ReturnType<typeof forRole>) => c.sections.map(s => s.title)
+  it('covers sign-in, notifications, comments, profile, user management and system settings for TAO Admin', () => {
+    const t = titles(forRole(ADMIN_HELP, 'tao_admin'))
+    for (const x of ['Sign in as a user', 'Read your notifications', 'Comment on a report', 'Set up your profile', 'Manage users and the reports they receive', 'Change system settings']) expect(t).toContain(x)
+    const publish = forRole(ADMIN_HELP, 'tao_admin').sections.find(s => s.id === 'publish')!
+    expect(publish.steps!.some(s => s.text.includes('**Note to partners**'))).toBe(true)
+    expect(publish.steps!.some(s => s.text.includes('**Who gets notified**'))).toBe(true)
+    expect(ADMIN_HELP.sections.find(s => s.id === 'user-management')!.steps![0].text).toContain('/admin/settings/users')
+    expect(ADMIN_HELP.sections.find(s => s.id === 'system-settings')!.steps![0].text).toContain('/admin/settings/system')
+  })
+  it('keeps user management and system settings from TAO Analyst, who still gets comments and notifications', () => {
+    const t = titles(forRole(ADMIN_HELP, 'tao_analyst'))
+    expect(t).not.toContain('Manage users and the reports they receive')
+    expect(t).not.toContain('Change system settings')
+    for (const x of ['Sign in as a user', 'Read your notifications', 'Comment on a report', 'Set up your profile']) expect(t).toContain(x)
+  })
+  it('gives partners sign-in, notifications and profile, and Team members to Company Admins only', () => {
+    expect(titles(forRole(PARTNER_HELP, 'investor_admin'))).toEqual(expect.arrayContaining(['Sign in as a user', 'Read your notifications', 'Set up your profile', 'Manage your team']))
+    expect(titles(forRole(PARTNER_HELP, 'manager_viewer'))).not.toContain('Manage your team')
+    const n = forRole(PARTNER_HELP, 'investor_viewer').sections.find(s => s.id === 'notifications')!
+    expect(n.steps!.some(s => s.text.includes('**Note from TAO**') && s.text.includes('**No note from TAO**'))).toBe(true)
+  })
+  it('names the menu as it is now, not the old role switcher', () => {
+    const text = JSON.stringify([ADMIN_HELP, PARTNER_HELP])
+    expect(text).not.toContain('POC role switcher')
+    expect(text).toContain('Sign in as (POC)')
+  })
+})
+
 describe('search', () => {
   it('filters sections and glossary entries as you type, and clears', async () => {
     const user = userEvent.setup()
