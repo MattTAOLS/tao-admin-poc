@@ -112,7 +112,7 @@ export function setup() {
 /** Signs in as a seed user (session mode `user`), so follow and notes are enabled and X-User is sent. */
 export function signIn(user: Pick<AppUser, 'id' | 'name' | 'role'>, partner: string | null = null) {
   localStorage.setItem('tao-admin-poc.user', user.id)
-  sessionStore.set({ mode: 'user', userId: user.id, me: { user: { ...user, email: 'x@example.com', partner_slug: partner, status: 'active', created_at: '2026-11-01T00:00:00Z' }, role: user.role, partner_slug: partner, display: {} } })
+  sessionStore.set({ mode: 'user', userId: user.id, me: { user: { ...user, email: 'x@example.com', partner_slug: partner, status: 'active', created_at: '2026-11-01T00:00:00Z' }, role: user.role, partner_slug: partner, display: {}, features: { companies: partner === null || state.partnerFeature } } })
 }
 
 export function Where() { const l = useLocation(); return <output data-testid="where">{l.pathname + l.search}</output> }
