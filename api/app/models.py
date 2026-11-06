@@ -1,7 +1,7 @@
 """SQLAlchemy models for db/migrations/001_init.sql (+ 002). Column names match the SQL exactly so the same
 models run against PostgreSQL (compose) and SQLite (tests)."""
 import uuid, datetime as dt
-from sqlalchemy import String, Text, Integer, Float, Numeric, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text, func
+from sqlalchemy import String, Text, Integer, Float, Numeric, Boolean, Date, DateTime, ForeignKey, JSON, Uuid, UniqueConstraint, Index, text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -104,6 +104,7 @@ class SetrepUpload(Base):
     status: Mapped[str] = mapped_column(Text, default="received")
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     replaces_upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)   # 006
+    uploaded_by_user_id: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)      # 010
 
 
 class Extraction(Base):
@@ -143,7 +144,7 @@ class Finding(Base):
 
 class ReviewAction(Base):
     __tablename__ = "review_action"
-    __table_args__ = (Index("review_action_at", "at"),)                               # 008
+    __table_args__ = (Index("review_action_at", "at"), Index("review_action_actor_user", "actor_user_id"))      # 008, 010
     id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
     upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)
     finding_id: Mapped[str | None] = mapped_column(Id, ForeignKey("finding.id"), nullable=True)
@@ -153,6 +154,7 @@ class ReviewAction(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail: Mapped[dict | None] = mapped_column(Json, nullable=True)
     at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    actor_user_id: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)            # 010
 
 
 class Publication(Base):
@@ -169,6 +171,7 @@ class Publication(Base):
     version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))                  # 009
     correction_id: Mapped[str | None] = mapped_column(Id, nullable=True)
     version_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note_to_partners: Mapped[str | None] = mapped_column(Text, nullable=True)                        # 010: the approve note
 
 
 class PublicationVersion(Base):
@@ -184,6 +187,7 @@ class PublicationVersion(Base):
     published_by: Mapped[str] = mapped_column(Text)
     correction_id: Mapped[str | None] = mapped_column(Id, nullable=True)
     version_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note_to_partners: Mapped[str | None] = mapped_column(Text, nullable=True)                        # 010
     archived_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
 
 
@@ -230,3 +234,112 @@ class ValueEdit(Base):
     reverted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reverted_by: Mapped[str | None] = mapped_column(Text, nullable=True)
     revert_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+# ---- wave C (010, 011) ----
+class AppUser(Base):
+    """010: a person behind X-User. Email lower-case and unique. Never deleted: status deactivated."""
+    __tablename__ = "app_user"
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(Text)
+    partner_slug: Mapped[str | None] = mapped_column(Text, ForeignKey("partner.slug"), nullable=True)
+    status: Mapped[str] = mapped_column(Text, default="active", server_default=text("'active'"))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    last_active_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deactivated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deactivation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Subscription(Base):
+    """010: deal_slug null = every deal in the program, including deals added later."""
+    __tablename__ = "subscription"
+    __table_args__ = (Index("subscription_user", "user_id"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"))
+    program_slug: Mapped[str] = mapped_column(Text, ForeignKey("program.slug"))
+    deal_slug: Mapped[str | None] = mapped_column(Text, ForeignKey("deal.slug"), nullable=True)
+    channels: Mapped[list] = mapped_column(Json, default=lambda: ["in_app"])
+
+
+class UserPref(Base):
+    __tablename__ = "user_pref"
+    user_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"), primary_key=True)
+    time_zone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_format: Mapped[str | None] = mapped_column(Text, nullable=True)
+    number_format: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+class NotificationPref(Base):
+    __tablename__ = "notification_pref"
+    user_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"), primary_key=True)
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    in_app: Mapped[bool] = mapped_column(Boolean, default=True)
+    digest: Mapped[str] = mapped_column(Text, default="instant")
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_setting"
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    value: Mapped[object | None] = mapped_column(Json, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    updated_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Notification(Base):
+    """011: one person's copy of one event."""
+    __tablename__ = "notification"
+    __table_args__ = (Index("notification_user_created", "user_id", "created_at"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"))
+    kind: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    link: Mapped[str] = mapped_column(Text)
+    upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)
+    deal_slug: Mapped[str | None] = mapped_column(Text, nullable=True)
+    collection_period: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(Id, nullable=True)
+    note_from_tao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changes: Mapped[list | None] = mapped_column(Json, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    read_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NotificationEvent(Base):
+    """011: an after-the-fact event (a worker status change) already fanned out, so it is sent once."""
+    __tablename__ = "notification_event"
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+
+
+class Thread(Base):
+    """011: TAO-internal comments on one finding (finding_id, rule_id copied) or one extracted value (pointer)."""
+    __tablename__ = "thread"
+    __table_args__ = (Index("thread_upload", "upload_id"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    upload_id: Mapped[str] = mapped_column(Id, ForeignKey("setrep_upload.id"))
+    finding_id: Mapped[str | None] = mapped_column(Id, nullable=True)
+    pointer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rule_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, default="open")
+    version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_by: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    resolved_by: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
+    resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Comment(Base):
+    __tablename__ = "comment"
+    __table_args__ = (Index("comment_thread", "thread_id"),)
+    id: Mapped[str] = mapped_column(Id, primary_key=True, default=new_id)
+    thread_id: Mapped[str] = mapped_column(Id, ForeignKey("thread.id"))
+    author_id: Mapped[str] = mapped_column(Id, ForeignKey("app_user.id"))
+    body: Mapped[str] = mapped_column(Text)
+    mentions: Mapped[list] = mapped_column(Json, default=list)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

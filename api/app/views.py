@@ -161,7 +161,7 @@ def covenant_dict(c: CovenantDefinition) -> dict:
 
 
 def audit_dict(a: ReviewAction) -> dict:
-    return {"id": a.id, "at": iso(a.at), "actor_role": a.actor_role, "actor_label": a.actor_label, "action": a.action,
+    return {"id": a.id, "at": iso(a.at), "actor_role": a.actor_role, "actor_label": a.actor_label, "actor_user_id": a.actor_user_id, "action": a.action,
             "upload_id": a.upload_id, "finding_id": a.finding_id, "reason": a.reason, "detail": a.detail or {}}
 
 
@@ -187,7 +187,8 @@ def covenants_as_of(s: Session, deal_slug: str | None, as_of: dt.date | None, in
 
 
 def audit(s: Session, c, action: str, upload_id=None, finding_id=None, reason=None, detail=None) -> ReviewAction:
+    """One audit row. actor_role stays the role string; with X-User the row also names the user (id, and name as label)."""
     a = ReviewAction(upload_id=upload_id, finding_id=finding_id, actor_role=c.role, actor_label=getattr(c, "label", None) or c.role,
-                     action=action, reason=reason, detail=detail or {})
+                     actor_user_id=getattr(c, "user_id", None), action=action, reason=reason, detail=detail or {})
     s.add(a)
     return a

@@ -1,6 +1,6 @@
 """Loads seed/*.json into the database, idempotently (run it twice, get the same rows).
 
-    python -m app.seed                          partners, programs, deals, covenant definitions
+    python -m app.seed                          partners, programs, deals, covenant definitions, sample users (if missing)
     python -m app.seed --reference-publications also publish the 12 real deal objects in docs/dashboard-json
                                                 (demo data for the partner portals; skipped for periods
                                                 that already have a publication)
@@ -14,7 +14,7 @@ Only rows the seed created (origin = seed) are compared and superseded; rows a T
 import json, pathlib, sys, uuid, datetime as dt
 from sqlalchemy import select
 from . import db, views
-from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction, new_id, utcnow
+from .models import Partner, Program, Deal, CovenantDefinition, SetrepUpload, Publication, ReviewAction, AppUser, new_id, utcnow
 
 HERE = pathlib.Path(__file__).resolve()
 NS = uuid.UUID("6f1d3c52-7d0e-4c8e-9a51-2b7f0a1c9e10")
@@ -65,8 +65,24 @@ def load(s, root: pathlib.Path = SEED) -> dict:
     rows = json.loads((root / "covenant_definitions.json").read_text(encoding="utf-8"))
     counts["covenant_definitions"] = len(rows)
     counts["covenant_definitions_superseded"] = load_covenants(s, rows)
+    if (root / "users.json").exists():
+        counts["users_added"] = load_users(s, json.loads((root / "users.json").read_text(encoding="utf-8")))
     s.commit()
     return counts
+
+
+def load_users(s, rows: list[dict]) -> int:
+    """seed/users.json (wave C): add each sample user whose id and email are both new. A user already there is never
+    changed, so a name, role or status edited in the app survives every seed run. Subscriptions start empty."""
+    n = 0
+    for r in rows:
+        email = r["email"].strip().lower()
+        if s.get(AppUser, r["id"]) is not None or s.scalar(select(AppUser.id).where(AppUser.email == email)) is not None:
+            continue
+        s.add(AppUser(id=r["id"], email=email, name=r["name"], role=r["role"], partner_slug=r.get("partner_slug"), status="active"))
+        n += 1
+    s.flush()
+    return n
 
 
 COVENANT_FIELDS = ("legal_ref", "description", "kind", "threshold", "threshold_rule", "watch_buffer_pct", "effective_from", "unit", "source")

@@ -117,7 +117,7 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
     except Exception:
         raise err(422, "not_a_pdf", "the file is not a readable PDF")
     u = SetrepUpload(id=new_id(), deal_slug=deal_slug, collection_period=collection_period, file_name=file.filename or "source.pdf",
-                     file_path="", page_count=pages, uploaded_by=c.role, status="received",
+                     file_path="", page_count=pages, uploaded_by=c.role, uploaded_by_user_id=c.user_id, status="received",
                      replaces_upload_id=published.upload_id if replace else None)
     path = _upload_dir(u.id) / "source.pdf"
     u.file_path = str(path)
@@ -351,7 +351,7 @@ def create_edit(upload_id: str, body: ValueEditRequest, c: Caller = Depends(admi
     _, old = review.value_at(current, body.pointer)
     src = (ex.sources or {}).get(body.pointer) or {}
     e = ValueEdit(upload_id=u.id, pointer=body.pointer, old_value=float(old), new_value=body.value, reason=body.reason,
-                  source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role, actor_label=c.role, at=utcnow())
+                  source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role, actor_label=c.label or c.role, at=utcnow())
     s.add(e); s.flush()
     replaced = [f.id for f in s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.status == "overridden")).all()
                 if (f.resolution or {}).get("choice") in review.VALUE_CHOICES and body.pointer in (f.targets or [])]
@@ -483,7 +483,7 @@ def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depen
         src = ((ex.sources if ex else None) or {}).get(e.pointer) or {}
         ve = ValueEdit(id=new_id(), upload_id=u.id, correction_id=k.id, pointer=e.pointer, old_value=float(olds[e.pointer]), new_value=e.value,
                        reason=body.reason, source_page=src.get("page") if isinstance(src, dict) else None, actor_role=c.role,
-                       actor_label=c.role, at=k.created_at + dt.timedelta(microseconds=i))
+                       actor_label=c.label or c.role, at=k.created_at + dt.timedelta(microseconds=i))
         s.add(ve)
         # partner deal page groups data_corrections by edit_id: "Corrected by TAO · version n"
         rows.append(review.correction_entry(e.pointer, u.collection_period, olds[e.pointer], box[key], body.reason,
