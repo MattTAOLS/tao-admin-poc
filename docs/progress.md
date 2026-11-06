@@ -2,6 +2,75 @@
 
 Append an entry when a work package lands. Newest first.
 
+- 2026-11-05 — Data & API (phase 2 wave B): covenant changes, value edits, corrections with publication versions.
+  Migration `009_wave_b_editing.sql` (idempotent): covenant_definition gains origin (seed|ui; rows with an old
+  master_change entry are backfilled to ui), supersedes_id, changed_by, change_reason, changed_at; publication gains
+  version, correction_id, version_reason; new tables publication_version, correction (one pending per upload, partial
+  unique index) and value_edit.
+  Covenants: `PUT /master/covenants` takes mode new_version | correct | add and a reason (10+ characters, spaces trimmed)
+  and never updates a row in place. correct supersedes the current row and inserts its replacement (same effective_from,
+  supersedes_id); new_version needs a later effective_from; add needs a legal_ref the deal does not have. 409 not_current,
+  exists, effective_not_later; 422 for a correct without id, a changed effective_from / deal / legal_ref, or new_version on
+  an unknown legal_ref. Returns {definition, superseded_id, rerun_upload_ids}; re-runs the rules on the deal's needs_review
+  uploads; master_change entry with before, after, mode, effective_from and the reason. `GET ?include_history=true` returns
+  superseded rows too. The seed supersedes only origin=seed rows and never inserts into a (legal_ref, effective_from) slot
+  held by a ui row (R11). The review context carries `master.covenants_recorded` (parity with worker/validate for R14).
+  Value edits: `/uploads/{id}/edits` (GET, POST) and `/edits/{edit_id}/revert`. tao_admin only, needs_review or approved,
+  numbers at an existing pointer only (a whole-number field stays whole). On a pointer the latest not-reverted edit is in
+  force; revert falls back to the previous edit, else the extracted value. Re-runs and approve read the extraction with the
+  edits applied; approve also re-runs first when edits exist, writes each edited pointer into the published deal and one
+  data_corrections row (choice manual, edit_id, old = extracted value). A manual edit wins over use_ours / use_report on the
+  same pointer: the approve detail lists the override target as replaced, and the override and value_edit entries both stay.
+  Upload dict: active_edit_count (pointers with an edit in force), published_version, pending_correction_id.
+  Corrections: `/uploads/{id}/corrections`, `/corrections`, `/corrections/{id}`, approve, reject. Edits apply to the live
+  published deal; data_corrections rows carry edit_id, correction_id and version. The rules re-run with prior = published
+  previous month and the corrected period left out of published_periods (no R12). A block that was resolved in the
+  original review carries its resolution; any other open block queues the correction (B1), else it publishes at once as
+  version n+1 (old version copied to publication_version, publish + regenerate entries, and later-period needs_review
+  uploads of the deal re-run, their ids in the publish detail). Approve re-runs the rules first (409 open_block_findings
+  while a block stays open) and refuses a correction whose base version is no longer live (409 bad_state). A corrected
+  re-issue now also archives the old version (version_reason "corrected re-issue"). `GET /published/.../deals/{slug}`
+  gains version, versions and `?version=n`.
+  Fixed on the way: review.rerun inserted a new finding before its values were set (NOT NULL on layer); never hit before
+  because no earlier re-run produced a finding the worker had not.
+  Tests: api suite on SQLite (count in the commit), wave B files and test_master/test_reissue also on PostgreSQL 16 via
+  pg8000, and 009 checked there for idempotency and the ui backfill. check_contracts green.
+  Needs from others: UI-Admin sends mode + reason on PUT /master/covenants (the old body is now 422). worker/validate
+  does not apply value edits after a pass-2 extraction; the API re-runs with edits on approve and on every edit, so
+  findings written by the worker in between ignore edits until then. Correction findings cannot be overridden (no route
+  in the contract), so a queued correction is approved only once a re-run no longer blocks, or rejected.
+  Update after Lead 867d8f1: `POST /corrections/{id}/findings/{finding_id}/override` (tao_admin; restatement or
+  acknowledge, use_ours / use_report 409 bad_choice; 409 bad_state when the correction is decided or the finding is not
+  open) resolves a queued correction's finding; the resolution and finding id survive approve's re-run, and approve then
+  publishes. Audit: override / restate with correction_id in detail. PublicationVersion carries note_to_partners, read
+  from the correction (no schema change). active_edit_count is per value, as built.
+
+## UI-Admin, wave C (2026-11-05)
+- Built: User management (/admin/settings/users, TAO Admin only). Users table (name and email, role, partner, status,
+  last active, reports received from receives_summary) with partner (TAO / Investor / Manager), status and search
+  filters; Add user and Invite by email (email + role; name = the address's local part, since AppUserCreate needs one).
+  Right-hand drawer (?user=<id> or ?user=new): details and role (PATCH with changed fields only), Deactivate / Reactivate
+  with a reason of 3+ characters (no delete), "Reports this user receives" Program -> deal tree of the 12 deals from
+  /master/deals ("All deals ... including new ones" = deal_slug null; per-deal ticks; in-app only, email "coming later";
+  partner users see only programs shared with their partner), and History from /audit?scope=platform&q=<email>.
+  Self and last-admin are guarded in the UI (needs /me to name the caller; demo mode has no user, so only the API guards
+  self_change there). Every wave C error code has a plain message in admin/ui.tsx errorText.
+- Built: Roles & permissions (/admin/settings/users/roles): read-only six-role matrix, dot plus Yes / No / Limited, New tags.
+- Built: System settings (/admin/settings/system, TAO Admin only). Editable: partner_notifications_enabled (off by default,
+  warning), reporting_calendar (pre-filled with the August 2026 settlement days per deal; a test checks them against
+  docs/dashboard-json; suggestions are saved only when edited or confirmed), notification_defaults (in-app per role and
+  kind; required kinds show Always), publish_note_templates (D10 wording suggested when empty). One reason per save,
+  one PUT /settings/{key} per changed key; a partial failure names what saved. Read-only: programs and deals with locked
+  template_id, rules.yaml catalogue (line-scanned; request a change from the Lead), retention "Kept indefinitely" with
+  this month's CSV export, branding and integrations placeholders, maintenance (Regenerate link; reset demo a script).
+- Audit log: labels for user_change, prefs_change, settings_change (Platform) and comment, comment_edit, thread_resolve,
+  thread_reopen (Reports); before -> after for user and settings changes with role, program, deal and setting names.
+  .adm-scroll now resets --ds-sticky-top so sticky table headers no longer sit 64 px down inside a scroll box.
+- pages.ts: built + load for the three routes (Lead-authorised lines only).
+- Tests: `npx vitest run src/admin` (new: UserManagementPage, SystemSettingsPage incl. Roles, AuditWaveC). Built
+  against the contract with fakes; not yet run against the real wave C API.
+- Needs: Data & API to return receives_summary and to include the user's email or name in user_change detail (the
+  drawer's History searches by email). Design System: the shell sending X-User so /me names the caller.
 - 2026-11-05 — Design System (phase 2 wave C): sign in as a user, notification bell, Notifications, Profile, help.
   Built: the sidebar card is "Sign in as (POC)", listing the seeded users (web/src/shell/users.ts, a copy of
   seed/users.json kept equal by a test; the web container does not mount seed/) grouped by role, with a line saying it

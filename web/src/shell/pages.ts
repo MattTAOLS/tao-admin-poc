@@ -29,11 +29,11 @@ export const ADMIN_PAGES: Page[] = [
   { path: '/admin/notifications', title: 'Notifications', nav: 'main', built: true, owner: 'shell', purpose: 'Your own notifications: mentions, reports, system; needs a signed-in user', load: () => import('@/shell/account/NotificationsPage') },
   { path: '/admin/search', title: 'Search results', owner: 'shell' },
   { path: '/admin/help', title: 'Help & support', nav: 'main', built: true, owner: 'shell', purpose: 'How to do each task, filtered to the role; testing notes; glossary', load: () => import('@/shell/help/HelpPage') },
-  { path: '/admin/settings/users', title: 'User management', nav: 'account', roles: ['tao_admin'], owner: 'admin' },
+  { path: '/admin/settings/users', title: 'User management', nav: 'account', roles: ['tao_admin'], built: true, owner: 'admin', load: () => import('@/admin/UserManagementPage') },
   { path: '/admin/settings/users/audit', title: 'Audit log', nav: 'account', /* analysts read the Reports tab only (A4) */ roles: ['tao_admin', 'tao_analyst'], built: true, owner: 'admin', load: () => import('@/admin/AuditLogPage') },
-  { path: '/admin/settings/users/roles', title: 'Roles & permissions', roles: ['tao_admin'], owner: 'admin' },
+  { path: '/admin/settings/users/roles', title: 'Roles & permissions', roles: ['tao_admin'], built: true, owner: 'admin', load: () => import('@/admin/RolesPage') },
   { path: '/admin/settings/profile', title: 'Profile', nav: 'account', built: true, owner: 'shell', purpose: 'Details, display, notification preferences, my activity, security', load: () => import('@/shell/account/ProfilePage') },
-  { path: '/admin/settings/system', title: 'System settings', nav: 'account', roles: ['tao_admin'], owner: 'shell' },
+  { path: '/admin/settings/system', title: 'System settings', nav: 'account', roles: ['tao_admin'], built: true, owner: 'shell', load: () => import('@/admin/SystemSettingsPage') },
 ]
 export const PARTNER_PAGES: Page[] = [
   { path: '', title: 'Home', nav: 'main', built: true, owner: 'portfolio', purpose: 'Redirects to Portfolio Executive Summary (home page in the map)' },

@@ -8,6 +8,8 @@ import {
 } from './data'
 import { useResource, useRole } from './hooks'
 import { LoadError, TextLink, dealOptions, errorText, uploadTarget } from './ui'
+import { ROLE_LABEL, USER_CHANGE_LABEL, subsText, usersApi, type AppUser } from './users'
+import { SETTING_LABEL, cap } from './settings'
 
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 export const ACTION_LABEL: Record<string, string> = {
@@ -15,13 +17,19 @@ export const ACTION_LABEL: Record<string, string> = {
   reject: 'Reject', publish: 'Publish', regenerate: 'Regenerate', master_change: 'Master data change', export: 'Export',
   value_edit: 'Value edited', value_edit_revert: 'Value edit reverted', correction: 'Correction',
   correction_approve: 'Correction approved', correction_reject: 'Correction rejected',
+  // wave C: Platform
+  user_change: 'User change', prefs_change: 'Own settings changed', settings_change: 'Settings change',
+  // wave C: Reports (internal comment threads)
+  comment: 'Comment', comment_edit: 'Comment edited', thread_resolve: 'Thread resolved', thread_reopen: 'Thread reopened',
 }
 /** Actions whose detail carries before → after values (shown in the Detail cell and the expanded row). */
-const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject']
+const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
+  'user_change', 'prefs_change', 'settings_change', 'comment_edit']
 const MODE_LABEL: Record<string, string> = { new_version: 'new version', correct: 'correction', add: 'added' }
 /** The User filter: the actor roles the API writes (`system` is the extraction worker, `seed` the reference data). */
 export const ACTOR_LABEL: Record<string, string> = {
-  tao_admin: 'TAO Admin', tao_analyst: 'TAO Analyst', system: 'System (extraction worker)', seed: 'Reference data',
+  tao_admin: 'TAO Admin', tao_analyst: 'TAO Analyst', investor_admin: 'Investor · Company Admin', manager_admin: 'Manager · Company Admin',
+  investor_viewer: 'Investor · Viewer', manager_viewer: 'Manager · Viewer', system: 'System (extraction worker)', seed: 'Reference data',
 }
 const TAB_LABEL: Record<AuditScope, string> = { reports: 'Reports', platform: 'Platform' }
 const FIRST = { current: 100, history: 50 }
@@ -47,7 +55,7 @@ export const monthName = (m: string) => MONTH_NAME.format(new Date(`${m}-15T12:0
 const when = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : TIME.format(d) }
 
 // ---- Context: uploads, deals and programs name the Report column ----
-type Ctx = { uploads: Map<string, Upload>; deals: Deal[]; programs: Program[] }
+type Ctx = { uploads: Map<string, Upload>; deals: Deal[]; programs: Program[]; users?: AppUser[] }
 const dealName = (c: Ctx, slug?: unknown) => (typeof slug === 'string' ? c.deals.find(d => d.slug === slug)?.name ?? slug : undefined)
 const programName = (c: Ctx, slug?: unknown) => (typeof slug === 'string' ? c.programs.find(p => p.slug === slug)?.name ?? slug : undefined)
 
@@ -85,10 +93,46 @@ export function changes(d: Record<string, unknown>): Change[] {
   return JSON.stringify(b) === JSON.stringify(a) ? [] : [{ field: fieldOf(d), before: b, after: a }]
 }
 
+/** changes() with names from the context: a subscription list reads as programs and deals, a calendar row as the
+ * deal, and a one-value setting as the setting's name. */
+export function entryChanges(e: AuditEntry, c: Pick<Ctx, 'deals' | 'programs'>): Change[] {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  if (e.action === 'user_change' && d.change === 'subscriptions') {
+    const b = subsText(d.before, c.programs, c.deals), a = subsText(d.after, c.programs, c.deals)
+    return b === a ? [] : [{ field: 'Reports received', before: b, after: a }]
+  }
+  const ch = changes(d)
+  if (e.action === 'user_change') {
+    const role = (v: unknown) => (typeof v === 'string' ? ROLE_LABEL[v as AppUser['role']] ?? v : v)
+    return ch.map(x => (x.field === 'role' ? { ...x, before: role(x.before), after: role(x.after) } : x))
+  }
+  if (e.action === 'settings_change') {
+    const label = SETTING_LABEL[String(d.key)] ?? String(d.key ?? 'value')
+    return ch.map(x => ({ ...x, field: x.field === 'value' ? label : d.key === 'reporting_calendar' ? `${dealName(c as Ctx, x.field)} expected day` : x.field }))
+  }
+  return ch
+}
+
 /** One line from `detail` for the table; the full detail is in the expanded row. */
 export function summary(e: AuditEntry): string {
   const d = (e.detail ?? {}) as Record<string, unknown>
   if (e.action === 'upload') return [d.file_name, d.page_count != null ? `${d.page_count} pages` : null, d.collection_period].filter(Boolean).join(' · ')
+  if (e.action === 'user_change') {
+    const kind = typeof d.change === 'string' ? d.change : 'updated'
+    const head = USER_CHANGE_LABEL[kind] ?? kind
+    if (kind === 'subscriptions') return `${head} · ${subsText(d.before, [], [])} → ${subsText(d.after, [], [])}`
+    const ch = kind === 'updated' ? changes(d) : []
+    return [head, ...ch.slice(0, 2).map(c => `${c.field} ${show(c.before)} → ${show(c.after)}`), ch.length > 2 ? `+${ch.length - 2} more` : null].filter(Boolean).join(' · ')
+  }
+  if (e.action === 'settings_change') {
+    const ch = changes(d)
+    const head = SETTING_LABEL[String(d.key)] ?? String(d.key ?? 'Setting')
+    return ch.length === 1 && ch[0].field === 'value' ? `${head} ${show(ch[0].before)} → ${show(ch[0].after)}`
+      : `${head}${ch.length ? ` · ${ch.slice(0, 2).map(c => `${c.field} ${show(c.before)} → ${show(c.after)}`).join(' · ')}${ch.length > 2 ? ` · +${ch.length - 2} more` : ''}` : ''}`
+  }
+  if (e.action === 'comment') return typeof d.body === 'string' ? (d.body.length > 80 ? d.body.slice(0, 79) + '…' : d.body) : 'Comment'
+  if (e.action === 'thread_resolve') return 'Thread resolved'
+  if (e.action === 'thread_reopen') return 'Thread reopened'
   if (e.action === 'master_change') {
     const ch = changes(d)
     const head = [d.entity, d.key, typeof d.mode === 'string' ? MODE_LABEL[d.mode] ?? d.mode : null, d.effective_from ? `effective ${d.effective_from}` : null].filter(Boolean).join(' ')
@@ -137,6 +181,15 @@ function subject(e: AuditEntry, c: Ctx): { title: string; sub?: string; href?: s
     return { title: d.key, sub: typeof d.entity === 'string' ? d.entity : undefined }
   }
   if (e.action === 'export') return { title: 'Audit log', sub: 'CSV export' }
+  if (e.action === 'user_change' || e.action === 'prefs_change') {
+    const after = (d.after ?? {}) as Record<string, unknown>, before = (d.before ?? {}) as Record<string, unknown>
+    const id = typeof d.user_id === 'string' ? d.user_id : undefined
+    const who = [after.name, before.name, c.users?.find(u => u.id === id)?.name, after.email, before.email].find(v => typeof v === 'string') as string | undefined
+    const where = typeof d.partner_slug === 'string' ? cap(d.partner_slug) : 'TAO'
+    return { title: who ?? (e.action === 'prefs_change' ? e.actor_label ?? 'Own settings' : id?.slice(0, 8) ?? 'User'),
+      sub: e.action === 'prefs_change' ? 'Own settings' : `User · ${where}`, href: id && e.action === 'user_change' ? `/admin/settings/users?user=${encodeURIComponent(id)}` : undefined }
+  }
+  if (e.action === 'settings_change') return { title: SETTING_LABEL[String(d.key)] ?? String(d.key ?? 'Setting'), sub: 'System settings', href: '/admin/settings/system' }
   return null
 }
 
@@ -160,8 +213,8 @@ function ActorCell({ e, q }: { e: AuditEntry; q?: string }) {
   return <span className="adm-actor"><Highlight text={name} q={q} /><small>{e.actor_role}</small></span>
 }
 
-function DetailCell({ e, q }: { e: AuditEntry; q?: string }) {
-  const ch = CHANGE_ACTIONS.includes(e.action) ? changes((e.detail ?? {}) as Record<string, unknown>) : []
+function DetailCell({ e, q, c }: { e: AuditEntry; q?: string; c: Ctx }) {
+  const ch = CHANGE_ACTIONS.includes(e.action) ? entryChanges(e, c) : []
   if (ch.length === 1) {
     const x = ch[0]
     return <span><Highlight text={x.field} q={q} /> <span className="adm-before"><Highlight text={show(x.before)} q={q} /></span><span className="adm-arrow" aria-label="changed to">→</span><span className="adm-after"><Highlight text={show(x.after)} q={q} /></span></span>
@@ -172,7 +225,7 @@ function DetailCell({ e, q }: { e: AuditEntry; q?: string }) {
 /** The expanded entry: before → after per field, the reason, the report and every id. */
 function EntryDetail({ e, c }: { e: AuditEntry; c: Ctx }) {
   const d = { ...((e.detail ?? {}) as Record<string, unknown>) }
-  const ch = changes(d)
+  const ch = entryChanges(e, c)
   if (ch.length) { delete d.before; delete d.after; delete d.old_value; delete d.new_value; delete d.edits }
   const rest = Object.entries(d)
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
@@ -227,7 +280,7 @@ function EntryTable({ rows, caption, c, q, showTab, subjectHeader, loading, empt
     { key: 'actor', header: 'Actor', render: e => <ActorCell e={e} q={q} /> },
     { key: 'subject', header: subjectHeader, render: e => <SubjectCell e={e} c={c} q={q} /> },
     { key: 'reason', header: 'Reason', render: e => (e.reason ? <Highlight text={e.reason} q={q} /> : <span className="adm-muted">—</span>) },
-    { key: 'detail', header: 'Detail', render: e => <DetailCell e={e} q={q} /> },
+    { key: 'detail', header: 'Detail', render: e => <DetailCell e={e} q={q} c={c} /> },
   ]
   return (
     <div className="adm-scroll">
@@ -444,10 +497,12 @@ export default function AuditLogPage() {
 
   const ctxRes = useResource(() => Promise.all([
     adminApi.uploads().catch(() => [] as Upload[]), adminApi.deals().catch(() => [] as Deal[]), adminApi.programs().catch(() => [] as Program[]),
+    // names the person in a user_change entry (TAO Admin only; the API answers 403 to anyone else)
+    admin ? usersApi.list().catch(() => [] as AppUser[]) : Promise.resolve([] as AppUser[]),
   ]), [role])
   const c: Ctx = useMemo(() => {
-    const [uploads, deals, programs] = ctxRes.data ?? [[], [], []]
-    return { uploads: new Map(uploads.map(u => [u.id, u])), deals, programs }
+    const [uploads, deals, programs, users] = ctxRes.data ?? [[], [], [], []]
+    return { uploads: new Map(uploads.map(u => [u.id, u])), deals, programs, users }
   }, [ctxRes.data])
   const monthsRes = useResource(() => Promise.all(scopes.map(s => adminApi.auditMonths(s))), [role])
   const counts = (s: AuditScope) => monthsRes.data?.[scopes.indexOf(s)] ?? []

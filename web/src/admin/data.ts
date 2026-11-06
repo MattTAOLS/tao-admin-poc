@@ -75,19 +75,22 @@ export type CovenantChangeMode = 'new_version' | 'correct' | 'add'
 export type CovenantChange = CovenantDefinition & { mode: CovenantChangeMode; reason: string }
 export type CovenantChangeResult = { definition: CovenantDefinition; superseded_id?: string | null; rerun_upload_ids: string[] }
 export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export',
-  'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject'] as const
+  'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
+  'user_change', 'prefs_change', 'settings_change', 'comment', 'comment_edit', 'thread_resolve', 'thread_reopen'] as const
 export type AuditAction = typeof AUDIT_ACTIONS[number]
 /** The two audit tabs. The API derives the scope from the action (contracts/openapi.yaml /audit): reports = entries
  * with an upload_id, plus publish and regenerate; platform = everything else. */
 export type AuditScope = 'reports' | 'platform'
-export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export']
+/** Wave C: user_change, prefs_change and settings_change are Platform (no upload_id); the comment actions are Reports. */
+export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export', 'user_change', 'prefs_change', 'settings_change']
 export const REPORT_ACTIONS: readonly string[] = AUDIT_ACTIONS.filter(a => !PLATFORM_ACTIONS.includes(a))
 /** Wave B actions about one report: always on the Reports tab, even if an entry arrives without an upload_id. */
-const REPORT_ONLY: readonly string[] = ['publish', 'regenerate', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject']
+const REPORT_ONLY: readonly string[] = ['publish', 'regenerate', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
+  'comment', 'comment_edit', 'thread_resolve', 'thread_reopen']
 export const auditScope = (e: Pick<AuditEntry, 'action' | 'upload_id'>): AuditScope =>
   e.upload_id || REPORT_ONLY.includes(e.action) ? 'reports' : 'platform'
 export type AuditQuery = {
-  scope?: AuditScope; month?: string; q?: string; action?: string; actor_role?: string; deal_slug?: string; upload_id?: string
+  scope?: AuditScope; month?: string; q?: string; action?: string; actor_role?: string; actor_user_id?: string; deal_slug?: string; upload_id?: string
   limit?: number; offset?: number
 }
 export type AuditMonth = { month: string; count: number }
@@ -96,6 +99,8 @@ export type AuditEntry = {
   at: string
   actor_role: string
   actor_label?: string
+  /** Set when the caller sent X-User; null in demo mode. */
+  actor_user_id?: string | null
   action: AuditAction | string
   upload_id: string | null
   finding_id?: string | null
@@ -153,7 +158,7 @@ export const adminApi = {
   portfolio: () => api<PublishedPortfolio>('/published/portfolio'),
   /** Parameters go out in a fixed order (scope, month, q, filters, paging) so the URL is stable. */
   audit: (f: AuditQuery = {}) => api<AuditEntry[]>('/audit' + qs({ scope: f.scope, month: f.month, q: f.q, upload_id: f.upload_id, action: f.action,
-    actor_role: f.actor_role, deal_slug: f.deal_slug, limit: f.limit, offset: f.offset })),
+    actor_role: f.actor_role, actor_user_id: f.actor_user_id, deal_slug: f.deal_slug, limit: f.limit, offset: f.offset })),
   auditMonths: (scope: AuditScope, q?: string) => api<AuditMonth[]>('/audit/months' + qs({ scope, q })),
   /** One month of one tab as CSV; the API writes its own `export` entry to the Platform tab. */
   auditExport: (scope: AuditScope, month: string) => apiBlob('/audit/export.csv' + qs({ scope, month })),

@@ -256,7 +256,7 @@ describe('Program / facility record', () => {
     expect(within(dialog).getByText('Required.')).toBeTruthy()
     await userEvent.type(within(dialog).getByLabelText(/Program limit/), '150000000')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(await within(dialog).findByText('no partner investor')).toBeTruthy()
+    expect(await within(dialog).findByText(/does not know this partner/)).toBeTruthy()
   })
 
   it('tao_admin edits a deal template id through PUT /master/deals', async () => {
