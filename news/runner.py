@@ -22,6 +22,7 @@ def execute(eng, run_id, sources, now=store.utcnow, pre_errors=()):
     started = now()                     # one reference time per run (fixture relative dates, Google's 7-day cut)
     successes = 0
     items_added = adverse_added = 0
+    fetched = matched = 0
     log.info("news run %s started: %d companies, sources %s", run_id, len(companies), [s.name for s in sources])
 
     for company in companies:
@@ -36,9 +37,11 @@ def execute(eng, run_id, sources, now=store.utcnow, pre_errors=()):
                     errors.append(_err(slug, src.name, exc))
                     continue
                 successes += 1
+                fetched += len(items)
                 for it in items:
                     if hit(it) and it["url"] not in found:
                         found[it["url"]] = (src.name, it)
+        matched += len(found)
         if not found:
             continue
         try:
@@ -72,7 +75,7 @@ def execute(eng, run_id, sources, now=store.utcnow, pre_errors=()):
         status = "failed"
     with eng.begin() as conn:
         store.finish_run(conn, run_id, status, now(), len(companies), items_added, adverse_added, errors)
-    log.info("news run %s finished %s: %d companies, %d items, %d adverse, %d errors",
-             run_id, status, len(companies), items_added, adverse_added, len(errors))
+    log.info("news run %s finished %s: %d companies, %d fetched, %d matched, %d new items, %d adverse, %d errors",
+             run_id, status, len(companies), fetched, matched, items_added, adverse_added, len(errors))
     return {"status": status, "companies": len(companies), "items_added": items_added,
             "adverse_added": adverse_added, "errors": errors}
