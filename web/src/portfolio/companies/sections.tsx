@@ -10,6 +10,18 @@ import { BalanceBars, LineChart, unitKind, type Line } from './charts'
 import type { AdverseItem, CompanyInsights, CompanyRow, LossPeer, MetricSeries, Month, NewsItem, SeriesPoint, WatchSignal } from './types'
 import { fmtDay, monthsEnding, shortMonth } from './util'
 
+
+/** A restated field as people read it: ratio_history keys by their label; a TAO correction such as
+ * 'period_history.interest' as 'Interest (period history)'. */
+function fieldLabel(f: string): string {
+  if (HISTORY_LABELS[f]) return HISTORY_LABELS[f]
+  const m = /^([a-z_]+)\.([a-z_]+)$/.exec(f)
+  if (!m) return f
+  const words = (s: string) => s.replace(/_/g, ' ')
+  const name = words(m[2])
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} (${words(m[1])})`
+}
+
 export function Section({ id, title, subtitle, actions, children, tao }: {
   id: string; title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; tao?: boolean
 }) {
@@ -254,7 +266,7 @@ export function RestatementsSection({ ins }: { ins: CompanyInsights }) {
   type R = CompanyInsights['restatements'][number]
   const cols: Column<R>[] = [
     { key: 'month', header: 'Month', render: r => (/^\d{4}-\d{2}$/.test(r.month) ? shortMonth(r.month) : r.month) },
-    { key: 'field', header: 'Field', render: r => HISTORY_LABELS[r.field] ?? r.field },
+    { key: 'field', header: 'Field', render: r => fieldLabel(r.field) },
     { key: 'first', header: 'First reported', numeric: true, render: r => <Num v={r.first_reported} kind={restatedKind(r.field, r.first_reported)} /> },
     { key: 'now', header: 'Now', numeric: true, render: r => <Num v={r.now} kind={restatedKind(r.field, r.now)} /> },
     { key: 'changed', header: 'Changed in', render: r => (/^\d{4}-\d{2}$/.test(r.changed_in) ? `${r.changed_in} report` : `Applied ${r.changed_in}`) },
@@ -383,7 +395,7 @@ export function DocumentsSection({ d, href, tao, linkLabel }: { d: Deal; href: s
     { key: 'open', header: '', ariaLabel: 'Open', align: 'right', render: () => <Button as="link" size="sm" to={href}>{linkLabel}</Button> },
   ]
   return (
-    <Section id="documents" title="Documents" subtitle={`Settlement reports for ${d.deal_name}. Other documents (agreements, financials) cannot be uploaded here yet.`}>
+    <Section id="documents" title="Documents" subtitle={`Settlement reports for ${d.deal_name.replace(/\.$/, '')}. Other documents (agreements, financials) cannot be uploaded here yet.`}>
       <DataTable caption="Documents" captionHidden density="compact" columns={cols} rows={rows} rowKey={r => r.period}
         empty={{ title: 'No reports yet', message: 'Settlement reports appear here once published.' }} />
     </Section>
