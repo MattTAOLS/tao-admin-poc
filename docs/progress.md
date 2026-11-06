@@ -1035,3 +1035,28 @@ Append an entry when a work package lands. Newest first.
   Notification.link examples are the old paths; the kinds a partner role can receive are not listed; the sweep timing
   (needs_review and extraction-failed notifications appear when someone next opens notifications or the badge polls)
   is worth a line under Notification. A system notification about an upload (extraction failed) links to its review page; /admin/settings/users is for user_change (and system without an upload).
+
+## 2026-11-06 — Design System, wave D (companies in the shell, company alerts, help)
+
+- Routes (`web/src/shell/pages.ts`): `/admin/companies` (nav "Companies" after Portfolio Executive Summary, both TAO
+  roles) and `/admin/companies/:companySlug` ("Company profile", breadcrumb under Companies); partner `/companies` and
+  `/companies/:companySlug` in both portals, same files. Loaders come from
+  `import.meta.glob('../portfolio/companies/{CompaniesPage,CompanyProfilePage}.tsx')`, so the shell builds and tests
+  before UI-Partner's files are merged; a missing file renders the routed placeholder. Once merged, the glob picks them up
+  with no shell change. Nav icon: new `IconBriefcase` in `web/src/design/components/icons.tsx`.
+- Feature gate: `Me.features: { companies: boolean }` is now required in `web/src/shell/types.ts` (UI-Partner's request).
+  `Page.feature: 'companies'` on the partner entries. The shell now reads GET /me in role-only mode too
+  (demo headers only, no X-User) and on a role change without a user; `session.features` holds Me.features (null while
+  reading; all false if /me fails, so the gate fails closed). Off: no nav entry, and a direct visit shows Not found in the
+  body and the top bar. While /me is in flight: the route loading state. TAO routes are not gated.
+- Notifications (`web/src/shell/account/`): kinds adverse_media "Adverse media", negative_news "Negative news",
+  report_late "Report late", each with an icon (new IconShield, IconNews, IconClock) and its own open button; every kind
+  now shows an icon beside its status pill. `KIND_TAB` maps all three to Reports. Profile preferences list them with a help
+  line; report_late is never offered to a partner (`TAO_ONLY_KINDS`). "How you are notified" names the company alerts.
+- Help (`web/src/shell/help/content.ts`): TAO sections Find a company, Read a company profile (median vs mean, grey
+  months, recomputed covenant cells), News and adverse media, Add an analyst note (TAO), Keep the company record and
+  contacts (TAO Admin), Turn on the news feed and partner access (TAO Admin, Run now); partner section Look up a company;
+  notification sections and glossaries updated. Wording follows designs D5/D6 and the contract; check button names against
+  UI-Partner's pages at merge.
+- Tests: shell, sign-in, account and help tests cover the routes, gating, role-only /me, new kinds and help role
+  visibility. Three existing assertions changed on purpose: "no /me call without a user" now expects one role-only /me.
