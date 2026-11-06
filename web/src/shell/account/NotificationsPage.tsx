@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Card, SkeletonBlock, StatePanel, StatusPill, useToast, type Tone } from '@/design/components'
+import { Button, Card, SkeletonBlock, StatePanel, StatusPill, icons, useToast, type Tone } from '@/design/components'
+import type { ComponentType } from 'react'
 import { api, refreshUnread } from '../api'
 import { usePageHeader } from '../header'
 import { loadRole } from '../roles'
@@ -9,18 +10,33 @@ import type { AppNotification, DisplayPrefs, NotificationKind, NotificationTab, 
 import { SignInNote, dayKey, formatAmount, formatDate, formatTime, periodLabel, profilePath, useShell, withDefaults, type ShellId } from './common'
 import './account.css'
 
-/** Label, tone and open-button text per kind. Status is always a dot plus a word. */
-export const KIND: Record<NotificationKind, { label: string; tone: Tone; open: string }> = {
-  mention: { label: 'Mention', tone: 'blue', open: 'Open thread' },
-  reply: { label: 'Reply', tone: 'blue', open: 'Open thread' },
-  report_needs_review: { label: 'Needs review', tone: 'warn', open: 'Open review' },
-  report_published: { label: 'Published', tone: 'ok', open: 'Open report' },
-  correction_published: { label: 'Correction', tone: 'dpv', open: 'Open report' },
-  covenant_changed: { label: 'Covenant', tone: 'warn', open: 'Open covenant' },
-  report_rejected: { label: 'Rejected', tone: 'bad', open: 'Open upload' },
-  user_change: { label: 'Account', tone: 'neutral', open: 'Open' },
-  system: { label: 'System', tone: 'neutral', open: 'Open' },
+type KindIcon = ComponentType<{ width?: number; height?: number }>
+/** Label, tone, icon and open-button text per kind. Status is always a dot plus a word; the icon is decoration. */
+export const KIND: Record<NotificationKind, { label: string; tone: Tone; open: string; icon: KindIcon }> = {
+  mention: { label: 'Mention', tone: 'blue', open: 'Open thread', icon: icons.IconUser },
+  reply: { label: 'Reply', tone: 'blue', open: 'Open thread', icon: icons.IconUsers },
+  report_needs_review: { label: 'Needs review', tone: 'warn', open: 'Open review', icon: icons.IconInbox },
+  report_published: { label: 'Published', tone: 'ok', open: 'Open report', icon: icons.IconBook },
+  correction_published: { label: 'Correction', tone: 'dpv', open: 'Open report', icon: icons.IconRefresh },
+  covenant_changed: { label: 'Covenant', tone: 'warn', open: 'Open covenant', icon: icons.IconChart },
+  report_rejected: { label: 'Rejected', tone: 'bad', open: 'Open upload', icon: icons.IconClose },
+  user_change: { label: 'Account', tone: 'neutral', open: 'Open', icon: icons.IconSettings },
+  system: { label: 'System', tone: 'neutral', open: 'Open', icon: icons.IconAlert },
+  // Wave D: company alerts. Each opens its notification link (the company profile, or the deal for report_late).
+  adverse_media: { label: 'Adverse media', tone: 'bad', open: 'Open adverse media', icon: icons.IconShield },
+  negative_news: { label: 'Negative news', tone: 'warn', open: 'Open news', icon: icons.IconNews },
+  report_late: { label: 'Report late', tone: 'warn', open: 'Open deal', icon: icons.IconClock },
 }
+
+/** The tab each kind sits in (contract: Notification tabs; wave D adds the company alerts to Reports). The API filters by
+ * tab; this map is the same rule for anything the client groups. */
+export const KIND_TAB: Record<NotificationKind, Exclude<NotificationTab, 'all'>> = {
+  mention: 'mentions', reply: 'mentions',
+  report_needs_review: 'reports', report_published: 'reports', correction_published: 'reports', covenant_changed: 'reports',
+  report_rejected: 'reports', adverse_media: 'reports', negative_news: 'reports', report_late: 'reports',
+  user_change: 'system', system: 'system',
+}
+export { TAO_ONLY_KINDS } from './common'
 const REPORT_KINDS: NotificationKind[] = ['report_published', 'correction_published']
 
 /** Tabs per shell. Partners are never mentioned (comments are internal to TAO), so their inbox has no Mentions tab. */
@@ -157,7 +173,7 @@ export function NotificationRow({ n, partner, prefs, onOpen }: { n: AppNotificat
             : <p className="ntf__nonote">No note from TAO.</p>)
           : (n.note_from_tao ? <div className="ntf__note"><b>Note to partners</b><p>{n.note_from_tao}</p></div> : null))}
         <div className="ntf__meta">
-          <StatusPill tone={k.tone} size="sm">{k.label}</StatusPill>
+          <span className="ntf__kind"><k.icon width={14} height={14} /><StatusPill tone={k.tone} size="sm">{k.label}</StatusPill></span>
           {n.collection_period && <span>{periodLabel(n.collection_period)}</span>}
           {n.version != null && n.version > 1 && <span>Version {n.version}</span>}
           {unread ? <StatusPill tone="dpv" size="sm">Unread</StatusPill> : <StatusPill tone="neutral" size="sm">Read</StatusPill>}
@@ -190,6 +206,10 @@ export function HowNotified({ shell }: { shell: ShellId }) {
       <dl className="acct-dl">
         <dt>In the portal</dt>
         <dd>On for every type you keep on in <Link to={profilePath(shell)}>Profile › Notification preferences</Link>. Covenant changes and corrections cannot be switched off.</dd>
+        <dt>Companies you follow</dt>
+        <dd>{partner
+          ? <>Adverse media TAO has reviewed, and negative news, for companies you follow. Shown while TAO has company profiles on.</>
+          : <>Adverse media and negative news for companies you follow, and a late report for deals you receive. They sit under Reports.</>}</dd>
         <dt>Email</dt>
         <dd><StatusPill tone="neutral" size="sm">Coming later</StatusPill> The POC does not send email yet; everything arrives here.</dd>
         <dt>Which reports</dt>

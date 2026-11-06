@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { Card, formatPeriod } from '@/design/components'
 import { roleLabel, type Role } from '../roles'
 import { useSession } from '../session'
-import type { DateFormat, DisplayPrefs, NumberFormat } from '../types'
+import type { DateFormat, DisplayPrefs, NotificationKind, NumberFormat } from '../types'
 
 export type ShellId = 'admin' | 'investor' | 'manager'
 export const shellFromPath = (pathname: string): ShellId =>
@@ -10,6 +10,9 @@ export const shellFromPath = (pathname: string): ShellId =>
 export const shellBase = (s: ShellId) => (s === 'admin' ? '' : '/' + s)
 export const profilePath = (s: ShellId) => (s === 'admin' ? '/admin/settings/profile' : `/${s}/settings/profile`)
 export const notificationsPath = (s: ShellId) => (s === 'admin' ? '/admin/notifications' : `/${s}/notifications`)
+/** Kinds only TAO users receive (decision S3: report_late). */
+export const TAO_ONLY_KINDS: NotificationKind[] = ['report_late']
+
 export function useShell(): ShellId { return shellFromPath(useLocation().pathname) }
 
 export const DEFAULT_DISPLAY: Required<DisplayPrefs> = { time_zone: 'America/Toronto', date_format: 'D MMM YYYY', number_format: '1,234.56' }
