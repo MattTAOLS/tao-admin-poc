@@ -1,0 +1,3 @@
+sqlalchemy==2.0.36        # news_run, news_item, adverse_item, company, system_setting
+psycopg[binary]==3.2.3    # postgresql+psycopg
+redis==5.2.1              # queue NEWS_QUEUE (default "news") for Run now; never the extraction queue

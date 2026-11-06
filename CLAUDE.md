@@ -17,6 +17,7 @@ Layout and owners:
 | `api/` | Data & API | `api/CLAUDE.md` |
 | `worker/extract/` | Extraction | `worker/extract/CLAUDE.md` |
 | `rules/`, `worker/validate/` | Rules | `rules/CLAUDE.md` |
+| `news/` (wave D) | News | `news/CLAUDE.md` |
 | `web/src/admin/` | UI-Admin | `web/src/admin/CLAUDE.md` |
 | `web/src/review/` | UI-Review | `web/src/review/CLAUDE.md` |
 | `web/src/portfolio/` | UI-Partner | `web/src/portfolio/CLAUDE.md` |

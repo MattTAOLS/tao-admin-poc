@@ -21,6 +21,16 @@ info:
     422 `email_later` and the UI shows it as "coming later". Partner notifications are created only while the setting
     `partner_notifications_enabled` is true (default false). Nothing is hard-deleted: users are deactivated, and data is
     kept indefinitely except notifications, which are kept 12 months.
+
+    Companies (wave D). A company groups the deals of one lending company (TLFC's three MOVE Trust deals are one company).
+    Every figure on the company pages comes from published deal objects, the same ones `/published/*` serves; nothing is
+    re-extracted and nothing new is typed in for a number. A partner reaches `/companies*` only while the setting
+    `company_profiles_partner_enabled` is true (default false; otherwise 404 `not_found`, as for anything it cannot see), and
+    then only companies with a deal in a program shared with it, through `partner_filter`, showing only those deals. Notes
+    are TAO-only and never leave the TAO routes. News and adverse media come from a separate news worker (its own container
+    and queue, never the extraction queue) that searches free sources (Google News RSS, GDELT) by company name and aliases
+    once a day while `company_feeds.enabled` is true; sentiment and the five adverse categories come from our own keyword
+    screening. Partners see adverse items only once a TAO Admin marks them reviewed.
 servers:
   - url: http://localhost:8000/api/v1
 
@@ -96,6 +106,8 @@ components:
         partner without an active Company Admin), `other_partner` (a Company Admin naming another partner or a TAO role),
         `email_taken`, `already_active`, `already_deactivated`. A Company Admin asking for another partner's user gets 404;
         409 (threads) `bad_state` (comment on a resolved thread; resolve a resolved one; reopen an open one);
+        409 (companies) `slug_taken`, `bad_state` (review or dismiss an adverse item that is not open), `run_active` (a news
+        run is already queued or running), `feeds_off` (Run now while company_feeds.enabled is false);
         409 `already_published` (period published for this deal and `replace` not set; R12 pre-check), `upload_in_progress` (another active
         upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
         (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
@@ -445,7 +457,7 @@ components:
         actor_role: { type: string }
         actor_label: { type: string }
         actor_user_id: { type: [string, 'null'], format: uuid, description: 'set when the caller sent X-User; null in demo mode' }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen] }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen, company_change, company_note, company_note_edit, adverse_change, news_run] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -516,9 +528,15 @@ components:
           description: '[in_app] in phase 2; email is reserved and refused with 422 `email_later`'
     Me:
       type: object
-      required: [user, role, partner_slug, display]
+      required: [user, role, partner_slug, display, features]
       properties:
         user: { oneOf: [ { $ref: '#/components/schemas/AppUser' }, { type: 'null' } ], description: 'null in demo mode (no X-User)' }
+        features:
+          type: object
+          required: [companies]
+          description: 'What the shell may show this caller. companies: true for TAO roles; for partner roles, the setting company_profiles_partner_enabled.'
+          properties:
+            companies: { type: boolean }
         role: { $ref: '#/components/schemas/Role' }
         partner_slug: { type: [string, 'null'] }
         display: { $ref: '#/components/schemas/DisplayPrefs' }
@@ -539,7 +557,13 @@ components:
         number_format: { type: string, enum: ['1,234.56', '1 234,56'] }
     NotificationKind:
       type: string
-      enum: [mention, reply, report_needs_review, report_published, correction_published, covenant_changed, report_rejected, user_change, system]
+      enum: [mention, reply, report_needs_review, report_published, correction_published, covenant_changed, report_rejected, user_change, system, adverse_media, negative_news, report_late]
+      description: |
+        Wave D kinds. adverse_media: a new adverse item, to TAO users who follow the company; to partner users who follow
+        it when a TAO Admin marks the item reviewed (partner flags permitting). negative_news: a news item screened
+        Negative, to followers (partners too, flags permitting). report_late: a deal's next report not received 5 business
+        days after its due date, to TAO users subscribed to the deal, once per deal and period (TAO only, decision S3).
+        All three sit in the reports tab and can be switched off. A mention in a company note is kind mention.
     NotificationPref:
       type: object
       required: [kind, in_app, digest]
@@ -689,6 +713,282 @@ components:
               name: { type: string }
               partner_slug: { type: [string, 'null'] }
               reason: { type: string, enum: [not_subscribed, deactivated, not_visible, switched_off, partner_notifications_off] }
+    CompanyDealRef:
+      type: object
+      required: [deal_slug, deal_name, program_slug, program_name, latest_period, worst_status, next_report]
+      properties:
+        deal_slug: { type: string }
+        deal_name: { type: string }
+        program_slug: { type: string }
+        program_name: { type: string }
+        latest_period: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: 'collection_period of its latest publication; null if never published' }
+        worst_status: { type: [string, 'null'], enum: [BREACH, WATCH, OK, null] }
+        next_report:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [period, due_on, late, business_days_late]
+              description: |
+                From the reporting_calendar setting (decision D8). period = latest_period + 1 month. due_on = the expected
+                day in the month the next settlement falls in, found by applying the latest publication's offset between
+                settlement_date and collection_period (MOVE Trust: the following month; F-PIL 2.0: the same month), clamped
+                to the month's last day. late once 5 business days (Mon-Fri) have passed after due_on with no upload of that
+                period. null when the deal has no expected day or was never published.
+              properties:
+                period: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+                due_on: { type: string, format: date }
+                late: { type: boolean }
+                business_days_late: { type: integer, minimum: 0 }
+    CompanyRow:
+      type: object
+      required: [slug, name, deals, industry, status, breach, watch, balance, delinquency, news_7d, adverse, following]
+      description: 'One row per company, over the deals the caller may see. Figures from each deal''s latest publication.'
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        deals: { type: array, items: { $ref: '#/components/schemas/CompanyDealRef' } }
+        industry: { type: [string, 'null'] }
+        status: { type: [string, 'null'], enum: [BREACH, WATCH, OK, null], description: worst across its deals }
+        breach: { type: integer, description: BREACH covenants across its deals }
+        watch: { type: integer }
+        balance: { type: [number, 'null'], description: sum of tranche_balance.closing across its deals }
+        delinquency:
+          type: object
+          required: [min, max, direction]
+          description: 'Latest delinquency_ratio_pct per deal (a fraction: 0.0131 = 1.31%); min = max for one deal; direction against the prior month of the deal with the highest value. null fields when no deal reports it.'
+          properties:
+            min: { type: [number, 'null'] }
+            max: { type: [number, 'null'] }
+            direction: { type: [string, 'null'], enum: [up, down, flat, null] }
+        news_7d: { type: integer, description: news items found in the last 7 days }
+        adverse:
+          type: object
+          required: [state, to_review]
+          properties:
+            state: { type: string, enum: [clear, to_review, not_screened], description: 'not_screened: no successful news run has covered this company yet. Partners never see to_review (open items are TAO only); for them it reads clear.' }
+            to_review: { type: integer, description: open items (TAO); always 0 for partners }
+        notes: { type: integer, description: 'TAO only: count of live notes. Absent for partners.' }
+        following: { type: boolean, description: 'the caller follows it; false in demo mode' }
+    Company:
+      type: object
+      required: [slug, name, aliases, industry, naics, headquarters, website, relationship_since, relationship_since_source, owner, deals, contacts, following, updated_at]
+      description: 'The company record plus its visible deals. TAO Admin edits the record (company_change audit, Platform). Partners get the same object without owner and with contacts as listed.'
+      properties:
+        slug: { type: string, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' }
+        name: { type: string }
+        aliases: { type: array, items: { type: string }, description: 'extra names the news search uses, e.g. a short form' }
+        industry: { type: [string, 'null'] }
+        naics: { type: [string, 'null'] }
+        headquarters: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        relationship_since: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        relationship_since_source: { type: [string, 'null'], enum: [record, first_vintage, null], description: 'record: TAO Admin set it; first_vintage: the earliest cnl_by_period vintage start across its deals' }
+        owner: { oneOf: [ { $ref: '#/components/schemas/CommentAuthor' }, { type: 'null' } ], description: TAO relationship owner (a TAO user) }
+        deals: { type: array, items: { $ref: '#/components/schemas/CompanyDealRef' } }
+        contacts: { type: array, items: { $ref: '#/components/schemas/CompanyContact' } }
+        following: { type: boolean }
+        updated_at: { type: string, format: date-time }
+    CompanyCreate:
+      type: object
+      required: [slug, name, deal_slugs, reason]
+      properties:
+        slug: { type: string, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' }
+        name: { type: string, minLength: 1 }
+        aliases: { type: array, items: { type: string } }
+        deal_slugs: { type: array, items: { type: string }, description: 'deals moved to this company (a deal belongs to one company)' }
+        reason: { type: string, minLength: 3 }
+    CompanyPatch:
+      type: object
+      required: [reason]
+      description: 'Only the fields sent change. deal_slugs, when sent, is the full list; a deal taken away is left on no company and shows as its own row named after the deal until linked again.'
+      properties:
+        name: { type: string, minLength: 1 }
+        aliases: { type: array, items: { type: string } }
+        industry: { type: [string, 'null'] }
+        naics: { type: [string, 'null'] }
+        headquarters: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        relationship_since: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: 'null returns to the first-vintage default' }
+        owner_user_id: { type: [string, 'null'], format: uuid, description: an active TAO user }
+        deal_slugs: { type: array, items: { type: string } }
+        reason: { type: string, minLength: 3 }
+    CompanyContact:
+      type: object
+      required: [id, name, role, email, receives]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        receives: { type: [string, 'null'], description: 'free text, e.g. Monthly SetRep, Covenant queries' }
+    CompanyContactInput:
+      type: object
+      required: [name, reason]
+      properties:
+        name: { type: string, minLength: 1 }
+        role: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        receives: { type: [string, 'null'] }
+        reason: { type: string, minLength: 3 }
+    SeriesPoint:
+      type: object
+      required: [month, value]
+      properties:
+        month: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        value: { type: [number, 'null'] }
+    MetricSeries:
+      type: object
+      required: [metric, label, unit, deal, program_median, program_mean, peers_in_month, limit]
+      description: |
+        One ratio_history field over the last 13 months of the deal's latest publication (decisions D2, D3). deal: this
+        deal. program_median and program_mean: over the other deals of the same program that report the same field for
+        that month in their own latest publication, one point per deal, unweighted (median is the default line); null for
+        a month with fewer than 2 such deals. peers_in_month: how many deals that is. limit: the covenant threshold whose
+        covenant reads this metric, if any. No industry average.
+      properties:
+        metric: { type: string, enum: [delinquency_ratio_pct, rolling_3month_loss_ratio_pct, rolling_12month_loss_ratio_pct, loss_ratio_pct, interest_coverage_ratio, debt_equity_ratio, total_equity] }
+        label: { type: string }
+        unit: { type: string, enum: [fraction, ratio, currency] }
+        deal: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' } }
+        program_median: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' } }
+        program_mean: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' } }
+        peers_in_month: { type: array, items: { type: object, required: [month, count], properties: { month: { type: string }, count: { type: integer } } } }
+        limit: { oneOf: [ { type: 'null' }, { type: object, required: [legal_ref, threshold, kind], properties: { legal_ref: { type: string }, threshold: { type: number }, kind: { type: string, enum: [ceiling, floor] } } } ] }
+    LossPeer:
+      type: object
+      required: [deal_slug, deal_name, metric, series, drawn]
+      description: 'Decision D4: loss comparison with named peers on the same measure only. Same-program deals reporting the same rolling loss field. drawn false (listed, not plotted) when its range is more than 10x this deal''s.'
+      properties:
+        deal_slug: { type: string }
+        deal_name: { type: string }
+        metric: { type: string }
+        series: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' } }
+        drawn: { type: boolean }
+    WatchSignal:
+      type: object
+      required: [kind, severity, title, detail, anchor]
+      description: |
+        Computed from published data on read, never typed by a person, same for TAO and partners. kinds:
+        covenant_near_limit (a covenant at WATCH: within the program watch buffer of its limit), rising_3m (a ratio moving
+        the bad way 3 or more months running), obligor_near_limit (largest obligor above 90% of its concentration limit,
+        where the report gives one), losses_high (latest month's losses the highest in period_history), utilization_high
+        (program_utilization_pct above 85%), restated (a restatements entry or a TAO correction in the latest
+        publication), report_late (next_report.late).
+      properties:
+        kind: { type: string, enum: [covenant_near_limit, rising_3m, obligor_near_limit, losses_high, utilization_high, restated, report_late] }
+        severity: { type: string, enum: [watch, rising, info] }
+        title: { type: string }
+        detail: { type: string }
+        anchor: { type: string, description: 'section id on the profile page, e.g. chart-delinquency_ratio_pct, covenant-history, obligors, restatements' }
+    CovenantHistoryRow:
+      type: object
+      required: [legal_ref, description, cells]
+      description: 'Published status for months with a publication of this deal; earlier months recomputed from ratio_history with the covenant definitions in force for that month and the program watch buffer (source recomputed). Binary covenants with no series: null.'
+      properties:
+        legal_ref: { type: string }
+        description: { type: string }
+        cells:
+          type: array
+          items:
+            type: object
+            required: [month, status, source]
+            properties:
+              month: { type: string }
+              status: { type: [string, 'null'], enum: [BREACH, WATCH, OK, AVAILABLE, null] }
+              source: { type: [string, 'null'], enum: [published, recomputed, null] }
+    CompanyInsights:
+      type: object
+      required: [deal_slug, collection_period, signals, series, loss_peers, covenant_history, restatements]
+      description: 'Everything on the profile that is computed, for one deal in its latest publication. Pool balance, KPIs and top obligors are read from the published deal object itself (/published/...).'
+      properties:
+        deal_slug: { type: string }
+        collection_period: { type: string }
+        signals: { type: array, items: { $ref: '#/components/schemas/WatchSignal' } }
+        series: { type: array, items: { $ref: '#/components/schemas/MetricSeries' } }
+        loss_peers: { type: array, items: { $ref: '#/components/schemas/LossPeer' } }
+        balance_median_change: { type: array, items: { $ref: '#/components/schemas/SeriesPoint' }, description: 'program median of closing vs opening change per period_history month, other deals' }
+        covenant_history: { type: array, items: { $ref: '#/components/schemas/CovenantHistoryRow' } }
+        restatements:
+          type: array
+          items:
+            type: object
+            required: [month, field, first_reported, now, changed_in, type]
+            properties:
+              month: { type: string }
+              field: { type: string }
+              first_reported: { type: [number, 'null'] }
+              now: { type: [number, 'null'] }
+              changed_in: { type: string, description: 'source_period of the report that changed it, or the date TAO applied a correction' }
+              type: { type: string, enum: [restated_by_company, tao_correction] }
+    NewsItem:
+      type: object
+      required: [id, company_slug, title, url, publisher, published_at, source, sentiment, found_at]
+      properties:
+        id: { type: string, format: uuid }
+        company_slug: { type: string }
+        title: { type: string }
+        url: { type: string, format: uri }
+        publisher: { type: [string, 'null'] }
+        published_at: { type: [string, 'null'], format: date-time }
+        source: { type: string, enum: [google_news, gdelt, fixture] }
+        sentiment: { type: string, enum: [positive, neutral, negative], description: our keyword screening }
+        found_at: { type: string, format: date-time }
+    AdverseItem:
+      type: object
+      required: [id, company_slug, category, title, url, publisher, found_at, state, note, state_by, state_at]
+      description: 'Partners see reviewed items only (decision D6); open and dismissed are TAO only.'
+      properties:
+        id: { type: string, format: uuid }
+        company_slug: { type: string }
+        news_item_id: { type: [string, 'null'], format: uuid }
+        category: { type: string, enum: [litigation, regulatory, fraud, insolvency, sanctions], description: 'keyword screening of news text; sanctions here is a keyword hit, not a sanctions-list check' }
+        title: { type: string }
+        url: { type: string, format: uri }
+        publisher: { type: [string, 'null'] }
+        found_at: { type: string, format: date-time }
+        state: { type: string, enum: [open, reviewed, dismissed] }
+        note: { type: [string, 'null'], description: review note or dismiss reason }
+        state_by: { oneOf: [ { $ref: '#/components/schemas/CommentAuthor' }, { type: 'null' } ] }
+        state_at: { type: [string, 'null'], format: date-time }
+    AdverseDecision:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string, minLength: 3, description: 'review note, or dismiss reason (e.g. different entity)' }
+    CompanyNote:
+      type: object
+      required: [id, company_slug, author, body, mentions, collection_period, created_at, edited_at]
+      description: TAO only. Never returned by any partner route.
+      properties:
+        id: { type: string, format: uuid }
+        company_slug: { type: string }
+        author: { $ref: '#/components/schemas/CommentAuthor' }
+        body: { type: string }
+        mentions: { type: array, items: { $ref: '#/components/schemas/CommentAuthor' } }
+        collection_period: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: 'the report month the note is about, if any' }
+        created_at: { type: string, format: date-time }
+        edited_at: { type: [string, 'null'], format: date-time }
+    CompanyNoteInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000, description: '@Name mentions as in comments; mentioned TAO users get a mention notification linking to /admin/companies/<slug>?note=<id>' }
+        mentions: { type: array, items: { type: string, format: uuid } }
+        collection_period: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+    NewsRun:
+      type: object
+      required: [id, trigger, status, queued_at, started_at, finished_at, companies, items_added, adverse_added, errors]
+      properties:
+        id: { type: string, format: uuid }
+        trigger: { type: string, enum: [schedule, manual] }
+        status: { type: string, enum: [queued, running, ok, partial, failed] }
+        queued_at: { type: string, format: date-time }
+        started_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+        companies: { type: integer }
+        items_added: { type: integer }
+        adverse_added: { type: integer }
+        errors: { type: array, items: { type: object, required: [source, message], properties: { company_slug: { type: [string, 'null'] }, source: { type: string }, message: { type: string } } } }
     Setting:
       type: object
       required: [key, value, updated_at, updated_by]
@@ -700,11 +1000,14 @@ components:
         people already made.
         publish_note_templates: {new_report: string, correction: string}; fields in braces ({deal_name},
         {collection_period}, {program_name}, {covenant_summary}, {change_list}, {reason}) are filled when the dialog opens.
-        company_feeds: object, placeholder for wave D; stored, not used yet.
+        company_feeds: {enabled: boolean (default false), run_at: "HH:MM" (default "06:00"), time_zone: IANA (default
+        America/Toronto), sources: subset of [google_news, gdelt] (default both)}. Read by the news worker each minute.
+        company_profiles_partner_enabled: boolean, default false. Off: partners get 404 on /companies* and no Companies
+        nav entry (Me.features.companies), and receive no adverse_media or negative_news notifications.
         Not settings: validation rules and tolerances (contracts/rules.yaml) and extraction templates are read-only on
         screen; data retention is fixed (kept indefinitely; notifications 12 months).
       properties:
-        key: { type: string, enum: [partner_notifications_enabled, reporting_calendar, notification_defaults, publish_note_templates, company_feeds] }
+        key: { type: string, enum: [partner_notifications_enabled, reporting_calendar, notification_defaults, publish_note_templates, company_feeds, company_profiles_partner_enabled] }
         value: { description: any JSON, shape per key }
         updated_at: { type: [string, 'null'], format: date-time, description: 'null while the default applies' }
         updated_by: { type: [string, 'null'] }
@@ -1277,6 +1580,189 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Invalid', description: '`unknown_setting` or `invalid` (value does not fit the key)' }
+
+  /companies:
+    get:
+      summary: Lending companies the caller may see, one row each (TAO; partners while company_profiles_partner_enabled, through partner_filter)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: following, in: query, schema: { type: boolean }, description: 'only companies the caller follows' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CompanyRow' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Create a company and link deals to it (tao_admin); company_change audit (Platform)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyCreate' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Company' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`slug_taken`' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /companies/{company_slug}:
+    get:
+      summary: The company record and its visible deals (404 for a partner with no shared deal in it)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Company' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: Edit the company record or its deal links (tao_admin); company_change audit with before and after
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyPatch' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Company' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /companies/{company_slug}/deals/{deal_slug}/insights:
+    get:
+      summary: Computed profile sections for one of the company's deals, from its latest publication (signals, comparison series, covenant history, restatements)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } }, { name: deal_slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyInsights' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound', description: 'unknown, not this company''s, not visible, or never published' }
+  /companies/{company_slug}/news:
+    get:
+      summary: News items for the company, newest first
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } }, { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }, { name: sentiment, in: query, schema: { type: string, enum: [positive, neutral, negative] } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NewsItem' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /companies/{company_slug}/adverse:
+    get:
+      summary: Adverse media items, newest first (TAO every state; partners reviewed only)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } }, { name: state, in: query, schema: { type: string, enum: [open, reviewed, dismissed] } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AdverseItem' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /adverse/{adverse_id}/review:
+    post:
+      summary: Mark an open adverse item reviewed, with a note (tao_admin); adverse_change audit; following partners are notified
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: adverse_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdverseDecision' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AdverseItem' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
+  /adverse/{adverse_id}/dismiss:
+    post:
+      summary: Dismiss an open adverse item with a reason (tao_admin); adverse_change audit; never shown to partners
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: adverse_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AdverseDecision' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AdverseItem' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
+  /companies/{company_slug}/notes:
+    get:
+      summary: Analyst notes, newest first (TAO only; partners 403)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CompanyNote' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Add a note (both TAO roles; needs a user); company_note audit; @mentions notify
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyNoteInput' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyNote' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /company-notes/{note_id}:
+    patch:
+      summary: Edit your own note (author only, 403 not_author); company_note_edit audit keeps the old text
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: note_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyNoteInput' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyNote' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+    delete:
+      summary: Remove a note from view (author or tao_admin); the row is kept and the company_note_edit audit records the removal
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: note_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /companies/{company_slug}/contacts:
+    post:
+      summary: Add a key contact (tao_admin); company_change audit
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyContactInput' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyContact' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /company-contacts/{contact_id}:
+    patch:
+      summary: Edit a contact (tao_admin); company_change audit
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: contact_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyContactInput' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CompanyContact' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+    delete:
+      summary: Remove a contact from the record (tao_admin, reason in query); the row is kept, company_change audit
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: contact_id, in: path, required: true, schema: { type: string, format: uuid } }, { name: reason, in: query, required: true, schema: { type: string, minLength: 3 } } ]
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /companies/{company_slug}/follow:
+    put:
+      summary: Follow the company (needs a user; any role that can see it). Followers get adverse_media and negative_news.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '204': { description: Following }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      summary: Stop following (needs a user)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '204': { description: Not following }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /news/runs:
+    get:
+      summary: Recent news runs, newest first (TAO only), for the run status line and System settings
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NewsRun' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Run the news search now (tao_admin); queues a manual run on the news queue; news_run audit
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/NewsRun' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`run_active` or `feeds_off`' }
 
   /health:
     get:

@@ -1,0 +1,12 @@
+[
+  {"slug": "dynamic-capital", "name": "Dynamic Capital", "aliases": [], "deal_slugs": ["move-trust-dynamic-capital"]},
+  {"slug": "essex-lease-financial-corp", "name": "Essex Lease Financial Corp.", "aliases": ["Essex Lease Financial"], "deal_slugs": ["move-trust-essex-lease-financial-corp"]},
+  {"slug": "finloc-2000-inc", "name": "Finloc 2000 Inc.", "aliases": ["Finloc 2000"], "deal_slugs": ["move-trust-finloc-2000-inc"]},
+  {"slug": "meridian-onecap-lp", "name": "Meridian OneCap LP", "aliases": ["Meridian OneCap"], "deal_slugs": ["move-trust-meridian-onecap-lp"]},
+  {"slug": "moneda-capital-corp", "name": "Moneda Capital Corp.", "aliases": ["Moneda Capital"], "deal_slugs": ["f-pil-2-0-moneda-capital-corp"]},
+  {"slug": "stride-capital", "name": "Stride Capital", "aliases": [], "deal_slugs": ["f-pil-2-0-stride-capital"]},
+  {"slug": "tlfc", "name": "TLFC", "aliases": [], "deal_slugs": ["move-trust-tlfc-leases", "move-trust-tlfc-loans", "move-trust-tlfc-lp-leases"]},
+  {"slug": "tpine-leasing-capital-corporation", "name": "TPine Leasing Capital Corporation", "aliases": ["TPine Leasing"], "deal_slugs": ["move-trust-tpine-leasing-capital-corporation"]},
+  {"slug": "vcc-iv-lp", "name": "VCC IV LP", "aliases": [], "deal_slugs": ["move-trust-vcc-iv-lp"]},
+  {"slug": "xpedite-leasing", "name": "Xpedite Leasing", "aliases": [], "deal_slugs": ["f-pil-2-0-xpedite-leasing"]}
+]

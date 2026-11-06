@@ -181,13 +181,13 @@ recommendations for wave X". Design references are design ID and note number (e.
 | # | Decision | Recommendation |
 | --- | --- | --- |
 | D1 | News and adverse media source | **Decided: free sources first (Google News RSS, GDELT) with our own screening; paid supplier later** |
-| D2 | Industry averages on the profile charts: drop, or name a source (D6·5) | Drop for now; program median is real and enough |
-| D3 | Program comparison line: median or mean, weighted by balance or not (D6·4) | Median, unweighted, one point per company |
-| D4 | Loss comparison: pick one measure across deals, or compare named peers only (D6·6) | Named peers on the same measure only |
-| D5 | Is TLFC (Leases, Loans, LP Leases) one company (D5·1) | Yes; the company record groups deals |
-| D6 | Partners see adverse media items still Open, or only Reviewed (D6·11) | Reviewed only |
-| D7 | Upload older SetReps so profiles show 13 months of balance and covenant history (D6·7) | Yes, if the PDFs exist; extraction handles them unchanged |
-| D8 | "Next report due" from a per-deal expected day entered by TAO (D6, D10·6) | Yes, from the reporting calendar in System settings |
+| D2 | Industry averages on the profile charts: drop, or name a source (D6·5) | **Decided 2026-11-06: drop for now; program median is real and enough** |
+| D3 | Program comparison line: median or mean, weighted by balance or not (D6·4) | **Decided 2026-11-06: median, unweighted, one point per company** |
+| D4 | Loss comparison: pick one measure across deals, or compare named peers only (D6·6) | **Decided 2026-11-06: named peers on the same measure only** |
+| D5 | Is TLFC (Leases, Loans, LP Leases) one company (D5·1) | **Decided 2026-11-06: yes; the company record groups deals** |
+| D6 | Partners see adverse media items still Open, or only Reviewed (D6·11) | **Decided 2026-11-06: reviewed only** |
+| D7 | Upload older SetReps so profiles show 13 months of balance and covenant history (D6·7) | **Decided 2026-11-06: yes, if the PDFs exist; extraction handles them unchanged** |
+| D8 | "Next report due" from a per-deal expected day entered by TAO (D6, D10·6) | **Decided 2026-11-06: yes, from the reporting calendar in System settings** |
 
 ### Settings and maintenance (any time)
 | # | Decision | Recommendation |
