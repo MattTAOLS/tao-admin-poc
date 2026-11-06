@@ -471,6 +471,16 @@ The Lead reads this at every merge.
 - 2026-11-03 — to Lead (wave 3): the deal page shows `deal.data_corrections` as published (period, readable field label from
   `record` + the last non-index segment of `field`, was / now, reason, rule_id + choice when present, applied). Values are typed
   by field name (…_pct / utilization → %, …contracts → count, …_ratio → x, else $). Non-numeric values print as text.
+- 2026-11-06 (wave D) — to Design System (`web/src/shell/types.ts`): `Me` has no `features` field yet. The company pages read
+  `me.features.companies` through a cast (`web/src/portfolio/companies/util.ts: useCompaniesEnabled`). Please add
+  `features: { companies: boolean }` to `Me` (contract `Me.features`) and gate the partner Companies nav entry on it. Routes as
+  agreed: `/admin|/investor|/manager/companies` → `@/portfolio/companies/CompaniesPage`, `.../companies/:companySlug` →
+  `@/portfolio/companies/CompanyProfilePage`, both default exports.
+- 2026-11-06 (wave D) — to Lead / Data & API (contract, optional): the profile needs to know whether the news search has covered a
+  company ("Not screened yet" vs "No news in 30 days"). `Company` does not carry it, so the profile also reads `GET /companies`
+  and uses that row's `adverse.state`. A `screened_at` (or the `adverse` block) on `Company` would save that call.
+- 2026-11-06 (wave D) — FYI to Lead: the profile Documents section links partners to `/<shell>/data-room`, which is still a
+  placeholder page in `pages.ts`.
 
 ## QA & Demo
 - RESOLVED in integration/wave3 (README section applied) — 2026-11-03 — to Lead (README, please apply): add an "End-to-end demo tests" section to the root `README.md`:
