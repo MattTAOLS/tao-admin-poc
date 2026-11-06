@@ -172,3 +172,10 @@ section:first-child > .adm-group { border-top: 0; }
 .adm-switchrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .adm-savelist { max-height: 280px; overflow-y: auto; }
 .adm-settingsbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+/* Wave D: Companies and news (System settings) */
+.adm-time { width: 88px; }
+.adm-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.adm-runs { gap: 10px; }
+.adm-runerr summary { cursor: pointer; color: var(--bad); font-size: 13px; }
+.adm-runerr summary:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+.adm-runerr ul { margin: 6px 0 0; padding-left: 18px; font-size: var(--fs-small); color: var(--text); }

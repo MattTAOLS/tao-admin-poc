@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Button, Card, Dialog, Field, Input, StatePanel, StatusPill, Textarea, formatCurrency, formatNumber, useToast } from '@/design/components'
+import { Button, Card, Dialog, Field, Input, Select, StatePanel, StatusPill, Textarea, formatCurrency, formatNumber, useToast } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { ROLES, type Role } from '@/shell/roles'
 import rulesYaml from '@contracts/rules.yaml?raw'
@@ -7,17 +7,21 @@ import { adminApi, programPartners, type ApiError, type AuditScope } from './dat
 import { useResource, useRole } from './hooks'
 import { LoadError, TextLink, errorText, formatDateTime, isoMonth } from './ui'
 import {
-  EDITABLE, KIND_LABEL, KIND_ORDER, SETTING_LABEL, TEMPLATE_FIELDS, TOLERANCE_MEANS, asBool, asCalendar, asDefaults, asTemplates, cap, isRequired,
-  parseRules, prefillCalendar, setPref, settingDiff, settingsApi, validDay, type Calendar, type Defaults, type Setting, type Templates,
+  EDITABLE, FEED_SOURCES, KIND_LABEL, KIND_ORDER, RUN_CONFLICT, RUN_STATUS, SETTING_LABEL, TEMPLATE_FIELDS, TOLERANCE_MEANS, asBool, asCalendar,
+  asDefaults, asFeeds, asTemplates, cap, feedsErrors, isRequired, newsApi, parseRules, prefillCalendar, runFinished, setPref, settingDiff, settingsApi,
+  sourceLabel, timeZones, validDay, type Calendar, type Defaults, type Feeds, type NewsRun, type Setting, type Templates,
 } from './settings'
 
 const RULES = parseRules(rulesYaml)
 const SECTIONS = [
   ['programs', 'Programs and deals'], ['rules', 'Validation rules'], ['calendar', 'Reporting calendar'], ['notifications', 'Notifications'],
-  ['retention', 'Data retention and audit'], ['branding', 'Partner branding'], ['integrations', 'Integrations'], ['maintenance', 'Maintenance'],
+  ['companies', 'Companies and news'], ['retention', 'Data retention and audit'], ['branding', 'Partner branding'], ['integrations', 'Integrations'], ['maintenance', 'Maintenance'],
 ] as const
 
-type Draft = { partner_notifications_enabled: boolean; reporting_calendar: Calendar; notification_defaults: Defaults; publish_note_templates: Templates }
+type Draft = {
+  partner_notifications_enabled: boolean; reporting_calendar: Calendar; notification_defaults: Defaults; publish_note_templates: Templates
+  company_feeds: Feeds; company_profiles_partner_enabled: boolean
+}
 
 function Tag({ kind }: { kind: 'new' | 'shows' | 'later' }) {
   return kind === 'new' ? <span className="adm-tag">New</span>
@@ -59,6 +63,8 @@ export default function SystemSettingsPage() {
       reporting_calendar: asCalendar(byKey.get('reporting_calendar')?.value),
       notification_defaults: asDefaults(byKey.get('notification_defaults')?.value),
       publish_note_templates: { new_report: '', correction: '', ...(byKey.get('publish_note_templates')?.value as Partial<Templates> ?? {}) },
+      company_feeds: asFeeds(byKey.get('company_feeds')?.value),
+      company_profiles_partner_enabled: asBool(byKey.get('company_profiles_partner_enabled')?.value),
     }
     const start: Draft = { ...saved, reporting_calendar: cal.value, publish_note_templates: tpl.value }
     return { saved, start, suggestedDays: cal.suggested, suggestedTpl: tpl.suggested }
@@ -111,7 +117,7 @@ export default function SystemSettingsPage() {
       </div>
       {changed.length > 0 && (
         <div className="adm-note adm-note--warn adm-unsaved" role="status">
-          Not saved yet: {changed.map(k => SETTING_LABEL[k]).join(', ')}.{invalid(draft) ? ' Fix the expected days marked in red first.' : ''}{' '}
+          Not saved yet: {changed.map(k => SETTING_LABEL[k]).join(', ')}.{invalid(draft) ? ' Fix the fields marked in red first.' : ''}{' '}
           <Button size="sm" variant="ghost" onClick={() => { setDraft(loaded.start); setForced([]) }}>Discard</Button>
         </div>
       )}
@@ -185,7 +191,7 @@ export default function SystemSettingsPage() {
       </Section>
 
       <Section id="calendar" n={3} title="Reporting calendar" tag="new"
-        subtitle={<>The day of the month each deal’s SetRep is expected. Feeds “next report due” and the overdue check (TAO only). {stamp('reporting_calendar')}</>}>
+        subtitle={<>The day of the month each deal’s SetRep is expected. It now drives “Next report due” and the late-report alert on company pages. {stamp('reporting_calendar')}</>}>
         {loaded.suggestedDays.length > 0 && (
           <div className="adm-note">
             Pre-filled from the settlement dates in the August 2026 reports for {formatNumber(loaded.suggestedDays.length)} deal{loaded.suggestedDays.length === 1 ? '' : 's'} not saved yet.
@@ -215,7 +221,7 @@ export default function SystemSettingsPage() {
             })}</tbody>
           </table>
         </div>
-        <p className="adm-hint">Overdue alerts go to the TAO team only; partners are not told (S3). A day after the end of a short month means its last day.</p>
+        <p className="adm-hint">Overdue notifications go to the TAO team only (S3). Partners who can see company pages see the late-report alert there. A day after the end of a short month means its last day.</p>
       </Section>
 
       <Section id="notifications" n={4} title="Notifications" tag="new" subtitle="Who is told, and what a new user gets before they change their Profile. Email is coming later; in-app only in phase 2.">
@@ -281,7 +287,14 @@ export default function SystemSettingsPage() {
         </div>
       </Section>
 
-      <Section id="retention" n={5} title="Data retention and audit" tag="shows" subtitle="Decided: kept indefinitely. TAO hosts the data; nothing here can delete it.">
+      <Section id="companies" n={5} title="Companies and news" tag="new"
+        subtitle="The daily news and adverse media search behind the company pages, and whether partners see those pages.">
+        <CompaniesSection draft={draft.company_feeds} partnerOn={draft.company_profiles_partner_enabled} savedFeeds={loaded.saved.company_feeds}
+          onFeeds={v => set('company_feeds', v)} onPartner={v => set('company_profiles_partner_enabled', v)}
+          stampFeeds={stamp('company_feeds')} stampPartner={stamp('company_profiles_partner_enabled')} />
+      </Section>
+
+      <Section id="retention" n={6} title="Data retention and audit" tag="shows" subtitle="Decided: kept indefinitely. TAO hosts the data; nothing here can delete it.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Retention</caption>
           <thead><tr><th scope="col">Data</th><th scope="col">Kept for</th></tr></thead>
@@ -302,7 +315,7 @@ export default function SystemSettingsPage() {
         <p className="adm-hint">Each export is itself recorded on the Platform tab.</p>
       </Section>
 
-      <Section id="branding" n={6} title="Partner branding" tag="later" subtitle="Name, subtitle, logo and email footer per partner portal. Not built in phase 2.">
+      <Section id="branding" n={7} title="Partner branding" tag="later" subtitle="Name, subtitle, logo and email footer per partner portal. Not built in phase 2.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Partner branding</caption>
           <thead><tr><th scope="col">Partner</th><th scope="col">Portal name</th><th scope="col">Logo</th></tr></thead>
@@ -311,11 +324,11 @@ export default function SystemSettingsPage() {
         <p className="adm-hint">Colours stay on the portal’s tokens: status colours carry meaning (OK, WATCH, BREACH) and do not change per partner.</p>
       </Section>
 
-      <Section id="integrations" n={7} title="Integrations" tag="later" subtitle="API keys, webhooks and chat. After real sign-in exists.">
-        <p className="adm-muted">No keys and no webhooks. The POC API trusts the role switcher and has no keys. Company data feeds (news and adverse media) arrive with wave D.</p>
+      <Section id="integrations" n={8} title="Integrations" tag="later" subtitle="API keys, webhooks and chat. After real sign-in exists.">
+        <p className="adm-muted">No keys and no webhooks. The POC API trusts the role switcher and has no keys. The news search has no key either; it is set up in <a href="#set-companies">Companies and news</a>.</p>
       </Section>
 
-      <Section id="maintenance" n={8} title="Maintenance" tag="shows" subtitle="Jobs that run by hand. None re-reads a PDF.">
+      <Section id="maintenance" n={9} title="Maintenance" tag="shows" subtitle="Jobs that run by hand. None re-reads a PDF.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Maintenance jobs</caption>
           <thead><tr><th scope="col">Job</th><th scope="col">What it does</th><th scope="col">Where</th></tr></thead>
@@ -339,7 +352,177 @@ export default function SystemSettingsPage() {
 export function changedKeys(start: Draft, draft: Draft, forced: string[] = []): string[] {
   return EDITABLE.filter(k => forced.includes(k) || JSON.stringify(start[k as keyof Draft]) !== JSON.stringify(draft[k as keyof Draft]))
 }
-const invalid = (d: Draft) => Object.values(d.reporting_calendar).some(v => !validDay(v))
+const invalid = (d: Draft) => Object.values(d.reporting_calendar).some(v => !validDay(v)) || Object.keys(feedsErrors(d.company_feeds)).length > 0
+
+/** Section 5: the news search switch (company_feeds) and the partner switch (company_profiles_partner_enabled). Both are
+ * saved with the rest through Save changes; the run list and Run now act at once. */
+function CompaniesSection({ draft, partnerOn, savedFeeds, onFeeds, onPartner, stampFeeds, stampPartner }: {
+  draft: Feeds; partnerOn: boolean; savedFeeds: Feeds; onFeeds: (f: Feeds) => void; onPartner: (v: boolean) => void; stampFeeds: string; stampPartner: string
+}) {
+  const errs = feedsErrors(draft)
+  const zones = useMemo(() => timeZones(draft.time_zone), [draft.time_zone])
+  const toggleSource = (id: Feeds['sources'][number], on: boolean) =>
+    onFeeds({ ...draft, sources: FEED_SOURCES.map(x => x.id).filter(x => (x === id ? on : draft.sources.includes(x))) })
+  return (
+    <>
+      <div className={`adm-switchrow${draft.enabled ? ' is-on' : ''}`}>
+        <label className="adm-check">
+          <input type="checkbox" role="switch" checked={draft.enabled} aria-describedby="set-feeds-what" onChange={e => onFeeds({ ...draft, enabled: e.target.checked })} />
+          <b>Daily news search</b>
+        </label>
+        <StatusPill tone={draft.enabled ? 'ok' : 'neutral'} size="sm">{draft.enabled ? 'On' : 'Off'}</StatusPill>
+        <span className="adm-muted">{stampFeeds}</span>
+      </div>
+      <div id="set-feeds-what" className="adm-note">
+        Searches two free public sources, Google News RSS and GDELT, by each company’s name and aliases. Our own keyword screening sets
+        the sentiment and flags adverse media (litigation, regulatory, fraud, insolvency, sanctions). No paid supplier is involved.
+        Switching it on lets the news container reach the internet once a day, at the time below. Results never change deal numbers or covenant statuses.
+      </div>
+      <div className="adm-form__row">
+        <Field label="Run time" hint="24-hour, HH:MM." error={errs.run_at} required>
+          <Input numeric className="adm-time" value={draft.run_at} onChange={e => onFeeds({ ...draft, run_at: e.target.value.trim() })} />
+        </Field>
+        <Field label="Time zone" error={errs.time_zone} required>
+          <Select value={draft.time_zone} onChange={e => onFeeds({ ...draft, time_zone: e.target.value })} options={zones.map(z => ({ value: z, label: z }))} />
+        </Field>
+        <fieldset className="ds-field adm-fieldset" aria-describedby={errs.sources ? 'set-feeds-src-err' : undefined}>
+          <legend className="ds-field__label">Sources</legend>
+          {FEED_SOURCES.map(x => (
+            <label key={x.id} className="adm-check">
+              <input type="checkbox" checked={draft.sources.includes(x.id)} aria-invalid={errs.sources ? true : undefined} onChange={e => toggleSource(x.id, e.target.checked)} />
+              {x.label}
+            </label>
+          ))}
+          {errs.sources && <span className="ds-field__error" id="set-feeds-src-err" role="alert">{errs.sources}</span>}
+        </fieldset>
+      </div>
+
+      <h3 className="adm-section-title">News runs</h3>
+      <NewsRuns feedsOn={savedFeeds.enabled} schedule={`${savedFeeds.run_at} ${savedFeeds.time_zone}`} />
+
+      <h3 className="adm-section-title">Partners</h3>
+      <div className={`adm-switchrow${partnerOn ? ' is-on' : ''}`}>
+        <label className="adm-check">
+          <input type="checkbox" role="switch" checked={partnerOn} aria-describedby="set-cp-what" onChange={e => onPartner(e.target.checked)} />
+          <b>Partners can see company pages</b>
+        </label>
+        <StatusPill tone={partnerOn ? 'ok' : 'neutral'} size="sm">{partnerOn ? 'On' : 'Off'}</StatusPill>
+        <span className="adm-muted">{stampPartner}</span>
+      </div>
+      <div id="set-cp-what" className="adm-note adm-note--warn">
+        Off by default; while off, partners have no Companies page. When on, investor and manager users see only companies with a deal in a program
+        shared with them, and only those deals. They see an adverse media item only after a TAO Admin marks it reviewed; open and dismissed items
+        and TAO notes stay with TAO.
+      </div>
+    </>
+  )
+}
+
+const POLL_MS = 5000
+const POLL_MAX_MS = 120000
+type RunMsg = { tone: 'info' | 'ok' | 'warn'; text: string }
+
+/** The latest 10 runs (GET /news/runs) and Run now (POST /news/runs). After a 202 the list refreshes every 5 s until
+ * that run finishes, for at most 2 minutes. */
+function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string }) {
+  const res = useResource(() => newsApi.runs(10), [])
+  const [runs, setRuns] = useState<NewsRun[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<RunMsg | null>(null)
+  const [watch, setWatch] = useState<{ id: string; until: number } | null>(null)
+  useEffect(() => { if (res.data) setRuns(res.data) }, [res.data])
+
+  useEffect(() => {
+    if (!watch) return
+    let live = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = async () => {
+      try {
+        const list = await newsApi.runs(10)
+        if (!live) return
+        setRuns(list)
+        const r = list.find(x => x.id === watch.id)
+        if (r && runFinished(r)) {
+          setWatch(null)
+          setMsg({ tone: r.status === 'ok' ? 'ok' : 'warn', text: `Run finished: ${RUN_STATUS[r.status]?.label ?? r.status}. ${formatNumber(r.items_added)} news item${r.items_added === 1 ? '' : 's'} and ${formatNumber(r.adverse_added)} adverse item${r.adverse_added === 1 ? '' : 's'} added.` })
+          return
+        }
+      } catch { /* a failed refresh is retried on the next tick */ }
+      if (!live) return
+      if (Date.now() >= watch.until) {
+        setWatch(null)
+        setMsg({ tone: 'warn', text: 'The run has not finished after 2 minutes. This list stops refreshing; reload the page later to see the result.' })
+        return
+      }
+      timer = setTimeout(() => void tick(), POLL_MS)
+    }
+    timer = setTimeout(() => void tick(), POLL_MS)
+    return () => { live = false; if (timer) clearTimeout(timer) }
+  }, [watch])
+
+  const runNow = async () => {
+    setBusy(true); setMsg(null)
+    try {
+      const run = await newsApi.runNow()
+      setRuns(rs => [run, ...(rs ?? []).filter(x => x.id !== run.id)].slice(0, 10))
+      if (runFinished(run)) setMsg({ tone: 'ok', text: 'Run finished.' })
+      else {
+        setMsg({ tone: 'info', text: 'Run queued. The news worker picks it up within seconds; this list refreshes every 5 seconds until it finishes.' })
+        setWatch({ id: run.id, until: Date.now() + POLL_MAX_MS })
+      }
+    } catch (err) {
+      const e = err as ApiError
+      setMsg({ tone: 'warn', text: (e.status === 409 && e.code && RUN_CONFLICT[e.code]) || `Run now failed: ${errorText(e)}` })
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="adm-stack adm-runs">
+      <div className="adm-switchrow">
+        <Button onClick={() => void runNow()} loading={busy} disabled={!!watch}>Run now</Button>
+        <span className="adm-muted">
+          {feedsOn ? `Runs every day at ${schedule}. Run now searches all companies once, outside the schedule, and is recorded in the Audit log.`
+            : 'The saved setting is off, so nothing runs on schedule and Run now is refused.'}
+        </span>
+      </div>
+      {msg && <div className={`adm-note${msg.tone === 'warn' ? ' adm-note--warn' : ''}`} role="status">{msg.text}</div>}
+      {res.error && !runs ? <LoadError error={res.error} onRetry={res.reload} />
+        : !runs ? <p className="adm-muted">Loading runs…</p>
+        : runs.length === 0 ? <p className="adm-muted">No runs yet.{feedsOn ? ` The first scheduled run is at ${schedule}.` : ''}</p>
+        : (
+          <div className="adm-scroll">
+            <table className="adm-plain">
+              <caption className="ds-visually-hidden">News runs, newest first</caption>
+              <thead><tr>
+                <th scope="col">Trigger</th><th scope="col">Status</th><th scope="col">Started</th><th scope="col">Finished</th>
+                <th scope="col" className="adm-num">Companies</th><th scope="col" className="adm-num">Items added</th><th scope="col" className="adm-num">Adverse added</th><th scope="col">Errors</th>
+              </tr></thead>
+              <tbody>{runs.map(r => {
+                const st = RUN_STATUS[r.status] ?? { tone: 'neutral' as const, label: cap(String(r.status)) }
+                return (
+                  <tr key={r.id}>
+                    <th scope="row">{r.trigger === 'manual' ? 'Manual' : r.trigger === 'schedule' ? 'Scheduled' : cap(String(r.trigger))}</th>
+                    <td><StatusPill tone={st.tone} size="sm">{st.label}</StatusPill></td>
+                    <td className="adm-nowrap">{r.started_at ? formatDateTime(r.started_at) : <span className="adm-muted">Queued {formatDateTime(r.queued_at)}</span>}</td>
+                    <td className="adm-nowrap">{r.finished_at ? formatDateTime(r.finished_at) : <span className="adm-muted">—</span>}</td>
+                    <td className="adm-num">{formatNumber(r.companies)}</td>
+                    <td className="adm-num">{formatNumber(r.items_added)}</td>
+                    <td className="adm-num">{formatNumber(r.adverse_added)}</td>
+                    <td>{r.errors.length === 0 ? <span className="adm-muted">None</span> : (
+                      <details className="adm-runerr">
+                        <summary>{r.errors.length} error{r.errors.length === 1 ? '' : 's'}</summary>
+                        <ul>{r.errors.map((x, i) => <li key={i}>{[x.company_slug ?? 'All companies', sourceLabel(x.source)].join(' · ')}: {x.message}</li>)}</ul>
+                      </details>
+                    )}</td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+          </div>
+        )}
+    </div>
+  )
+}
 
 /** One reason for every changed setting; one PUT (and one audit entry) per setting. Stops at the first failure and
  * says which settings were saved. */

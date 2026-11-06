@@ -4,6 +4,7 @@ import { api } from '@/shell/api'
 import type { Role } from '@/shell/roles'
 
 export type SettingKey = 'partner_notifications_enabled' | 'reporting_calendar' | 'notification_defaults' | 'publish_note_templates' | 'company_feeds'
+  | 'company_profiles_partner_enabled'
 export type Setting = { key: SettingKey | string; value: unknown; updated_at: string | null; updated_by: string | null }
 export type NotificationKind = 'mention' | 'reply' | 'report_needs_review' | 'report_published' | 'correction_published' | 'covenant_changed' | 'report_rejected' | 'user_change' | 'system'
 export type NotificationPref = { kind: NotificationKind | string; in_app: boolean; digest: 'instant' | 'daily'; required?: boolean }
@@ -16,14 +17,16 @@ export const settingsApi = {
   put: (key: string, value: unknown, reason: string) => api<Setting>(`/settings/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value, reason }) }),
 }
 
-/** The keys this page edits, in page order. company_feeds is a wave D placeholder and is not edited here. */
-export const EDITABLE: SettingKey[] = ['partner_notifications_enabled', 'reporting_calendar', 'notification_defaults', 'publish_note_templates']
+/** The keys this page edits, in page order. */
+export const EDITABLE: SettingKey[] = ['partner_notifications_enabled', 'reporting_calendar', 'notification_defaults', 'publish_note_templates',
+  'company_feeds', 'company_profiles_partner_enabled']
 export const SETTING_LABEL: Record<string, string> = {
   partner_notifications_enabled: 'Partner notifications',
   reporting_calendar: 'Reporting calendar',
   notification_defaults: 'Notification defaults',
   publish_note_templates: 'Publish note templates',
-  company_feeds: 'Company data feeds',
+  company_feeds: 'News search',
+  company_profiles_partner_enabled: 'Partner company pages',
 }
 
 /** Expected report day per deal: the settlement day of each deal's August 2026 report (docs/dashboard-json,
@@ -65,6 +68,69 @@ export const KIND_ORDER = Object.keys(KIND_LABEL)
 export const REQUIRED_KINDS = ['covenant_changed', 'correction_published']
 
 export const asBool = (v: unknown) => v === true
+
+// ---- Wave D: company_feeds (contracts/openapi.yaml Setting) and the news runs ----
+export type FeedSource = 'google_news' | 'gdelt'
+export type Feeds = { enabled: boolean; run_at: string; time_zone: string; sources: FeedSource[] }
+export const FEED_SOURCES: { id: FeedSource; label: string }[] = [{ id: 'google_news', label: 'Google News RSS' }, { id: 'gdelt', label: 'GDELT' }]
+export const FEEDS_DEFAULT: Feeds = { enabled: false, run_at: '06:00', time_zone: 'America/Toronto', sources: ['google_news', 'gdelt'] }
+/** The saved value with the contract defaults for anything missing (an empty object reads as the defaults). */
+export function asFeeds(v: unknown): Feeds {
+  const o = (v && typeof v === 'object' && !Array.isArray(v) ? v : {}) as Partial<Feeds>
+  const sources = Array.isArray(o.sources) ? FEED_SOURCES.map(s => s.id).filter(id => o.sources!.includes(id)) : FEEDS_DEFAULT.sources
+  return {
+    enabled: o.enabled === true,
+    run_at: typeof o.run_at === 'string' ? o.run_at : FEEDS_DEFAULT.run_at,
+    time_zone: typeof o.time_zone === 'string' && o.time_zone ? o.time_zone : FEEDS_DEFAULT.time_zone,
+    sources,
+  }
+}
+export const validRunAt = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
+/** Problems that block saving, by field. */
+export function feedsErrors(f: Feeds): { run_at?: string; sources?: string; time_zone?: string } {
+  const out: { run_at?: string; sources?: string; time_zone?: string } = {}
+  if (!validRunAt(f.run_at)) out.run_at = 'Use 24-hour HH:MM, e.g. 06:00.'
+  if (!f.sources.length) out.sources = 'Pick at least one source.'
+  if (!f.time_zone) out.time_zone = 'Pick a time zone.'
+  return out
+}
+/** IANA zones for the select: the runtime's list when it has one, always including `current`. */
+export function timeZones(current?: string): string[] {
+  const intl = Intl as unknown as { supportedValuesOf?: (k: string) => string[] }
+  let list: string[] = []
+  try { list = intl.supportedValuesOf?.('timeZone') ?? [] } catch { list = [] }
+  if (!list.length) list = ['America/Toronto', 'America/Vancouver', 'America/Edmonton', 'America/Winnipeg', 'America/Halifax', 'America/St_Johns', 'America/New_York', 'Europe/London', 'UTC']
+  const out = new Set(list)
+  out.add(FEEDS_DEFAULT.time_zone)
+  if (current) out.add(current)
+  return [...out].sort()
+}
+export const sourceLabel = (s: string) => FEED_SOURCES.find(x => x.id === s)?.label ?? s
+
+export type NewsRunStatus = 'queued' | 'running' | 'ok' | 'partial' | 'failed'
+export type NewsRun = {
+  id: string; trigger: 'schedule' | 'manual' | string; status: NewsRunStatus | string
+  queued_at: string; started_at: string | null; finished_at: string | null
+  companies: number; items_added: number; adverse_added: number
+  errors: { company_slug?: string | null; source: string; message: string }[]
+}
+export const RUN_STATUS: Record<string, { tone: 'ok' | 'warn' | 'bad' | 'blue' | 'neutral'; label: string }> = {
+  queued: { tone: 'neutral', label: 'Queued' },
+  running: { tone: 'blue', label: 'Running' },
+  ok: { tone: 'ok', label: 'Done' },
+  partial: { tone: 'warn', label: 'Partial' },
+  failed: { tone: 'bad', label: 'Failed' },
+}
+export const runFinished = (r: Pick<NewsRun, 'status'>) => r.status === 'ok' || r.status === 'partial' || r.status === 'failed'
+export const newsApi = {
+  runs: (limit = 10) => api<NewsRun[]>(`/news/runs?limit=${limit}`),
+  runNow: () => api<NewsRun>('/news/runs', { method: 'POST' }),
+}
+/** Plain words for the two Run now conflicts; anything else falls back to the API message. */
+export const RUN_CONFLICT: Record<string, string> = {
+  feeds_off: 'The news search is switched off. Switch it on and save first.',
+  run_active: 'A run is already queued or running. Wait for it to finish.',
+}
 export function asCalendar(v: unknown): Calendar {
   const out: Calendar = {}
   if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k, d] of Object.entries(v)) if (typeof d === 'number') out[k] = d
@@ -97,7 +163,8 @@ export function setPref(d: Defaults, role: Role, kind: string, in_app: boolean):
 
 /** A short "before / after" text for the save dialog. */
 export function describe(key: string, v: unknown, dealName: (s: string) => string = s => s): string {
-  if (key === 'partner_notifications_enabled') return v === true ? 'On' : 'Off'
+  if (key === 'partner_notifications_enabled' || key === 'company_profiles_partner_enabled') return v === true ? 'On' : 'Off'
+  if (key === 'company_feeds') { const f = asFeeds(v); return f.enabled ? `On, ${f.run_at} ${f.time_zone}` : 'Off' }
   if (key === 'reporting_calendar') {
     const c = asCalendar(v); const n = Object.keys(c).length
     return n ? `${n} deal${n === 1 ? '' : 's'} set` : 'Not set'
@@ -121,6 +188,14 @@ export function settingDiff(key: string, before: unknown, after: unknown, dealNa
       if (!q || q.in_app !== p.in_app) out.push({ field: `${role} · ${KIND_LABEL[p.kind] ?? p.kind}`, before: q ? (q.in_app ? 'In-app' : 'Off') : 'not set', after: p.in_app ? 'In-app' : 'Off' })
     }
     return out
+  }
+  if (key === 'company_feeds') {
+    const b = asFeeds(before), a = asFeeds(after)
+    const src = (f: Feeds) => f.sources.map(sourceLabel).join(', ') || 'none'
+    const rows: [string, string, string][] = [
+      ['Search', b.enabled ? 'On' : 'Off', a.enabled ? 'On' : 'Off'], ['Run time', b.run_at, a.run_at], ['Time zone', b.time_zone, a.time_zone], ['Sources', src(b), src(a)],
+    ]
+    return rows.filter(([, x, y]) => x !== y).map(([field, x, y]) => ({ field, before: x, after: y }))
   }
   if (key === 'publish_note_templates') {
     const b = (before ?? {}) as Partial<Templates>, a = (after ?? {}) as Partial<Templates>
