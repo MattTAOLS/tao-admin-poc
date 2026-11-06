@@ -95,3 +95,7 @@ def test_comment_writes_need_a_user_for_tao(method, path):
     else: assert c.request(method, path, headers=ANALYST).status_code == 401
 
 def test_unknown_user_is_401_everywhere(): assert c.get("/api/v1/me", headers={"X-User": "00000000-0000-4000-8000-0000000000ff"}).status_code == 401
+
+def test_analyst_may_read_only_the_mention_list():
+    assert c.get("/api/v1/users?partner_slug=tao&status=active", headers=ANALYST).status_code == 200
+    assert c.get("/api/v1/users?partner_slug=tao", headers=ANALYST).status_code == 403

@@ -31,7 +31,7 @@ def test_tao_admin_lists_everyone_and_filters(client):
     assert [u["id"] for u in client.get(V1 + "/users?q=novak", headers=H(A1)).json()] == [MA]
     assert client.get(V1 + "/users?status=deactivated", headers=TAO).json() == []
     u = client.get(V1 + f"/users/{IV}", headers=TAO).json()
-    assert u["receives_summary"] == "None" and u["status"] == "active" and u["partner_slug"] == "investor"
+    assert u["receives_summary"] == "Nothing yet" and u["status"] == "active" and u["partner_slug"] == "investor"
 
 
 def test_company_admin_sees_only_its_partner(client):
@@ -55,7 +55,7 @@ def test_create_user_rules(client):
     r = client.post(V1 + "/users", headers=H(A1), json=new)
     assert r.status_code == 201, r.text
     u = r.json()
-    assert u["email"] == "new.person@example.com" and u["status"] == "active" and u["partner_slug"] is None and u["receives_summary"] == "None"
+    assert u["email"] == "new.person@example.com" and u["status"] == "active" and u["partner_slug"] is None and u["receives_summary"] == "Nothing yet"
     assert code(client.post(V1 + "/users", headers=H(A1), json={**new, "email": "NEW.person@example.com"})) == (409, "email_taken")
     assert code(client.post(V1 + "/users", headers=H(A1), json={**new, "email": "b@example.com", "partner_slug": "investor"})) == (422, "role_partner_mismatch")
     assert code(client.post(V1 + "/users", headers=H(A1), json={**new, "email": "c@example.com", "role": "investor_viewer"})) == (422, "role_partner_mismatch")
@@ -132,7 +132,7 @@ def test_subscriptions_replace_read_and_summary(client):
     r = client.put(V1 + f"/users/{IV}/subscriptions", headers=H(IA), json=SUBS)
     assert r.status_code == 200, r.text
     assert [(x["program_slug"], x["deal_slug"]) for x in r.json()] == [("f-pil-2-0", "f-pil-2-0-moneda-capital-corp"), ("f-pil-2-0", "f-pil-2-0-stride-capital"), ("move-trust", None)]
-    assert client.get(V1 + f"/users/{IV}", headers=H(A1)).json()["receives_summary"] == "F-PIL 2.0: 2 deals; MOVE Trust: all deals"
+    assert client.get(V1 + f"/users/{IV}", headers=H(A1)).json()["receives_summary"] == "Moneda Capital Corp., Stride Capital (F-PIL 2.0); All MOVE Trust deals"
     assert client.get(V1 + f"/users/{IV}/subscriptions", headers=H(IV)).json() == r.json()      # the user themselves, read-only
     assert code(client.put(V1 + f"/users/{IV}/subscriptions", headers=H(IV), json=[])) == (403, "company_admin_only")
     assert code(client.get(V1 + f"/users/{IA}/subscriptions", headers=H(IV))) == (403, "company_admin_only")
@@ -258,3 +258,30 @@ def test_seed_never_overwrites_an_edited_user(client):
     with db.session() as s:
         assert seed.load(s)["users_added"] == 0
         assert s.get(AppUser, AN).name == "Renamed" and s.get(AppUser, AN).role == "tao_admin" and s.get(AppUser, IV).status == "deactivated"
+
+
+def test_analyst_reads_only_the_mention_list(client):
+    r = client.get(V1 + "/users", headers=H(AN), params={"partner_slug": "tao", "status": "active"})
+    assert r.status_code == 200
+    assert r.json() == [{"id": A1, "name": "A. Patel", "email": "tao.admin@example.com", "role": "tao_admin"},
+                        {"id": AN, "name": "J. Moreau", "email": "tao.analyst@example.com", "role": "tao_analyst"},
+                        {"id": "00000000-0000-4000-8000-000000000002", "name": "R. Okafor", "email": "tao.admin2@example.com", "role": "tao_admin"},
+                        {"id": "00000000-0000-4000-8000-000000000004", "name": "S. Lindqvist", "email": "tao.analyst2@example.com", "role": "tao_analyst"}]
+    assert client.get(V1 + "/users", headers={"X-Role": "tao_analyst"}, params={"partner_slug": "tao", "status": "active"}).status_code == 200
+    for params in ({}, {"partner_slug": "tao"}, {"status": "active"}, {"partner_slug": "investor", "status": "active"},
+                   {"partner_slug": "tao", "status": "deactivated"}, {"partner_slug": "tao", "status": "active", "q": "patel"}):
+        assert code(client.get(V1 + "/users", headers=H(AN), params=params)) == (403, "company_admin_only"), params
+    assert code(client.get(V1 + "/users", headers=H(IV), params={"partner_slug": "tao", "status": "active"})) == (403, "company_admin_only")
+
+
+def test_user_change_detail_names_the_user(client):
+    uid = client.post(V1 + "/users", headers=H(A1), json={"email": "Pat.New@example.com", "name": "P. New", "role": "tao_analyst"}).json()["id"]
+    client.patch(V1 + f"/users/{uid}", headers=H(A1), json={"name": "P. Newer"})
+    client.put(V1 + f"/users/{uid}/subscriptions", headers=H(A1), json=[{"program_slug": "move-trust", "channels": ["in_app"]}])
+    client.post(V1 + f"/users/{uid}/deactivate", headers=H(A1), json={"reason": "test"})
+    client.post(V1 + f"/users/{uid}/reactivate", headers=H(A1), json={"reason": "test"})
+    rows = client.get(V1 + "/audit", headers=TAO, params={"action": "user_change", "q": "pat.new@example.com"}).json()
+    assert [a["detail"]["change"] for a in rows] == ["reactivated", "deactivated", "subscriptions", "updated", "created"]
+    assert all(a["detail"]["email"] == "pat.new@example.com" and a["detail"]["user_id"] == uid for a in rows)
+    assert rows[0]["detail"]["name"] == "P. Newer" and rows[-1]["detail"]["name"] == "P. New"
+    assert client.get(V1 + f"/users/{uid}", headers=H(A1)).json()["receives_summary"] == "All MOVE Trust deals"

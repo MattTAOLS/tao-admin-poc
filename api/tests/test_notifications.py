@@ -183,7 +183,7 @@ def test_tabs_unread_read_and_read_all(client, people):
 def test_user_change_notification_reaches_the_user(client):
     subscribe(client, IV)
     [n] = [n for n in mine(client, IV) if n["kind"] == "user_change"]
-    assert n["link"] == "/investor/settings/profile" and "F-PIL 2.0: all deals" in n["body"]
+    assert n["link"] == "/settings/profile" and "All F-PIL 2.0 deals" in n["body"]
 
 
 # ---- R7: partners never see another partner's notification, nor a TAO comment ----
@@ -229,3 +229,52 @@ def test_old_notifications_are_purged(client, people):
         s.execute(text("update notification set created_at = :t where user_id = :u"), {"t": old.isoformat() if db.engine().dialect.name == "sqlite" else old, "u": A1})
         s.commit()
     assert mine(client, A1) == []
+
+
+def test_every_kind_links_to_a_real_app_route(client, people):
+    """Lead's link table: review queue (+ ?thread=), portfolio deal page per shell, program record, User management / profile."""
+    import re
+    partners_on(client)
+    subscribe(client, AN2)
+    uid = in_review(client, deal=broken_deal())
+    fid = next(f["id"] for f in client.get(V1 + f"/uploads/{uid}/findings", headers=TAO).json() if f["rule_id"] == "R05")
+    mine(client, A1)                                                           # sweep: report_needs_review
+    t = client.post(V1 + f"/uploads/{uid}/threads", headers=H(AN), json={"anchor": {"finding_id": fid}, "body": "look", "mentions": [A1]}).json()
+    client.post(V1 + f"/threads/{t['id']}/comments", headers=H(AN2), json={"body": "agree"})
+    client.post(V1 + f"/uploads/{uid}/reject", headers=TAO, json={"reason": "wrong period"})
+    ok = in_review(client, period="2026-08")          # after the reject, the same month again, clean
+    approve(client, ok)
+    assert client.post(V1 + f"/uploads/{ok}/corrections", headers=TAO, json={"edits": [{"pointer": INTEREST, "value": 86705.51}], "reason": "restated by the servicer"}).json()["status"] == "published"
+    failed = upload(client, period="2026-10").json()["id"]
+    with db.session() as s:
+        s.get(SetrepUpload, failed).status = "extraction_failed"
+        from app.models import Finding, Extraction
+        ex = s.query(Extraction).filter(Extraction.upload_id == ok).first()
+        s.commit()
+    # a covenant change: an R19 note on an upload newly in review
+    cov = in_review(client, period="2026-11")
+    with db.session() as s:
+        ex = s.query(Extraction).filter(Extraction.upload_id == cov).first()
+        s.add(Finding(extraction_id=ex.id, rule_id="R19", layer="covenant", severity="note", message="status changed", fields=[],
+                      our_value="OK", report_value="WATCH", context={"legal_ref": "9.1 (c)", "prior_status": "OK", "status": "WATCH"}))
+        s.commit()
+    tao_q = re.compile(r"^/admin/uploads/queue/[0-9a-f-]{36}$")
+    expect = {
+        "report_needs_review": tao_q, "report_rejected": tao_q,
+        "mention": re.compile(rf"^/admin/uploads/queue/{uid}\?thread={t['id']}$"), "reply": re.compile(rf"^/admin/uploads/queue/{uid}\?thread={t['id']}$"),
+        "report_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=\d{{4}}-\d{{2}}$"),
+        "correction_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=2026-08$"),
+        "covenant_changed": re.compile(r"^/admin/partners/investor/programs/f-pil-2-0$"),
+        "system": re.compile(r"^/admin/settings/users$"), "user_change": re.compile(r"^/admin/settings/users$")}
+    seen = {}
+    for who in (A1, AN):
+        for n in mine(client, who, limit=200):
+            seen.setdefault(n["kind"], []).append(n["link"])
+    assert set(seen) == set(expect), set(expect) ^ set(seen)
+    for kind, links in seen.items():
+        assert all(expect[kind].match(x) for x in links), (kind, links)
+    partner = {n["kind"]: n["link"] for n in mine(client, IV, limit=200)}
+    assert partner["report_published"] == f"/investor/portfolio/f-pil-2-0/deals/{DEAL}?period=2026-08"
+    assert partner["correction_published"] == f"/investor/portfolio/f-pil-2-0/deals/{DEAL}?period=2026-08"
+    assert partner["user_change"] == "/settings/profile"
+    assert {n["kind"]: n["link"] for n in mine(client, MV)}["report_published"].startswith("/manager/portfolio/f-pil-2-0/deals/")

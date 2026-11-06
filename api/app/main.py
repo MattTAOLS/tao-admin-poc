@@ -980,6 +980,15 @@ def user_caller(c: Caller = Depends(caller)) -> Caller:
     return user_required(c)
 
 
+def list_users_caller(c: Caller = Depends(caller), partner_slug: str | None = None, status: str | None = None,
+                      q: str | None = None) -> Caller:
+    """GET /users: as users_caller, except that a tao_analyst may ask for exactly partner_slug=tao&status=active (the
+    @mention list)."""
+    if c.role == "tao_analyst" and partner_slug == "tao" and status == "active" and q is None:
+        return c
+    return company_admin_only(c)
+
+
 def users_caller(c: Caller = Depends(caller)) -> Caller:
     """tao_admin, or a partner's Company Admin (scoped to its partner in _user_in_scope); others 403 company_admin_only."""
     return company_admin_only(c)
@@ -998,8 +1007,8 @@ def _user_in_scope(s: Session, c: Caller, user_id: str) -> AppUser:
 
 
 def _user_change(s: Session, c: Caller, u: AppUser, change: str, before, after, reason: str | None = None):
-    views.audit(s, c, "user_change", reason=reason, detail={"user_id": u.id, "partner_slug": u.partner_slug, "change": change,
-                                                           "before": before, "after": after})
+    views.audit(s, c, "user_change", reason=reason, detail={"user_id": u.id, "email": u.email, "name": u.name, "partner_slug": u.partner_slug,
+                                                           "change": change, "before": before, "after": after})
 
 
 def _me_dict(s: Session, c: Caller) -> dict:
@@ -1108,10 +1117,11 @@ def put_my_prefs(body: list[NotificationPrefIn], c: Caller = Depends(user_caller
 
 @app.get(API + "/users")
 def list_users(partner_slug: str | None = None, status: Literal["active", "deactivated"] | None = None,
-               q: str | None = Query(default=None, min_length=2), c: Caller = Depends(users_caller), s: Session = Depends(get_db)):
-    """tao_admin: everyone (partner_slug=tao: TAO users). A Company Admin: its own partner only, whatever partner_slug says."""
+               q: str | None = Query(default=None, min_length=2), c: Caller = Depends(list_users_caller), s: Session = Depends(get_db)):
+    """tao_admin: everyone (partner_slug=tao: TAO users). A Company Admin: its own partner only, whatever partner_slug says.
+    A tao_analyst: only partner_slug=tao&status=active, as {id, name, email, role} (the @mention list)."""
     qry = select(AppUser)
-    scope = partner_slug if c.is_admin else c.partner
+    scope = c.partner if c.is_company_admin else partner_slug          # the analyst gate allows only tao
     if scope == "tao":
         qry = qry.where(AppUser.partner_slug.is_(None))
     elif scope is not None:
@@ -1122,6 +1132,8 @@ def list_users(partner_slug: str | None = None, status: Literal["active", "deact
         pat = "%" + q.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         qry = qry.where(or_(func.lower(AppUser.name).like(pat, escape="\\"), func.lower(AppUser.email).like(pat, escape="\\")))
     rows = s.scalars(qry.order_by(AppUser.partner_slug.is_not(None), AppUser.partner_slug, AppUser.name)).all()
+    if not (c.is_admin or c.is_company_admin):                  # the analyst's @mention list
+        return [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in rows]
     return [people.user_dict(s, u) for u in rows]
 
 

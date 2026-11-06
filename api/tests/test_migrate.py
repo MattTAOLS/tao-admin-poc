@@ -170,3 +170,29 @@ def test_009_wave_b_is_idempotent_and_marks_ui_covenants(pg):
                        ("publication_version", "deal"), ("correction", "note_to_partners"), ("value_edit", "reverted_at")]:
         assert has_column(pg, table, col), (table, col)
     assert has_index(pg, "correction_one_pending") and has_index(pg, "value_edit_upload")
+
+
+@needs_pg
+def test_010_011_wave_c_apply_to_an_existing_database_and_are_idempotent(pg):
+    """The operator's database at 009 (data kept) gets 010 and 011; running both files again changes nothing."""
+    by_hand(pg, "009")
+    with pg.begin() as c:
+        c.execute(text("insert into partner (slug, name, kind) values ('investor', 'Investor', 'investor')"))
+        c.execute(text("insert into review_action (actor_role, action) values ('tao_admin', 'export')"))
+    applied = migrate.run(pg)
+    assert applied[-2:] == ["010_wave_c_users.sql", "011_wave_c_notifications.sql"]
+    with pg.begin() as c:
+        for n in ("010", "011"):
+            for stmt in migrate.statements(next(p for m, p in migrate.files() if m == n).read_text(encoding="utf-8")):
+                c.exec_driver_sql(stmt)
+        c.execute(text("insert into app_user (email, name, role) values ('a@example.com', 'A', 'tao_admin')"))
+    with pg.connect() as c:
+        assert c.execute(text("select count(*) from review_action where actor_user_id is null")).scalar() == 1
+        assert c.execute(text("select status from app_user")).scalar() == "active"
+    for table, col in [("app_user", "deactivation_reason"), ("subscription", "channels"), ("user_pref", "time_zone"), ("notification_pref", "digest"),
+                       ("system_setting", "updated_by"), ("review_action", "actor_user_id"), ("setrep_upload", "uploaded_by_user_id"),
+                       ("publication", "note_to_partners"), ("publication_version", "note_to_partners"), ("notification", "note_from_tao"),
+                       ("notification_event", "key"), ("thread", "resolved_at"), ("comment", "edited_at")]:
+        assert has_column(pg, table, col), (table, col)
+    assert has_index(pg, "notification_user_created") and has_index(pg, "review_action_actor_user") and has_index(pg, "comment_thread")
+    assert migrate.run(pg) == []

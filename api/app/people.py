@@ -178,19 +178,21 @@ def subscription_dict(x: Subscription) -> dict:
 
 
 def receives_summary(s: Session, user_id: str) -> str:
-    """'MOVE Trust: all deals; F-PIL 2.0: 2 deals', programs in name order; 'None' when there are no subscriptions."""
+    """'All MOVE Trust deals; Moneda Capital Corp., Stride Capital (F-PIL 2.0)', programs in name order, deals in name
+    order; 'Nothing yet' when there are no subscriptions."""
     by_program: dict[str, set] = {}
     for x in subscriptions(s, user_id):
         by_program.setdefault(x.program_slug, set()).add(x.deal_slug)
     if not by_program:
-        return "None"
+        return "Nothing yet"
     parts = []
     for slug in sorted(by_program, key=lambda k: program_name(s, k)):
         deals = by_program[slug]
         if None in deals:
-            parts.append(f"{program_name(s, slug)}: all deals")
+            parts.append(f"All {program_name(s, slug)} deals")
         else:
-            parts.append(f"{program_name(s, slug)}: {len(deals)} deal{'s' if len(deals) != 1 else ''}")
+            names = sorted((s.get(Deal, d).name if s.get(Deal, d) else d) for d in deals)
+            parts.append(f"{', '.join(names)} ({program_name(s, slug)})")
     return "; ".join(parts)
 
 

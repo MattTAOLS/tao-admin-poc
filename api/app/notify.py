@@ -121,8 +121,15 @@ def review_link(upload_id: str, thread_id: str | None = None) -> str:
     return f"/admin/uploads/queue/{upload_id}" + (f"?thread={thread_id}" if thread_id else "")
 
 
-def profile_link(u: AppUser) -> str:
-    return "/admin/settings/profile" if u.role in TAO else f"/{u.partner_slug}/settings/profile"
+def account_link(u: AppUser) -> str:
+    """user_change and system: User management for TAO, the profile page for a partner."""
+    return "/admin/settings/users" if u.role in TAO else "/settings/profile"
+
+
+def covenant_link(s: Session, deal_slug: str) -> str:
+    """The program record (any partner that has the program; the first one)."""
+    program = s.get(Program, s.get(Deal, deal_slug).program_slug)
+    return f"/admin/partners/{program.partner_slug}/programs/{program.slug}"
 
 
 def _deal_name(s: Session, slug: str) -> str:
@@ -153,8 +160,9 @@ def published(s: Session, u_up: SetrepUpload, version: int, by: str, note: str |
 def to_tao(s: Session, u_up: SetrepUpload, kind: str, title: str, body: str | None) -> list[str]:
     """report_needs_review, report_rejected, covenant_changed, system: subscribed TAO users of the upload's deal."""
     ids = []
+    link = {"covenant_changed": covenant_link(s, u_up.deal_slug)}.get(kind) or (account_link_tao() if kind == "system" else review_link(u_up.id))
     for u in subscribed_tao(s, u_up.deal_slug):
-        if create(s, u, kind, title, review_link(u_up.id), body=body, upload_id=u_up.id, deal_slug=u_up.deal_slug,
+        if create(s, u, kind, title, link, body=body, upload_id=u_up.id, deal_slug=u_up.deal_slug,
                   collection_period=u_up.collection_period) is not None:
             ids.append(u.id)
     return ids
@@ -165,8 +173,12 @@ def rejected(s: Session, u_up: SetrepUpload, reason: str, by: str, what: str = "
            f"Reason: {reason}. By {by}.")
 
 
+def account_link_tao() -> str:
+    return "/admin/settings/users"
+
+
 def user_changed(s: Session, u: AppUser, title: str, body: str | None = None) -> None:
-    create(s, u, "user_change", title, profile_link(u), body=body)
+    create(s, u, "user_change", title, account_link(u), body=body)
 
 
 def _once(s: Session, key: str) -> bool:
