@@ -7,6 +7,20 @@ info:
     `X-Partner`. Intake routes (uploads, findings, reviews, master data, audit) are TAO-only; `/published/*`
     is readable by every role but filtered to the caller's partner. Changes to this file go through the
     Lead only. The UI agents build against a mock server generated from this file (`make mock`).
+
+    Callers (wave C, risk R1). Any request may also carry `X-User`, an app_user id (parameter XUser; listed on the wave C
+    routes, accepted on every route). When it does and the user is active,
+    the caller's role and partner come from that user and `X-Role` / `X-Partner` are ignored; a deactivated user gets
+    401 `inactive_user`, an unknown id 401 `unknown_user`. Without `X-User` the demo headers work exactly as before
+    (demo mode, kept for the role switcher and every existing test) and the caller has no user. Either way the API builds
+    the same caller (role, partner), so every permission check and `partner_filter` are unchanged. Routes about one
+    person (`/me`, `/notifications`, comments) need a user and return 401 `user_required` without one. Real sign-in
+    (password, two-step) is a production item; `X-User` is the seam it will fill.
+
+    Email is not sent in phase 2 (in-app only). Where a schema reserves an email channel, sending it is refused with
+    422 `email_later` and the UI shows it as "coming later". Partner notifications are created only while the setting
+    `partner_notifications_enabled` is true (default false). Nothing is hard-deleted: users are deactivated, and data is
+    kept indefinitely except notifications, which are kept 12 months.
 servers:
   - url: http://localhost:8000/api/v1
 
@@ -15,7 +29,10 @@ components:
     XRole:
       name: X-Role
       in: header
-      required: true
+      required: false
+      description: >
+        Demo mode caller role; required when X-User is absent (neither header: 422 `invalid`, as before). Ignored when
+        X-User is sent; the user's role applies.
       schema:
         type: string
         enum: [tao_admin, tao_analyst, investor_admin, investor_viewer, manager_admin, manager_viewer]
@@ -23,14 +40,36 @@ components:
       name: X-Partner
       in: header
       required: false
-      description: Partner slug; required for investor_* and manager_* roles.
+      description: Partner slug; required for investor_* and manager_* roles in demo mode. Ignored when X-User is sent.
       schema: { type: string }
+    XUser:
+      name: X-User
+      in: header
+      required: false
+      description: >
+        An app_user id. When the user is active, role and partner come from the user record and X-Role / X-Partner are
+        ignored. Deactivated user: 401 `inactive_user`; unknown id: 401 `unknown_user`. Absent: demo mode (X-Role,
+        X-Partner) with no user.
+      schema: { type: string, format: uuid }
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ThreadId:
+      name: thread_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     UploadId:
       name: upload_id
       in: path
       required: true
       schema: { type: string, format: uuid }
   responses:
+    Unauthorized:
+      description: '`unknown_user` or `inactive_user` (X-User), or `user_required` (the route is about one person and no X-User was sent).'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Forbidden:
       description: Role may not call this route, or partner does not own the resource.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
@@ -49,8 +88,14 @@ components:
       required: [code, message]
       description: |
         Every error is `{code, message}` at the top level (422 may add `errors[]` with field detail). Codes:
+        401 `unknown_user`, `inactive_user` (X-User), `user_required` (route about one person, no X-User);
         403 `forbidden`, `bad_role` (unknown X-Role), `bad_partner` (X-Partner missing or not the caller's), `tao_only`,
-        `admin_only`; 404 `not_found`;
+        `admin_only`, `company_admin_only` (users routes: tao_admin or the partner's Company Admin), `not_author`
+        (edit someone else's comment); 404 `not_found`;
+        409 (users) `self_change` (own role or own deactivation), `last_admin` (would leave no active tao_admin, or a
+        partner without an active Company Admin), `other_partner` (a Company Admin naming another partner or a TAO role),
+        `email_taken`, `already_active`, `already_deactivated`. A Company Admin asking for another partner's user gets 404;
+        409 (threads) `bad_state` (comment on a resolved thread; resolve a resolved one; reopen an open one);
         409 `already_published` (period published for this deal and `replace` not set; R12 pre-check), `upload_in_progress` (another active
         upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
         (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
@@ -59,7 +104,11 @@ components:
         `conflicts`), `correction_inconsistent` (approve: re-running the rules on the corrected deal raises a block
         finding no resolved finding covers; body adds `findings`; nothing is published);
         422 `invalid` (also a missing X-Role), `unknown_deal`, `unknown_program`, `unknown_partner`, `not_a_pdf`,
-        `nothing_to_replace` (`replace` set but the period has no publication).
+        `nothing_to_replace` (`replace` set but the period has no publication), `role_partner_mismatch` (TAO role with a
+        partner_slug, or a partner role without its own partner), `email_later` (email channel requested; in-app only in
+        phase 2), `not_visible` (subscription to a program not shared with the user's partner), `bad_mention` (mention of
+        a user who is not an active TAO user), `required` (switching off a notification kind that cannot be switched
+        off), `unknown_setting`.
       properties:
         code: { type: string }
         message: { type: string }
@@ -277,8 +326,9 @@ components:
         A corrected re-issue (POST /uploads with replace=true) also archives the old publication and becomes the next version.
         A change to a published report without a new PDF. The rules re-run on the published deal with the edits applied.
         With no open block finding it is published straight away as the next version; otherwise it waits in the approval queue
-        (status needs_review) and the current version stays live until a TAO Admin approves or rejects it. Partner notification
-        of a correction is wired in wave C; `note_to_partners` is stored now.
+        (status needs_review) and the current version stays live until a TAO Admin approves or rejects it. When it publishes,
+        a correction_published notification goes to the deal's subscribers (see Notification), with `note_to_partners` as
+        note_from_tao and the changed fields as `changes`.
       properties:
         id: { type: string, format: uuid }
         upload_id: { type: string, format: uuid }
@@ -380,12 +430,22 @@ components:
     AuditEntry:
       type: object
       required: [id, at, actor_role, action, upload_id]
+      description: |
+        Scope is derived from the action. Reports: every action that carries an upload_id, plus publish and regenerate;
+        the wave C comment actions are Reports (comment, comment_edit, thread_resolve, thread_reopen; they always carry
+        the upload_id). Platform: everything else, including master_change, export and the wave C user_change,
+        prefs_change and settings_change (no upload_id).
+        Wave C detail shapes: user_change {user_id, partner_slug, change: created|updated|deactivated|reactivated|subscriptions,
+        before, after}; prefs_change {user_id, before, after}; settings_change {key, before, after}; comment {thread_id,
+        comment_id, anchor, body, mentions}; comment_edit {thread_id, comment_id, before, after}; thread_resolve and
+        thread_reopen {thread_id}. Approve with a note adds {note_to_partners, recipients} to the publish entry.
       properties:
         id: { type: string, format: uuid }
         at: { type: string, format: date-time }
         actor_role: { type: string }
         actor_label: { type: string }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject] }
+        actor_user_id: { type: [string, 'null'], format: uuid, description: 'set when the caller sent X-User; null in demo mode' }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -393,6 +453,265 @@ components:
         deal_slug: { type: [string, 'null'], description: 'the upload''s deal, or detail.deal_slug; null for platform entries without a deal' }
         deal_name: { type: [string, 'null'] }
         collection_period: { type: [string, 'null'], description: 'YYYY-MM of the upload (MOVE Trust: the report''s own month; F-PIL: the settlement month)' }
+
+    Role:
+      type: string
+      enum: [tao_admin, tao_analyst, investor_admin, investor_viewer, manager_admin, manager_viewer]
+    AppUser:
+      type: object
+      required: [id, email, name, role, partner_slug, status, created_at]
+      description: |
+        A person. TAO roles have partner_slug null; investor_* and manager_* roles carry their own partner. There is no
+        hard delete: a deactivated user cannot call the API (401 `inactive_user`) and keeps their name on uploads,
+        comments and audit rows. Reactivate restores the same account.
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email, description: unique }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        partner_slug: { type: [string, 'null'] }
+        status: { type: string, enum: [active, deactivated] }
+        created_at: { type: string, format: date-time }
+        last_active_at: { type: [string, 'null'], format: date-time }
+        deactivated_at: { type: [string, 'null'], format: date-time }
+        deactivation_reason: { type: [string, 'null'] }
+        receives_summary: { type: string, readOnly: true, description: 'one line from the subscriptions, e.g. "MOVE Trust: all deals; F-PIL 2.0: 2 deals"; "None" when empty' }
+    AppUserCreate:
+      type: object
+      required: [email, name, role]
+      description: 'partner_slug is required for partner roles and must be null for TAO roles (422 `role_partner_mismatch`). No invite email in phase 2.'
+      properties:
+        email: { type: string, format: email }
+        name: { type: string, minLength: 1 }
+        role: { $ref: '#/components/schemas/Role' }
+        partner_slug: { type: [string, 'null'] }
+    AppUserPatch:
+      type: object
+      minProperties: 1
+      properties:
+        email: { type: string, format: email }
+        name: { type: string, minLength: 1 }
+        role: { $ref: '#/components/schemas/Role' }
+        partner_slug: { type: [string, 'null'] }
+    StatusChangeRequest:
+      type: object
+      required: [reason]
+      properties: { reason: { type: string, minLength: 3 } }
+    Subscription:
+      type: object
+      required: [program_slug, deal_slug, channels]
+      description: |
+        Which reports a user is notified about. deal_slug null = every deal in the program, including deals added later;
+        a deal entry overrides the program entry's channels for that deal. Subscriptions only decide who is notified;
+        they never widen what a partner can see (reads still go through partner_filter). Mentions reach a person
+        whatever they subscribe to.
+      properties:
+        program_slug: { type: string }
+        deal_slug: { type: [string, 'null'] }
+        channels:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [in_app, email] }
+          description: '[in_app] in phase 2; email is reserved and refused with 422 `email_later`'
+    Me:
+      type: object
+      required: [user, role, partner_slug, display]
+      properties:
+        user: { oneOf: [ { $ref: '#/components/schemas/AppUser' }, { type: 'null' } ], description: 'null in demo mode (no X-User)' }
+        role: { $ref: '#/components/schemas/Role' }
+        partner_slug: { type: [string, 'null'] }
+        display: { $ref: '#/components/schemas/DisplayPrefs' }
+    DisplayPrefs:
+      type: object
+      description: 'Display only; stored figures never change. Defaults apply in demo mode.'
+      properties:
+        time_zone: { type: string, default: America/Toronto, description: IANA zone }
+        date_format: { type: string, enum: ['D MMM YYYY', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY'], default: 'D MMM YYYY' }
+        number_format: { type: string, enum: ['1,234.56', '1 234,56'], default: '1,234.56' }
+    MePatch:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1 }
+        time_zone: { type: string }
+        date_format: { type: string, enum: ['D MMM YYYY', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY'] }
+        number_format: { type: string, enum: ['1,234.56', '1 234,56'] }
+    NotificationKind:
+      type: string
+      enum: [mention, reply, report_needs_review, report_published, correction_published, covenant_changed, report_rejected, user_change, system]
+    NotificationPref:
+      type: object
+      required: [kind, in_app, digest]
+      description: |
+        One row per kind the role can receive; GET returns every such kind, defaults (setting notification_defaults)
+        filled in. covenant_changed (WATCH / BREACH) and correction_published are `required`: in_app false is refused
+        with 422 `required`. digest is stored now and used by the email channel when it arrives; in-app items always
+        arrive at once.
+      properties:
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        in_app: { type: boolean }
+        digest: { type: string, enum: [instant, daily] }
+        required: { type: boolean, readOnly: true }
+    Notification:
+      type: object
+      required: [id, kind, title, link, created_at, read_at]
+      description: |
+        Only ever the caller's own. Who gets what:
+        report_published and correction_published: users subscribed to the deal (directly or through its program), at a
+        partner the program is shared with (the partner_filter rule), plus subscribed TAO users. Partner users get them
+        only while the setting partner_notifications_enabled is true.
+        report_needs_review, report_rejected, covenant_changed, system (e.g. extraction failed): subscribed TAO users.
+        mention: the mentioned user. reply: the other people in the thread. user_change: the user whose account or
+        subscriptions changed.
+        A kind the user switched off (NotificationPref.in_app false) is not created. A partner's list is filtered through
+        partner_filter again on read, so a program TAO stops sharing drops out. Kept 12 months.
+        Tabs: mentions = mention, reply; reports = report_needs_review, report_published, correction_published,
+        covenant_changed, report_rejected; system = user_change, system.
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        title: { type: string }
+        body: { type: [string, 'null'] }
+        link: { type: string, description: 'app path, e.g. /admin/review/<upload_id>?thread=<id> or /investor/programs/<p>/deals/<d>?period=2026-08' }
+        upload_id: { type: [string, 'null'], format: uuid }
+        deal_slug: { type: [string, 'null'] }
+        collection_period: { type: [string, 'null'] }
+        version: { type: [integer, 'null'], description: 'publication version for report_published / correction_published' }
+        thread_id: { type: [string, 'null'], format: uuid, description: 'mention and reply' }
+        note_from_tao: { type: [string, 'null'], description: 'the approve or correction note_to_partners, exactly as typed; signed by TAO, not the person' }
+        changes:
+          type: [array, 'null']
+          description: 'correction_published: the changed fields, old to new'
+          items: { type: object, properties: { pointer: { type: string }, label: { type: string }, old_value: { type: number }, new_value: { type: number } } }
+        created_at: { type: string, format: date-time }
+        read_at: { type: [string, 'null'], format: date-time }
+    UnreadCount:
+      type: object
+      required: [total, mentions, reports, system]
+      properties:
+        total: { type: integer }
+        mentions: { type: integer }
+        reports: { type: integer }
+        system: { type: integer }
+    ThreadAnchor:
+      type: object
+      description: 'Exactly one of finding_id (a finding card) or pointer (an extracted value, JSON pointer into extraction.deal).'
+      oneOf:
+        - { required: [finding_id] }
+        - { required: [pointer] }
+      properties:
+        finding_id: { type: string, format: uuid }
+        pointer: { type: string }
+        rule_id: { type: [string, 'null'], readOnly: true, description: 'copied from the finding, so the anchor still reads after the rules re-run' }
+    CommentAuthor:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    Comment:
+      type: object
+      required: [id, thread_id, author, body, mentions, created_at, edited_at]
+      properties:
+        id: { type: string, format: uuid }
+        thread_id: { type: string, format: uuid }
+        author: { $ref: '#/components/schemas/CommentAuthor' }
+        body: { type: string }
+        mentions: { type: array, items: { type: string, format: uuid }, description: user ids }
+        created_at: { type: string, format: date-time }
+        edited_at: { type: [string, 'null'], format: date-time }
+    Thread:
+      type: object
+      required: [id, upload_id, anchor, status, created_by, created_at, comments]
+      description: |
+        Internal to TAO; never shown to partners, in the portal or in a notification. A thread lives on the upload, so a
+        correction (same upload, next version) keeps its threads; `version` is the publication version current when the
+        thread started (null before the first publish), so the UI can mark "from version 1". A corrected re-issue (new
+        upload) also lists the replaced upload's threads, each with its own upload_id.
+      properties:
+        id: { type: string, format: uuid }
+        upload_id: { type: string, format: uuid }
+        anchor: { $ref: '#/components/schemas/ThreadAnchor' }
+        status: { type: string, enum: [open, resolved] }
+        version: { type: [integer, 'null'] }
+        created_by: { $ref: '#/components/schemas/CommentAuthor' }
+        created_at: { type: string, format: date-time }
+        resolved_by: { oneOf: [ { $ref: '#/components/schemas/CommentAuthor' }, { type: 'null' } ] }
+        resolved_at: { type: [string, 'null'], format: date-time }
+        comments: { type: array, items: { $ref: '#/components/schemas/Comment' }, description: oldest first }
+    CommentRequest:
+      type: object
+      required: [body]
+      description: 'mentions: ids of active TAO users only (else 422 `bad_mention`); each is notified once.'
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        mentions: { type: array, items: { type: string, format: uuid }, default: [] }
+    ThreadCreate:
+      type: object
+      required: [anchor, body]
+      properties:
+        anchor: { $ref: '#/components/schemas/ThreadAnchor' }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        mentions: { type: array, items: { type: string, format: uuid }, default: [] }
+    ApproveRequest:
+      type: object
+      description: 'Optional body; an empty body (as today) is the same as note_to_partners null.'
+      properties:
+        note_to_partners: { type: [string, 'null'], maxLength: 2000 }
+    Recipients:
+      type: object
+      required: [notified, not_notified]
+      description: |
+        Who a publish of this upload's deal would notify, computed from subscriptions, partner visibility (the
+        partner_filter rule), user status, notification prefs and partner_notifications_enabled. The same list applies
+        to a correction of the upload.
+      properties:
+        notified:
+          type: array
+          items:
+            type: object
+            required: [user_id, name, partner_slug, channels]
+            properties:
+              user_id: { type: string, format: uuid }
+              name: { type: string }
+              partner_slug: { type: [string, 'null'] }
+              channels: { type: array, items: { type: string, enum: [in_app, email] } }
+        not_notified:
+          type: array
+          items:
+            type: object
+            required: [user_id, name, reason]
+            properties:
+              user_id: { type: string, format: uuid }
+              name: { type: string }
+              partner_slug: { type: [string, 'null'] }
+              reason: { type: string, enum: [not_subscribed, deactivated, not_visible, switched_off, partner_notifications_off] }
+    Setting:
+      type: object
+      required: [key, value, updated_at, updated_by]
+      description: |
+        Keys (any other is 422 `unknown_setting`):
+        partner_notifications_enabled: boolean, default false. Off: no partner notifications are created.
+        reporting_calendar: {deal_slug: expected_day (1-31)}; feeds "next report due" and the overdue check.
+        notification_defaults: {role: [NotificationPref]}; applies to new users and "Reset to defaults", never to choices
+        people already made.
+        publish_note_templates: {new_report: string, correction: string}; fields in braces ({deal_name},
+        {collection_period}, {program_name}, {covenant_summary}, {change_list}, {reason}) are filled when the dialog opens.
+        company_feeds: object, placeholder for wave D; stored, not used yet.
+        Not settings: validation rules and tolerances (contracts/rules.yaml) and extraction templates are read-only on
+        screen; data retention is fixed (kept indefinitely; notifications 12 months).
+      properties:
+        key: { type: string, enum: [partner_notifications_enabled, reporting_calendar, notification_defaults, publish_note_templates, company_feeds] }
+        value: { description: any JSON, shape per key }
+        updated_at: { type: [string, 'null'], format: date-time, description: 'null while the default applies' }
+        updated_by: { type: [string, 'null'] }
+    SettingChange:
+      type: object
+      required: [value, reason]
+      properties:
+        value: { description: any JSON, shape per key }
+        reason: { type: string, minLength: 3 }
 
 paths:
   /uploads:
@@ -470,11 +789,45 @@ paths:
   /uploads/{upload_id}/approve:
     post:
       summary: Approve; applies use_ours / use_report values (see OverrideRequest), publishes and regenerates dashboards (tao_admin only; refused while block findings are open)
+      description: >
+        Optional body {note_to_partners}. The note is stored on the publication version (PublicationVersion.note_to_partners)
+        and sent as note_from_tao in the report_published notifications to the recipients GET /uploads/{upload_id}/recipients
+        lists; the publish audit entry records the note and the recipients.
       parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/ApproveRequest' } } } }
       responses:
         '200': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict', description: '`open_block_findings`, `conflicting_corrections`, `correction_inconsistent`, `bad_state` or `no_extraction`' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`invalid` (note longer than 2000)' }
+  /uploads/{upload_id}/recipients:
+    get:
+      summary: Who a publish or correction of this upload would notify, and who not and why (TAO)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Recipients' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /uploads/{upload_id}/threads:
+    get:
+      summary: Comment threads on this upload, open first (TAO only; partners 403)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UploadId' }, { name: status, in: query, schema: { type: string, enum: [open, resolved] } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Thread' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Start a thread on a finding or a value, with its first comment (TAO Admin or Analyst, needs a user); writes a comment audit entry (Reports)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ThreadCreate' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Thread' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`bad_mention`, or `invalid` (finding not on this upload, pointer not in the extraction)' }
   /uploads/{upload_id}/edits:
     get:
       summary: Value edits on this upload, newest first, reverted ones included (TAO)
@@ -649,7 +1002,8 @@ paths:
       summary: Audit log (at most `limit` rows, default 100). scope=reports is readable by tao_admin and tao_analyst; scope=platform (and no scope) by tao_admin only.
       description: >
         Newest first. Scope is derived from the action, not stored: reports = entries with an upload_id, plus publish and
-        regenerate; platform = everything else (master_change and later user and settings changes). Months are calendar months in
+        regenerate (so comment, comment_edit, thread_resolve, thread_reopen are reports); platform = everything else
+        (master_change, export, user_change, prefs_change, settings_change). Months are calendar months in
         America/Toronto. q searches action, actor, reason, deal and detail text across every month unless `month` is given.
       parameters:
         - { $ref: '#/components/parameters/XRole' }
@@ -690,6 +1044,236 @@ paths:
       responses:
         '200': { description: CSV, content: { text/csv: { schema: { type: string } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /threads/{thread_id}/comments:
+    post:
+      summary: Add a comment to an open thread (TAO, needs a user); mentions notify; replies notify the thread's other people; writes a comment audit entry (Reports)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/ThreadId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CommentRequest' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` (thread resolved; reopen it first)' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`bad_mention`' }
+  /comments/{comment_id}:
+    patch:
+      summary: Edit your own comment (author only, else 403 `not_author`); shown as edited; the old text is kept in a comment_edit audit entry (Reports). Comments cannot be deleted.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { name: comment_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CommentRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`bad_mention`; only newly added mentions are notified' }
+  /threads/{thread_id}/resolve:
+    post:
+      summary: Resolve a thread (any TAO Admin, or the thread's starter); does not change the finding; writes thread_resolve (Reports)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/ThreadId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Thread' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` (already resolved)' }
+  /threads/{thread_id}/reopen:
+    post:
+      summary: Reopen a resolved thread (any TAO Admin, or the thread's starter); writes thread_reopen (Reports)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/ThreadId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Thread' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state` (already open)' }
+
+  /me:
+    get:
+      summary: The caller (every role); user is null in demo mode
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      summary: Change your own name and display settings (needs a user); writes a prefs_change audit entry (Platform). Role, email and partner are not self-editable.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MePatch' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /me/notification-prefs:
+    get:
+      summary: Your notification settings, one row per kind your role can receive (needs a user)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NotificationPref' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      summary: Replace your notification settings (kinds left out go back to the defaults); writes a prefs_change audit entry (Platform)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NotificationPref' } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NotificationPref' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`required` (covenant_changed or correction_published switched off) or `invalid` (a kind the role cannot receive)' }
+
+  /users:
+    get:
+      summary: Users (tao_admin sees all; a partner Company Admin sees only its own partner's users; others 403 `company_admin_only`)
+      description: >
+        partner_slug filters by partner (`tao` lists TAO users); for a Company Admin it is forced to their own partner. q
+        matches name and email. TAO Analyst has no access (C3).
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { $ref: '#/components/parameters/XPartner' }
+        - { $ref: '#/components/parameters/XUser' }
+        - { name: partner_slug, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [active, deactivated] } }
+        - { name: q, in: query, schema: { type: string, minLength: 2 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AppUser' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: Add a user (active, no subscriptions); writes a user_change audit entry (Platform)
+      description: >
+        tao_admin may add any role. A Company Admin (investor_admin, manager_admin) may add only its own partner's
+        admin or viewer; any other role or partner is 409 `other_partner`.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AppUserCreate' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`other_partner` or `email_taken`' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`role_partner_mismatch`, `unknown_partner` or `invalid`' }
+  /users/{user_id}:
+    get:
+      summary: One user (tao_admin; a Company Admin for its own partner's users, else 404)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: Change name, email, role or partner; writes a user_change audit entry with before and after (Platform)
+      description: >
+        Same scope as POST /users. Nobody changes their own role (409 `self_change`). A change that leaves no active
+        tao_admin, or a partner without an active Company Admin, is 409 `last_admin`.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AppUserPatch' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`self_change`, `last_admin`, `other_partner` or `email_taken`' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`role_partner_mismatch`, `unknown_partner` or `invalid`' }
+  /users/{user_id}/deactivate:
+    post:
+      summary: Deactivate (there is no hard delete); the user's X-User then gets 401 `inactive_user`; writes a user_change audit entry (Platform)
+      description: 'Same scope as POST /users. Not yourself (409 `self_change`); not the last active tao_admin or a partner''s last active Company Admin (409 `last_admin`).'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StatusChangeRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`self_change`, `last_admin` or `already_deactivated`' }
+  /users/{user_id}/reactivate:
+    post:
+      summary: Reactivate the same account; writes a user_change audit entry (Platform)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StatusChangeRequest' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`already_active`' }
+  /users/{user_id}/subscriptions:
+    get:
+      summary: Reports this user is notified about (tao_admin; a Company Admin for its own partner's users; the user themselves, read-only)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Subscription' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Replace the whole subscription list (tao_admin; a Company Admin for its own partner's users); writes a user_change audit entry with before and after (Platform)
+      description: >
+        A partner user may subscribe only to programs shared with their partner (422 `not_visible`). Subscriptions decide
+        who is notified and never widen what a partner can see.
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UserId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Subscription' } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Subscription' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`not_visible`, `email_later`, `unknown_program`, `unknown_deal` or `invalid` (deal not in the program)' }
+
+  /notifications:
+    get:
+      summary: Your own notifications, newest first (every role; needs a user). See Notification for who gets what.
+      parameters:
+        - { $ref: '#/components/parameters/XRole' }
+        - { $ref: '#/components/parameters/XPartner' }
+        - { $ref: '#/components/parameters/XUser' }
+        - { name: tab, in: query, schema: { type: string, enum: [all, mentions, reports, system], default: all } }
+        - { name: unread, in: query, schema: { type: boolean } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Notification' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /notifications/unread-count:
+    get:
+      summary: Your unread counts per tab, for the sidebar badge
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UnreadCount' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /notifications/{notification_id}/read:
+    post:
+      summary: Mark one of your notifications read (another person's is 404)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: notification_id, in: path, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /notifications/read-all:
+    post:
+      summary: Mark all your notifications in one tab read (default all)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: tab, in: query, schema: { type: string, enum: [all, mentions, reports, system], default: all } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [marked], properties: { marked: { type: integer } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /settings:
+    get:
+      summary: System settings, every key with its current value or default (tao_admin)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Setting' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /settings/{key}:
+    put:
+      summary: Change one setting with a reason (tao_admin); writes a settings_change audit entry with before and after (Platform)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { name: key, in: path, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SettingChange' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Setting' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`unknown_setting` or `invalid` (value does not fit the key)' }
 
   /health:
     get:
