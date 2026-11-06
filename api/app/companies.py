@@ -243,11 +243,11 @@ def first_vintage(s: Session, deals: list[Deal]) -> str | None:
     return min(starts) if starts else None
 
 
-def record(c: Company, deal_slugs: list[str]) -> dict:
-    """What a company_change entry records as before / after."""
+def record(c: Company, deal_slugs: list[str] | None = None) -> dict:
+    """The record fields a company_change entry records (deal links go in their own `deals` entry)."""
     return {"slug": c.slug, "name": c.name, "aliases": list(c.aliases or []), "industry": c.industry, "naics": c.naics,
             "headquarters": c.headquarters, "website": c.website, "relationship_since": c.relationship_since,
-            "owner_user_id": c.owner_user_id, "deal_slugs": sorted(deal_slugs)}
+            "owner_user_id": c.owner_user_id}
 
 
 def company_dict(s: Session, c: Company | None, deals: list[Deal], tao: bool, user_id: str | None, fallback: Deal | None = None,
@@ -306,6 +306,14 @@ def _limit(deal: dict, field: str) -> dict | None:
         if m and m[1] == field:
             return {"legal_ref": c["legal_ref"], "threshold": c["threshold"], "kind": c["kind"]}
     return None
+
+
+def _per_company(pairs: list[tuple]) -> list[float]:
+    """One value per company (decision D3): a company with several deals counts once, at the median of its deals' values."""
+    by: dict[str, list[float]] = {}
+    for d, v in pairs:
+        by.setdefault(d.company_slug or d.slug, []).append(v)
+    return [statistics.median(v) for v in by.values()]
 
 
 def _median(vals):
@@ -400,8 +408,11 @@ def insights(s: Session, deal_row: Deal, pub: Publication, now: dt.date | None =
     months = list(rows)[-WINDOW:]
     if not months:                                             # no ratio history (Meridian): the 13 months to the report
         months = [add_months(pub.collection_period, -i) for i in range(WINDOW - 1, -1, -1)]
-    peers = []                                                  # (deal, latest publication) of the other deals in the program
+    peers = []                   # (deal, latest publication, ratio rows) of the program's deals of OTHER companies
+    mine = deal_row.company_slug or deal_row.slug                 # a deal on no company is its own company
     for d in s.scalars(select(Deal).where(Deal.program_slug == deal_row.program_slug, Deal.slug != deal_row.slug).order_by(Deal.slug)).all():
+        if (d.company_slug or d.slug) == mine:
+            continue
         p = latest_pub(s, d.slug)
         if p is not None:
             peers.append((d, p, ratio_rows(p.deal)))
@@ -411,7 +422,7 @@ def insights(s: Session, deal_row: Deal, pub: Publication, now: dt.date | None =
             continue
         med, mean, counts = [], [], []
         for m in months:
-            vals = [pr[m][field] for _, _, pr in peers if m in pr and _num(pr[m].get(field))]
+            vals = _per_company([(d, pr[m][field]) for d, _, pr in peers if m in pr and _num(pr[m].get(field))])
             med.append({"month": m, "value": _median(vals)})
             mean.append({"month": m, "value": _mean(vals)})
             counts.append({"month": m, "count": len(vals)})
@@ -440,11 +451,11 @@ def insights(s: Session, deal_row: Deal, pub: Publication, now: dt.date | None =
     mine_ph = sorted({p.get("period") for p in deal.get("period_history") or [] if isinstance(p.get("period"), str)})
     for m in mine_ph:
         vals = []
-        for _, p, _ in peers:
+        for d, p, _ in peers:
             r = next((x for x in p.deal.get("period_history") or [] if x.get("period") == m), None)
             if r and _num(r.get("opening_balance")) and _num(r.get("closing_balance")) and r["opening_balance"]:
-                vals.append((r["closing_balance"] - r["opening_balance"]) / r["opening_balance"])
-        balance.append({"month": m, "value": _median(vals)})
+                vals.append((d, (r["closing_balance"] - r["opening_balance"]) / r["opening_balance"]))
+        balance.append({"month": m, "value": _median(_per_company(vals))})
     late = late_signal(next_report(s, deal_row, pub, now))
     signals = _signals(s, deal_row, pub, series) + signals + ([late] if late else [])
     return {"deal_slug": deal_row.slug, "collection_period": pub.collection_period, "signals": signals, "series": series,

@@ -180,7 +180,7 @@ def test_010_011_wave_c_apply_to_an_existing_database_and_are_idempotent(pg):
         c.execute(text("insert into partner (slug, name, kind) values ('investor', 'Investor', 'investor')"))
         c.execute(text("insert into review_action (actor_role, action) values ('tao_admin', 'export')"))
     applied = migrate.run(pg)
-    assert applied[-2:] == ["010_wave_c_users.sql", "011_wave_c_notifications.sql"]
+    assert applied[-3:] == ["010_wave_c_users.sql", "011_wave_c_notifications.sql", "012_wave_d_companies.sql"]
     with pg.begin() as c:
         for n in ("010", "011"):
             for stmt in migrate.statements(next(p for m, p in migrate.files() if m == n).read_text(encoding="utf-8")):
@@ -195,4 +195,32 @@ def test_010_011_wave_c_apply_to_an_existing_database_and_are_idempotent(pg):
                        ("notification_event", "key"), ("thread", "resolved_at"), ("comment", "edited_at")]:
         assert has_column(pg, table, col), (table, col)
     assert has_index(pg, "notification_user_created") and has_index(pg, "review_action_actor_user") and has_index(pg, "comment_thread")
+    assert migrate.run(pg) == []
+
+
+@needs_pg
+def test_012_wave_d_applies_to_an_existing_database_and_is_idempotent(pg):
+    """The operator's database at 011 (deals kept) gets 012: deals gain company_slug (null), the wave D tables exist, and
+    running the file again changes nothing."""
+    by_hand(pg, "011")
+    with pg.begin() as c:
+        c.execute(text("insert into partner (slug, name, kind) values ('investor', 'Investor', 'investor')"))
+        c.execute(text("insert into program (slug, name, partner_slug, \"limit\") values ('p', 'P', 'investor', 1)"))
+        c.execute(text("insert into deal (slug, name, program_slug, servicer, template_id) values ('d', 'D', 'p', 's', 't')"))
+    applied = migrate.run(pg)
+    assert applied[-1] == "012_wave_d_companies.sql"
+    with pg.begin() as c:
+        for stmt in migrate.statements(next(p for m, p in migrate.files() if m == "012").read_text(encoding="utf-8")):
+            c.exec_driver_sql(stmt)
+        c.execute(text("insert into company (slug, name) values ('co', 'Co')"))
+        c.execute(text("update deal set company_slug = 'co'"))
+        c.execute(text("insert into news_run (trigger) values ('manual')"))
+    with pg.connect() as c:
+        assert c.execute(text("select company_slug from deal")).scalar() == "co"
+        assert c.execute(text("select status from news_run")).scalar() == "queued"
+        assert c.execute(text("select aliases::text from company")).scalar() == "[]"
+    for table, col in [("company", "relationship_since"), ("company_contact", "removed_at"), ("company_note", "removed_at"),
+                       ("company_follow", "user_id"), ("news_item", "sentiment"), ("adverse_item", "state_by"), ("deal", "company_slug")]:
+        assert has_column(pg, table, col), (table, col)
+    assert has_index(pg, "deal_company") and has_index(pg, "adverse_item_company") and has_index(pg, "news_item_company_found")
     assert migrate.run(pg) == []

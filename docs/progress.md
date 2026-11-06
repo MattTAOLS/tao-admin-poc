@@ -1046,17 +1046,22 @@ Append an entry when a work package lands. Newest first.
   `company_profiles_partner_enabled` (else 404 `not_found`), scoped by `visible_deals` = deals of the programs
   `visible_programs` gives `partner_filter`; a company with no visible deal is 404. Notes: partners 403 `tao_only`
   (404 while profiles are off); CompanyRow.notes absent and Company.owner null for partners.
-- Figures from each deal's latest publication only. Insights: 13 ratio months, program median and mean over the other
-  deals of the program (null under 2), loss peers on the same rolling field (drawn false past 10x), covenant history
+- Figures from each deal's latest publication only. Insights: 13 ratio months, program median and mean one point per
+  other company in the program (a company with several deals at the median of its deals; its own deals left out; null
+  under 2 companies; contract 1f5f594), balance_median_change the same way, loss peers on the same rolling field (drawn false past 10x), covenant history
   (published where a publication's ratio month exists, else recomputed with `covenants_as_of` and the deal's watch
   buffer), signals, restatements (company restatements + data_corrections). Checked against docs/dashboard-json (Essex
-  July 2026 delinquency 0.0131; MOVE Trust median 0.0042 from the 7 other MOVE deals that report it).
+  July 2026 delinquency 0.0131; MOVE Trust median 0.0042 over the 5 other companies reporting it, TLFC once).
 - next_report from `reporting_calendar` and the settlement offset; late after 5 business days with no upload of the
   period. news_7d and adverse.state read `not_screened` until an ok / partial run finished after the company was made.
 - Settings: `company_feeds` validated and merged over its defaults (fields left out keep their value);
   `company_profiles_partner_enabled` (default false); `Me.features.companies`.
-- Audit: company_change (record, links, contacts; before / after), adverse_change, news_run in Platform; company_note
-  and company_note_edit in Reports, where comments go.
+- Audit, all five in Platform, details in the Lead's shapes: company_change {company_slug, company_name, change
+  (created | record | deals | contact_added | contact_edited | contact_removed), contact_id, before, after} with changed
+  fields only (a PATCH that edits fields and links writes a `record` and a `deals` entry; moving a deal also writes a
+  `deals` entry on the company it left); company_note {company_slug, note_id, body, mentions, collection_period};
+  company_note_edit {company_slug, note_id, change edited | removed, before, after}; adverse_change {company_slug,
+  adverse_id, category, title, state, note}; news_run {run_id, trigger}.
 - Notifications (sweep, notification_event keys, each once): adverse_media (open item to TAO followers; reviewed item
   to partner followers, the review route runs the sweep at once), negative_news (followers), report_late (TAO
   subscribers, once per deal and period). Partners only while partner_notifications_enabled and

@@ -1,7 +1,7 @@
 """Audit log reads for GET /audit, /audit/months and /audit/export.csv (phase 2 wave A, contract 9764f69).
 
 Scope is derived from the action, never stored, so no row moves: reports = entries with an upload_id, plus publish and
-regenerate (a manual regenerate has no upload) and company notes; platform = everything else (master_change, export, later user and settings
+regenerate (a manual regenerate has no upload); platform = everything else (master_change, export, later user and settings
 changes). Months are calendar months in America/Toronto. The `extract` rows that views.failure_reason reads stay as they are."""
 import csv, datetime as dt, io, json
 from zoneinfo import ZoneInfo
@@ -11,9 +11,8 @@ from .models import Deal, ReviewAction, SetrepUpload
 
 TZ = ZoneInfo("America/Toronto")
 SCOPES = ("reports", "platform")
-# company notes (wave D) go where comments go: the reports log, which both TAO roles read. company_change, adverse_change
-# and news_run are platform entries like master_change.
-REPORT_ACTIONS_WITHOUT_UPLOAD = ("publish", "regenerate", "company_note", "company_note_edit")
+# wave D actions (company_change, company_note, company_note_edit, adverse_change, news_run) carry no upload: Platform.
+REPORT_ACTIONS_WITHOUT_UPLOAD = ("publish", "regenerate")
 
 
 def is_reports():

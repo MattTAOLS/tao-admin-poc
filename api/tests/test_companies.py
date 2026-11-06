@@ -170,9 +170,14 @@ def test_create_and_relink_deals_with_audit(client, published):
     assert code(client.post(V1 + "/companies", headers=TAO, json=body)) == (409, "slug_taken")
     assert code(client.post(V1 + "/companies", headers=TAO, json={**body, "slug": "x", "deal_slugs": ["nope"]})) == (422, "unknown_deal")
     assert client.post(V1 + "/companies", headers=TAO, json={**body, "slug": "Bad Slug"}).status_code == 422
-    entry = next(a for a in audit(client, scope="platform", action="company_change") if a["detail"]["change"] == "created")
-    assert entry["detail"]["company_slug"] == "tlfc-lp" and entry["detail"]["moved_from"] == {"move-trust-tlfc-lp-leases": "tlfc"}
-    assert entry["reason"] == "split LP out" and entry["detail"]["before"] is None and entry["detail"]["after"]["deal_slugs"] == ["move-trust-tlfc-lp-leases"]
+    made = audit(client, scope="platform", action="company_change")
+    assert {k for a in made for k in a["detail"]} == {"company_slug", "company_name", "change", "contact_id", "before", "after"}
+    created = next(a for a in made if a["detail"]["change"] == "created")
+    assert created["detail"]["company_name"] == "TLFC LP" and created["detail"]["before"] is None and created["detail"]["contact_id"] is None
+    assert created["reason"] == "split LP out" and created["detail"]["after"]["name"] == "TLFC LP"
+    links = {a["detail"]["company_slug"]: a["detail"] for a in made if a["detail"]["change"] == "deals"}
+    assert links["tlfc-lp"]["before"] == {"deal_slugs": []} and links["tlfc-lp"]["after"] == {"deal_slugs": ["move-trust-tlfc-lp-leases"]}
+    assert links["tlfc"]["after"] == {"deal_slugs": ["move-trust-tlfc-leases", "move-trust-tlfc-loans"]}     # the company it left
     # taking a deal away leaves it on no company: its own row, named after the deal, readable by its slug
     r = client.patch(V1 + "/companies/tlfc-lp", headers=TAO, json={"deal_slugs": [], "reason": "unlink for test"})
     assert r.status_code == 200 and r.json()["deals"] == []
@@ -185,8 +190,11 @@ def test_create_and_relink_deals_with_audit(client, published):
     assert client.get(V1 + "/companies/move-trust-tlfc-lp-leases/deals/move-trust-tlfc-lp-leases/insights", headers=TAO).status_code == 200
     assert client.get(V1 + "/companies/move-trust-tlfc-lp-leases/news", headers=TAO).json() == []
     assert code(client.post(V1 + "/companies/move-trust-tlfc-lp-leases/notes", headers=H(A1), json={"body": "x"})) == (404, "not_found")
-    upd = [a for a in audit(client, scope="platform", action="company_change") if a["detail"]["change"] == "updated"]
-    assert upd[0]["detail"]["before"]["deal_slugs"] == ["move-trust-tlfc-lp-leases"] and upd[0]["detail"]["after"]["deal_slugs"] == []
+    upd = [a for a in audit(client, scope="platform", action="company_change") if a["detail"]["change"] == "deals"]
+    assert upd[0]["detail"]["before"] == {"deal_slugs": ["move-trust-tlfc-lp-leases"]} and upd[0]["detail"]["after"] == {"deal_slugs": []}
+    client.patch(V1 + "/companies/tlfc-lp", headers=TAO, json={"industry": "Truck finance", "name": "TLFC LP", "reason": "fill industry"})
+    rec = audit(client, scope="platform", action="company_change")[0]["detail"]
+    assert (rec["change"], rec["before"], rec["after"]) == ("record", {"industry": None}, {"industry": "Truck finance"})
     assert not audit(client, scope="reports", action="company_change")
 
 
@@ -263,10 +271,11 @@ def test_notes_are_tao_only_and_never_reach_a_partner(client, published):
     # the mention
     m = notes_of(client, A1, "mention")
     assert len(m) == 1 and m[0]["link"] == f"/admin/companies/essex-lease-financial-corp?note={n['id']}" and "J. Moreau mentioned you" in m[0]["title"]
-    # audit: company_note in the reports log (where comments go)
-    e = audit(client, scope="reports", action="company_note")
-    assert len(e) == 1 and e[0]["detail"]["body"] == NOTE and e[0]["detail"]["company_slug"] == "essex-lease-financial-corp"
-    assert client.get(V1 + "/audit", headers=ANALYST, params={"scope": "reports", "action": "company_note"}).status_code == 200
+    # audit: company_note in the Platform log
+    e = audit(client, scope="platform", action="company_note")
+    assert len(e) == 1 and e[0]["detail"] == {"company_slug": "essex-lease-financial-corp", "note_id": n["id"], "body": NOTE, "mentions": [A1],
+                                              "collection_period": "2026-07"}
+    assert not audit(client, scope="reports", action="company_note")
 
 
 def test_note_edit_by_author_and_removal(client, published):
@@ -281,7 +290,8 @@ def test_note_edit_by_author_and_removal(client, published):
     assert client.delete(V1 + f"/company-notes/{other['id']}", headers=H(A1)).status_code == 204      # the author
     assert code(client.patch(V1 + f"/company-notes/{n['id']}", headers=H(AN), json={"body": "again"})) == (404, "not_found")
     assert client.get(V1 + "/companies/tlfc/notes", headers=TAO).json() == []
-    edits = audit(client, scope="reports", action="company_note_edit")
+    edits = audit(client, scope="platform", action="company_note_edit")
+    assert set(edits[0]["detail"]) == {"company_slug", "note_id", "change", "before", "after"}
     assert [e["detail"]["change"] for e in edits] == ["removed", "removed", "edited"]
     assert edits[-1]["detail"]["before"]["body"] == "first text" and edits[-1]["detail"]["after"]["body"] == "second text"
     assert edits[1]["detail"]["before"]["body"] == "second text" and edits[1]["detail"]["after"] is None
@@ -304,7 +314,8 @@ def test_contacts_admin_only_and_audited(client, published):
     assert client.get(V1 + "/companies/tlfc", headers=TAO).json()["contacts"] == []
     assert code(client.delete(V1 + f"/company-contacts/{x['id']}", headers=TAO, params={"reason": "again"})) == (404, "not_found")
     changes = [a["detail"]["change"] for a in audit(client, scope="platform", action="company_change")]
-    assert changes == ["contact_removed", "contact_updated", "contact_added"]
+    assert changes == ["contact_removed", "contact_edited", "contact_added"]
+    assert {a["detail"]["contact_id"] for a in audit(client, scope="platform", action="company_change")} == {x["id"]}
 
 
 def test_follow_and_following_filter(client, published):
@@ -365,7 +376,8 @@ def test_news_and_adverse_reads_and_screening_state(client, published):
         assert client.get(V1 + "/companies/essex-lease-financial-corp/adverse", headers=h, params={"state": "open"}).json() == []
     assert rows(client, TAO)["essex-lease-financial-corp"]["adverse"] == {"state": "to_review", "to_review": 1}
     entries = audit(client, scope="platform", action="adverse_change")
-    assert [(x["detail"]["after"], x["detail"]["adverse_id"]) for x in entries] == [("dismissed", a_dis), ("reviewed", a_rev)]
+    assert [(x["detail"]["state"], x["detail"]["adverse_id"]) for x in entries] == [("dismissed", a_dis), ("reviewed", a_rev)]
+    assert set(entries[0]["detail"]) == {"company_slug", "adverse_id", "category", "title", "state", "note"}
     assert entries[1]["reason"] == note["note"]
 
 
@@ -505,14 +517,23 @@ def test_insights_essex_against_reference(client, published):
     assert [p["month"] for p in d["deal"]][0] == "2025-07" and len(d["deal"]) == 13
     assert d["deal"][-1] == {"month": "2026-07", "value": 0.0131} and d["unit"] == "fraction"
     assert d["limit"] == {"legal_ref": "MSA 8.1 (d)", "threshold": 0.035, "kind": "ceiling"}
-    # MOVE Trust median for July 2026, from the other MOVE deals that report it, one point per deal
+    # MOVE Trust median for July 2026: one point per other company reporting it (D3); TLFC's three deals count once,
+    # at the median of their values
     refs = _ref_all()
-    others = [r["delinquency_ratio_pct"] for k, x in refs.items() if k.startswith("move-trust") and k != ESSEX
-              for r in x["ratio_history"] if r["month"] == "Jul-26" and r.get("delinquency_ratio_pct") is not None]
+    company = {d["deal_slugs"][i]: d["slug"] for d in json.loads((REF.parents[1] / "seed" / "companies.json").read_text(encoding="utf-8"))
+               for i in range(len(d["deal_slugs"]))}
+    by = {}
+    for k, x in refs.items():
+        if k.startswith("move-trust") and k != ESSEX:
+            for r in x["ratio_history"]:
+                if r["month"] == "Jul-26" and r.get("delinquency_ratio_pct") is not None:
+                    by.setdefault(company[k], []).append(r["delinquency_ratio_pct"])
+    others = [statistics.median(v) for v in by.values()]
+    assert len(by["tlfc"]) == 3 and len(others) == 5
     jul = d["program_median"][-1]
     assert jul == {"month": "2026-07", "value": pytest.approx(statistics.median(others))} and jul["value"] == pytest.approx(0.0042)
     assert d["program_mean"][-1]["value"] == pytest.approx(sum(others) / len(others))
-    assert d["peers_in_month"][-1] == {"month": "2026-07", "count": len(others)} == {"month": "2026-07", "count": 7}
+    assert d["peers_in_month"][-1] == {"month": "2026-07", "count": 5}
     assert s["interest_coverage_ratio"]["limit"] == {"legal_ref": "MSA 8.1 (h)", "threshold": 1.0, "kind": "floor"}
     assert s["total_equity"]["unit"] == "currency" and s["interest_coverage_ratio"]["unit"] == "ratio"
     kinds = {x["kind"] for x in ins["signals"]}
@@ -545,6 +566,11 @@ def test_insights_essex_against_reference(client, published):
     assert corr == {"month": "2026-07", "field": "period_history.interest", "first_reported": 1290661.69, "now": pytest.approx(1371370.08),
                     "changed_in": "2026-10-09", "type": "tao_correction"}
     assert len(ins["balance_median_change"]) == 4 and ins["balance_median_change"][-1]["month"] == "2026-07"
+    # a TLFC deal: its sister deals are its own company, so they are left out of the program line
+    tl = client.get(V1 + "/companies/tlfc/deals/move-trust-tlfc-leases/insights", headers=TAO).json()
+    tld = next(x for x in tl["series"] if x["metric"] == "delinquency_ratio_pct")
+    assert tld["peers_in_month"][-1] == {"month": "2026-07", "count": 5}                 # Dynamic, Essex, Finloc, TPine, VCC
+    assert tld["program_median"][-1]["value"] == pytest.approx(statistics.median([0.0019, 0.0131, 0.0883, 0.0214, 0.0042]))
 
 
 def test_insights_fpil_ratio_month_and_partner_view(client, published):

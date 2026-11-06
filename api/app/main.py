@@ -1579,8 +1579,34 @@ def _check_deals(s: Session, slugs: list[str]) -> list[Deal]:
     return out
 
 
-def _company_change(s: Session, c: Caller, slug: str, change: str, before, after, reason: str | None, **extra):
-    views.audit(s, c, "company_change", reason=reason, detail={"company_slug": slug, "change": change, "before": before, "after": after, **extra})
+def _company_change(s: Session, c: Caller, slug: str, change: str, before, after, reason: str | None, contact_id: str | None = None):
+    """detail {company_slug, company_name, change, contact_id, before, after} (the Lead's shape for the audit page). change:
+    created | record | deals | contact_added | contact_edited | contact_removed; before / after hold the changed fields only
+    (deal links as {"deal_slugs": [...]}, a contact as the contact object)."""
+    co = s.get(Company, slug)
+    views.audit(s, c, "company_change", reason=reason, detail={"company_slug": slug, "company_name": co.name if co else slug, "change": change,
+                                                               "contact_id": contact_id, "before": before, "after": after})
+
+
+def _relink(s: Session, c: Caller, co: Company, deals: list[Deal], reason: str, only_add: bool = False) -> None:
+    """Make `deals` the company's deal list (only_add: add them, keep the rest). Writes a `deals` entry for this company and
+    for every other company a deal was moved away from."""
+    touched = {co.slug} | {d.company_slug for d in deals if d.company_slug}
+    before = {slug: _deal_links(s, slug) for slug in touched}
+    keep = {d.slug for d in deals}
+    if not only_add:
+        for d in s.scalars(select(Deal).where(Deal.company_slug == co.slug)).all():
+            if d.slug not in keep:
+                d.company_slug = None
+    for d in deals:
+        d.company_slug = co.slug
+    s.flush()
+    for slug in sorted(touched, key=lambda x: x != co.slug):
+        after = _deal_links(s, slug)
+        if after != before[slug]:
+            if slug != co.slug:
+                s.get(Company, slug).updated_at = utcnow()
+            _company_change(s, c, slug, "deals", {"deal_slugs": before[slug]}, {"deal_slugs": after}, reason)
 
 
 def _aliases(xs) -> list[str]:
@@ -1663,11 +1689,9 @@ def create_company(body: CompanyCreateIn, c: Caller = Depends(company_admin_call
     except IntegrityError:
         s.rollback()
         raise err(409, "slug_taken", f"a company {body.slug} already exists")
-    moved = {d.slug: d.company_slug for d in deals if d.company_slug}
-    for d in deals:
-        d.company_slug = co.slug
-    s.flush()
-    _company_change(s, c, co.slug, "created", None, companies.record(co, _deal_links(s, co.slug)), body.reason, moved_from=moved)
+    _company_change(s, c, co.slug, "created", None, companies.record(co, []), body.reason)
+    if deals:
+        _relink(s, c, co, deals, body.reason, only_add=True)
     s.commit()
     return _company_out(s, c, partner, co.slug)
 
@@ -1696,24 +1720,20 @@ def patch_company(company_slug: str, body: CompanyPatchIn, c: Caller = Depends(c
     deals = _check_deals(s, fields.pop("deal_slugs")) if "deal_slugs" in fields else None
     if "aliases" in fields:
         fields["aliases"] = _aliases(fields["aliases"])
-    before = companies.record(co, _deal_links(s, co.slug))
+    old = companies.record(co, [])
     for k, v in fields.items():
         setattr(co, k, v)
-    moved = {}
-    if deals is not None:
-        keep = {d.slug for d in deals}
-        for d in s.scalars(select(Deal).where(Deal.company_slug == co.slug)).all():
-            if d.slug not in keep:
-                d.company_slug = None
-        for d in deals:
-            if d.company_slug and d.company_slug != co.slug:
-                moved[d.slug] = d.company_slug
-            d.company_slug = co.slug
     s.flush()
-    after = companies.record(co, _deal_links(s, co.slug))
-    if after != before:
+    new = companies.record(co, [])
+    changed = [k for k in new if new[k] != old[k]]
+    if changed:
         co.updated_at = utcnow()
-        _company_change(s, c, co.slug, "updated", before, after, body.reason, moved_from=moved)
+        _company_change(s, c, co.slug, "record", {k: old[k] for k in changed}, {k: new[k] for k in changed}, body.reason)
+    if deals is not None:
+        links = _deal_links(s, co.slug)
+        _relink(s, c, co, deals, body.reason)
+        if _deal_links(s, co.slug) != links:
+            co.updated_at = utcnow()
     s.commit()
     return _company_out(s, c, partner, co.slug)
 
@@ -1765,7 +1785,7 @@ def _adverse_decide(s: Session, c: Caller, adverse_id: str, to: str, note: str) 
     a.state, a.note, a.state_by, a.state_at = to, note, c.user_id, utcnow()
     s.flush()
     views.audit(s, c, "adverse_change", reason=note, detail={"company_slug": a.company_slug, "adverse_id": a.id, "category": a.category,
-                                                             "title": a.title, "url": a.url, "before": "open", "after": to, "note": note})
+                                                             "title": a.title, "state": to, "note": note})
     s.commit()
     if to == "reviewed":                                  # following partners hear about it now, not at the next sweep
         notify.company_sweep(s)
@@ -1870,7 +1890,7 @@ def add_contact(company_slug: str, body: ContactIn, c: Caller = Depends(company_
     x = CompanyContact(id=new_id(), company_slug=co.slug, name=body.name, role=body.role, email=body.email, receives=body.receives, created_at=utcnow())
     s.add(x); s.flush()
     co.updated_at = utcnow()
-    _company_change(s, c, co.slug, "contact_added", None, companies.contact_dict(x), body.reason)
+    _company_change(s, c, co.slug, "contact_added", None, companies.contact_dict(x), body.reason, contact_id=x.id)
     s.commit()
     return companies.contact_dict(x)
 
@@ -1886,7 +1906,7 @@ def edit_contact(contact_id: str, body: ContactIn, c: Caller = Depends(admin_cal
     after = companies.contact_dict(x)
     if after != before:
         s.get(Company, x.company_slug).updated_at = utcnow()
-        _company_change(s, c, x.company_slug, "contact_updated", before, after, body.reason)
+        _company_change(s, c, x.company_slug, "contact_edited", before, after, body.reason, contact_id=x.id)
     s.commit()
     return after
 
@@ -1898,7 +1918,7 @@ def remove_contact(contact_id: str, reason: str = Query(min_length=3), c: Caller
         raise err(422, "invalid", "reason needs at least 3 characters")
     x.removed_at = utcnow()
     s.get(Company, x.company_slug).updated_at = utcnow()
-    _company_change(s, c, x.company_slug, "contact_removed", companies.contact_dict(x), None, reason.strip())
+    _company_change(s, c, x.company_slug, "contact_removed", companies.contact_dict(x), None, reason.strip(), contact_id=x.id)
     s.commit()
     return Response(status_code=204)
 
