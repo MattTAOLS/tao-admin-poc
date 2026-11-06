@@ -1,6 +1,7 @@
 import type { Role } from './roles'
 
-/** Wave C shapes from contracts/openapi.yaml (Me, AppUser, Notification, NotificationPref, UnreadCount, Subscription). */
+/** Wave C shapes from contracts/openapi.yaml (Me, AppUser, Notification, NotificationPref, UnreadCount, Subscription),
+ * plus wave D's Me.features and the company notification kinds. */
 export type AppUser = {
   id: string; email: string; name: string; role: Role; partner_slug: string | null; status: 'active' | 'deactivated'
   created_at: string; last_active_at?: string | null; receives_summary?: string
@@ -8,11 +9,14 @@ export type AppUser = {
 export type DateFormat = 'D MMM YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY'
 export type NumberFormat = '1,234.56' | '1 234,56'
 export type DisplayPrefs = { time_zone?: string; date_format?: DateFormat; number_format?: NumberFormat }
-export type Me = { user: AppUser | null; role: Role; partner_slug: string | null; display: DisplayPrefs }
+/** What the shell may show this caller. companies: true for TAO roles; for partner roles, the setting
+ * company_profiles_partner_enabled. Required by the contract; featuresOf() in api.ts still reads an older reply without it as all off. */
+export type Features = { companies: boolean }
+export type Me = { user: AppUser | null; role: Role; partner_slug: string | null; display: DisplayPrefs; features: Features }
 export type MePatch = { name?: string; time_zone?: string; date_format?: DateFormat; number_format?: NumberFormat }
 
 export type NotificationKind = 'mention' | 'reply' | 'report_needs_review' | 'report_published' | 'correction_published'
-  | 'covenant_changed' | 'report_rejected' | 'user_change' | 'system'
+  | 'covenant_changed' | 'report_rejected' | 'user_change' | 'system' | 'adverse_media' | 'negative_news' | 'report_late'
 export type NotificationTab = 'all' | 'mentions' | 'reports' | 'system'
 export type NotificationChange = { pointer?: string; label?: string; old_value?: number; new_value?: number }
 export type AppNotification = {
