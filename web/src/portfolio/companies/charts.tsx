@@ -1,23 +1,60 @@
 /** Small inline-SVG charts for the company profile, drawn with tokens only. Every chart carries a visually hidden table
  * with the same numbers for screen readers, and each point has a hover title. No figure is computed here: the lines are
  * the series the API sends (MetricSeries, LossPeer, period_history). */
-import { useId } from 'react'
+import { useId, useState, type ReactNode } from 'react'
+import { Button, Dialog } from '@/design/components'
 import { fmtNum } from '../Num'
 import type { NumKind } from '../fmt'
 import type { Month, SeriesPoint } from './types'
 import { shortMonth } from './util'
 
 export type Line = { id: string; label: string; cls: 'deal' | 'median' | 'mean' | 'alt' | 'peer'; points: SeriesPoint[]; dots?: boolean }
-const W = 560, H = 200, PL = 58, PR = 14, PT = 12, PB = 30
+const PL = 58, PR = 14, PT = 12, PB = 30
+/** Drawing sizes. card: a chart in the two-up grid. wide: a chart that has a section to itself, drawn shorter so it does
+ * not grow taller as the page widens (CSS caps it at its drawn width). full: the full-screen view. */
+type Size = 'card' | 'wide' | 'full'
+const DIMS: Record<Size, { W: number; H: number }> = { card: { W: 560, H: 200 }, wide: { W: 1000, H: 260 }, full: { W: 1100, H: 440 } }
+
+/** The chart with a Full screen button above it. The full-screen view draws the same chart again at a larger size in a
+ * dialog, so the axis text and the legend stay readable. */
+function ChartFrame({ title, wide, render }: { title: string; wide?: boolean; render: (size: Size) => ReactNode }) {
+  const [full, setFull] = useState(false)
+  const size: Size = wide ? 'wide' : 'card'
+  return (
+    <div className={`co-plot co-plot--${size}`}>
+      <div className="co-plot__bar">
+        <Button type="button" variant="ghost" size="sm" icon={<FullIcon />} onClick={() => setFull(true)} aria-label={`Full screen: ${title}`}>Full screen</Button>
+      </div>
+      {render(size)}
+      <Dialog open={full} onClose={() => setFull(false)} title={title} size="lg">
+        <div className="co-plot co-plot--full">{full && render('full')}</div>
+      </Dialog>
+    </div>
+  )
+}
+
+const FullIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 9V4h5" /><path d="M20 9V4h-5" /><path d="M4 15v5h5" /><path d="M20 15v5h-5" />
+  </svg>
+)
 
 export function unitKind(unit: string): NumKind {
   return unit === 'fraction' ? 'pct' : unit === 'currency' ? 'money' : 'ratio'
 }
 
-export function LineChart({ title, months, lines, limit, kind }: {
-  title: string; months: Month[]; lines: Line[]; limit?: { value: number; label: string } | null; kind: NumKind
-}) {
+type LineProps = { title: string; months: Month[]; lines: Line[]; limit?: { value: number; label: string } | null; kind: NumKind; wide?: boolean }
+
+export function LineChart(props: LineProps) {
+  const { title, months, lines, limit } = props
+  const has = lines.some(l => months.some(m => l.points.some(p => p.month === m && p.value !== null))) || !!limit
+  if (!has || !months.length) return <p className="pf-muted">No values reported for this period.</p>
+  return <ChartFrame title={title} wide={props.wide} render={size => <LineDrawing {...props} size={size} />} />
+}
+
+function LineDrawing({ title, months, lines, limit, kind, size }: LineProps & { size: Size }) {
   const id = useId()
+  const { W, H } = DIMS[size]
   const val = (l: Line, m: Month) => l.points.find(p => p.month === m)?.value ?? null
   const all = lines.flatMap(l => months.map(m => val(l, m))).filter((v): v is number => v !== null)
   if (limit) all.push(limit.value)
@@ -73,8 +110,15 @@ export function LineChart({ title, months, lines, limit, kind }: {
 }
 
 /** Closing balance bars over a fixed run of months; months with no loaded report are grey slots. */
-export function BalanceBars({ title, months, values, limit }: { title: string; months: Month[]; values: Map<Month, number>; limit?: number | null }) {
+type BarProps = { title: string; months: Month[]; values: Map<Month, number>; limit?: number | null; wide?: boolean }
+
+export function BalanceBars(props: BarProps) {
+  return <ChartFrame title={props.title} wide={props.wide} render={size => <BarDrawing {...props} size={size} />} />
+}
+
+function BarDrawing({ title, months, values, limit, size }: BarProps & { size: Size }) {
   const id = useId()
+  const { W, H } = DIMS[size]
   const vals = [...values.values()]
   if (limit) vals.push(limit)
   const hi = Math.max(1, ...vals) * 1.06

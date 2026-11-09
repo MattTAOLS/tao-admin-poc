@@ -40,7 +40,16 @@
 .co-chartgrid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
 .co-chart { display: flex; flex-direction: column; gap: 6px; }
 .co-chart h3 { margin: 0; font: 700 13px var(--font); color: var(--indigo); }
-.co-chart svg { width: 100%; height: auto; display: block; }
+.co-chart svg[role="img"] { width: 100%; height: auto; display: block; }
+.co-plot { display: flex; flex-direction: column; gap: 8px; }
+.co-plot__bar { display: flex; justify-content: flex-end; margin-bottom: -4px; }
+.co-plot--wide svg[role="img"] { max-width: 1000px; }
+.co-plot--wide .co-legend, .co-plot--wide .co-plot__bar { max-width: 1000px; }
+.co-plot--full svg[role="img"] { width: 100%; height: auto; display: block; }
+.co-plot--wide .pf-chart__axis { font-size: 12px; }
+.co-plot--full .pf-chart__axis { font-size: 13px; }
+.co-plot--full .co-legend { font-size: var(--fs-h2); gap: 8px 22px; }
+.ds-dialog:has(.co-plot--full) { max-width: min(1280px, calc(100vw - 48px)); }
 .co-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .co-line--deal { stroke: var(--purple); }
 .co-line--median { stroke: var(--indigo); stroke-dasharray: 5 3; }
@@ -51,9 +60,9 @@
 .co-dot { fill: var(--card); stroke: var(--purple); stroke-width: 1.5; }
 .co-bar { fill: var(--purple); }
 .co-bar--empty { fill: var(--border-table); }
-.co-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-small); color: var(--text); }
-.co-legend li { display: inline-flex; align-items: center; gap: 6px; }
-.co-key { width: 16px; height: 0; border-top: 2px solid; display: inline-block; }
+.co-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-body); line-height: 1.4; color: var(--text); }
+.co-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.co-key { width: 24px; height: 0; border-top: 3px solid; display: inline-block; flex: none; }
 .co-key--deal { border-color: var(--purple); }
 .co-key--median { border-color: var(--indigo); border-top-style: dashed; }
 .co-key--mean { border-color: var(--muted); border-top-style: dotted; }

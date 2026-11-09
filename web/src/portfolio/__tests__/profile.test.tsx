@@ -86,6 +86,19 @@ describe('Company profile (TAO Admin)', () => {
     expect(within(loss).getByTestId('peers-listed').textContent).toContain('MOVE Trust - TPine Leasing Capital Corporation 12-month')
   }, 60_000)
 
+  it('opens a chart full screen in a dialog with the same lines and legend, and closes it', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    const loss = document.getElementById('loss-ratios')!
+    await userEvent.click(within(loss).getByRole('button', { name: /^Full screen: Rolling loss ratios/ }))
+    const dialog = screen.getByRole('dialog', { name: /Rolling loss ratios/ })
+    expect(dialog.querySelector('[data-line="peer-move-trust-dynamic-capital-rolling_12month_loss_ratio_pct"]')).toBeTruthy()
+    expect(dialog.querySelector('.co-legend')?.textContent).toContain('12-month')
+    expect(dialog.querySelector('svg[role="img"]')?.getAttribute('viewBox')).toBe('0 0 1100 440')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  }, 60_000)
+
   it('marks published covenant cells and says which months are recomputed on hover and focus', async () => {
     renderAt(ESSEX, 'tao_admin')
     await ready()

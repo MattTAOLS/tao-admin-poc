@@ -1378,3 +1378,11 @@ confirm those detail shapes; the /admin/companies route belongs to another agent
   Notification.link examples are the old paths; the kinds a partner role can receive are not listed; the sweep timing
   (needs_review and extraction-failed notifications appear when someone next opens notifications or the badge polls)
   is worth a line under Notification. A system notification about an upload (extraction failed) links to its review page; /admin/settings/users is for user_change (and system without an upload).
+
+## Lead — company profile chart size and full screen (2026-11-09)
+
+Charts that have a section to themselves (rolling loss ratios, the featured covenant, pool balance) are now drawn at
+1000 × 260 at most instead of stretching to the page width. Legends are 13.5 px with longer, thicker keys. Every company
+chart has a Full screen button that opens the same chart, redrawn at 1100 × 440, in a dialog (Escape closes it, focus
+returns to the button). Files: `web/src/portfolio/companies/charts.tsx`, `companies.css`, one new test in
+`web/src/portfolio/__tests__/profile.test.tsx`.
