@@ -1386,3 +1386,11 @@ Charts that have a section to themselves (rolling loss ratios, the featured cove
 chart has a Full screen button that opens the same chart, redrawn at 1100 × 440, in a dialog (Escape closes it, focus
 returns to the button). Files: `web/src/portfolio/companies/charts.tsx`, `companies.css`, one new test in
 `web/src/portfolio/__tests__/profile.test.tsx`.
+
+## Lead — company profile charts in one three-column grid (2026-11-09)
+
+Every company chart is drawn at the same size in three columns: the performance charts on the first row, then rolling
+loss ratios, the featured covenant and the pool balance chart, each its own card, on the second. The pool balance table
+moved to its own card below ("Pool balance by period"). The top row's gap is widened by the cards' padding so the two
+rows share columns. Full screen now fills the window and redraws the chart at the measured size, with every month
+labelled. Two columns below 1200 px, one below 760 px.

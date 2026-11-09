@@ -37,19 +37,24 @@
 .co-signal p { margin: 2px 0 0; font-size: var(--fs-small); color: var(--text); }
 .co-anchor { scroll-margin-top: 80px; }
 
-.co-chartgrid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+.co-chartgrid, .co-sectiongrid { display: grid; gap: var(--gap); grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
+.co-sectiongrid > * { min-width: 0; }
+/* The performance charts share one card; the row below is one card per chart. A wider gap here (the gap plus each card's
+   18 px side padding and 1 px border, twice) puts the two rows' charts in the same columns at the same width. */
+.co-chartgrid { column-gap: calc(var(--gap) + 38px); }
+@media (max-width: 1200px) { .co-chartgrid, .co-sectiongrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .co-chartgrid, .co-sectiongrid { grid-template-columns: minmax(0, 1fr); } }
 .co-chart { display: flex; flex-direction: column; gap: 6px; }
 .co-chart h3 { margin: 0; font: 700 13px var(--font); color: var(--indigo); }
 .co-chart svg[role="img"] { width: 100%; height: auto; display: block; }
 .co-plot { display: flex; flex-direction: column; gap: 8px; }
 .co-plot__bar { display: flex; justify-content: flex-end; margin-bottom: -4px; }
-.co-plot--wide svg[role="img"] { max-width: 1000px; }
-.co-plot--wide .co-legend, .co-plot--wide .co-plot__bar { max-width: 1000px; }
 .co-plot--full svg[role="img"] { width: 100%; height: auto; display: block; }
-.co-plot--wide .pf-chart__axis { font-size: 12px; }
 .co-plot--full .pf-chart__axis { font-size: 13px; }
 .co-plot--full .co-legend { font-size: var(--fs-h2); gap: 8px 22px; }
-.ds-dialog:has(.co-plot--full) { max-width: min(1280px, calc(100vw - 48px)); }
+.ds-dialog:has(.co-plot--full) { max-width: calc(100vw - 48px); height: calc(100vh - 48px); }
+.ds-dialog:has(.co-plot--full) .ds-dialog__body { flex: 1; min-height: 0; overflow: hidden; }
+.co-plot--full { flex: 1; min-height: 0; }
 .co-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .co-line--deal { stroke: var(--purple); }
 .co-line--median { stroke: var(--indigo); stroke-dasharray: 5 3; }

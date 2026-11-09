@@ -86,7 +86,7 @@ describe('Company profile (TAO Admin)', () => {
     expect(within(loss).getByTestId('peers-listed').textContent).toContain('MOVE Trust - TPine Leasing Capital Corporation 12-month')
   }, 60_000)
 
-  it('opens a chart full screen in a dialog with the same lines and legend, and closes it', async () => {
+  it('opens a chart full screen, redrawn larger in a dialog with the same lines and legend, and closes it', async () => {
     renderAt(ESSEX, 'tao_admin')
     await ready()
     const loss = document.getElementById('loss-ratios')!

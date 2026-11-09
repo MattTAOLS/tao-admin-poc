@@ -1,7 +1,7 @@
 /** Small inline-SVG charts for the company profile, drawn with tokens only. Every chart carries a visually hidden table
  * with the same numbers for screen readers, and each point has a hover title. No figure is computed here: the lines are
  * the series the API sends (MetricSeries, LossPeer, period_history). */
-import { useId, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Dialog } from '@/design/components'
 import { fmtNum } from '../Num'
 import type { NumKind } from '../fmt'
@@ -10,27 +10,45 @@ import { shortMonth } from './util'
 
 export type Line = { id: string; label: string; cls: 'deal' | 'median' | 'mean' | 'alt' | 'peer'; points: SeriesPoint[]; dots?: boolean }
 const PL = 58, PR = 14, PT = 12, PB = 30
-/** Drawing sizes. card: a chart in the two-up grid. wide: a chart that has a section to itself, drawn shorter so it does
- * not grow taller as the page widens (CSS caps it at its drawn width). full: the full-screen view. */
-type Size = 'card' | 'wide' | 'full'
-const DIMS: Record<Size, { W: number; H: number }> = { card: { W: 560, H: 200 }, wide: { W: 1000, H: 260 }, full: { W: 1100, H: 440 } }
+type Dims = { W: number; H: number }
+/** A chart on the page: every company chart uses the same drawing size, so the three-column grid lines up. */
+const CARD: Dims = { W: 560, H: 200 }
+/** Full screen before the dialog has been measured (and in tests, where nothing has a size). */
+const FULL_FALLBACK: Dims = { W: 1100, H: 440 }
+/** Room under the drawing in full screen for the legend. */
+const FULL_LEGEND = 72
 
-/** The chart with a Full screen button above it. The full-screen view draws the same chart again at a larger size in a
- * dialog, so the axis text and the legend stay readable. */
-function ChartFrame({ title, wide, render }: { title: string; wide?: boolean; render: (size: Size) => ReactNode }) {
+/** The chart with a Full screen button above it. Full screen opens a dialog that fills the window and redraws the same
+ * chart at the measured size of that space, so the lines get bigger while the axis text and the legend stay readable. */
+function ChartFrame({ title, render }: { title: string; render: (dims: Dims, full: boolean) => ReactNode }) {
   const [full, setFull] = useState(false)
-  const size: Size = wide ? 'wide' : 'card'
   return (
-    <div className={`co-plot co-plot--${size}`}>
+    <div className="co-plot">
       <div className="co-plot__bar">
         <Button type="button" variant="ghost" size="sm" icon={<FullIcon />} onClick={() => setFull(true)} aria-label={`Full screen: ${title}`}>Full screen</Button>
       </div>
-      {render(size)}
+      {render(CARD, false)}
       <Dialog open={full} onClose={() => setFull(false)} title={title} size="lg">
-        <div className="co-plot co-plot--full">{full && render('full')}</div>
+        {full && <FullArea render={render} />}
       </Dialog>
     </div>
   )
+}
+
+function FullArea({ render }: { render: (dims: Dims, full: boolean) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState<Dims | null>(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = ref.current
+      const w = el?.clientWidth ?? 0, h = el?.clientHeight ?? 0
+      setDims(w > 0 && h > FULL_LEGEND + 120 ? { W: Math.round(w), H: Math.round(h - FULL_LEGEND) } : FULL_FALLBACK)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+  return <div ref={ref} className="co-plot co-plot--full">{dims && render(dims, true)}</div>
 }
 
 const FullIcon = () => (
@@ -43,18 +61,18 @@ export function unitKind(unit: string): NumKind {
   return unit === 'fraction' ? 'pct' : unit === 'currency' ? 'money' : 'ratio'
 }
 
-type LineProps = { title: string; months: Month[]; lines: Line[]; limit?: { value: number; label: string } | null; kind: NumKind; wide?: boolean }
+type LineProps = { title: string; months: Month[]; lines: Line[]; limit?: { value: number; label: string } | null; kind: NumKind }
 
 export function LineChart(props: LineProps) {
   const { title, months, lines, limit } = props
   const has = lines.some(l => months.some(m => l.points.some(p => p.month === m && p.value !== null))) || !!limit
   if (!has || !months.length) return <p className="pf-muted">No values reported for this period.</p>
-  return <ChartFrame title={title} wide={props.wide} render={size => <LineDrawing {...props} size={size} />} />
+  return <ChartFrame title={title} render={dims => <LineDrawing {...props} dims={dims} />} />
 }
 
-function LineDrawing({ title, months, lines, limit, kind, size }: LineProps & { size: Size }) {
+function LineDrawing({ title, months, lines, limit, kind, dims }: LineProps & { dims: Dims }) {
   const id = useId()
-  const { W, H } = DIMS[size]
+  const { W, H } = dims
   const val = (l: Line, m: Month) => l.points.find(p => p.month === m)?.value ?? null
   const all = lines.flatMap(l => months.map(m => val(l, m))).filter((v): v is number => v !== null)
   if (limit) all.push(limit.value)
@@ -86,7 +104,7 @@ function LineDrawing({ title, months, lines, limit, kind, size }: LineProps & { 
             <text x={PL - 6} y={y(v) + 4} textAnchor="end" className="pf-chart__axis">{fmtNum(v, kind)}</text>
           </g>
         ))}
-        {months.map((m, i) => (i % 2 === 0 || i === months.length - 1) && (
+        {months.map((m, i) => (W >= 900 || i % 2 === 0 || i === months.length - 1) && (
           <text key={m} x={x(i)} y={H - 10} textAnchor={i === 0 ? 'start' : i === months.length - 1 ? 'end' : 'middle'} className="pf-chart__axis">{shortMonth(m)}</text>
         ))}
         {limit && <line x1={PL} x2={W - PR} y1={y(limit.value)} y2={y(limit.value)} className="co-limit"><title>{`${limit.label} ${fmtNum(limit.value, kind)}`}</title></line>}
@@ -110,15 +128,15 @@ function LineDrawing({ title, months, lines, limit, kind, size }: LineProps & { 
 }
 
 /** Closing balance bars over a fixed run of months; months with no loaded report are grey slots. */
-type BarProps = { title: string; months: Month[]; values: Map<Month, number>; limit?: number | null; wide?: boolean }
+type BarProps = { title: string; months: Month[]; values: Map<Month, number>; limit?: number | null }
 
 export function BalanceBars(props: BarProps) {
-  return <ChartFrame title={props.title} wide={props.wide} render={size => <BarDrawing {...props} size={size} />} />
+  return <ChartFrame title={props.title} render={dims => <BarDrawing {...props} dims={dims} />} />
 }
 
-function BarDrawing({ title, months, values, limit, size }: BarProps & { size: Size }) {
+function BarDrawing({ title, months, values, limit, dims }: BarProps & { dims: Dims }) {
   const id = useId()
-  const { W, H } = DIMS[size]
+  const { W, H } = dims
   const vals = [...values.values()]
   if (limit) vals.push(limit)
   const hi = Math.max(1, ...vals) * 1.06
@@ -144,7 +162,7 @@ function BarDrawing({ title, months, values, limit, size }: BarProps & { size: S
             {v === undefined
               ? <rect x={cx - bw / 2} y={base - 4} width={bw} height={4} className="co-bar--empty" data-empty={m}><title>{`${shortMonth(m)}: not loaded`}</title></rect>
               : <rect x={cx - bw / 2} y={y(v)} width={bw} height={Math.max(0, base - y(v))} className="co-bar" data-month={m}><title>{`${shortMonth(m)}: ${fmtNum(v, 'money')}`}</title></rect>}
-            {(i % 2 === 0 || i === months.length - 1) && <text x={cx} y={H - 10} textAnchor="middle" className="pf-chart__axis">{shortMonth(m)}</text>}
+            {(W >= 900 || i % 2 === 0 || i === months.length - 1) && <text x={cx} y={H - 10} textAnchor="middle" className="pf-chart__axis">{shortMonth(m)}</text>}
           </g>
         )
       })}

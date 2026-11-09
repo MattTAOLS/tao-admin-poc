@@ -156,7 +156,7 @@ export function LossSection({ ins, dealLabel }: { ins: CompanyInsights; dealLabe
       subtitle={drawn.length || listed.length ? `Compared with named deals in the same program that report the same measure` : 'No other deal in the program reports the same measure'}>
       {lines.length ? (
         <div className="co-chart">
-          <LineChart wide title={`Rolling loss ratios, ${dealLabel}`} months={months} kind="pct" lines={lines}
+          <LineChart title={`Rolling loss ratios, ${dealLabel}`} months={months} kind="pct" lines={lines}
             limit={limitSeries?.limit ? { value: limitSeries.limit.threshold, label: `Limit ${limitSeries.limit.legal_ref}` } : null} />
         </div>
       ) : <p className="pf-muted">This deal does not report rolling loss ratios.</p>}
@@ -179,7 +179,7 @@ export function CovenantFocus({ f, ins, dealLabel, buffer }: { f: { s: MetricSer
     <Section id={`chart-${f.s.metric}`} title={f.s.label}
       subtitle={f.atWatch ? `The covenant at watch${ref ? ` · ${ref}` : ''}` : ref ? `Covenant ${ref}` : 'From the ratio history'}>
       <div className="co-chart">
-        <LineChart wide title={`${f.s.label}, ${dealLabel}`} months={axisMonths(ins)} kind={kind}
+        <LineChart title={`${f.s.label}, ${dealLabel}`} months={axisMonths(ins)} kind={kind}
           lines={[{ id: 'deal', label: dealLabel, cls: 'deal', points: f.s.deal, dots: true }]}
           limit={f.s.limit ? { value: f.s.limit.threshold, label: f.s.limit.kind === 'floor' ? 'Floor' : 'Limit' } : null} />
         {typeof buffer === 'number' && f.s.limit && <p className="co-hint">Watch starts within {fmtNum(buffer, 'pct').replace('.00', '')} of the limit (the program watch buffer).</p>}
@@ -190,9 +190,6 @@ export function CovenantFocus({ f, ins, dealLabel, buffer }: { f: { s: MetricSer
 
 export function BalanceSection({ d, ins }: { d: Deal; ins: CompanyInsights }) {
   const ph = d.period_history ?? []
-  const last = ph.length ? ph[ph.length - 1].period : ins.collection_period
-  const months = monthsEnding(last)
-  const values = new Map(ph.map(p => [p.period, p.closing_balance] as [Month, number]))
   const median = new Map((ins.balance_median_change ?? []).map(p => [p.month, p.value]))
   type R = (typeof ph)[number]
   const cols: Column<R>[] = [
@@ -205,13 +202,24 @@ export function BalanceSection({ d, ins }: { d: Deal; ins: CompanyInsights }) {
     { key: 'contracts', header: 'Contracts', numeric: true, render: r => <Num v={r.closing_contracts} kind="count" /> },
   ]
   return (
+    <Section id="pool-balance-table" title="Pool balance by period"
+      subtitle="Change is closing against opening; opening includes each month's new tranche.">
+      <DataTable caption="Pool balance by period" captionHidden density="compact" columns={cols} rows={ph} rowKey={r => r.period} />
+    </Section>
+  )
+}
+
+/** The pool balance chart, its own card in the chart grid; the table by period is BalanceSection below the grid. */
+export function BalanceChartSection({ d, ins }: { d: Deal; ins: CompanyInsights }) {
+  const ph = d.period_history ?? []
+  const last = ph.length ? ph[ph.length - 1].period : ins.collection_period
+  const months = monthsEnding(last)
+  const values = new Map(ph.map(p => [p.period, p.closing_balance] as [Month, number]))
+  return (
     <Section id="pool-balance" title="Pool balance" subtitle={`Closing tranche balance by collection period · ${values.size} of ${months.length} months loaded`}>
-      <div className="pf-stack">
-        <div className="co-chart">
-          <BalanceBars wide title="Closing tranche balance" months={months} values={values} limit={d.program?.program_limit ?? null} />
-          <p className="co-hint">Grey slots are months not loaded yet. They fill as older reports are processed. Change is closing against opening; opening includes each month's new tranche.</p>
-        </div>
-        <DataTable caption="Pool balance by period" captionHidden density="compact" columns={cols} rows={ph} rowKey={r => r.period} />
+      <div className="co-chart">
+        <BalanceBars title="Closing tranche balance" months={months} values={values} limit={d.program?.program_limit ?? null} />
+        <p className="co-hint">Grey slots are months not loaded yet. They fill as older reports are processed.</p>
       </div>
     </Section>
   )

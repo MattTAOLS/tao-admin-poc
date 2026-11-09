@@ -16,7 +16,7 @@ import { FollowStar, StatusWord } from './cells'
 import { AdverseDialog, ContactDialog, EditRecordDialog, RemoveContactDialog, type DealOption } from './dialogs'
 import { NotesSection } from './notes'
 import {
-  AdverseSection, BalanceSection, CovenantFocus, CovenantHistorySection, DocumentsSection, KpiSection, LossSection, NewsSection,
+  AdverseSection, BalanceChartSection, BalanceSection, CovenantFocus, CovenantHistorySection, DocumentsSection, KpiSection, LossSection, NewsSection,
   PerformanceSection, RestatementsSection, Section, SignalsSection, featuredSeries, type Compare,
 } from './sections'
 import type { AdverseItem, Company, CompanyContact, CompanyDealRef, CompanyInsights, CompanyNote, CompanyRow, NewsItem, TaoUser } from './types'
@@ -199,8 +199,11 @@ function Profile({ initial }: { initial: Company }) {
                 <>
                   <SignalsSection signals={insights.signals} period={ref.latest_period!} />
                   <PerformanceSection ins={insights} dealLabel={dealLabel} compare={compare} setCompare={setCompare} exclude={focus?.s.metric} />
-                  <LossSection ins={insights} dealLabel={dealLabel} />
-                  {focus && <CovenantFocus f={focus} ins={insights} dealLabel={dealLabel} buffer={d.watch_buffer_pct} />}
+                  <div className="co-sectiongrid">
+                    <LossSection ins={insights} dealLabel={dealLabel} />
+                    {focus && <CovenantFocus f={focus} ins={insights} dealLabel={dealLabel} buffer={d.watch_buffer_pct} />}
+                    <BalanceChartSection d={d} ins={insights} />
+                  </div>
                   <BalanceSection d={d} ins={insights} />
                   <CovenantHistorySection ins={insights} />
                 </>
