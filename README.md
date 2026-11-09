@@ -4,6 +4,8 @@ Upload a SetRep → extract → validate → review → publish → partner port
 agent reads, `docs/` for the plan inputs, `contracts/` for the day-0 contracts.
 
 Run: `cp .env.example .env` (fill in keys), `docker compose up --build`, then open http://localhost:5173.
+
+Hosting it on an internal server: see `docs/hosting.md` (`docker-compose.prod.yml`).
 API docs at http://localhost:8000/docs. Contract check: `make check`. Mock API for UI work: `make mock`.
 
 The first start runs `npm install` inside the web container, so http://localhost:5173 can take a minute or two to

@@ -1,0 +1,17 @@
+# Build context for the production images (docker-compose.prod.yml builds from the repo root).
+# Never send secrets, local data or installed dependencies into an image.
+.env
+.env.*
+!.env.example
+!.env.production.example
+data/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+.git/
+tests/
+web/dist/
+web/storybook-static/
+docs/demo/
+**/.cache/

@@ -12,7 +12,7 @@ Layout and owners:
 
 | Folder | Owner agent | Brief |
 | --- | --- | --- |
-| `contracts/`, `docker-compose.yml`, `Makefile`, `scripts/`, `db/`, `seed/` | Lead | this file |
+| `contracts/`, `docker-compose.yml`, `docker-compose.prod.yml`, `deploy/`, `Makefile`, `scripts/`, `db/`, `seed/` | Lead | this file |
 | `web/src/design/`, `web/src/shell/` | Design System | `web/src/design/CLAUDE.md` |
 | `api/` | Data & API | `api/CLAUDE.md` |
 | `worker/extract/` | Extraction | `worker/extract/CLAUDE.md` |
@@ -35,7 +35,8 @@ Gates: G1 contracts merged (this scaffold). G2 one real SetRep end to end on `ma
 fresh `docker compose up`. Merge order each day: Design → API → Rules → Extraction → UIs → QA.
 
 Run: copy `.env.example` to `.env`, then `docker compose up --build`; web on :5173, API on :8000
-(`/api/v1/openapi.json`), `make check` for the contract check, `make mock` for the UI mock server.
+(`/api/v1/openapi.json`), `make check` for the contract check, `make mock` for the UI mock server. Hosting on a server: `docs/hosting.md`
+(`docker-compose.prod.yml`, images in `deploy/`).
 
 ## Rules every agent follows
 

@@ -1394,3 +1394,14 @@ loss ratios, the featured covenant and the pool balance chart, each its own card
 moved to its own card below ("Pool balance by period"). The top row's gap is widened by the cards' padding so the two
 rows share columns. Full screen now fills the window and redraws the chart at the measured size, with every month
 labelled. Two columns below 1200 px, one below 760 px.
+
+## Lead — production hosting (2026-11-09)
+
+`docker-compose.prod.yml` runs the same six services from images built at the repo root (`deploy/*.Dockerfile`):
+the web app built once and served by nginx, which also passes `/api/` to the API (one origin, no CORS change); the
+API without reload; no source mounts; database password from `.env`; only the web port published; health checks,
+restart policy, log rotation, Redis saved to disk. No application code changed. Scripts: `scripts/prod-backup.sh`,
+`scripts/prod-restore.sh`, `scripts/export-dev-data.sh` (laptop to server). Guide for IT: `docs/hosting.md`.
+Tested: full e2e demo 38/38 against the production stack (`scripts/compose.prod-test.yml` for the news fixture);
+backup then restore brings back deleted rows and all files; a dev-stack export restored into it matches row for row
+and serves its PDFs and page images through nginx; the images hold no `.env`.

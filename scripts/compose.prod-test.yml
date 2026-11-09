@@ -1,0 +1,8 @@
+# Test the production stack with the e2e demo: the news worker reads its labelled fixture instead of the internet.
+# Never use this on the real server.
+#   docker compose -p tao-prodtest -f docker-compose.prod.yml -f scripts/compose.prod-test.yml --env-file <test env> up -d
+#   docker compose -p tao-prodtest -f docker-compose.prod.yml -f scripts/compose.prod-test.yml exec api python -m app.seed
+#   cd tests/e2e && E2E_WEB_URL=http://localhost:<HTTP_PORT> E2E_API_URL=http://localhost:<HTTP_PORT> npx playwright test --project=demo
+services:
+  news:
+    environment: { NEWS_SOURCE: fixture, NEWS_FIXTURE: /app/fixtures/example.json }
