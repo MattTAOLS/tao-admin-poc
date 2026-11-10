@@ -9,6 +9,8 @@ code { font-family: var(--mono); font-size: .92em; }
 .sidebar { background: var(--indigo); color: var(--text-on-indigo); display: flex; flex-direction: column; padding: 18px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 18px; color: var(--text-on-purple); }
 .brand__mark { width: 34px; height: 34px; border-radius: 10px; background: var(--grad-primary); display: grid; place-items: center; box-shadow: var(--sh-primary); flex: none; color: var(--text-on-purple); }
+/* The TAO Solutions teardrop (web/src/shell/assets/tao-teardrop.png, cut from the company logo): shown as is, no tile. */
+.brand__logo { width: 36px; height: auto; flex: none; display: block; }
 .brand b { display: block; font-weight: 700; font-size: 15px; letter-spacing: -.2px; line-height: 1.1; }
 .brand small { display: block; font-size: 11px; color: color-mix(in srgb, var(--text-on-indigo) 85%, var(--indigo)); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
 .navlabel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-on-indigo-muted); padding: 14px 10px 6px; }

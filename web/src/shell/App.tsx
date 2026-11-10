@@ -8,6 +8,7 @@ import { usePageHeaderMeta } from './header'
 import { useSession, type Session } from './session'
 import { refreshMe, refreshUnread } from './api'
 import type { SeedUser } from './users'
+import taoLogo from './assets/tao-teardrop.png'
 
 /** How often the sidebar badge re-reads the unread count, besides on every navigation. */
 export const UNREAD_POLL_MS = 60_000
@@ -170,7 +171,7 @@ function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true"><icons.IconLayers width={18} height={18} /></span>
+          <img className="brand__logo" src={taoLogo} alt="TAO Solutions" width={36} height={35} />
           <span><b>{title}</b><small>{SHELL_SUB[shell]}</small></span>
         </div>
         <NavGroup label="Workspace" pages={pages.filter(p => p.nav === 'main' && inNav(p) && !(shell !== 'admin' && p.path === base))} isActive={isActive} badge={badge} />
