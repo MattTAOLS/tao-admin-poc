@@ -1,0 +1,1 @@
+{"type": "ErrorResponse", "error": {"id": "test", "status": 401, "code": "SUBSCRIPTION_TOKEN_INVALID", "detail": "The provided subscription token is invalid."}, "time": 1762800000}

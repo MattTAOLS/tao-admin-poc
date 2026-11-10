@@ -1,0 +1,51 @@
+{
+  "articles": {
+    "page": 1,
+    "pages": 1,
+    "totalResults": 3,
+    "results": [
+      {
+        "uri": "8000000001",
+        "lang": "eng",
+        "isDuplicate": false,
+        "date": "2026-11-05",
+        "time": "14:20:00",
+        "dateTime": "2026-11-05T14:20:00Z",
+        "dateTimePub": "2026-11-05T14:35:12Z",
+        "dataType": "news",
+        "url": "https://example.com/er/essex-lease-financial-office?utm_source=feed",
+        "title": "Test item: Essex Lease Financial opens a fictional office",
+        "body": "Fictional test data. Essex Lease Financial, an equipment leasing company, opens a made-up office. Not a real report.",
+        "source": {"uri": "example.com", "dataType": "news", "title": "Test Wire"}
+      },
+      {
+        "uri": "8000000002",
+        "lang": "fra",
+        "isDuplicate": false,
+        "date": "2026-11-04",
+        "time": "09:00:00",
+        "dateTime": "2026-11-04T09:00:00Z",
+        "dateTimePub": "2026-11-04T10:02:00Z",
+        "dataType": "news",
+        "url": "https://example.com/er/finloc-2000-fr",
+        "title": "Test item: Finloc 2000 annonce un partenariat fictif",
+        "body": "Données de test fictives. Finloc 2000 annonce un partenariat inventé. Ce n'est pas un vrai reportage.",
+        "source": {"uri": "example.com", "dataType": "news", "title": "Test Ledger"}
+      },
+      {
+        "uri": "8000000003",
+        "lang": "eng",
+        "isDuplicate": false,
+        "date": "2026-11-03",
+        "time": "",
+        "dateTime": "2026-11-03T00:00:00Z",
+        "dateTimePub": "2026-11-03T08:00:00Z",
+        "dataType": "news",
+        "url": "",
+        "title": "Test item: an article without a URL is skipped",
+        "body": "",
+        "source": {"uri": "example.com", "title": "Test Wire"}
+      }
+    ]
+  }
+}
