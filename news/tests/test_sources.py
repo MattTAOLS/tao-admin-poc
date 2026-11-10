@@ -63,13 +63,26 @@ class NoWait:
 
 
 def test_google_url_is_quoted_with_canada_edition():
-    url = google_news.search_url("Essex Lease Financial")
+    url = google_news.search_url('"Essex Lease Financial"')
     q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
     assert q == {"q": ['"Essex Lease Financial"'], "hl": ["en-CA"], "gl": ["CA"], "ceid": ["CA:en"]}
+    fr = urllib.parse.parse_qs(urllib.parse.urlparse(google_news.search_url('"x"', "fr")).query)
+    assert fr["hl"] == ["fr-CA"] and fr["gl"] == ["CA"] and fr["ceid"] == ["CA:fr"]
 
 
-def test_google_one_query_per_name_and_alias():
-    assert google_news.GoogleNews().queries(ESSEX) == ["Essex Lease Financial Corp.", "Essex Lease Financial"]
+def test_google_queries_per_language_name_alias_and_adverse(capture):
+    qs = google_news.GoogleNews().queries(ESSEX)
+    assert [(q.kind, q.term, q.langs) for q in qs] == [
+        ("name", "Essex Lease Financial Corp.", ("en",)), ("name", "Essex Lease Financial Corp.", ("fr",)),
+        ("alias", "Essex Lease Financial", ("en",)), ("alias", "Essex Lease Financial", ("fr",)),
+        ("adverse", "Essex Lease Financial Corp.", ("en",)), ("adverse", "Essex Lease Financial Corp.", ("fr",))]
+    calls = capture(b"<rss><channel></channel></rss>")
+    g = google_news.GoogleNews(limiter=NoWait())
+    g.fetch(qs[5], NOW)
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(calls[0][0].full_url).query)
+    assert q["q"] == ['"Essex Lease Financial Corp." (fraude OR poursuite OR faillite OR insolvabilité OR séquestre OR '
+                      '"Autorité des marchés financiers" OR sanction)']
+    assert q["ceid"] == ["CA:fr"]
 
 
 def test_google_fetch_parses_rss_and_sends_plain_user_agent(capture):
@@ -84,7 +97,8 @@ def test_google_fetch_parses_rss_and_sends_plain_user_agent(capture):
     assert it["title"] == "Test item: Essex Lease Financial opens office"
     assert it["publisher"] == "Test Wire"
     assert it["url"] == "https://news.google.com/rss/articles/abc?oc=5"
-    assert it["published_at"] == dt.datetime(2026, 11, 5, 14, 0, tzinfo=UTC)
+    assert it["published_at"] is None                                # pubDate is when Google indexed it
+    assert it["source_date"] == dt.datetime(2026, 11, 5, 14, 0, tzinfo=UTC)
     assert "Essex Lease Financial opens office" in it["description"] and "<" not in it["description"]
 
 
@@ -100,19 +114,26 @@ def test_http_error_is_a_source_error(capture):
         net.get("https://example.com/")
 
 
-def test_gdelt_one_request_per_company_with_or_of_terms():
-    assert gdelt.Gdelt().queries(ESSEX) == ['("Essex Lease Financial Corp" OR "Essex Lease Financial")']
-    assert gdelt.Gdelt().queries({"name": "TLFC", "aliases": []}) == ['"TLFC"']
+def test_gdelt_queries_names_or_ed_and_adverse_per_language():
+    qs = gdelt.Gdelt().queries(ESSEX)
+    rendered = [gdelt.render(q) for q in qs]
+    assert rendered[0] == '("Essex Lease Financial Corp" OR "Essex Lease Financial") sourcelang:english'
+    assert rendered[1].startswith('"Essex Lease Financial Corp" (fraud OR lawsuit') and rendered[1].endswith("sourcelang:english")
+    assert rendered[2] == '("Essex Lease Financial Corp" OR "Essex Lease Financial") sourcelang:french'
+    assert '"Autorité des marchés financiers"' in rendered[3] and rendered[3].endswith("sourcelang:french")
+    tlfc = [gdelt.render(q) for q in gdelt.Gdelt().queries({"name": "TLFC", "aliases": [], "news_languages": ["en"]})]
+    assert tlfc[0] == '"TLFC" sourcelang:english' and len(tlfc) == 2
     q = urllib.parse.parse_qs(urllib.parse.urlparse(gdelt.search_url('"TLFC"')).query)
-    assert q == {"query": ['"TLFC"'], "mode": ["artlist"], "format": ["json"], "maxrecords": ["50"], "timespan": ["7d"]}
+    assert q == {"query": ['"TLFC"'], "mode": ["artlist"], "format": ["json"], "maxrecords": ["250"], "timespan": ["7d"]}
 
 
 def test_gdelt_parses_articles(capture):
     capture(GDELT_JSON)
     items = gdelt.Gdelt(limiter=NoWait()).fetch('"x"', NOW)
     assert items == [{"title": "Test item: Essex Lease Financial news", "url": "https://example.com/a",
-                      "publisher": "example.com", "published_at": dt.datetime(2026, 11, 5, 12, 15, tzinfo=UTC),
-                      "description": ""}]
+                      "publisher": "example.com", "published_at": None,
+                      "source_date": dt.datetime(2026, 11, 5, 12, 15, tzinfo=UTC), "description": "", "text": "",
+                      "language": "en"}]
 
 
 def test_gdelt_plain_text_notice_is_a_source_error(capture):

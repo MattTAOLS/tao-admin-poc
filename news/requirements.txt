@@ -2,3 +2,5 @@ sqlalchemy==2.0.36        # news_run, news_item, adverse_item, company, system_s
 psycopg[binary]==3.2.3    # postgresql+psycopg
 redis==5.2.1              # queue NEWS_QUEUE (default "news") for Run now; never the extraction queue
 tzdata==2024.2            # IANA zones for zoneinfo when the image has no system tz database
+anthropic==1.17.0         # the Claude check on every new story (NEWS_MODEL, default claude-haiku-5-5)
+cryptography==44.0.3      # Fernet: decrypt the client's paid-source credentials with NEWS_SECRET_KEY

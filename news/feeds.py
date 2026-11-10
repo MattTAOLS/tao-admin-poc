@@ -5,7 +5,9 @@ a second run, because a run for that local date already exists."""
 import datetime as dt
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-DEFAULTS = {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"]}
+DEFAULTS = {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"],
+            "daily_cap": 200}
+CAP_RANGE = (1, 5000)
 
 
 def settings(value):
@@ -20,7 +22,17 @@ def settings(value):
             out["time_zone"] = value["time_zone"]
         if isinstance(value.get("sources"), list):
             out["sources"] = [s for s in value["sources"] if isinstance(s, str)]
+        cap = value.get("daily_cap")
+        if isinstance(cap, int) and not isinstance(cap, bool) and CAP_RANGE[0] <= cap <= CAP_RANGE[1]:
+            out["daily_cap"] = cap
     return out
+
+
+def day_start_utc(now_utc, tz_name):
+    """Midnight of the local day (company_feeds.time_zone) that contains now, in UTC: the daily cap's day."""
+    tz = ZoneInfo(tz_name)
+    local = now_utc.astimezone(tz)
+    return dt.datetime.combine(local.date(), dt.time(), tzinfo=tz).astimezone(dt.timezone.utc)
 
 
 def _parse_time(s):

@@ -1,4 +1,5 @@
-"""Look-back window (first search 90 days, later 7) and GDELT 429 handling (retry once, skip after 3 in a row)."""
+"""Search windows (first search 90 days, or 12 months with a paid archive; later 7) and GDELT 429 handling (retry
+once, skip after 3 requests in a row)."""
 import datetime as dt
 import io
 import json
@@ -8,6 +9,7 @@ import urllib.request
 
 import pytest
 
+import check
 import store
 from main import Worker
 from sources import gdelt, google_news, net
@@ -17,9 +19,11 @@ NOW = dt.datetime(2026, 11, 6, 17, 0, tzinfo=UTC)
 
 
 def test_lookback_constants():
-    assert net.FIRST_LOOKBACK_DAYS == 90 and net.LOOKBACK_DAYS == 7
+    assert net.FIRST_LOOKBACK_DAYS == 90 and net.LOOKBACK_DAYS == 7 and net.FIRST_ARCHIVE_DAYS == 365
     assert net.lookback(first=True) == dt.timedelta(days=90)
+    assert net.lookback(first=True, archive=True) == dt.timedelta(days=365)
     assert net.lookback(first=False) == dt.timedelta(days=7)
+    assert net.lookback(first=False, archive=True) == dt.timedelta(days=7)
 
 
 # --- look-back through a run -------------------------------------------------------------------------------------
@@ -27,6 +31,7 @@ def test_lookback_constants():
 class Dated:
     """A fake network source that applies max_age like the real ones and records what it was asked for."""
     name = "google_news"
+    fetch_pages = False
 
     def __init__(self, items):
         self.items, self.asked = items, []
@@ -47,7 +52,8 @@ def _item(n, days_old, name="TLFC"):
 def _run(eng, clock, src):
     with eng.begin() as c:
         rid = store.insert_run(c, "manual", clock())
-    Worker(eng, env={}, now=clock, source_factory=lambda names, env: ([src], [])).tick()
+    Worker(eng, env={}, now=clock, source_factory=lambda names, env, paid=(): ([src], []),
+           checker=check.FixtureChecker()).tick()
     with eng.connect() as c:
         return store.get_run(c, rid)
 
@@ -90,8 +96,9 @@ def test_gdelt_timespan_follows_the_lookback(monkeypatch):
     g = gdelt.Gdelt(limiter=None, sleep=lambda s: None)
     g.fetch('"TLFC"', NOW, dt.timedelta(days=90))
     g.fetch('"TLFC"', NOW, dt.timedelta(days=7))
+    g.fetch('"TLFC"', NOW, dt.timedelta(days=365))                 # GDELT covers about 3 months: clamped
     spans = [urllib.parse.parse_qs(urllib.parse.urlparse(u).query)["timespan"][0] for u in seen]
-    assert spans == ["90d", "7d"]
+    assert spans == ["90d", "7d", "90d"]
 
 
 def test_gdelt_drops_items_older_than_max_age(monkeypatch):
@@ -189,25 +196,26 @@ def _gdelt_run(eng, monkeypatch, script):
     with eng.begin() as c:
         rid = store.insert_run(c, "manual", clock())
 
-    def factory(names, env):
+    def factory(names, env, paid=()):
         return [gdelt.Gdelt(limiter=NoWait(), sleep=lambda s: None)], []
-    Worker(eng, env={}, now=clock, source_factory=factory).tick()
+    Worker(eng, env={}, now=clock, source_factory=factory, checker=check.FixtureChecker()).tick()
     with eng.connect() as c:
         return store.get_run(c, rid), calls
 
 
-def test_three_consecutive_429_companies_skip_gdelt_for_the_run(eng, monkeypatch):
-    # companies in slug order: dynamic-capital ok, then three companies each 429 twice, then nothing more is called
-    run, calls = _gdelt_run(eng, monkeypatch, [b"{}", 429, 429, 429, 429, 429, 429])
-    assert len(calls) == 7                                       # 1 + 3 companies x (try + retry); the other 6 not called
+def test_three_consecutive_429_requests_skip_gdelt_for_the_run(eng, monkeypatch):
+    # GDELT asks 4 queries per company (names and names + adverse terms, in English and French). Companies in slug
+    # order: dynamic-capital's 4 succeed, then Essex's first three requests each 429 twice, then nothing more is called.
+    run, calls = _gdelt_run(eng, monkeypatch, [b"{}"] * 4 + [429] * 6)
+    assert len(calls) == 10                                      # 4 + 3 requests x (try + retry)
     msgs = [e["message"] for e in run["errors"]]
     assert msgs.count(gdelt.SKIP_MESSAGE) == 1
     skip = [e for e in run["errors"] if e["message"] == gdelt.SKIP_MESSAGE][0]
     assert skip == {"company_slug": None, "source": "gdelt", "message": gdelt.SKIP_MESSAGE}
     per_company = [e for e in run["errors"] if e["company_slug"]]
-    assert [e["company_slug"] for e in per_company] == ["essex-lease-financial-corp", "finloc-2000-inc",
-                                                        "meridian-onecap-lp"]
+    assert [e["company_slug"] for e in per_company] == ["essex-lease-financial-corp"] * 3
     assert run["status"] == "partial"                            # dynamic-capital succeeded
+    assert run["stats"]["calls"] == {"gdelt": 7}
 
 
 def test_all_429_is_a_failed_run(eng, monkeypatch):
@@ -216,7 +224,7 @@ def test_all_429_is_a_failed_run(eng, monkeypatch):
     assert len(run["errors"]) == 4                               # three companies plus the one skip error
 
 
-def test_timeouts_stay_one_error_per_company(eng, monkeypatch):
-    run, calls = _gdelt_run(eng, monkeypatch, [TimeoutError("timed out")] * 10)
-    assert len(calls) == 10 and run["status"] == "failed"
-    assert len(run["errors"]) == 10 and gdelt.SKIP_MESSAGE not in [e["message"] for e in run["errors"]]
+def test_timeouts_stay_one_error_per_request(eng, monkeypatch):
+    run, calls = _gdelt_run(eng, monkeypatch, [TimeoutError("timed out")] * 40)
+    assert len(calls) == 40 and run["status"] == "failed"
+    assert len(run["errors"]) == 40 and gdelt.SKIP_MESSAGE not in [e["message"] for e in run["errors"]]
