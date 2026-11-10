@@ -59,7 +59,7 @@ afterEach(() => { vi.useRealTimers() })
 
 describe('company feed helpers', () => {
   it('an empty or partial value reads as the contract defaults', () => {
-    expect(asFeeds({})).toEqual({ enabled: false, run_at: '06:00', time_zone: 'America/Toronto', sources: ['google_news', 'gdelt'] })
+    expect(asFeeds({})).toEqual({ enabled: false, run_at: '06:00', time_zone: 'America/Toronto', sources: ['google_news', 'gdelt'], daily_cap: 200 })
     expect(asFeeds(null)).toEqual(FEEDS_DEFAULT)
     expect(asFeeds({ enabled: true, sources: ['gdelt', 'other'] })).toMatchObject({ enabled: true, sources: ['gdelt'] })
   })
@@ -126,7 +126,7 @@ describe('System settings: Companies and news', () => {
     await userEvent.type(within(dlg).getByLabelText(/Reason/), 'Pilot the news search')
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save 1 change' }))
     await waitFor(() => expect(puts()).toEqual([{ path: '/settings/company_feeds',
-      body: { value: { enabled: true, run_at: '07:30', time_zone: 'America/Vancouver', sources: ['gdelt'] }, reason: 'Pilot the news search' } }]))
+      body: { value: { enabled: true, run_at: '07:30', time_zone: 'America/Vancouver', sources: ['gdelt'], daily_cap: 200 }, reason: 'Pilot the news search' } }]))
   })
 
   it('a bad run time or no source blocks saving', async () => {
