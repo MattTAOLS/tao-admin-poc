@@ -1,5 +1,9 @@
 """Loads seed/*.json into the database, idempotently (run it twice, get the same rows).
 
+Partners, programs and deals are insert-only (audit M1): a row that is already there is never changed, so a program's
+partner sharing and limit, or a deal's servicer, edited in the app survive every seed run (the same rule as users and
+companies). A change to seed/*.json therefore reaches a new database only; an existing one is changed in the app.
+
     python -m app.seed                          partners, programs, deals, covenant definitions, sample users and
                                                 companies (if missing)
     python -m app.seed --reference-publications also publish the 12 real deal objects in docs/dashboard-json
@@ -51,18 +55,24 @@ def load(s, root: pathlib.Path = SEED) -> dict:
     counts = {}
     for name, model in [("partners", Partner), ("programs", Program), ("deals", Deal)]:
         rows = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+        added = 0
         for r in rows:
             r = dict(r)
             slugs = r.pop("partner_slugs", None)
             if model is Program:
                 slugs = slugs or [r["partner_slug"]]
                 r["partner_slug"] = slugs[0]
-            row = s.merge(model(**r))
+            if s.get(model, r["slug"]) is not None:           # already there: master data edited in the app stands
+                continue
+            row = model(**r)
+            s.add(row)
+            added += 1
             if model is Program:
                 s.flush()
                 views.set_partner_slugs(s, row, slugs)
         s.flush()
         counts[name] = len(rows)
+        counts[f"{name}_added"] = added
     rows = json.loads((root / "covenant_definitions.json").read_text(encoding="utf-8"))
     counts["covenant_definitions"] = len(rows)
     counts["covenant_definitions_superseded"] = load_covenants(s, rows)
