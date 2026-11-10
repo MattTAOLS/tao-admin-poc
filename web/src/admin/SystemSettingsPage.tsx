@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button, Card, Dialog, Field, Input, Select, StatePanel, StatusPill, Textarea, formatCurrency, formatNumber, useToast } from '@/design/components'
+import { useLocation } from 'react-router-dom'
 import { usePageHeader } from '@/shell/header'
 import { ROLES, type Role } from '@/shell/roles'
 import rulesYaml from '@contracts/rules.yaml?raw'
 import { adminApi, programPartners, type ApiError, type AuditScope } from './data'
 import { useResource, useRole } from './hooks'
-import { LoadError, TextLink, errorText, formatDateTime, isoMonth } from './ui'
+import { LoadError, TextLink, errorText, formatDateTime } from './ui'
+import { torontoMonth } from './toronto'
 import {
   EDITABLE, FEED_SOURCES, KIND_LABEL, KIND_ORDER, RUN_CONFLICT, RUN_STATUS, SETTING_LABEL, TEMPLATE_FIELDS, TOLERANCE_MEANS, asBool, asCalendar,
   asDefaults, asFeeds, asTemplates, cap, feedsErrors, isRequired, newsApi, parseRules, prefillCalendar, runFinished, setPref, settingDiff, settingsApi,
@@ -73,6 +75,17 @@ export default function SystemSettingsPage() {
   }, [res.data]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (loaded) { setDraft(loaded.start); setForced([]) } }, [loaded])
 
+  // A link to a section (#set-sources from the Audit log, #set-companies…) arrives before the sections exist: they
+  // render after the settings load. Go to the section once they do, and again when the hash changes.
+  const { hash } = useLocation()
+  const ready = admin && !!loaded && !!draft
+  useEffect(() => {
+    if (!ready || hash.length < 2) return
+    let id = hash.slice(1)
+    try { id = decodeURIComponent(id) } catch { /* keep the raw id */ }
+    document.getElementById(id)?.scrollIntoView?.({ block: 'start' })
+  }, [ready, hash])
+
   usePageHeader({
     title: 'System settings',
     subtitle: 'How the platform is set up: what it reads, what it checks, when reports are due and who is told. TAO Admin only.',
@@ -90,7 +103,7 @@ export default function SystemSettingsPage() {
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft(d => (d ? { ...d, [k]: v } : d))
 
   const runExport = async (scope: AuditScope) => {
-    const month = isoMonth(new Date())
+    const month = torontoMonth(new Date()) // the audit log's month (Toronto), not the browser's
     setExportBusy(scope)
     try {
       const blob = await adminApi.auditExport(scope, month)
@@ -204,15 +217,16 @@ export default function SystemSettingsPage() {
           <table className="adm-plain">
             <caption className="ds-visually-hidden">Reporting calendar</caption>
             <thead><tr><th scope="col">Deal</th><th scope="col">Program</th><th scope="col" className="adm-num">Expected report day</th><th scope="col">Source</th></tr></thead>
-            <tbody>{deals.slice().sort((a, b) => (draft.reporting_calendar[a.slug] ?? 99) - (draft.reporting_calendar[b.slug] ?? 99) || a.name.localeCompare(b.name)).map(d => {
+            {/* Ordered by the day the page opened with (saved or suggested), so a row stays put while its day is typed. */}
+            <tbody>{deals.slice().sort((a, b) => (loaded.start.reporting_calendar[a.slug] ?? 99) - (loaded.start.reporting_calendar[b.slug] ?? 99) || a.name.localeCompare(b.name)).map(d => {
               const v = draft.reporting_calendar[d.slug]
               const bad = v != null && !validDay(v)
               return (
                 <tr key={d.slug}>
                   <th scope="row">{d.name}</th><td>{programName(d.program_slug)}</td>
                   <td className="adm-num">
-                    <Input numeric className="adm-day" aria-label={`${d.name} expected report day`} aria-invalid={bad || undefined} value={v == null || Number.isNaN(v) ? '' : String(v)}
-                      onChange={e => { const t = e.target.value.trim(); const n = t === '' ? undefined : Number(t); const next = { ...draft.reporting_calendar }; if (n === undefined) delete next[d.slug]; else next[d.slug] = n; set('reporting_calendar', next) }} />
+                    <DayInput label={`${d.name} expected report day`} value={v} invalid={bad}
+                      onChange={n => { const next = { ...draft.reporting_calendar }; if (n === undefined) delete next[d.slug]; else next[d.slug] = n; set('reporting_calendar', next) }} />
                     {bad && <span className="ds-field__error" role="alert">1 to 31</span>}
                   </td>
                   <td>{loaded.saved.reporting_calendar[d.slug] === v && v != null ? 'Saved'
@@ -358,6 +372,19 @@ export default function SystemSettingsPage() {
 /** Settings to save: those edited since the page loaded (`start`, which includes suggestions), plus `forced` ones. */
 export function changedKeys(start: Draft, draft: Draft, forced: string[] = []): string[] {
   return EDITABLE.filter(k => forced.includes(k) || JSON.stringify(start[k as keyof Draft]) !== JSON.stringify(draft[k as keyof Draft]))
+}
+/** One expected report day. The text is kept as typed, so "1a" or "40" stays on screen beside its "1 to 31" error
+ * instead of being wiped; it follows the draft when that changes elsewhere (Discard, a save). */
+function DayInput({ label, value, invalid, onChange }: { label: string; value: number | undefined; invalid: boolean; onChange: (n: number | undefined) => void }) {
+  const shown = (n: number | undefined) => (n == null || Number.isNaN(n) ? '' : String(n))
+  const [text, setText] = useState(shown(value))
+  useEffect(() => {
+    if (value == null ? text.trim() !== '' : !Number.isNaN(value) && Number(text) !== value) setText(shown(value))
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Input numeric className="adm-day" aria-label={label} aria-invalid={invalid || undefined} value={text}
+      onChange={e => { setText(e.target.value); const t = e.target.value.trim(); onChange(t === '' ? undefined : Number(t)) }} />
+  )
 }
 const invalid = (d: Draft) => Object.values(d.reporting_calendar).some(v => !validDay(v)) || Object.keys(feedsErrors(d.company_feeds)).length > 0
 

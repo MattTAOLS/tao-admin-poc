@@ -59,18 +59,26 @@ function Kv({ ex, items, onOpen }: { ex: Extraction; items: KvItem[]; onOpen: Op
 }
 
 type Row = Record<string, unknown> & { __i: number }
-/** `fmtRow` formats a value that needs its row (a ratio's format); numeric columns get the edit control. */
-type ColSpec = { key: string; header: string; fmt: Fmt; numeric?: boolean; className?: string; fmtRow?: (v: unknown, r: Row) => ReactNode }
+/** `fmtRow` formats a value that needs its row (a ratio's format); numeric columns get the edit control.
+ * `optional`: a key only some report layouts print (F-PIL and the MOVE Trust servicers name their loss and ratio
+ * columns differently). The column is shown when a row of this extraction holds a value for it, so each table shows
+ * exactly what was extracted and no column is all dashes. `optional: 'flag'` shows a yes/no column only when a row says yes. */
+type ColSpec = { key: string; header: string; fmt: Fmt; numeric?: boolean; className?: string; fmtRow?: (v: unknown, r: Row) => ReactNode; optional?: boolean | 'flag' }
+const has = (v: unknown) => v != null && v !== ''
 
 function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
   ex: Extraction; base: string; title: string; cols: ColSpec[]; onOpen: Open; rowName: (r: Row) => string; reverse?: boolean
 }) {
+  const { states } = useEdits()
   const list = getPointer(ex.deal, base)
   if (!Array.isArray(list) || list.length === 0) return <p className="rv-muted">No {title.toLowerCase()} in this extraction.</p>
   let rows: Row[] = list.map((r, i) => ({ ...(r as Record<string, unknown>), __i: i }))
   if (reverse) rows = rows.reverse()
+  // An edited cell keeps its column even when the extraction itself read nothing there.
+  const shown = cols.filter(c => !c.optional
+    || rows.some(r => (c.optional === 'flag' ? r[c.key] === true : has(r[c.key])) || states.has(`${base}/${r.__i}/${c.key}`)))
   const columns: Column<Row>[] = [
-    ...cols.map(c => ({ key: c.key, header: c.header, numeric: c.numeric, render: (r: Row) => {
+    ...shown.map(c => ({ key: c.key, header: c.header, numeric: c.numeric, render: (r: Row) => {
       const fmt: Fmt = c.fmtRow ? v => c.fmtRow!(v, r) : c.fmt
       return c.numeric
         ? <EditableValue ex={ex} pointer={`${base}/${r.__i}/${c.key}`} label={`${title}, ${rowName(r)}, ${c.header}`} fmt={fmt} />
@@ -83,6 +91,11 @@ function RowTable({ ex, base, title, cols, onOpen, rowName, reverse }: {
 }
 
 const period: Fmt = v => (typeof v === 'string' ? formatPeriod(v) : text(v))
+/** Leverage and interest coverage: a multiple, "8.91x". */
+const times: Fmt = v => (typeof v === 'number' ? `${ratio(v)}x` : ratio(v))
+/** A loss row is named by whichever period its layout prints: a vintage, an annual period or a semi-annual period number. */
+const lossRowName = (r: Row) => (has(r.period) ? String(r.period) : has(r.annual_period) ? String(r.annual_period)
+  : has(r.semi_annual_period) ? `semi-annual period ${r.semi_annual_period}` : `row ${r.__i + 1}`)
 
 export const SECTIONS = [
   { id: 'balances', label: 'Balances' },
@@ -144,8 +157,12 @@ export const ExtractedValues = memo(function ExtractedValues({ ex, onOpen }: { e
         { key: 'opening_balance', header: 'Opening', fmt: money, numeric: true },
         { key: 'principal', header: 'Principal', fmt: money, numeric: true },
         { key: 'principal_prepayments', header: 'Prepayments', fmt: money, numeric: true },
+        { key: 'new_funded', header: 'New funded', fmt: money, numeric: true, optional: true },
         { key: 'losses', header: 'Losses', fmt: money, numeric: true },
-        { key: 'charge_off', header: 'Charge-off', fmt: money, numeric: true },
+        { key: 'charge_off', header: 'Charge-off', fmt: money, numeric: true, optional: true },
+        { key: 'ineligible_buyback', header: 'Ineligible buyback', fmt: money, numeric: true, optional: true },
+        { key: 'adjustment_increase', header: 'Upward adjustment', fmt: money, numeric: true, optional: true },
+        { key: 'balance_adjustment', header: 'Balance adjustment', fmt: money, numeric: true, optional: true },
         { key: 'closing_balance', header: 'Closing', fmt: money, numeric: true },
         { key: 'closing_contracts', header: 'Contracts', fmt: count, numeric: true },
       ]} />,
@@ -168,6 +185,7 @@ export const ExtractedValues = memo(function ExtractedValues({ ex, onOpen }: { e
         { key: 'current_0_30', header: '0–30 days', fmt: money, numeric: true },
         { key: 'days_31_60', header: '31–60', fmt: money, numeric: true },
         { key: 'days_61_90', header: '61–90', fmt: money, numeric: true },
+        { key: 'payment_deferral', header: 'Payment deferral', fmt: money, numeric: true, optional: true },
         { key: 'written_off', header: 'Written off', fmt: money, numeric: true },
         { key: 'closing_balance', header: 'Closing', fmt: money, numeric: true },
         { key: 'cumulative_net_losses', header: 'CNL', fmt: money, numeric: true },
@@ -176,17 +194,33 @@ export const ExtractedValues = memo(function ExtractedValues({ ex, onOpen }: { e
     },
     losses: {
       title: 'Cumulative net losses by vintage', sub: pg('cumulative_losses'),
-      node: <RowTable ex={ex} onOpen={onOpen} base="/cnl_by_period" title="Cumulative net losses by vintage" rowName={r => text(r.period) as string} cols={[
-        { key: 'period', header: 'Vintage', fmt: text },
-        { key: 'advance_range', header: 'Advances', fmt: text },
-        { key: 'original_finance_contract_npv', header: 'Original NPV', fmt: money, numeric: true },
-        { key: 'gross_losses', header: 'Gross losses', fmt: money, numeric: true },
-        { key: 'actual_recoveries', header: 'Recoveries', fmt: money, numeric: true },
-        { key: 'estimated_recoveries', header: 'Est. recoveries', fmt: money, numeric: true },
-        { key: 'cumulative_net_losses', header: 'CNL', fmt: money, numeric: true },
+      // One catalogue for every layout: F-PIL vintages (gross losses, recoveries), MOVE Trust vintages, Finloc's
+      // semi-annual periods, TLFC's half-years, Meridian's and TPine's annual periods. Only the keys a report carries show.
+      node: <RowTable ex={ex} onOpen={onOpen} base="/cnl_by_period" title="Cumulative net losses by vintage" rowName={lossRowName} cols={[
+        { key: 'period', header: 'Vintage', fmt: text, optional: true },
+        { key: 'annual_period', header: 'Annual period', fmt: text, optional: true },
+        { key: 'semi_annual_period', header: 'Semi-annual period', fmt: text, optional: true },
+        { key: 'advance_range', header: 'Advances', fmt: text, optional: true },
+        { key: 'tranches', header: 'Tranches', fmt: text, optional: true },
+        { key: 'tranches_originated', header: 'Tranches originated', fmt: text, optional: true },
+        { key: 'original_finance_contract_npv', header: 'Original NPV', fmt: money, numeric: true, optional: true },
+        { key: 'original_finance_contract_nbv', header: 'Original NBV', fmt: money, numeric: true, optional: true },
+        { key: 'tranche_balance_funded', header: 'Balance funded', fmt: money, numeric: true, optional: true },
+        { key: 'period_original_balance', header: 'Period original balance', fmt: money, numeric: true, optional: true },
+        { key: 'gross_losses', header: 'Gross losses', fmt: money, numeric: true, optional: true },
+        { key: 'actual_recoveries', header: 'Recoveries', fmt: money, numeric: true, optional: true },
+        { key: 'estimated_recoveries', header: 'Est. recoveries', fmt: money, numeric: true, optional: true },
+        { key: 'current_period_losses', header: 'Current period losses', fmt: money, numeric: true, optional: true },
+        { key: 'losses_allocated', header: 'Losses allocated', fmt: money, numeric: true, optional: true },
+        { key: 'period_cumulative_net_losses', header: 'Period CNL', fmt: money, numeric: true, optional: true },
+        { key: 'cumulative_net_losses', header: 'CNL', fmt: money, numeric: true, optional: true },
         { key: 'cnl_ratio_pct', header: 'CNL ratio', fmt: pct, numeric: true },
-        { key: 'cnl_limit', header: 'Limit', fmt: pct, numeric: true },
-        { key: 'cnl_within_limit', header: 'Within', fmt: yesNo },
+        { key: 'cnl_ratio_reported_pct', header: 'Reported ratio', fmt: pct, numeric: true, optional: true },
+        { key: 'cnl_limit', header: 'Limit', fmt: pct, numeric: true, optional: true },
+        { key: 'event_of_default_trigger_pct', header: 'Default trigger', fmt: pct, numeric: true, optional: true },
+        { key: 'spread_pct', header: 'Spread', fmt: pct, numeric: true, optional: true },
+        { key: 'cnl_within_limit', header: 'Within', fmt: yesNo, optional: true },
+        { key: 'cnl_limit_is_exception', header: 'Limit by exception', fmt: yesNo, optional: 'flag' },
       ]} />,
     },
     covenants: {
@@ -206,12 +240,15 @@ export const ExtractedValues = memo(function ExtractedValues({ ex, onOpen }: { e
           <div className="rv-gap" />
           <RowTable ex={ex} onOpen={onOpen} base="/ratio_history" title="Ratio history" rowName={r => text(r.month) as string} reverse cols={[
             { key: 'month', header: 'Month', fmt: text },
-            { key: 'delinquency_ratio_pct', header: 'Delinquency', fmt: pct, numeric: true },
-            { key: 'rolling_3month_loss_ratio_pct', header: 'Rolling 3-mo loss', fmt: pct, numeric: true },
-            { key: 'rolling_12month_loss_ratio_pct', header: 'Rolling 12-mo loss', fmt: pct, numeric: true },
-            { key: 'interest_coverage_ratio', header: 'ICR', fmt: ratio, numeric: true },
-            { key: 'debt_equity_ratio', header: 'Leverage', fmt: ratio, numeric: true },
-            { key: 'total_equity', header: 'Total equity', fmt: money, numeric: true },
+            { key: 'delinquency_ratio_pct', header: 'Delinquency', fmt: pct, numeric: true, optional: true },
+            { key: 'monthly_delinquency_ratio_pct', header: 'Monthly delinquency', fmt: pct, numeric: true, optional: true },
+            { key: 'rolling_3month_loss_ratio_pct', header: 'Rolling 3-mo loss', fmt: pct, numeric: true, optional: true },
+            { key: 'rolling_12month_loss_ratio_pct', header: 'Rolling 12-mo loss', fmt: pct, numeric: true, optional: true },
+            { key: 'loss_ratio_pct', header: 'Loss ratio', fmt: pct, numeric: true, optional: true },
+            { key: 'rvl_ratio_pct', header: 'RVL ratio', fmt: pct, numeric: true, optional: true },
+            { key: 'interest_coverage_ratio', header: 'ICR', fmt: times, numeric: true, optional: true },
+            { key: 'debt_equity_ratio', header: 'Leverage', fmt: times, numeric: true, optional: true },
+            { key: 'total_equity', header: 'Total equity', fmt: money, numeric: true, optional: true },
           ]} />
         </>
       ),
