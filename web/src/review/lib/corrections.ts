@@ -17,7 +17,8 @@ const SECTION: Record<string, string> = {
 const words = (t: string) => t.replace(/_pct$/, ' %').replace(/_/g, ' ')
 
 /** "/period_history/3/closing_balance" → "Roll-forward Aug 2026 · closing balance"; "/tranche_balance/closing" →
- * "Tranche balance · closing". Array rows are named by their period, month, legal ref, label or tranche. */
+ * "Tranche balance · closing". Array rows are named by their period, month, legal ref, label,
+ * annual or semi-annual period (MOVE Trust loss tables) or tranche. */
 export function pointerLabel(deal: Record<string, unknown> | undefined, ptr: string): string {
   const toks = ptr.split('/').slice(1).map(t => t.replace(/~1/g, '/').replace(/~0/g, '~'))
   if (toks.length === 0) return ptr
@@ -30,7 +31,8 @@ export function pointerLabel(deal: Record<string, unknown> | undefined, ptr: str
     if (/^\d+$/.test(t)) {
       const row = deal ? (getPointer(deal, path) as Record<string, unknown> | undefined) : undefined
       const name = row && typeof row === 'object'
-        ? (typeof row.period === 'string' ? formatPeriod(row.period) : row.month ?? row.legal_ref ?? row.label ?? (row.tranche != null ? `tranche ${row.tranche}` : undefined))
+        ? (typeof row.period === 'string' ? formatPeriod(row.period) : row.month ?? row.legal_ref ?? row.label ?? row.annual_period
+          ?? (row.semi_annual_period != null ? `semi-annual period ${row.semi_annual_period}` : row.tranche != null ? `tranche ${row.tranche}` : undefined))
         : undefined
       head += ' ' + (name != null ? String(name) : `row ${Number(t) + 1}`)
     } else rest.push(words(t))
