@@ -1,7 +1,7 @@
 /** Small inline-SVG charts for the company profile, drawn with tokens only. Every chart carries a visually hidden table
  * with the same numbers for screen readers, and each point has a hover title. No figure is computed here: the lines are
  * the series the API sends (MetricSeries, LossPeer, period_history). */
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Button, Dialog } from '@/design/components'
 import { fmtNum } from '../Num'
 import type { NumKind } from '../fmt'
@@ -57,6 +57,48 @@ const FullIcon = () => (
   </svg>
 )
 
+/** Hover and keyboard readout shared by both charts. The pointer picks the nearest month (indexAt maps a viewBox x to
+ * a month index); with the chart focused, Left/Right/Home/End move along the months and Escape clears. The readout is
+ * visual only (aria-hidden): screen readers get the visually hidden table with the same numbers. */
+function useReadout(count: number, W: number, indexAt: (vx: number) => number) {
+  const [at, setAt] = useState<number | null>(null)
+  const ref = useRef<SVGSVGElement>(null)
+  const clamp = (i: number) => Math.max(0, Math.min(count - 1, i))
+  const props = {
+    ref,
+    tabIndex: 0,
+    onMouseMove: (e: MouseEvent<SVGSVGElement>) => {
+      const r = ref.current?.getBoundingClientRect()
+      if (!r || !r.width) return
+      setAt(clamp(indexAt(((e.clientX - r.left) * W) / r.width)))
+    },
+    onMouseLeave: () => setAt(null),
+    onBlur: () => setAt(null),
+    onKeyDown: (e: KeyboardEvent<SVGSVGElement>) => {
+      const k = e.key
+      if (k === 'Escape') { setAt(null); return }
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(k)) return
+      e.preventDefault()
+      setAt(a => k === 'Home' ? 0 : k === 'End' ? count - 1 : clamp((a ?? (k === 'ArrowLeft' ? count : -1)) + (k === 'ArrowRight' ? 1 : -1)))
+    },
+  }
+  return { at, props }
+}
+
+type TipRow = { key: string; cls: string; label: string; value: string }
+
+/** The readout box beside the hovered month: flips to the left of the guide in the right half of the chart. */
+function Tip({ x, W, month, rows }: { x: number; W: number; month: string; rows: TipRow[] }) {
+  return (
+    <div className={`co-tip${x > W / 2 ? ' co-tip--left' : ''}`} style={{ left: `${(x / W) * 100}%` }} aria-hidden="true" data-testid="chart-tip">
+      <b>{month}</b>
+      <ul>
+        {rows.map(r => <li key={r.key}><span className={`co-key co-key--${r.cls}`} /><span>{r.label}</span><span className="co-tip__num">{r.value}</span></li>)}
+      </ul>
+    </div>
+  )
+}
+
 export function unitKind(unit: string): NumKind {
   return unit === 'fraction' ? 'pct' : unit === 'currency' ? 'money' : 'ratio'
 }
@@ -73,6 +115,9 @@ export function LineChart(props: LineProps) {
 function LineDrawing({ title, months, lines, limit, kind, dims }: LineProps & { dims: Dims }) {
   const id = useId()
   const { W, H } = dims
+  const span = months.length === 1 ? 1 : (W - PL - PR) / (months.length - 1)
+  const { at, props: hover } = useReadout(months.length, W, vx => Math.round((vx - PL) / span))
+  const atMonth = at === null ? null : months[at]
   const val = (l: Line, m: Month) => l.points.find(p => p.month === m)?.value ?? null
   const all = lines.flatMap(l => months.map(m => val(l, m))).filter((v): v is number => v !== null)
   if (limit) all.push(limit.value)
@@ -96,7 +141,8 @@ function LineDrawing({ title, months, lines, limit, kind, dims }: LineProps & { 
   const ticks = [lo, lo + (hi - lo) / 2, hi]
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`}>
+      <div className="co-svgwrap">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`} {...hover}>
         <title id={`${id}-t`}>{`${title}, ${shortMonth(months[0])} to ${shortMonth(months[months.length - 1])}`}</title>
         {ticks.map((v, i) => (
           <g key={i}>
@@ -107,13 +153,29 @@ function LineDrawing({ title, months, lines, limit, kind, dims }: LineProps & { 
         {months.map((m, i) => (W >= 900 || i % 2 === 0 || i === months.length - 1) && (
           <text key={m} x={x(i)} y={H - 10} textAnchor={i === 0 ? 'start' : i === months.length - 1 ? 'end' : 'middle'} className="pf-chart__axis">{shortMonth(m)}</text>
         ))}
-        {limit && <line x1={PL} x2={W - PR} y1={y(limit.value)} y2={y(limit.value)} className="co-limit"><title>{`${limit.label} ${fmtNum(limit.value, kind)}`}</title></line>}
+        {limit && <line x1={PL} x2={W - PR} y1={y(limit.value)} y2={y(limit.value)} className="co-limit" />}
         {lines.map(l => path(l).map((d, i) => <path key={l.id + i} d={d} className={`co-line co-line--${l.cls}`} data-line={l.id} />))}
         {lines.filter(l => l.dots).map(l => months.map((m, i) => {
           const v = val(l, m)
-          return v === null ? null : <circle key={l.id + m} cx={x(i)} cy={y(v)} r={2.5} className="co-dot"><title>{`${l.label}, ${shortMonth(m)}: ${fmtNum(v, kind)}`}</title></circle>
+          return v === null ? null : <circle key={l.id + m} cx={x(i)} cy={y(v)} r={2.5} className="co-dot" />
         }))}
+        {at !== null && atMonth !== null && (
+          <g className="co-hover" aria-hidden="true">
+            <line x1={x(at)} x2={x(at)} y1={PT} y2={H - PB} className="co-hover__guide" />
+            {lines.map(l => {
+              const v = val(l, atMonth)
+              return v === null ? null : <circle key={l.id} cx={x(at)} cy={y(v)} r={4.5} className={`co-hover__dot co-hover__dot--${l.cls}`} data-hover={l.id} />
+            })}
+          </g>
+        )}
       </svg>
+      {at !== null && atMonth !== null && (
+        <Tip x={x(at)} W={W} month={shortMonth(atMonth)} rows={[
+          ...lines.map(l => ({ key: l.id, cls: l.cls, label: l.label, value: fmtNum(val(l, atMonth), kind) })),
+          ...(limit ? [{ key: 'limit', cls: 'limit', label: limit.label, value: fmtNum(limit.value, kind) }] : []),
+        ]} />
+      )}
+      </div>
       <ul className="co-legend">
         {lines.map(l => <li key={l.id}><span className={`co-key co-key--${l.cls}`} aria-hidden="true" />{l.label}</li>)}
         {limit && <li><span className="co-key co-key--limit" aria-hidden="true" />{limit.label} {fmtNum(limit.value, kind)}</li>}
@@ -144,8 +206,12 @@ function BarDrawing({ title, months, values, limit, dims }: BarProps & { dims: D
   const bw = Math.max(4, step * 0.6)
   const y = (v: number) => PT + (H - PT - PB) * (1 - v / hi)
   const base = y(0)
+  const { at, props: hover } = useReadout(months.length, W, vx => Math.floor((vx - PL) / step))
+  const atMonth = at === null ? null : months[at]
+  const cxAt = (i: number) => PL + step * i + step / 2
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`}>
+    <div className="co-svgwrap">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`} {...hover}>
       <title id={`${id}-t`}>{`${title}: ${values.size} of ${months.length} months loaded`}</title>
       {[0, hi / 2, hi].map((v, i) => (
         <g key={i}>
@@ -153,19 +219,27 @@ function BarDrawing({ title, months, values, limit, dims }: BarProps & { dims: D
           <text x={PL - 6} y={y(v) + 4} textAnchor="end" className="pf-chart__axis">{fmtNum(v, 'money')}</text>
         </g>
       ))}
-      {limit ? <line x1={PL} x2={W - PR} y1={y(limit)} y2={y(limit)} className="co-limit"><title>{`Program limit ${fmtNum(limit, 'money')}`}</title></line> : null}
+      {limit ? <line x1={PL} x2={W - PR} y1={y(limit)} y2={y(limit)} className="co-limit" /> : null}
       {months.map((m, i) => {
-        const cx = PL + step * i + step / 2
+        const cx = cxAt(i)
         const v = values.get(m)
+        const on = at === i ? ' is-hover' : ''
         return (
           <g key={m}>
             {v === undefined
-              ? <rect x={cx - bw / 2} y={base - 4} width={bw} height={4} className="co-bar--empty" data-empty={m}><title>{`${shortMonth(m)}: not loaded`}</title></rect>
-              : <rect x={cx - bw / 2} y={y(v)} width={bw} height={Math.max(0, base - y(v))} className="co-bar" data-month={m}><title>{`${shortMonth(m)}: ${fmtNum(v, 'money')}`}</title></rect>}
+              ? <rect x={cx - bw / 2} y={base - 4} width={bw} height={4} className={`co-bar--empty${on}`} data-empty={m} />
+              : <rect x={cx - bw / 2} y={y(v)} width={bw} height={Math.max(0, base - y(v))} className={`co-bar${on}`} data-month={m} />}
             {(W >= 900 || i % 2 === 0 || i === months.length - 1) && <text x={cx} y={H - 10} textAnchor="middle" className="pf-chart__axis">{shortMonth(m)}</text>}
           </g>
         )
       })}
     </svg>
+    {at !== null && atMonth !== null && (
+      <Tip x={cxAt(at)} W={W} month={shortMonth(atMonth)} rows={[
+        { key: 'bal', cls: 'deal', label: 'Closing balance', value: values.has(atMonth) ? fmtNum(values.get(atMonth)!, 'money') : 'Not loaded' },
+        ...(limit ? [{ key: 'limit', cls: 'limit', label: 'Program limit', value: fmtNum(limit, 'money') }] : []),
+      ]} />
+    )}
+    </div>
   )
 }

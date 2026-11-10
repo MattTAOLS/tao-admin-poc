@@ -47,6 +47,29 @@
 .co-chart { display: flex; flex-direction: column; gap: 6px; }
 .co-chart h3 { margin: 0; font: 700 13px var(--font); color: var(--indigo); }
 .co-chart svg[role="img"] { width: 100%; height: auto; display: block; }
+/* Hover readout (charts.tsx useReadout / Tip). */
+.co-svgwrap { position: relative; }
+.co-svgwrap svg[role="img"] { cursor: crosshair; }
+.co-svgwrap svg[role="img"]:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; border-radius: 6px; }
+.co-hover__guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.co-hover__dot { fill: var(--card); stroke-width: 2.5; }
+.co-hover__dot--deal { stroke: var(--purple); }
+.co-hover__dot--median { stroke: var(--indigo); }
+.co-hover__dot--mean { stroke: var(--muted); }
+.co-hover__dot--alt { stroke: var(--blue); }
+.co-hover__dot--peer { stroke: var(--dpv); }
+.co-bar.is-hover { filter: brightness(1.15); }
+.co-bar--empty.is-hover { fill: var(--muted); }
+.co-tip { position: absolute; top: 6px; transform: translateX(14px); z-index: 3; pointer-events: none; width: max-content; min-width: 170px; max-width: 360px;
+  background: var(--card); border: 1px solid var(--border-card); border-radius: 10px; box-shadow: var(--sh-panel); padding: 9px 11px;
+  font-size: var(--fs-small); color: var(--text); }
+.co-tip--left { transform: translateX(calc(-100% - 14px)); }
+.co-tip b { display: block; color: var(--indigo); font-size: 12.5px; margin-bottom: 5px; }
+.co-tip ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.co-tip li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.co-tip li > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-tip .co-key { width: 16px; }
+.co-tip__num { font-family: var(--data); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; white-space: nowrap; }
 .co-plot { display: flex; flex-direction: column; gap: 8px; }
 .co-plot__bar { display: flex; justify-content: flex-end; margin-bottom: -4px; }
 .co-plot--full svg[role="img"] { width: 100%; height: auto; display: block; }

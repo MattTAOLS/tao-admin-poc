@@ -1526,3 +1526,10 @@ raw (no label, no subject, the detail hides what changed); a note that `stats.da
    yellow block seen on Dynamic Capital page 16 is shading printed in the company's own PDF. A row link now outlines the
    whole row: the union of its fields' boxes on that page, padded 2 pt (`rowBox` in `web/src/review/lib/provenance.ts`).
    A single value still gets its own box. Test in `lib.test.ts`.
+## Lead — company chart hover readout (2026-11-10)
+
+Every company chart (performance, loss ratios, featured covenant, pool balance; on the page and full screen) shows a
+readout on hover: a guide line at the nearest month, a highlighted point on each line, and a box with the month and
+every line's value plus the limit. Pool balance shows the closing balance or "Not loaded". With the chart focused
+(Tab), Left/Right/Home/End move along the months and Escape clears. The readout is aria-hidden; screen readers keep
+the hidden data table. Native SVG tooltips removed. Two new tests in `profile.test.tsx`.

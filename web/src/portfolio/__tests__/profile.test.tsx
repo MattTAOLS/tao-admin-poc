@@ -99,6 +99,55 @@ describe('Company profile (TAO Admin)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   }, 60_000)
 
+  it('hovering a chart shows the month and every line\'s value, the same numbers as the chart\'s data table', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    const chart = document.getElementById('chart-delinquency_ratio_pct')!
+    const svg = chart.querySelector('svg[role="img"]') as SVGSVGElement
+    const table = chart.querySelector('table')!
+    const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent)
+    const firstRow = table.querySelector('tbody tr')!
+    const lastRow = [...table.querySelectorAll('tbody tr')].pop()!
+    // jsdom lays nothing out: give the drawing the size of its viewBox so the pointer maps 1:1
+    const [, , w, h] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: w, height: h, right: w, bottom: h, x: 0, y: 0, toJSON: () => ({}) })
+    expect(within(chart).queryByTestId('chart-tip')).toBeNull()
+    fireEvent.mouseMove(svg, { clientX: 60, clientY: 50 })
+    let tip = within(chart).getByTestId('chart-tip')
+    expect(tip.querySelector('b')!.textContent).toBe(firstRow.querySelector('th')!.textContent)
+    const dealCol = heads.indexOf('Essex Lease Financial Corp.')
+    expect(tip.textContent).toContain(firstRow.querySelectorAll('td')[dealCol - 1].textContent!)
+    expect(tip.textContent).toContain('Program median')
+    expect(tip.textContent).toMatch(/Limit MSA 8\.1 \(d\)/)
+    expect(svg.querySelector('[data-hover="deal"]')).toBeTruthy()
+    fireEvent.mouseLeave(svg)
+    expect(within(chart).queryByTestId('chart-tip')).toBeNull()
+    // Keyboard: focus the chart, End goes to the last month, Escape clears
+    svg.focus()
+    fireEvent.keyDown(svg, { key: 'End' })
+    tip = within(chart).getByTestId('chart-tip')
+    expect(tip.querySelector('b')!.textContent).toBe(lastRow.querySelector('th')!.textContent)
+    fireEvent.keyDown(svg, { key: 'ArrowLeft' })
+    expect(within(chart).getByTestId('chart-tip').querySelector('b')!.textContent).not.toBe(lastRow.querySelector('th')!.textContent)
+    fireEvent.keyDown(svg, { key: 'Escape' })
+    expect(within(chart).queryByTestId('chart-tip')).toBeNull()
+  }, 60_000)
+
+  it('hovering a pool balance bar shows its closing balance, or Not loaded for a grey slot', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    const pool = document.getElementById('pool-balance')!
+    const svg = pool.querySelector('svg[role="img"]') as SVGSVGElement
+    svg.focus()
+    fireEvent.keyDown(svg, { key: 'Home' })
+    expect(within(pool).getByTestId('chart-tip').textContent).toContain('Not loaded')
+    fireEvent.keyDown(svg, { key: 'End' })
+    const tip = within(pool).getByTestId('chart-tip')
+    expect(tip.textContent).toContain('Closing balance')
+    expect(tip.textContent).toContain('$179,272,568')
+    expect(pool.querySelector('.co-bar.is-hover')).toBeTruthy()
+  }, 60_000)
+
   it('marks published covenant cells and says which months are recomputed on hover and focus', async () => {
     renderAt(ESSEX, 'tao_admin')
     await ready()
