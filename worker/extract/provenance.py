@@ -24,6 +24,9 @@ class Recorder:
         self.deal: dict = {}
         self.sources: dict = {}
         self.pass_no = pass_no
+        # pointer -> every page its value was read or derived from. `sources` names one page (the first input's);
+        # pass 2 needs them all: a leaf goes into the patch only when each of its input pages was re-read.
+        self.inputs: dict[str, set] = {}
 
     # ---- writing
     def _set(self, ptr: str, value: Any):
@@ -59,6 +62,7 @@ class Recorder:
         if f.value is not None or f.raw:
             self.sources[ptr] = {"page": f.page, "bbox": f.bbox, "raw_text": str(f.raw),
                                  "confidence": f.confidence, "pass": self.pass_no}
+            self.inputs[ptr] = {f.page}
 
     def derived(self, ptr: str, value: Any, formula: str, inputs: Iterable[Optional[F]] = ()):
         self._set(ptr, value)
@@ -68,12 +72,14 @@ class Recorder:
         self.sources[ptr] = {"page": page, "bbox": None,
                              "raw_text": f"derived: {formula}" + (f" from [{shown}]" if shown else ""),
                              "confidence": min([i.confidence for i in ins], default=1.0), "pass": self.pass_no}
+        self.inputs[ptr] = {i.page for i in ins} or {page}
 
     def const(self, ptr: str, value: Any, why: str):
         self._set(ptr, value)
         if not isinstance(value, (dict, list)):
             self.sources[ptr] = {"page": 1, "bbox": None, "raw_text": f"template: {why}", "confidence": 1.0,
                                  "pass": self.pass_no}
+            self.inputs[ptr] = {1}
 
     def empty(self, ptr: str, kind: str = "list"):
         """An empty container the dashboard expects (e.g. top10_obligors for a template without that table)."""
