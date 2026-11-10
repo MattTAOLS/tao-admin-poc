@@ -413,6 +413,27 @@ def test_alerts_only_for_kept_stories_with_a_confirmed_recent_date(client, publi
     assert len(notes_of(client, AN, "negative_news")) == 2
 
 
+def test_reviewed_alert_to_partners_needs_a_kept_story_only(client, published):
+    """Lead decision: the partner alert when TAO marks an item reviewed has no date rule (a person reviewed it); the story
+    must still be kept. The TAO alert when the item opens keeps the full rule."""
+    profiles_on(client)
+    setting(client, "partner_notifications_enabled", True)
+    assert client.put(V1 + f"/companies/{ESSEX}/follow", headers=H(AN)).status_code == 204
+    assert client.put(V1 + f"/companies/{ESSEX}/follow", headers=H(IV)).status_code == 204
+    now = utcnow()
+    old = adverse(ESSEX, "old kept story", "litigation", news(ESSEX, "kept, confirmed 30 days ago", found=now - dt.timedelta(days=30)))
+    undated = adverse(ESSEX, "kept, date not confirmed", "fraud", news(ESSEX, "kept undated", confirmed=False))
+    unchecked = adverse(ESSEX, "unchecked story", "regulatory", news(ESSEX, "unchecked", check="unchecked"))
+    nostory = adverse(ESSEX, "no story", "sanctions")
+    assert notes_of(client, AN, "adverse_media") == []                         # none opens a TAO alert
+    for a in (old, undated, unchecked, nostory):
+        assert client.post(V1 + f"/adverse/{a}/review", headers=TAO, json={"note": "Reviewed, same entity."}).status_code == 200
+    got = sorted(n["body"].split(".")[0] for n in notes_of(client, IV, "adverse_media"))
+    assert got == ["kept, date not confirmed", "old kept story"]
+    assert all("reviewed" in n["title"] for n in notes_of(client, IV, "adverse_media"))
+    assert len(notes_of(client, IV, "adverse_media")) == 2 and notes_of(client, AN, "adverse_media") == []          # once; TAO none
+
+
 # ---------- company news_search ----------
 def test_company_news_search(client, published):
     got = client.get(V1 + f"/companies/{ESSEX}", headers=TAO).json()

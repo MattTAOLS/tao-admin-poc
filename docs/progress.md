@@ -1427,13 +1427,14 @@ definitions, the credential store and the update/test checks live in `api/app/ne
   when set, `check` for TAO only. Partners see kept only; TAO kept + unchecked, `include=excluded|pending|all`.
   Sort and `days` use coalesce(published_at, source_date, found_at). news_7d: kept, confirmed, published in 7 days.
   Adverse lists and the to_review count hide items whose story is excluded or pending.
-- Alerts: negative_news and adverse_media (open and reviewed) only when the story is kept with a confirmed
-  published_at in the last 7 days; an adverse item with no story never alerts. A story that becomes eligible later
+- Alerts: negative_news and the TAO adverse_media alert (item opened) only when the story is kept with a confirmed
+  published_at in the last 7 days; the partner alert when TAO marks an item reviewed needs only a kept story (Lead's
+  decision: no date rule). An adverse item with no story never alerts. A story that becomes eligible later
   (re-check) alerts then, once.
 - Company: `news_search` in GET for TAO, PATCH validates (terms trimmed, 2+ characters, deduplicated ignoring case,
   at most 30; languages non-empty subset of en/fr) and records it in the company_change `record` entry.
 - `company_feeds.daily_cap` (1–5000, default 200).
-Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 22 tests; full suite 469 passed, 9 skipped). `cryptography==44.0.3` added.
+Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 23 tests; full suite 469 passed, 9 skipped). `cryptography==44.0.3` added.
 For News: the env var is `NEWS_SECRET_KEY` (the API already gets `.env`); the worker writes last_test_at/ok/message
 on the row; adverse items and alerts depend on check_status and date_status being written as above.
 For UI: GET /news/sources returns `secret_key_set`; poll it after a test until last_test.at changes.
