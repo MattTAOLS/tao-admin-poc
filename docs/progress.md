@@ -1434,7 +1434,7 @@ definitions, the credential store and the update/test checks live in `api/app/ne
 - Company: `news_search` in GET for TAO, PATCH validates (terms trimmed, 2+ characters, deduplicated ignoring case,
   at most 30; languages non-empty subset of en/fr) and records it in the company_change `record` entry.
 - `company_feeds.daily_cap` (1–5000, default 200).
-Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 23 tests; full suite 469 passed, 9 skipped). `cryptography==44.0.3` added.
+Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 23 tests). `cryptography==44.0.3` added.
 For News: the env var is `NEWS_SECRET_KEY` (the API already gets `.env`); the worker writes last_test_at/ok/message
 on the row; adverse items and alerts depend on check_status and date_status being written as above.
 For UI: GET /news/sources returns `secret_key_set`; poll it after a test until last_test.at changes.
