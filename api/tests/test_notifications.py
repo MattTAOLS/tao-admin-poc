@@ -183,7 +183,7 @@ def test_tabs_unread_read_and_read_all(client, people):
 def test_user_change_notification_reaches_the_user(client):
     subscribe(client, IV)
     [n] = [n for n in mine(client, IV) if n["kind"] == "user_change"]
-    assert n["link"] == "/settings/profile" and "All F-PIL 2.0 deals" in n["body"]
+    assert n["link"] == "/investor/settings/profile" and "All F-PIL 2.0 deals" in n["body"]
 
 
 # ---- R7: partners never see another partner's notification, nor a TAO comment ----
@@ -265,7 +265,7 @@ def test_every_kind_links_to_a_real_app_route(client, people):
         "report_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=\d{{4}}-\d{{2}}$"),
         "correction_published": re.compile(rf"^/admin/portfolio/f-pil-2-0/deals/{DEAL}\?period=2026-08$"),
         "covenant_changed": re.compile(r"^/admin/partners/investor/programs/f-pil-2-0$"),
-        "system": re.compile(rf"^/admin/uploads/queue/{failed}$"), "user_change": re.compile(r"^/admin/settings/users$")}
+        "system": re.compile(rf"^/admin/uploads/queue/{failed}$"), "user_change": re.compile(r"^/admin/settings/(users|profile)$")}       # admin: User management; analyst: own profile
     seen = {}
     for who in (A1, AN):
         for n in mine(client, who, limit=200):
@@ -276,5 +276,5 @@ def test_every_kind_links_to_a_real_app_route(client, people):
     partner = {n["kind"]: n["link"] for n in mine(client, IV, limit=200)}
     assert partner["report_published"] == f"/investor/portfolio/f-pil-2-0/deals/{DEAL}?period=2026-08"
     assert partner["correction_published"] == f"/investor/portfolio/f-pil-2-0/deals/{DEAL}?period=2026-08"
-    assert partner["user_change"] == "/settings/profile"
+    assert partner["user_change"] == "/investor/settings/profile"
     assert {n["kind"]: n["link"] for n in mine(client, MV)}["report_published"].startswith("/manager/portfolio/f-pil-2-0/deals/")

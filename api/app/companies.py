@@ -33,6 +33,14 @@ UTILIZATION_HIGH = 0.85
 OBLIGOR_NEAR = 0.9
 
 
+def chart_anchor(field: str) -> str:
+    """The id of the section on the company page that shows `field` (audit L18). The page's section ids: record (with
+    "Next report due"), chart-<metric> (performance charts and the featured covenant), loss-ratios (both rolling loss
+    ratios share one card, there is no chart-rolling_* id), obligors, pool-balance, covenant-history, restatements, news,
+    adverse. Every signal anchor is one of these."""
+    return "loss-ratios" if field in LOSS_FIELDS else f"chart-{field}"
+
+
 def today() -> dt.date:
     """Today in America/Toronto (tests replace this)."""
     return dt.datetime.now(TZ).date()
@@ -524,7 +532,7 @@ def insights(s: Session, deal_row: Deal, pub: Publication, now: dt.date | None =
         if _rising(points, way):
             signals.append({"kind": "rising_3m", "severity": "rising", "title": f"{label} {'rising' if way == 'up' else 'falling'} 3 months running",
                             "detail": f"{label} moved {'up' if way == 'up' else 'down'} in each of the last 3 months, to {_fmt(points[-1]['value'], unit)} in {_month(points[-1]['month'])}.",
-                            "anchor": f"chart-{field}"})
+                            "anchor": chart_anchor(field)})
     loss_peers = []
     for field in LOSS_FIELDS:
         mine = _series(rows, months, field)
@@ -588,7 +596,7 @@ def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -
         if c.get("status") != "WATCH":
             continue
         m = ch.covenant_metric(c) if c.get("kind") in ("ceiling", "floor") else None
-        anchor = f"chart-{m[1]}" if m and m[1] in charted else "covenant-history"
+        anchor = chart_anchor(m[1]) if m and m[1] in charted else "covenant-history"
         label, unit = (METRICS[m[1]][0], METRICS[m[1]][1]) if m and m[1] in METRICS else (c.get("legal_ref"), None)
         out.append({"kind": "covenant_near_limit", "severity": "watch", "title": f"{c.get('legal_ref')} near its limit",
                     "detail": f"{label} {_fmt(c.get('current_value'), unit)} against a {c.get('kind')} of {_fmt(c.get('threshold'), unit)}, "
@@ -611,7 +619,7 @@ def _signals(s: Session, deal_row: Deal, pub: Publication, series: list[dict]) -
     if len(ph) >= 2 and ph[-1]["losses"] > 0 and all(ph[-1]["losses"] > p["losses"] for p in ph[:-1]):
         out.append({"kind": "losses_high", "severity": "watch", "title": "Highest monthly losses on record",
                     "detail": f"Losses of {_fmt(ph[-1]['losses'], 'currency')} in {_month(ph[-1]['period'])}, the highest of the {len(ph)} months in the report.",
-                    "anchor": "losses"})
+                    "anchor": "loss-ratios"})
     util = (deal.get("program") or {}).get("program_utilization_pct")
     if _num(util) and util > UTILIZATION_HIGH:
         out.append({"kind": "utilization_high", "severity": "info", "title": "Facility utilization above 85%",
@@ -630,4 +638,4 @@ def late_signal(nr: dict | None) -> dict | None:
     if not nr or not nr["late"]:
         return None
     return {"kind": "report_late", "severity": "watch", "title": f"Report for {nr['period']} is late",
-            "detail": f"Expected on {nr['due_on']}; nothing uploaded {nr['business_days_late']} business days later.", "anchor": "next-report"}
+            "detail": f"Expected on {nr['due_on']}; nothing uploaded {nr['business_days_late']} business days later.", "anchor": "record"}

@@ -8,7 +8,8 @@ Context handed to rules.run (agree changes with the Rules agent, see docs/reques
     published_periods  {collection_period: published_at (ISO)} already published for this deal (same keys as worker/validate)
     upload             the Upload dict (deal_slug, program_slug, collection_period, ...)
 
-Merge: a re-run finding is the "same" finding as a stored one when rule_id and fields match. Same -> keep the
+Merge: a re-run finding is the "same" finding as a stored one when finding_key matches: rule_id, fields and the context
+values that say which row the rule looked at (month, field, vintage, legal_ref, ...; audit H1). Same -> keep the
 stored id, status and resolution, refresh the values. Stored open finding not produced again -> closed.
 New -> inserted open. So an override sticks across re-runs, and ids the UI holds stay valid.
 
@@ -16,7 +17,7 @@ Value edits (wave B): a review edit (value_edit with no correction_id) is stored
 approve read the extraction's deal with the edits in force applied (apply_edits). On a pointer the latest not-reverted edit
 is in force. A manual edit wins over a use_ours / use_report on the same pointer (risk R3): apply_overrides skips that
 pointer and reports it as replaced; the override and the edit both keep their audit entries."""
-import calendar, copy, datetime as dt, pathlib, sys
+import calendar, copy, datetime as dt, json, math, pathlib, sys
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .models import Program, Deal, Publication, Finding, Extraction, SetrepUpload, ValueEdit, utcnow
@@ -29,6 +30,21 @@ VALUE_CHOICES = ("use_ours", "use_report")
 VALUE_KEYS = ("targets", "layer", "severity", "message", "our_value", "report_value", "difference", "tolerance", "unit", "source_page", "context")
 
 
+# Context keys that say WHICH thing a finding is about (not what its numbers are). Every R11 restatement has the same
+# rule_id and fields; month + field tell them apart. Parity with worker/validate/adapter._key (vintage, legal_ref).
+IDENTITY_KEYS = ("month", "field", "vintage", "legal_ref", "side", "tranche", "metric", "history_month", "currency", "limit_name")
+
+
+def finding_key(f) -> tuple:
+    """Identity of a finding across rule re-runs, for a stored Finding or a finding dict (audit H1). A reviewer's
+    resolution stays with this key only: another finding of the same rule (another month, field, vintage) starts open."""
+    g = f.get if isinstance(f, dict) else (lambda k: getattr(f, k, None))
+    ctx = g("context") if isinstance(g("context"), dict) else {}
+    ident = tuple((k, ctx[k] if isinstance(ctx[k], (str, int, float, bool)) else json.dumps(ctx[k], sort_keys=True, default=str))
+                  for k in IDENTITY_KEYS if ctx.get(k) is not None)
+    return (g("rule_id"), tuple(g("fields") or []), ident)
+
+
 def _rules():
     try:
         import rules
@@ -37,6 +53,13 @@ def _rules():
         import rules
     from rules.engine import Context
     return rules, Context
+
+
+def today_toronto() -> dt.date:
+    """Today in America/Toronto, the date a data_corrections row carries as `applied` (audit L5: the server's own date is
+    tomorrow's after 19:00 or 20:00 Toronto). The one shared helper is companies.today()."""
+    from . import companies                               # imported here: companies imports this module
+    return companies.today()
 
 
 def period_end(period: str) -> dt.date:
@@ -70,10 +93,10 @@ def rerun(s: Session, u: SetrepUpload, ex: Extraction) -> list[Finding]:
     stored = s.scalars(select(Finding).where(Finding.extraction_id == ex.id).order_by(Finding.created_at)).all()
     pool: dict[tuple, list[Finding]] = {}
     for f in stored:
-        pool.setdefault((f.rule_id, tuple(f.fields or [])), []).append(f)
+        pool.setdefault(finding_key(f), []).append(f)
     seen = set()
     for nf in produced:
-        bucket = pool.get((nf["rule_id"], tuple(nf.get("fields") or [])), [])
+        bucket = pool.get(finding_key(nf), [])
         match = next((f for f in bucket if f.id not in seen), None)
         if match is None:
             match = Finding(extraction_id=ex.id, rule_id=nf["rule_id"], fields=nf.get("fields") or [], status="open",
@@ -140,7 +163,7 @@ def apply_overrides(deal: dict, findings: list[Finding], period: str, manual: di
     out = copy.deepcopy(deal)
     manual = manual or {}
     plan: dict[str, tuple[object, Finding, str]] = {}
-    conflicts, corrections, today = [], [], dt.date.today().isoformat()
+    conflicts, corrections, today = [], [], today_toronto().isoformat()
     for f in findings:
         res = f.resolution or {}
         if f.status != "overridden" or res.get("choice") not in VALUE_CHOICES or not f.targets:
@@ -181,13 +204,13 @@ def apply_overrides(deal: dict, findings: list[Finding], period: str, manual: di
 
 def new_blocks_after_corrections(s: Session, u: SetrepUpload, ex: Extraction, corrected: dict, stored: list[Finding]) -> list[dict]:
     """Re-run the rules (phases 1, 2) on the corrected deal. A block finding is new unless a stored finding with the same
-    rule_id and fields was already resolved by the reviewer (e.g. R05 after use_report re-fires by design)."""
+    identity (finding_key) was already resolved by the reviewer (e.g. R05 after use_report re-fires by design)."""
     rules, _ = _rules()
-    resolved = {(f.rule_id, tuple(f.fields or [])) for f in stored if f.status != "open"}
+    resolved = {finding_key(f) for f in stored if f.status in CHOICE_STATUS.values()}   # a reviewer's decision, not closed
     produced = rules.run({"meta": ex.meta, "deal": corrected, "sources": ex.sources}, build_context(s, u), phases=PHASES)
     return [{"rule_id": f["rule_id"], "message": f["message"], "fields": f.get("fields") or [], "our_value": f.get("our_value"),
              "report_value": f.get("report_value")}
-            for f in produced if f["severity"] == "block" and (f["rule_id"], tuple(f.get("fields") or [])) not in resolved]
+            for f in produced if f["severity"] == "block" and finding_key(f) not in resolved]
 
 
 # ---- value edits (wave B) ----
@@ -208,6 +231,8 @@ def typed(old, new: float):
 
 def check_number_edit(doc: dict, pointer: str, value: float) -> str | None:
     """Why `value` cannot be written at `pointer` in `doc`, or None. Only numbers at an existing pointer (risk R9)."""
+    if not is_number(value) or not math.isfinite(value):
+        return f"{pointer} needs a finite number (not NaN or Infinity)"
     found, old = value_at(doc, pointer)
     if not found:
         return f"{pointer} is not in the deal"
@@ -249,7 +274,7 @@ def correction_entry(pointer: str, period: str, old, new, reason: str, **extra) 
     """One deal.data_corrections row for a manual change (choice `manual`)."""
     toks = [_unescape(t) for t in pointer.split("/")[1:]]
     return {"period": period, "record": toks[0], "field": "/".join(toks[1:]), "old_value": old, "new_value": new,
-            "applied": dt.date.today().isoformat(), "reason": reason, "choice": "manual", **extra}
+            "applied": today_toronto().isoformat(), "reason": reason, "choice": "manual", **extra}
 
 
 def manual_corrections(original: dict, published: dict, edits: dict, period: str) -> tuple[dict, list[dict]]:
@@ -284,7 +309,7 @@ def finding_counts(findings) -> dict:
 # ---- corrections after publish (wave B) ----
 def correction_findings(s: Session, u: SetrepUpload, deal: dict, previous: list[dict] | None = None) -> list[dict]:
     """Run the rules on a corrected published deal (prior = the published previous month). A produced finding is `open`
-    unless the reviewer already resolved the same finding (rule_id + fields) when the report was approved: it then carries
+    unless the reviewer already resolved the same finding (finding_key) when the report was approved: it then carries
     that status and resolution, so a block overridden in review (e.g. R05 use_report) does not hold up every correction.
     `previous` are the correction's own stored findings: a re-run keeps their ids, and their overrides (restatement /
     acknowledge on the queued correction) win over the review's."""
@@ -294,15 +319,15 @@ def correction_findings(s: Session, u: SetrepUpload, deal: dict, previous: list[
     if ex is not None:
         for f in s.scalars(select(Finding).where(Finding.extraction_id == ex.id)).all():
             if f.status not in ("open", "closed"):
-                resolved[(f.rule_id, tuple(f.fields or []))] = f
+                resolved[finding_key(f)] = f
     produced = rules.run({"meta": (ex.meta if ex else {}) or {}, "deal": deal, "sources": (ex.sources if ex else {}) or {}},
                          build_context(s, u, correcting=True), phases=PHASES)
     out, taken = [], set()
     for f in produced:
         f = {k: v for k, v in f.items() if k != "created_at"}
         f["extraction_id"] = ex.id if ex else None
-        key = (f["rule_id"], tuple(f.get("fields") or []))
-        mine = next((p for p in (previous or []) if (p.get("rule_id"), tuple(p.get("fields") or [])) == key and p.get("id") not in taken), None)
+        key = finding_key(f)
+        mine = next((p for p in (previous or []) if finding_key(p) == key and p.get("id") not in taken), None)
         if mine is not None:
             f["id"] = mine["id"]; taken.add(mine["id"])
         prev = resolved.get(key)

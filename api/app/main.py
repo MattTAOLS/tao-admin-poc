@@ -2,13 +2,13 @@
 Role gates: `caller` resolves the role; intake routes call tao_only / admin_only first, before touching data.
 Partner tenancy: every /published/* route takes `partner_filter` as a dependency and asks `visible_programs`
 which programs it may read. Those two functions are the only place partner scoping happens."""
-import contextlib, copy, datetime as dt, enum, io, json, re, logging
+import contextlib, copy, datetime as dt, enum, io, json, math, re, logging, urllib.parse
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import Annotated, Literal
@@ -33,7 +33,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="TAO Admin POC API", version="0.1.0", openapi_url="/api/v1/openapi.json", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])
 API = "/api/v1"
-PERIOD = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+PERIOD_RX = r"^(20\d{2}|2100)-(0[1-9]|1[0-2])$"     # YYYY-MM, years 2000-2100: every period feeds date arithmetic (audit L3)
+PERIOD = re.compile(PERIOD_RX)
+MONTH_RX = r"^\d{4}-(0[1-9]|1[0-2])$"               # a month that is only displayed (a company's relationship_since)
+MAX_INT = 2147483647                                # PostgreSQL integer; no int parameter may exceed it (audit L2)
+MAX_OFFSET = 1_000_000
+Finite = Annotated[float, Field(allow_inf_nan=False)]          # a number field never takes NaN or +/-Infinity (audit L4)
 STATUSES = ("received", "extracting", "needs_review", "approved", "rejected", "published", "extraction_failed")
 
 
@@ -70,7 +75,80 @@ async def _http_error(_: Request, e: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def _validation_error(_: Request, e: RequestValidationError):
     return JSONResponse({"code": "invalid", "message": "request does not match the contract",
-                         "errors": json.loads(json.dumps(e.errors(), default=str))}, status_code=422)
+                         "errors": _strict_json(json.loads(json.dumps(e.errors(), default=str)))}, status_code=422)
+
+
+def _strict_json(v):
+    """NaN / Infinity echoed back in a validation error (the rejected input) as text: the response stays valid JSON."""
+    if isinstance(v, float) and not math.isfinite(v):
+        return str(v)
+    if isinstance(v, dict):
+        return {k: _strict_json(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_strict_json(x) for x in v]
+    return v
+
+
+# ---- NUL bytes never reach the database (audit L1) ----
+def _has_nul(v) -> bool:
+    if isinstance(v, str):
+        return "\x00" in v
+    if isinstance(v, dict):
+        return any(_has_nul(k) or _has_nul(x) for k, x in v.items())
+    if isinstance(v, list):
+        return any(_has_nul(x) for x in v)
+    return False
+
+
+class NulGuard:
+    """PostgreSQL refuses a NUL byte in text (an unhandled 500). One place refuses it first: in the path 404 not_found (no
+    resource has such a name), in the query string or in any JSON string of the body 422 invalid. Pure ASGI: the JSON body
+    is read once here and replayed to the route. Multipart forms carry file bytes, so their text fields are checked by the
+    route (POST /uploads)."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        refuse = None
+        if "\x00" in (scope.get("path") or ""):
+            refuse = JSONResponse({"code": "not_found", "message": "no such resource"}, status_code=404)
+        elif "\x00" in urllib.parse.unquote_plus((scope.get("query_string") or b"").decode("latin-1")):
+            refuse = JSONResponse({"code": "invalid", "message": "a query parameter holds a NUL character"}, status_code=422)
+        if refuse is not None:
+            return await refuse(scope, receive, send)
+        ctype = next((v for k, v in scope.get("headers") or [] if k == b"content-type"), b"").lower()
+        if scope.get("method") in ("POST", "PUT", "PATCH", "DELETE") and b"json" in ctype:
+            chunks, more = [], True
+            while more:
+                msg = await receive()
+                if msg["type"] != "http.request":             # client went away
+                    return
+                chunks.append(msg.get("body", b""))
+                more = msg.get("more_body", False)
+            body = b"".join(chunks)
+            if b"\\u0000" in body or b"\x00" in body:        # a NUL in a JSON string is written \u0000; confirm by parsing
+                try:
+                    bad = _has_nul(json.loads(body))
+                except ValueError:
+                    bad = False                               # not JSON: the route answers 422 as it always did
+                if bad:
+                    return await JSONResponse({"code": "invalid", "message": "a text value holds a NUL character"},
+                                              status_code=422)(scope, receive, send)
+            sent = False
+
+            async def replay():
+                nonlocal sent
+                if not sent:
+                    sent = True
+                    return {"type": "http.request", "body": body, "more_body": False}
+                return await receive()
+            return await self.app(scope, replay, send)
+        return await self.app(scope, receive, send)
+
+
+app.add_middleware(NulGuard)
 
 
 @app.get(API + "/health")
@@ -85,13 +163,61 @@ def get_upload_or_404(s: Session, upload_id: str) -> SetrepUpload:
     return u
 
 
+def lock_upload(s: Session, upload_id: str) -> SetrepUpload:
+    """The upload for a state-changing action, row-locked until the request commits (SELECT ... FOR UPDATE on PostgreSQL;
+    SQLite ignores it) and read fresh, so two actions on one upload run one after the other (audit H3). The status change
+    itself goes through _transition, and each action confirms the status it read with _still: both hold without the lock too."""
+    u = None
+    if _is_uuid(upload_id):
+        u = s.scalars(select(SetrepUpload).where(SetrepUpload.id == upload_id).with_for_update()
+                      .execution_options(populate_existing=True)).first()
+    if u is None:
+        raise err(404, "not_found", "no such upload")
+    return u
+
+
+def _still(s: Session, u: SetrepUpload, allowed: tuple[str, ...]) -> None:
+    """Confirm in the database that the upload still is in one of `allowed` before the action does any work: a conditional
+    UPDATE that changes nothing (it takes the row's write lock). A request that read the status before another one
+    committed stops here with 409 bad_state, having written nothing (audit H3)."""
+    held = s.execute(update(SetrepUpload).where(SetrepUpload.id == u.id, SetrepUpload.status.in_(allowed))
+                     .values(status=SetrepUpload.status).execution_options(synchronize_session=False)).rowcount
+    if held != 1:
+        s.rollback()
+        now = s.scalar(select(SetrepUpload.status).where(SetrepUpload.id == u.id))
+        raise err(409, "bad_state", f"upload is {now}; another action changed it first")
+
+
+def _transition(s: Session, u: SetrepUpload, allowed: tuple[str, ...], to: str, **values) -> None:
+    """Move the upload to `to` only if it still is in one of `allowed`: one conditional UPDATE, so of two requests that
+    both read the old status exactly one moves it; the other rolls back and gets 409 bad_state (audit H3)."""
+    done = s.execute(update(SetrepUpload).where(SetrepUpload.id == u.id, SetrepUpload.status.in_(allowed)).values(status=to, **values)
+                     .execution_options(synchronize_session=False)).rowcount
+    if done != 1:
+        s.rollback()
+        now = s.scalar(select(SetrepUpload.status).where(SetrepUpload.id == u.id))
+        raise err(409, "bad_state", f"upload is {now}; another action changed it first")
+    s.refresh(u)
+
+
+def _correction_transition(s: Session, k: Correction, to: str) -> None:
+    """As _transition, for a queued correction: needs_review -> published / rejected exactly once."""
+    done = s.execute(update(Correction).where(Correction.id == k.id, Correction.status == "needs_review").values(status=to)
+                     .execution_options(synchronize_session=False)).rowcount
+    if done != 1:
+        s.rollback()
+        now = s.scalar(select(Correction.status).where(Correction.id == k.id))
+        raise err(409, "bad_state", f"correction is {now}; another action decided it first")
+    s.refresh(k)
+
+
 def _is_uuid(v: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}", v or ""))
 
 
 def _check_period(p: str | None, name="period"):
     if p is not None and not PERIOD.match(p):
-        raise err(422, "invalid", f"{name} must be YYYY-MM")
+        raise err(422, "invalid", f"{name} must be YYYY-MM, between 2000-01 and 2100-12")
 
 
 def _upload_dir(upload_id: str):
@@ -105,13 +231,15 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
                         c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
     tao_only(c)
     _check_period(collection_period, "collection_period")
-    if s.get(Deal, deal_slug) is None:
-        raise err(422, "unknown_deal", f"no deal {deal_slug}")
+    if "\x00" in deal_slug or s.get(Deal, deal_slug) is None:  # form field: NulGuard does not read multipart bodies
+        raise err(422, "unknown_deal", f"no deal {deal_slug!r}" if "\x00" in deal_slug else f"no deal {deal_slug}")
     published = s.scalars(select(Publication).where(Publication.deal_slug == deal_slug, Publication.collection_period == collection_period)).first()
     if published and not replace:
         raise err(409, "already_published", f"{deal_slug} {collection_period} is already published (R12); upload with replace=true for a corrected re-issue")
     if replace and not published:
         raise err(422, "nothing_to_replace", f"{deal_slug} {collection_period} has no publication to replace")
+    if "\x00" in (file.filename or ""):
+        raise err(422, "invalid", "the file name holds a NUL character")
     data = await file.read()
     try:
         pages = pdf.page_count(data)
@@ -199,13 +327,15 @@ class RejectRequest(BaseModel):
 @app.post(API + "/uploads/{upload_id}/findings/{finding_id}/override")
 def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
-    u = get_upload_or_404(s, upload_id)
+    u = lock_upload(s, upload_id)
     ex = views.latest_extraction(s, u.id)
     f = s.get(Finding, finding_id) if _is_uuid(finding_id) else None
     if ex is None or f is None or f.extraction_id != ex.id:
         raise err(404, "not_found", "no such finding on the latest extraction of this upload")
     if u.status != "needs_review":
         raise err(409, "bad_state", f"upload is {u.status}; findings can be overridden only while it needs review")
+    _still(s, u, ("needs_review",))
+    s.refresh(f)
     if f.status != "open":
         raise err(409, "not_open", f"finding is already {f.status}")
     if body.choice in review.VALUE_CHOICES and not f.targets:
@@ -221,17 +351,34 @@ def override(upload_id: str, finding_id: str, body: OverrideRequest, c: Caller =
 
 @app.post(API + "/uploads/{upload_id}/reextract", status_code=202)
 def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
+    """The status change is committed before the job is pushed (audit M2): a failed upload that a newer upload of the same
+    deal and period has replaced cannot become active again (409 upload_in_progress), and no job is queued for it."""
     tao_only(c)
-    u = get_upload_or_404(s, upload_id)
-    if u.status not in ("needs_review", "extraction_failed"):
+    u = lock_upload(s, upload_id)
+    was = u.status
+    if was not in ("needs_review", "extraction_failed"):
         raise err(409, "bad_state", f"upload is {u.status}; re-extraction needs needs_review or extraction_failed")
+    _still(s, u, (was,))
     pages = sorted(set(body.pages))
     if any(p < 1 or (u.page_count and p > u.page_count) for p in pages):
         raise err(422, "invalid", f"pages must be within 1..{u.page_count or 'page count'}")
-    q.push({"upload_id": u.id, "pass": 2, "pages": pages, "template_id": s.get(Deal, u.deal_slug).template_id})
-    u.status = "extracting"
-    views.audit(s, c, "reextract", upload_id=u.id, detail={"pages": pages})
-    s.commit()
+    deal_slug, period, template_id = u.deal_slug, u.collection_period, s.get(Deal, u.deal_slug).template_id
+    try:
+        _transition(s, u, (was,), "extracting")
+        views.audit(s, c, "reextract", upload_id=u.id, detail={"pages": pages})
+        s.commit()
+    except IntegrityError:                                    # setrep_upload_active_period: a newer upload holds the period
+        s.rollback()
+        raise err(409, "upload_in_progress", f"a newer upload for {deal_slug} {period} is in progress or published; "
+                                             "this one can no longer be re-extracted")
+    try:
+        q.push({"upload_id": u.id, "pass": 2, "pages": pages, "template_id": template_id})
+    except Exception as e:                                    # queue down: put the upload back, say so, lose nothing
+        log.error("queue push failed for %s: %s", u.id, e)
+        _transition(s, u, ("extracting",), was)
+        views.audit(s, c, "extract", upload_id=u.id, reason="queue unavailable", detail={"error": str(e)[:200], "pass": 2})
+        s.commit()
+        raise err(503, "queue_unavailable", "the extraction queue is not reachable; the upload is unchanged, try again")
     return views.upload_dict(s, u)
 
 
@@ -245,18 +392,20 @@ def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depe
     report_published notifications; the publish entry records the note and the recipients."""
     admin_only(c)
     note = body.note_to_partners if body else None
-    u = get_upload_or_404(s, upload_id)
+    u = lock_upload(s, upload_id)
     if u.status != "needs_review":
         raise err(409, "bad_state", f"upload is {u.status}; only needs_review can be approved")
+    _still(s, u, ("needs_review",))
     ex = views.latest_extraction(s, u.id)
     if ex is None:
         raise err(409, "no_extraction", "nothing extracted to approve")
     edits = review.active_edits(s, u.id)
-    if edits:                       # findings must reflect the edits, also over a pass-2 extraction that came after them
-        review.rerun(s, u, ex)
-        s.commit()
+    # Always re-run (audit H2): the findings must reflect the value edits (also over a pass-2 extraction that came after
+    # them), the master data, and the prior month as it is published now (it may have been re-issued or corrected since).
+    review.rerun(s, u, ex)
     blocks = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.severity == "block", Finding.status == "open")).all()
     if blocks:
+        s.commit()                                            # the reviewer sees the findings the refusal is about
         raise err(409, "open_block_findings", f"{len(blocks)} block finding(s) still open: {', '.join(sorted({b.rule_id for b in blocks}))}")
     resolved = s.scalars(select(Finding).where(Finding.extraction_id == ex.id, Finding.resolution.is_not(None)).order_by(Finding.created_at)).all()
     overrides = [f.id for f in resolved]
@@ -276,7 +425,7 @@ def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depe
                                       "use report or re-extract instead", "findings": knock_on})
     if published_deal.get("source_file") == "source.pdf" and u.file_name:   # the stored copy's name, not the operator's file
         published_deal = {**published_deal, "source_file": u.file_name}
-    u.status = "approved"
+    _transition(s, u, ("needs_review",), "approved")
     views.audit(s, c, "approve", upload_id=u.id, detail={"extraction_id": ex.id, "pass": ex.pass_, "overrides_used": overrides,
                                                           "corrections": corrections, "value_edits": manual})
     pub = s.scalars(select(Publication).where(Publication.deal_slug == u.deal_slug, Publication.collection_period == u.collection_period)).first()
@@ -292,10 +441,12 @@ def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depe
         pub.note_to_partners = note
         pub.rollup_version += 1
     s.flush()
-    u.status = "published"
+    _transition(s, u, ("approved",), "published")
+    rerun = _rerun_open_reviews(s, u.deal_slug, after_period=u.collection_period)     # their prior changed (audit H2)
     told = notify.published(s, u, pub.version, c.label or c.role, note)
     views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced,
-                                                         "version": pub.version, "note_to_partners": note, "recipients": told})
+                                                         "version": pub.version, "note_to_partners": note, "recipients": told,
+                                                         "rerun_upload_ids": rerun})
     program_slug = s.get(Deal, u.deal_slug).program_slug
     views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": program_slug, "trigger": "approve"})
     s.commit()
@@ -315,7 +466,7 @@ Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=10)]
 # ---- value edits while in review (wave B) ----
 class ValueEditRequest(BaseModel):
     pointer: str
-    value: float
+    value: Finite
     reason: Reason
 
 
@@ -332,10 +483,11 @@ def _edit_result(s: Session, u: SetrepUpload, e: ValueEdit, ex: Extraction) -> d
 
 
 def _editable(s: Session, upload_id: str) -> tuple[SetrepUpload, Extraction]:
-    u = get_upload_or_404(s, upload_id)
+    u = lock_upload(s, upload_id)
     if u.status not in EDITABLE:
         hint = "; a published report takes a correction" if u.status == "published" else ""
         raise err(409, "bad_state", f"upload is {u.status}; values can be edited only in needs_review or approved{hint}")
+    _still(s, u, EDITABLE)
     ex = views.latest_extraction(s, u.id)
     if ex is None:
         raise err(409, "bad_state", "nothing extracted to edit")
@@ -379,7 +531,7 @@ def create_edit(upload_id: str, body: ValueEditRequest, c: Caller = Depends(admi
 @app.post(API + "/uploads/{upload_id}/edits/{edit_id}/revert")
 def revert_edit(upload_id: str, edit_id: str, body: RevertRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
-    u = get_upload_or_404(s, upload_id)
+    u = lock_upload(s, upload_id)
     e = s.get(ValueEdit, edit_id) if _is_uuid(edit_id) else None
     if e is None or e.upload_id != u.id or e.correction_id is not None:
         raise err(404, "not_found", "no such value edit on this upload")
@@ -402,7 +554,7 @@ def revert_edit(upload_id: str, edit_id: str, body: RevertRequest, c: Caller = D
 # ---- corrections after publish (wave B) ----
 class CorrectionEditIn(BaseModel):
     pointer: str
-    value: float
+    value: Finite
 
 
 class CorrectionRequest(BaseModel):
@@ -424,13 +576,24 @@ def _correction_or_404(s: Session, correction_id: str) -> Correction:
     return k
 
 
+def _locked_correction(s: Session, correction_id: str) -> Correction:
+    """A correction for a state-changing action: its upload row is locked first (the same lock every review action on that
+    report takes), then the correction is read fresh (audit H3)."""
+    k = _correction_or_404(s, correction_id)
+    lock_upload(s, k.upload_id)
+    s.refresh(k)
+    return k
+
+
 def _rerun_open_reviews(s: Session, deal_slug: str, after_period: str | None = None) -> list[str]:
     """Re-run the rules on the deal's uploads in needs_review (optionally only later periods); returns their ids."""
     q = select(SetrepUpload).where(SetrepUpload.deal_slug == deal_slug, SetrepUpload.status == "needs_review")
     if after_period:
         q = q.where(SetrepUpload.collection_period > after_period)
     ids = []
-    for u in s.scalars(q.order_by(SetrepUpload.collection_period, SetrepUpload.uploaded_at)).all():
+    # locked like any review action, in period order: an approve of one of them waits, then sees these findings
+    q = q.order_by(SetrepUpload.collection_period, SetrepUpload.uploaded_at).with_for_update().execution_options(populate_existing=True)
+    for u in s.scalars(q).all():
         ex = views.latest_extraction(s, u.id)
         if ex is not None:
             review.rerun(s, u, ex)
@@ -472,11 +635,12 @@ def create_correction(upload_id: str, body: CorrectionRequest, c: Caller = Depen
     re-run on it. No open block finding: published at once as the next version. Otherwise it waits in the approval queue
     (decision B1) and the live version stays until approve or reject."""
     admin_only(c)
-    u = get_upload_or_404(s, upload_id)
+    u = lock_upload(s, upload_id)
     pub = s.scalars(select(Publication).where(Publication.upload_id == u.id)).first()
     if u.status != "published" or pub is None:
         why = "it was replaced by a re-issue" if u.status == "published" else f"it is {u.status}"
         raise err(409, "bad_state", f"only the live publication of a report can be corrected; {why}")
+    _still(s, u, ("published",))
     if s.scalars(select(Correction.id).where(Correction.upload_id == u.id, Correction.status == "needs_review")).first():
         raise err(409, "correction_pending", "a correction of this report is already waiting for approval")
     pointers = [e.pointer for e in body.edits]
@@ -545,7 +709,7 @@ def override_correction_finding(correction_id: str, finding_id: str, body: Overr
     """Resolve a finding of a queued correction. Only restatement or acknowledge: the correction's values are its edits,
     so use_ours / use_report are refused (409 bad_choice). The resolution sticks across the re-run approve does."""
     admin_only(c)
-    k = _correction_or_404(s, correction_id)
+    k = _locked_correction(s, correction_id)
     findings = [dict(f) for f in (k.findings or [])]
     f = next((x for x in findings if x.get("id") == finding_id), None)
     if f is None:
@@ -572,7 +736,7 @@ def override_correction_finding(correction_id: str, finding_id: str, body: Overr
 def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     """The rules re-run first (the master data or the prior month may have changed since); still a block open: 409."""
     admin_only(c)
-    k = _correction_or_404(s, correction_id)
+    k = _locked_correction(s, correction_id)
     if k.status != "needs_review":
         raise err(409, "bad_state", f"correction is {k.status}")
     u = s.get(SetrepUpload, k.upload_id)
@@ -585,6 +749,7 @@ def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s:
         s.commit()
         blocks = sorted({f["rule_id"] for f in k.findings if f["severity"] == "block" and f["status"] == "open"})
         raise err(409, "open_block_findings", f"{k.finding_counts['block']} block finding(s) still open: {', '.join(blocks)}")
+    _correction_transition(s, k, "published")              # flushes the re-run findings first
     views.audit(s, c, "correction_approve", upload_id=u.id, detail={"correction_id": k.id, "version": k.version, "edits": _audit_edits(s, k)})
     _publish_correction(s, c, k, u, pub)
     s.commit()
@@ -594,10 +759,11 @@ def approve_correction(correction_id: str, c: Caller = Depends(admin_caller), s:
 @app.post(API + "/corrections/{correction_id}/reject")
 def reject_correction(correction_id: str, body: RejectRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
-    k = _correction_or_404(s, correction_id)
+    k = _locked_correction(s, correction_id)
     if k.status != "needs_review":
         raise err(409, "bad_state", f"correction is {k.status}")
-    k.status, k.decided_at, k.decided_by, k.reject_reason = "rejected", utcnow(), c.role, body.reason
+    _correction_transition(s, k, "rejected")
+    k.decided_at, k.decided_by, k.reject_reason = utcnow(), c.role, body.reason
     views.audit(s, c, "correction_reject", upload_id=k.upload_id, reason=body.reason,
                 detail={"correction_id": k.id, "version": k.version, "edits": _audit_edits(s, k)})
     notify.rejected(s, s.get(SetrepUpload, k.upload_id), body.reason, c.label or c.role, what="Correction")
@@ -608,10 +774,12 @@ def reject_correction(correction_id: str, body: RejectRequest, c: Caller = Depen
 @app.post(API + "/uploads/{upload_id}/reject")
 def reject(upload_id: str, body: RejectRequest, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
     admin_only(c)
-    u = get_upload_or_404(s, upload_id)
-    if u.status not in ("received", "extracting", "needs_review", "extraction_failed"):
+    u = lock_upload(s, upload_id)
+    rejectable = ("received", "extracting", "needs_review", "extraction_failed")
+    if u.status not in rejectable:
         raise err(409, "bad_state", f"upload is {u.status}; it can no longer be rejected")
-    u.status, u.reject_reason = "rejected", body.reason
+    _still(s, u, rejectable)
+    _transition(s, u, rejectable, "rejected", reject_reason=body.reason)
     views.audit(s, c, "reject", upload_id=u.id, reason=body.reason)
     notify.rejected(s, u, body.reason, c.label or c.role)
     s.commit()
@@ -649,8 +817,8 @@ class ProgramIn(BaseModel):
     partner_slug: str | None = None
     partner_slugs: list[str] | None = Field(default=None, min_length=1)
     currency: str = "CAD"
-    limit: float
-    warehouse_limit: float | None = None
+    limit: Finite
+    warehouse_limit: Finite | None = None
 
 
 class DealIn(BaseModel):
@@ -662,9 +830,9 @@ class DealIn(BaseModel):
 
 
 class Band(BaseModel):
-    lte: float | None = None
-    gt: float | None = None
-    threshold: float
+    lte: Finite | None = None
+    gt: Finite | None = None
+    threshold: Finite
 
 
 class ThresholdRule(BaseModel):
@@ -681,9 +849,9 @@ class CovenantIn(BaseModel):
     legal_ref: str
     description: str
     kind: Literal["ceiling", "floor"]
-    threshold: float | None = None
+    threshold: Finite | None = None
     threshold_rule: ThresholdRule | None = None
-    watch_buffer_pct: float = 0.1
+    watch_buffer_pct: Finite = 0.1
     effective_from: dt.date
     source: str | None = None
     unit: Literal["fraction", "ratio", "currency"] | None = None
@@ -884,7 +1052,7 @@ def published_program(program_slug: str, period: str | None = None, partner: str
 
 
 @app.get(API + "/published/programs/{program_slug}/deals/{deal_slug}")
-def published_deal(program_slug: str, deal_slug: str, period: str | None = None, version: int | None = Query(default=None, ge=1),
+def published_deal(program_slug: str, deal_slug: str, period: str | None = None, version: int | None = Query(default=None, ge=1, le=MAX_INT),
                    partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     _check_period(period)
     program = _visible_program(s, partner, program_slug)
@@ -940,7 +1108,7 @@ def _audit_gate(c: Caller, scope: str | None) -> Caller:
 @app.get(API + "/audit")
 def audit(upload_id: str | None = None, action: str | None = None, scope: Scope | None = None, month: str | None = None,
           q: str | None = Query(default=None, min_length=2), actor_role: str | None = None, actor_user_id: str | None = None,
-          deal_slug: str | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0),
+          deal_slug: str | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
           c: Caller = Depends(caller), s: Session = Depends(get_db)):
     """Newest first. Every filter narrows; q searches across all months unless month is given. actor_user_id equal to the
     caller's own user (Profile, My activity) is readable by every role; anyone else's needs the scope rule."""
@@ -1314,7 +1482,7 @@ def _my_notifications(s: Session, c: Caller, partner: str | None, tab: str = "al
 
 @app.get(API + "/notifications")
 def list_notifications(tab: Tab = "all", unread: bool | None = None, limit: int = Query(default=50, ge=1, le=200),
-                       offset: int = Query(default=0, ge=0), c: Caller = Depends(user_caller),
+                       offset: int = Query(default=0, ge=0, le=MAX_OFFSET), c: Caller = Depends(user_caller),
                        partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     notify.sweep(s)
     q = _my_notifications(s, c, partner, tab)
@@ -1497,7 +1665,6 @@ def reopen_thread(thread_id: str, c: Caller = Depends(tao_user_caller), s: Sessi
 
 # ---- wave D: companies, notes, contacts, follows, news and adverse media ----
 SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
-PERIOD_RX = r"^\d{4}-(0[1-9]|1[0-2])$"
 Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
 
 
@@ -1630,7 +1797,7 @@ class CompanyPatchIn(BaseModel):
     naics: str | None = None
     headquarters: str | None = None
     website: str | None = None
-    relationship_since: Annotated[str, StringConstraints(pattern=PERIOD_RX)] | None = None
+    relationship_since: Annotated[str, StringConstraints(pattern=MONTH_RX)] | None = None       # shown only; may predate 2000
     owner_user_id: str | None = None
     deal_slugs: list[str] | None = None
     news_search: dict | None = None                       # CompanyNewsSearch, checked in companies.check_news_search

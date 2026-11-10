@@ -1564,3 +1564,24 @@ Audit report: `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`. Fixed here: H11
 Tested on a throwaway production stack: swapped arguments, a truncated dump, a truncated archive and an unconfirmed
 prompt are refused with nothing changed; a dump that fails while loading leaves the data intact and the app running;
 a real restore works; a laptop export made in Git Bash restores to the same 23 uploads and 70 files.
+## Data & API — bug audit fixes (2026-11-10)
+
+Fixes for the API items of `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`, on `agent/api`. Tests: `api/tests/test_audit_fixes.py`
+(one section per audit id). Run: `cd api && python -m pytest -q -p no:cacheprovider` (508 passed, 9 skipped on SQLite).
+
+- H1: findings are matched across re-runs by `review.finding_key` (rule, fields and the context that names the row: month,
+  field, vintage, legal_ref, side, tranche, metric, currency, limit name). Used by the re-run, approve and corrections.
+- H2: approve always re-runs the rules; every publish (approve, re-issue, correction) re-runs later months in review and
+  lists them in the publish entry (`rerun_upload_ids`). A re-issue therefore always shows its R12 block at approve; the
+  reviewer acknowledges it first, as the rule intends.
+- H3: every review action locks the upload row (`lock_upload`), confirms the status it read (`_still`) and changes status
+  with a conditional update (`_transition`, `_correction_transition`). The loser gets 409 `bad_state`.
+- M2: re-extract commits before it queues; 409 `upload_in_progress` when a newer upload holds the period; 503
+  `queue_unavailable` (upload put back) when the queue is down.
+- M1 seed insert-only for partners, programs, deals. M19 account links. M23 CSV cells. L18 anchors `loss-ratios`, `record`.
+- L1 NUL bytes (path 404, query and JSON 422). L2 `version` <= 2147483647, `offset` <= 1,000,000. L3 months 2000-2100.
+  L4 no NaN / Infinity. L5 `applied` is the Toronto date.
+
+Not verified: the row locks on PostgreSQL (the suite ran on SQLite, where the conditional updates carry the tests).
+Needs from others: Lead, contract text for 503 on reextract, `upload_in_progress` on reextract, the integer and month
+bounds, and `rerun_upload_ids` on the publish entry (all optional documentation; no route shape changed).

@@ -157,7 +157,8 @@ def test_reissue_archives_a_version_and_blocks_corrections_of_the_old_upload(cli
                       files={"file": ("Moneda-202608 -SETTREP.pdf", make_pdf(3), "application/pdf")}).json()
     d = reference_deal(DEAL); d["source_file"] = "Moneda-202608 -SETTREP (corrected).pdf"
     worker_writes(new["id"], d)
-    assert client.post(f"/api/v1/uploads/{new['id']}/approve", headers=TAO).status_code == 200
+    from test_reissue import approve_reissue
+    assert approve_reissue(client, new["id"]).status_code == 200
     dd = client.get(DEAL_URL, headers=INV).json()
     assert dd["version"] == 2 and [(v["version"], v["reason"]) for v in dd["versions"]] == [(1, None), (2, "corrected re-issue")]
     assert client.get(DEAL_URL, headers=INV, params={"version": 1}).json()["upload_id"] == published

@@ -122,6 +122,16 @@ def _actor(a: ReviewAction) -> str:
     return a.actor_role if not a.actor_label or a.actor_label == a.actor_role else f"{a.actor_label} ({a.actor_role})"
 
 
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_cell(v) -> str:
+    """A cell a spreadsheet will not run as a formula (audit M23): text starting with = + - @, tab or carriage return gets
+    a leading single quote. A user's name, a reason and the detail JSON are free text a partner user can set."""
+    text_ = "" if v is None else str(v)
+    return "'" + text_ if text_.startswith(FORMULA_START) else text_
+
+
 def export_csv(s: Session, scope: str, month: str) -> tuple[str, int]:
     """One month of one scope, newest first, one row per entry (contract column list); deal = name, else slug; detail as
     compact JSON. Rows are read before the caller writes its export entry, so an export never lists itself."""
@@ -132,7 +142,8 @@ def export_csv(s: Session, scope: str, month: str) -> tuple[str, int]:
     n = 0
     for a, slug, name, period in _with_deal(s, s.execute(stmt).all()):
         at = a.at if a.at.tzinfo else a.at.replace(tzinfo=dt.timezone.utc)
-        w.writerow([at.isoformat(), at.astimezone(TZ).isoformat(), scope_of(a), a.action, _actor(a), name or slug or "", period or "",
-                    a.upload_id or "", a.finding_id or "", a.reason or "", json.dumps(a.detail or {}, sort_keys=True, default=str), a.id])
+        row = [at.isoformat(), at.astimezone(TZ).isoformat(), scope_of(a), a.action, _actor(a), name or slug or "", period or "",
+               a.upload_id or "", a.finding_id or "", a.reason or "", json.dumps(a.detail or {}, sort_keys=True, default=str), a.id]
+        w.writerow([csv_cell(x) for x in row])
         n += 1
     return buf.getvalue(), n

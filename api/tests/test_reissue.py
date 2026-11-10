@@ -24,6 +24,19 @@ def published(client):
     return u["id"]
 
 
+def approve_reissue(client, uid):
+    """Approve re-runs the rules with the real context (audit H2), so a re-issue always shows its R12 block ("replaces the
+    report published ..."), as the worker stores it; the reviewer acknowledges it, then approves."""
+    r = client.post(f"/api/v1/uploads/{uid}/approve", headers=TAO)
+    assert r.status_code == 409 and r.json()["code"] == "open_block_findings" and "R12" in r.json()["message"], r.text
+    for f in client.get(f"/api/v1/uploads/{uid}/findings", headers=TAO).json():
+        if f["severity"] == "block" and f["status"] == "open":
+            assert f["rule_id"] == "R12" and f["context"]["reissue"] is True
+            assert client.post(f"/api/v1/uploads/{uid}/findings/{f['id']}/override", headers=TAO,
+                               json={"choice": "acknowledge", "reason": "servicer re-issued the report"}).status_code == 200
+    return client.post(f"/api/v1/uploads/{uid}/approve", headers=TAO)
+
+
 def corrected_deal():
     d = reference_deal(DEAL)
     d["source_file"] = "Moneda-202608 -SETTREP (corrected).pdf"           # one deliberate change: the re-issued file
@@ -51,7 +64,7 @@ def test_reissue_links_and_swaps_publication_on_approve(client, published, queue
     old = client.get(f"/api/v1/uploads/{published}", headers=TAO).json()
     assert old["status"] == "published" and old["replaced_by_upload_id"] is None          # not until approve
     worker_writes(new["id"], corrected_deal())
-    assert client.post(f"/api/v1/uploads/{new['id']}/approve", headers=TAO).json()["status"] == "published"
+    assert approve_reissue(client, new["id"]).json()["status"] == "published"
     with db.session() as s:
         pubs = s.query(Publication).filter_by(deal_slug=DEAL, collection_period=PERIOD).all()
         assert len(pubs) == 1 and pubs[0].upload_id == new["id"] and pubs[0].rollup_version == 2
