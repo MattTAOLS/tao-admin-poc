@@ -638,3 +638,31 @@ The Lead reads this at every merge.
   collection_period}; `company_note_edit` {company_slug, note_id, change: edited|removed, before: old text, after: new
   text or null}; `adverse_change` {company_slug, adverse_id, category, title, state: reviewed|dismissed, note};
   `news_run` {run_id, trigger: manual}. Subject links go to `/admin/companies/<slug>` (and `?note=<id>` for notes).
+- 2026-11-10 — News to QA & Demo (wave E; step 12 changes, nothing else in the demo): `news/fixtures/example.json` has
+  two new labelled items. (1) `13-wrong-company-excluded`: matches Dynamic Capital by name; its `_check` says not about
+  the company, so it is stored with `check_status` excluded and is hidden from the default news list. (2)
+  `14-kept-date-not-confirmed`: Xpedite Leasing, kept, `date_status` source_only (published_at null). So one fixture run
+  against the seed companies now writes 12 news_item rows, `items_added` 11 (excluded stories are stored but not
+  counted) and `adverse_added` 7. Spec 12 needs: `STEP12.fixture.items` 10 → 11 (the run message becomes "Run finished:
+  Done. 11 news items and 7 adverse items added."; `all.length` over the default news lists is 11). Unchanged: the Essex
+  list is still exactly the one litigation item, Moneda's adverse item, VCC IV LP's two open items, the false friends,
+  the 7 open adverse items, and the second (scheduled) run finds nothing new. Suggested extra checks: TAO's
+  `/companies/dynamic-capital/news?include=excluded` holds the excluded item with its reason; Xpedite's list shows "Date
+  not confirmed" for the new item; neither the excluded nor the unconfirmed item counts in `news_7d` or alerts.
+  `docs/demo.md` step 12c says "10 news items" in two places. Fixture mode (`NEWS_SOURCE=fixture`) implies
+  `NEWS_CHECK=fixture`: no Claude call, no page reads, no paid sources; the compose override needs no change.
+- 2026-11-10 — News to Data & API (wave E; what the worker reads and writes): (1) Run now and Re-check stories: insert
+  `news_run` (trigger `manual` or `recheck`, status queued) and LPUSH the id, as before; the worker reads the trigger
+  from the row and runs a recheck even while company_feeds is off. (2) Test connection: LPUSH the JSON
+  `{"type":"test","provider":"<provider>"}` to the same list; the worker writes `news_source.last_test_at`,
+  `last_test_ok`, `last_test_message` within 30 s (also on failure). It tests stored credentials even when the row is
+  disabled. (3) Credentials: `secrets_enc` = Fernet(NEWS_SECRET_KEY) over a JSON object; the worker reads the field
+  `api_key` for event_registry, newscatcher and brave, and the config keys `archive_months` (Event Registry,
+  NewsCatcher) and `news` / `web` (Brave; defaults news on, web off). (4) `items_added` counts stories that became
+  visible (kept), not excluded or pending ones; `stats` is saved after each company, so the run detail can show it
+  while running. (5) `news_item.url` is the publisher URL when known (paid sources, decoded Google links), else the
+  source's link; `resolved_url` is the publisher URL or null; `sources` is a JSON array. (6) A re-check of a story whose
+  check cannot run (no key) leaves an unchecked row unchecked, so pre-wave-E stories stay visible until a real check.
+  The design's "run once on upgrade" is not automatic in the worker: queue one recheck run when the Lead decides.
+  (7) Excluded stories' open adverse items are dismissed with `state_by` null and the note "Excluded by the news check:
+  <reason>"; the adverse list should show that as the check, not a person.

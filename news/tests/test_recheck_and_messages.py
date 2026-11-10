@@ -100,11 +100,13 @@ def test_recheck_reads_the_page_for_unchecked_rows(eng):
     assert row["description"] == "TLFC page text" and "TLFC page text" in user_prompt(fake.calls[0])
 
 
-def test_recheck_without_a_key_keeps_rows_pending(eng):
+def test_recheck_without_a_key_changes_nothing(eng):
     seed_item(eng, "tlfc", "https://example.com/n1", "Test item: TLFC a", cats=("fraud",))
+    seed_item(eng, "vcc-iv-lp", "https://example.com/n2", "Test item: VCC IV LP b", status="pending")
     r = recheck(eng, check.for_env({}))
-    [row] = rows(eng, store.news_item)
-    assert row["check_status"] == "pending" and rows(eng, store.adverse_item)[0]["state"] == "open"
+    got = {i["url"]: i["check_status"] for i in rows(eng, store.news_item)}
+    assert got == {"https://example.com/n1": "unchecked", "https://example.com/n2": "pending"}
+    assert rows(eng, store.adverse_item)[0]["state"] == "open"
     assert r["status"] == "failed" and r["errors"][0]["source"] == "claude"
 
 

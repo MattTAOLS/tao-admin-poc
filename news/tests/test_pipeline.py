@@ -2,8 +2,9 @@
 pending, retry), the date rule. No network: sources, pages, Google links and Claude are all fakes."""
 import datetime as dt
 
+import types
+
 import anthropic
-import httpx2
 import pytest
 from sqlalchemy import select, update
 
@@ -267,7 +268,7 @@ def test_adverse_only_for_kept_stories(on):
 
 
 def _conn_error():
-    return anthropic.APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages"))
+    return anthropic.APIConnectionError(request=None)
 
 
 def test_the_request_to_claude(on):
@@ -305,8 +306,8 @@ def test_check_failures_leave_the_story_pending_then_the_next_run_retries_first(
         if failure == "connection":
             return _conn_error()
         if failure == "status":
-            return anthropic.APIStatusError("overloaded", response=httpx2.Response(
-                529, request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages")), body=None)
+            return anthropic.APIStatusError("overloaded", body=None, response=types.SimpleNamespace(
+                status_code=529, headers={}, request=None))
         if failure == "refusal":
             return ("refusal", None)
         return ("end_turn", "not json")
@@ -357,8 +358,7 @@ def test_check_mode_from_the_environment():
 
 def test_api_key_never_reaches_a_run_error():
     key = "sk-ant-test-0123456789abcdef"
-    err = anthropic.APIConnectionError(message=f"could not connect with {key}",
-                                       request=httpx2.Request("POST", "https://api.anthropic.com/v1/messages"))
+    err = anthropic.APIConnectionError(message=f"could not connect with {key}", request=None)
     c = check.ClaudeChecker(client=FakeClaude(lambda kw: err), api_key=key)
     with pytest.raises(check.CheckUnavailable) as e:
         c.check({"name": "TLFC"}, {"title": "t"})

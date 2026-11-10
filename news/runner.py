@@ -184,8 +184,8 @@ class Run:
             values["date_status"] = self.date_status(story)
             try:
                 with self.eng.begin() as conn:
-                    if verdict is None:
-                        values.update(check_status="pending")
+                    if verdict is None:          # an unchecked row stays unchecked (shown as before); pending stays
+                        values.update(check_status="unchecked" if row["check_status"] == "unchecked" else "pending")
                         store.update_item(conn, row["id"], values)
                         continue
                     values.update(check_status=verdict.status, check_confidence=verdict.confidence,
