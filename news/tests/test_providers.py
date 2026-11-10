@@ -202,7 +202,8 @@ def test_brave_error_response(http):
 
 
 def test_brave_config_flags_choose_news_and_web():
-    assert [s.name for s in paid.build("brave", {"api_key": "k"}, {})] == ["brave_news"]
+    assert [s.name for s in paid.build("brave", {"api_key": "k"}, {})] == ["brave_news", "brave_web"]   # defaults: both on (API)
+    assert [s.name for s in paid.build("brave", {"api_key": "k"}, {"web": False})] == ["brave_news"]
     assert [s.name for s in paid.build("brave", {"api_key": "k"}, {"news": True, "web": True})] == ["brave_news",
                                                                                                    "brave_web"]
     assert [s.name for s in paid.build("brave", {"api_key": "k"}, {"news": False, "web": True})] == ["brave_web"]

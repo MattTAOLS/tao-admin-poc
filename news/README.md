@@ -94,7 +94,7 @@ confirmed date), `claude_input_tokens`, `claude_output_tokens`. Saved after ever
 | `gdelt` | `https://api.gdeltproject.org/api/v2/doc/doc?query=<q> sourcelang:<english/french>&mode=artlist&format=json&maxrecords=250&timespan=<n>d`; 10 s between requests; a 429 waits 20 s and retries once; after 3 requests in a row end in 429, GDELT is skipped for the run | seendate: source_date |
 | `event_registry` | `POST https://eventregistry.org/api/v1/article/getArticles`, `apiKey` in the body, phrase search in title and body, `lang` ["eng", "fra"], 100 per page; adverse queries use the `$query` language | date+time: confirmed; dateTimePub: source_date |
 | `newscatcher` | `GET https://v3-api.newscatcherapi.com/api/search`, header `x-api-token`, `q` boolean phrase, `lang=en,fr`, `from_`/`to_`, 100 per page, `sort_by=date`; 1.1 s between requests (free plan: 1 per second) | published_date: confirmed; parse_date: source_date |
-| `brave_news`, `brave_web` | `GET https://api.search.brave.com/res/v1/news/search` (count 50) and `/res/v1/web/search` (count 20), header `X-Subscription-Token`, `search_lang`, `country=CA`, `freshness` (`pw` or a date range), `extra_snippets=true`; config `news` (default on) and `web` (default off) | page_age: source_date |
+| `brave_news`, `brave_web` | `GET https://api.search.brave.com/res/v1/news/search` (count 50) and `/res/v1/web/search` (count 20), header `X-Subscription-Token`, `search_lang`, `country=CA`, `freshness` (`pw` or a date range), `extra_snippets=true`; config `news` and `web` (both default on, as the API shows them) | page_age: source_date |
 | `dow_jones`, `lexisnexis` | slots: "Needs the client's API documentation" (listed as a run error if enabled) | |
 | `fixture` | the JSON file in `NEWS_FIXTURE` | see below |
 

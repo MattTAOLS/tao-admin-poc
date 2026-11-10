@@ -242,7 +242,7 @@ def build(provider, secrets, config):
         raise SourceError(f"unknown provider {provider}")
     if provider == "brave":
         cfg = config or {}
-        classes = ([BraveNews] if cfg.get("news", True) else []) + ([BraveWeb] if cfg.get("web", False) else [])
+        classes = ([BraveNews] if cfg.get("news", True) else []) + ([BraveWeb] if cfg.get("web", True) else [])
     return [c(secrets, config) for c in classes]
 
 
