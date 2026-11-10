@@ -46,6 +46,17 @@ export function provenance(ex: Extraction, pointer: string): Provenance {
   return { kind: 'none' }
 }
 
+/** One outline around a whole row: the union of the boxes of every field under `pointer` on `page`, padded a little
+ * so a row of small print is easy to see. null when none of its fields has a box on that page. A lookup for display. */
+export function rowBox(ex: Extraction, pointer: string, page: number, pad = 2): Box | null {
+  let b: Box | null = null
+  for (const [p, s] of Object.entries(ex.sources ?? {})) {
+    if (!within(p, pointer) || !s || s.page !== page || !Array.isArray(s.bbox) || s.bbox.length !== 4) continue
+    b = b ? [Math.min(b[0], s.bbox[0]), Math.min(b[1], s.bbox[1]), Math.max(b[2], s.bbox[2]), Math.max(b[3], s.bbox[3])] : [...s.bbox]
+  }
+  return b && [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad]
+}
+
 /** The bboxes on `page` for a finding's fields (JSON pointers into deal; `master:` / `prior:` pointers are skipped). */
 export function findingBoxes(ex: Extraction | undefined, fields: string[] | undefined, page: number | null | undefined): Box[] {
   if (!ex || !fields || page == null) return []

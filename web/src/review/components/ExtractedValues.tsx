@@ -1,7 +1,7 @@
 import { Fragment, memo, useState, type ReactNode } from 'react'
 import { Card, CovenantPill, DataTable, formatPeriod, type Column } from '@/design/components'
 import type { Extraction } from '../lib/types'
-import { getPointer, provenance } from '../lib/provenance'
+import { getPointer, provenance, rowBox } from '../lib/provenance'
 import { byFormat, count, covenantValue, money, pct, ratio, text, yesNo } from '../lib/format'
 import type { ViewerTarget } from './PageImage'
 import { EditableValue, useEdits } from './EditValue'
@@ -20,7 +20,12 @@ export function SourceRef({ ex, pointer, label, onOpen }: { ex: Extraction; poin
       {p.pages.map(({ page, source, pointer: ptr }) => (
         <button key={page} type="button" className="rv-srclink" title={source.raw_text}
           aria-label={`p. ${page}: ${label}, open source page`}
-          onClick={() => onOpen({ page, boxes: ptr === pointer && Array.isArray(source.bbox) && source.bbox.length === 4 ? [source.bbox] : [], tone: 'source', caption: label, raw: ptr === pointer ? source.raw_text : undefined })}>
+          onClick={() => {
+            // A value: its own box. A row (a table line or a group of fields): one outline around all its fields on that page.
+            const own = ptr === pointer && Array.isArray(source.bbox) && source.bbox.length === 4 ? source.bbox : null
+            const box = own ?? (ptr === pointer ? null : rowBox(ex, pointer, page))
+            onOpen({ page, boxes: box ? [box] : [], tone: 'source', caption: label, raw: ptr === pointer ? source.raw_text : undefined })
+          }}>
           <span className="rv-srclink__chip">p. {page}</span>
         </button>
       ))}

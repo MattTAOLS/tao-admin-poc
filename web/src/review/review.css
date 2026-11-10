@@ -60,9 +60,10 @@
   font: 600 12px var(--font); cursor: pointer; transition: background var(--t-control) var(--ease), border-color var(--t-control) var(--ease); }
 .rv-chip:hover { background: var(--lav); }
 .rv-chip[aria-pressed="true"] { background: var(--lav-2); border-color: var(--lav-2); }
-.rv-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 28px; }
+.rv-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 0 28px; }
 .rv-kv__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--border-table); font-family: var(--data); font-size: var(--fs-table); }
-.rv-kv__label { color: var(--text); }
+/* The label takes what is left after the value, page chip and comment button; it wraps at word breaks, never under the value. */
+.rv-kv__label { color: var(--text); min-width: 0; overflow-wrap: break-word; }
 .rv-kv__value { text-align: right; font-feature-settings: var(--tabular); color: var(--indigo); font-weight: 600; }
 .rv-kv__group { grid-column: 1 / -1; font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 0 2px; }
 .rv-src { display: inline-flex; gap: 2px; flex-wrap: nowrap; justify-content: flex-end; white-space: nowrap; }

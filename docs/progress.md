@@ -1516,3 +1516,13 @@ Run: as in `docs/demo.md` (needs `scripts/compose.news-fixture.yml` and `NEWS_SE
 from a fresh database: 44 of 44 both times (tests 18 min 36 s and 14 min 24 s). Screenshots for steps 12 and 13
 re-taken; the rest kept. Filed in `docs/requests.md` (QA & Demo, 2026-11-10): the Audit log shows news_source_change
 raw (no label, no subject, the detail hides what changed); a note that `stats.date_confirmed` counts excluded stories.
+
+## Lead — review page fixes from the Dynamic Capital Jul-2026 upload (2026-11-10)
+
+1. Extracted values: labels ran under the numbers ("Principal" behind $4,702,550.23). Each cell was 282 px and the
+   hidden Comment button keeps its 66 px, leaving the label about 40 px. Cells are now at least 340 px and a label wraps
+   at word breaks instead of running under the value (`web/src/review/review.css`).
+2. Page links on a table row (ratio history, roll-forward, vintages) opened the right page with no outline at all; the
+   yellow block seen on Dynamic Capital page 16 is shading printed in the company's own PDF. A row link now outlines the
+   whole row: the union of its fields' boxes on that page, padded 2 pt (`rowBox` in `web/src/review/lib/provenance.ts`).
+   A single value still gets its own box. Test in `lib.test.ts`.

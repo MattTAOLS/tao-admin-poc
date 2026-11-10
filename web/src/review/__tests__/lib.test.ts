@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { RULE_TITLES, parseRuleTitles } from '../lib/rules'
-import { provenance, findingBoxes, focusBox, carriedLabel } from '../lib/provenance'
+import { provenance, findingBoxes, focusBox, carriedLabel, rowBox } from '../lib/provenance'
 import { covenantValue, byFormat, formatMessage, formatDateTime } from '../lib/format'
 import type { Extraction } from '../lib/types'
 import extractionFx from './fixtures/extraction-moneda.json'
@@ -23,6 +23,18 @@ describe('rule titles from contracts/rules.yaml', () => {
 })
 
 describe('provenance', () => {
+  it('rowBox: one padded outline around every field of a row on that page, null when it has none there', () => {
+    const ex = { sources: {
+      '/ratio_history/12/month': { page: 16, bbox: [277, 82, 285, 85], raw_text: 'Jul-26' },
+      '/ratio_history/12/delinquency_ratio_pct': { page: 16, bbox: [468, 82, 476, 85], raw_text: '0.19%' },
+      '/ratio_history/11/month': { page: 16, bbox: [276, 86, 285, 89], raw_text: 'Jun-26' },
+      '/ratio_history/12/note': { page: 16, raw_text: 'no box' },
+      '/ratio_history/12/other': { page: 17, bbox: [1, 1, 2, 2], raw_text: 'other page' },
+    } } as unknown as Extraction
+    expect(rowBox(ex, '/ratio_history/12', 16)).toEqual([275, 80, 478, 87])
+    expect(rowBox(ex, '/ratio_history/12', 16, 0)).toEqual([277, 82, 476, 85])
+    expect(rowBox(ex, '/ratio_history/12', 18)).toBeNull()
+  })
   it('finds the page of a leaf', () => {
     const p = provenance(ex, '/tranche_balance/closing')
     expect(p.kind === 'pages' && p.pages.map(x => x.page)).toEqual([2])
