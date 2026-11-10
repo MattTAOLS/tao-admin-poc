@@ -36,8 +36,8 @@ def new_stats():
 
 
 def _phrase_in(text, phrases):
-    low = (text or "").lower()
-    return [p for p in phrases if p and p.strip() and p.strip().lower() in low]
+    """Context words and exclusions: whole phrases, case- and accent-insensitive (match.phrases_in)."""
+    return match.phrases_in(text, phrases)
 
 
 def _midnight(d):
