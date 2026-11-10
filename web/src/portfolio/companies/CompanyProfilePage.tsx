@@ -4,7 +4,7 @@
  * analyst notes, contact edits) disappear for partners and under "View as partner". A partner gets Not found on a 404. */
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Button, Card, DataTable, Field, Select, StatePanel, formatPeriod, useToast, type Column } from '@/design/components'
+import { Button, Card, DataTable, Field, Select, StatePanel, StatusPill, formatPeriod, useToast, type Column } from '@/design/components'
 import { api } from '@/shell/api'
 import { usePageHeader } from '@/shell/header'
 import { paths, usePublished, type Load } from '../data'
@@ -19,8 +19,8 @@ import {
   AdverseSection, BalanceChartSection, BalanceSection, CovenantFocus, CovenantHistorySection, DocumentsSection, KpiSection, LossSection, NewsSection,
   PerformanceSection, RestatementsSection, Section, SignalsSection, featuredSeries, type Compare,
 } from './sections'
-import type { AdverseItem, Company, CompanyContact, CompanyDealRef, CompanyInsights, CompanyNote, CompanyRow, NewsItem, TaoUser } from './types'
-import { companyLinks, fmtDay, useCaller, useCompaniesEnabled } from './util'
+import type { AdverseItem, Company, CompanyContact, CompanyDealRef, CompanyInsights, CompanyNewsSearch, CompanyNote, CompanyRow, NewsItem, TaoUser } from './types'
+import { LANGUAGE_WORD, companyLinks, fmtDay, useCaller, useCompaniesEnabled } from './util'
 import './companies.css'
 
 export default function CompanyProfilePage() {
@@ -40,6 +40,18 @@ export default function CompanyProfilePage() {
   if (load.state === 'error') return <StatePanel kind="error" message={load.message} actions={<Button variant="primary" onClick={load.retry}>Retry</Button>} />
   if (enabled === null || load.state === 'loading') return <PageSkeleton />
   return <Profile key={load.data.slug} initial={load.data} />
+}
+
+/** TAO only: the company's news search settings (decision E7), read-only in the record panel. */
+function NewsSearchSummary({ s }: { s: CompanyNewsSearch }) {
+  const none = <span className="co-notset">None</span>
+  return (
+    <span className="co-name" data-testid="news-search">
+      <span>Context words: {s.context_terms.length ? s.context_terms.join(', ') : none}</span>
+      <span>Exclusions: {s.exclusions.length ? s.exclusions.join('; ') : none}</span>
+      <span>Languages: {s.languages.map(l => LANGUAGE_WORD[l] ?? l).join(', ')}</span>
+    </span>
+  )
 }
 
 /** A GET that a section can show on its own: null while loading, 'error' on failure. */
@@ -71,6 +83,7 @@ function Profile({ initial }: { initial: Company }) {
   const [contact, setContact] = useState<CompanyContact | null | 'new'>(null)
   const [removing, setRemoving] = useState<CompanyContact | null>(null)
   const [acting, setActing] = useState<{ item: AdverseItem; action: 'review' | 'dismiss' } | null>(null)
+  const [showExcluded, setShowExcluded] = useState(false)
 
   const slug = company.slug
   const enc = encodeURIComponent(slug)
@@ -81,7 +94,9 @@ function Profile({ initial }: { initial: Company }) {
 
   const dealLoad: Load<Deal> = usePublished<Deal>(ref && published ? paths.deal(ref.program_slug, ref.deal_slug) : null)
   const [ins] = useGet<CompanyInsights>(ref && published ? `/companies/${enc}/deals/${encodeURIComponent(ref.deal_slug)}/insights` : null)
-  const [news] = useGet<NewsItem[]>(`/companies/${enc}/news?days=30`)
+  // TAO only: "Show excluded" adds the stories the check excluded and those awaiting it (include=all). Never sent for
+  // partners or under "View as partner".
+  const [news] = useGet<NewsItem[]>(`/companies/${enc}/news?days=30${!partnerView && showExcluded ? '&include=all' : ''}`)
   const [adverse, setAdverse] = useGet<AdverseItem[]>(`/companies/${enc}/adverse`)
   const [rows] = useGet<CompanyRow[]>('/companies')
   const [notes, setNotes] = useGet<CompanyNote[]>(tao ? `/companies/${enc}/notes` : null)
@@ -181,6 +196,7 @@ function Profile({ initial }: { initial: Company }) {
               <dd>{nr ? <>{formatPeriod(nr.period)} report, expected by {fmtDay(nr.due_on)}{nr.late && <> · <StatusWord status="BREACH" /> <span className="pf-strong">Late, {nr.business_days_late} business day{nr.business_days_late === 1 ? '' : 's'}</span></>}</> : <span className="co-notset">No expected day set</span>}</dd>
               {!partnerView && <><dt>TAO relationship owner</dt><dd>{company.owner ? company.owner.name : notSet}</dd></>}
               {company.aliases.length > 0 && <><dt>Also known as</dt><dd>{company.aliases.join(', ')}</dd></>}
+              {!partnerView && company.news_search && <><dt>News search <StatusPill tone="dpv" size="sm">TAO only</StatusPill></dt><dd><NewsSearchSummary s={company.news_search} /></dd></>}
             </dl>
           </div>
         </div>
@@ -217,7 +233,8 @@ function Profile({ initial }: { initial: Company }) {
           </>
         )}
 
-      <NewsSection items={news} screened={row ? row.adverse.state !== 'not_screened' : null} />
+      <NewsSection items={news} screened={row ? row.adverse.state !== 'not_screened' : null}
+        taoView={!partnerView} showExcluded={showExcluded} onShowExcluded={setShowExcluded} />
       <AdverseSection items={adverse} row={row} partnerView={partnerView} admin={admin} onAct={(item, action) => setActing({ item, action })} />
 
       <Section id="alerts" title="Watchlist and alerts" subtitle="Per person. Following adds this company to your watchlist and turns on its alerts.">

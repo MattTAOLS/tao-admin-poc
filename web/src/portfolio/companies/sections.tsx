@@ -293,39 +293,114 @@ export function RestatementsSection({ ins }: { ins: CompanyInsights }) {
 const SENTIMENT: Record<string, { tone: 'ok' | 'neutral' | 'bad'; word: string }> = {
   positive: { tone: 'ok', word: 'Positive' }, neutral: { tone: 'neutral', word: 'Neutral' }, negative: { tone: 'bad', word: 'Negative' },
 }
-const SOURCE: Record<string, string> = { google_news: 'Google News', gdelt: 'GDELT', fixture: 'Test fixture' }
+const SOURCE: Record<string, string> = {
+  google_news: 'Google News', gdelt: 'GDELT', event_registry: 'Event Registry', newscatcher: 'NewsCatcher', brave_news: 'Brave',
+  brave_web: 'Brave web', dow_jones: 'Dow Jones', lexisnexis: 'LexisNexis', fixture: 'Test fixture',
+}
+/** Every source that found the story, by name; `source` when an older API sends no `sources`. */
+export const sourceNames = (n: NewsItem): string[] =>
+  [...new Set(n.sources?.length ? n.sources : [n.source])].map(s => SOURCE[s] ?? s)
 
-export function NewsSection({ items, screened }: { items: NewsItem[] | null | 'error'; screened: boolean | null }) {
+/** Partners receive kept stories only, without the check block; "View as partner" shows the same. */
+const partnerVisible = (n: NewsItem) => !n.check || n.check.status === 'kept'
+/** Decision E3: counts and alerts use only stories the check kept that carry a confirmed publish date. */
+export const countsAsNews = (n: NewsItem) => partnerVisible(n) && n.date_status === 'confirmed' && !!n.published_at
+
+function NewsDate({ n }: { n: NewsItem }) {
+  if (n.date_status === 'confirmed' && n.published_at) return <span className="co-item__when">{fmtDay(n.published_at)}</span>
+  return (
+    <span className="co-item__when" data-date="not-confirmed">
+      <span className="co-item__nodate">Date not confirmed</span>
+      {n.source_date && <small className="co-item__srcdate">source says {fmtDay(n.source_date)}</small>}
+    </span>
+  )
+}
+
+/** TAO only: what the news check did with the story. */
+function NewsCheckLine({ n }: { n: NewsItem }) {
+  const c = n.check
+  if (!c) return null
+  const reason = c.reason?.trim() || null
+  if (c.status === 'kept') {
+    if (!reason) return <div className="co-check"><StatusPill tone="ok" size="sm">Kept by the news check</StatusPill></div>
+    return (
+      <details className="co-check">
+        <summary title={reason}><StatusPill tone="ok" size="sm">Kept by the news check</StatusPill> <span className="co-check__why">Why</span></summary>
+        <p className="co-check__reason">{reason}{c.confidence !== null && <span className="pf-muted"> · confidence {Math.round(c.confidence * 100)}%</span>}</p>
+      </details>
+    )
+  }
+  if (c.status === 'excluded') {
+    return (
+      <div className="co-check">
+        <StatusPill tone="neutral" size="sm">Excluded by the news check</StatusPill>
+        {reason && <span className="co-check__reason">{reason}</span>}
+      </div>
+    )
+  }
+  if (c.status === 'pending') {
+    return <div className="co-check"><StatusPill tone="warn" size="sm">Awaiting check</StatusPill><span className="co-check__reason">The check could not run yet. It is retried each run.</span></div>
+  }
+  return <div className="co-check"><StatusPill tone="neutral" size="sm">Not checked yet</StatusPill><span className="co-check__reason">Found before the news check. Waiting for the re-check.</span></div>
+}
+
+export function NewsSection({ items, screened, taoView, showExcluded, onShowExcluded }: {
+  items: NewsItem[] | null | 'error'; screened: boolean | null
+  /** TAO roles outside "View as partner": check results and the Show excluded toggle. */
+  taoView: boolean; showExcluded: boolean; onShowExcluded: (v: boolean) => void
+}) {
   const [only, setOnly] = useState<'all' | 'negative'>('all')
-  const list = Array.isArray(items) ? items.filter(n => only === 'all' || n.sentiment === 'negative') : []
-  const week = Array.isArray(items) ? items.filter(n => Date.now() - Date.parse(n.found_at) <= 7 * 864e5).length : 0
+  const all = Array.isArray(items) ? (taoView ? items : items.filter(partnerVisible)) : []
+  const list = all.filter(n => only === 'all' || n.sentiment === 'negative')
+  const week = all.filter(n => countsAsNews(n) && Date.now() - Date.parse(n.published_at!) <= 7 * 864e5).length
   return (
     <Section id="news" title="Latest news"
-      subtitle={`Daily search of free news sources by company name and aliases · last 30 days${Array.isArray(items) ? ` · ${week} new this week` : ''} · sentiment from our keyword screening`}
+      subtitle={<>
+        Daily search of news sources by company name and aliases · last 30 days{Array.isArray(items) ? ` · ${week} new this week` : ''} · each
+        story is checked to be about this company, and sentiment comes from that check. Counts and alerts use only checked stories with a confirmed date.
+        {taoView && showExcluded && ' Showing excluded stories and those awaiting the check (TAO only).'}
+      </>}
       actions={
-        <div className="co-toggle" role="group" aria-label="Filter news">
-          <button type="button" aria-pressed={only === 'all'} onClick={() => setOnly('all')}>All</button>
-          <button type="button" aria-pressed={only === 'negative'} onClick={() => setOnly('negative')}>Negative</button>
+        <div className="pf-actions">
+          {taoView && (
+            <span className="co-newsopt">
+              <label className="pf-check">
+                <input type="checkbox" checked={showExcluded} onChange={e => onShowExcluded(e.target.checked)} />
+                Show excluded
+              </label>
+              <StatusPill tone="dpv" size="sm">TAO only</StatusPill>
+            </span>
+          )}
+          <div className="co-toggle" role="group" aria-label="Filter news">
+            <button type="button" aria-pressed={only === 'all'} onClick={() => setOnly('all')}>All</button>
+            <button type="button" aria-pressed={only === 'negative'} onClick={() => setOnly('negative')}>Negative</button>
+          </div>
         </div>
       }>
       {items === null ? <p className="pf-muted">Loading news…</p>
         : items === 'error' ? <p className="co-err" role="alert">The news could not be loaded.</p>
-        : items.length === 0 ? <p className="pf-muted">{screened === false ? 'Not screened yet. The daily news search has not covered this company.' : 'No news in 30 days.'}</p>
+        : all.length === 0 ? <p className="pf-muted">{screened === false ? 'Not screened yet. The daily news search has not covered this company.' : 'No news in 30 days.'}</p>
         : list.length === 0 ? <p className="pf-muted">No negative news in 30 days.</p>
         : (
           <ul className="co-items" aria-label="News items">
             {list.map(n => {
               const s = SENTIMENT[n.sentiment] ?? SENTIMENT.neutral
+              const status = taoView ? n.check?.status : undefined
               return (
-                <li key={n.id} className="co-item">
-                  <span className="co-item__when">{fmtDay(n.published_at ?? n.found_at)}</span>
+                <li key={n.id} className={status === 'excluded' ? 'co-item is-excluded' : 'co-item'} data-check={status}>
+                  <NewsDate n={n} />
                   <div>
-                    <div className="co-item__title">{n.title}</div>
+                    <div className="co-item__title">
+                      {n.title}
+                      {n.language === 'fr' && <> <abbr className="co-lang" title="French">FR</abbr></>}
+                    </div>
                     <div className="co-item__meta">
                       <StatusPill tone={s.tone} size="sm">{s.word}</StatusPill>
-                      <span>{n.publisher ?? 'Unknown publisher'} · {SOURCE[n.source] ?? n.source}</span>
+                      <span>{n.publisher ?? 'Unknown publisher'}</span>
+                      <span className="co-item__sources">Found by {sourceNames(n).join(', ')}</span>
                       <a href={n.url} target="_blank" rel="noopener noreferrer">Open source<span className="ds-visually-hidden"> (opens in a new tab)</span></a>
                     </div>
+                    {taoView && <NewsCheckLine n={n} />}
                   </div>
                 </li>
               )

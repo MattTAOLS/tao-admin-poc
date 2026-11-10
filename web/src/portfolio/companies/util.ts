@@ -130,6 +130,12 @@ export const ADVERSE_WORD = (a: CompanyRow['adverse']) =>
 
 export const dealCount = (n: number) => `${n} deal${n === 1 ? '' : 's'}`
 
+/** CompanyNewsSearch.languages in words. */
+export const LANGUAGE_WORD: Record<string, string> = { en: 'English', fr: 'French' }
+
+/** What CompanyRow.news_7d counts (decision E3), for the column tooltip and the list notes. */
+export const NEWS_7D_MEANING = 'Checked stories with a confirmed date in the last 7 days'
+
 // ---- CSV ----
 
 const cell = (v: unknown) => {
