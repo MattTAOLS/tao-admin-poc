@@ -17,7 +17,7 @@ Value edits (wave B): a review edit (value_edit with no correction_id) is stored
 approve read the extraction's deal with the edits in force applied (apply_edits). On a pointer the latest not-reverted edit
 is in force. A manual edit wins over a use_ours / use_report on the same pointer (risk R3): apply_overrides skips that
 pointer and reports it as replaced; the override and the edit both keep their audit entries."""
-import calendar, copy, datetime as dt, json, pathlib, sys
+import calendar, copy, datetime as dt, json, math, pathlib, sys
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .models import Program, Deal, Publication, Finding, Extraction, SetrepUpload, ValueEdit, utcnow
@@ -53,6 +53,13 @@ def _rules():
         import rules
     from rules.engine import Context
     return rules, Context
+
+
+def today_toronto() -> dt.date:
+    """Today in America/Toronto, the date a data_corrections row carries as `applied` (audit L5: the server's own date is
+    tomorrow's after 19:00 or 20:00 Toronto). The one shared helper is companies.today()."""
+    from . import companies                               # imported here: companies imports this module
+    return companies.today()
 
 
 def period_end(period: str) -> dt.date:
@@ -156,7 +163,7 @@ def apply_overrides(deal: dict, findings: list[Finding], period: str, manual: di
     out = copy.deepcopy(deal)
     manual = manual or {}
     plan: dict[str, tuple[object, Finding, str]] = {}
-    conflicts, corrections, today = [], [], dt.date.today().isoformat()
+    conflicts, corrections, today = [], [], today_toronto().isoformat()
     for f in findings:
         res = f.resolution or {}
         if f.status != "overridden" or res.get("choice") not in VALUE_CHOICES or not f.targets:
@@ -224,6 +231,8 @@ def typed(old, new: float):
 
 def check_number_edit(doc: dict, pointer: str, value: float) -> str | None:
     """Why `value` cannot be written at `pointer` in `doc`, or None. Only numbers at an existing pointer (risk R9)."""
+    if not is_number(value) or not math.isfinite(value):
+        return f"{pointer} needs a finite number (not NaN or Infinity)"
     found, old = value_at(doc, pointer)
     if not found:
         return f"{pointer} is not in the deal"
@@ -265,7 +274,7 @@ def correction_entry(pointer: str, period: str, old, new, reason: str, **extra) 
     """One deal.data_corrections row for a manual change (choice `manual`)."""
     toks = [_unescape(t) for t in pointer.split("/")[1:]]
     return {"period": period, "record": toks[0], "field": "/".join(toks[1:]), "old_value": old, "new_value": new,
-            "applied": dt.date.today().isoformat(), "reason": reason, "choice": "manual", **extra}
+            "applied": today_toronto().isoformat(), "reason": reason, "choice": "manual", **extra}
 
 
 def manual_corrections(original: dict, published: dict, edits: dict, period: str) -> tuple[dict, list[dict]]:

@@ -2,7 +2,7 @@
 Role gates: `caller` resolves the role; intake routes call tao_only / admin_only first, before touching data.
 Partner tenancy: every /published/* route takes `partner_filter` as a dependency and asks `visible_programs`
 which programs it may read. Those two functions are the only place partner scoping happens."""
-import contextlib, copy, datetime as dt, enum, io, json, re, logging
+import contextlib, copy, datetime as dt, enum, io, json, math, re, logging, urllib.parse
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +33,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="TAO Admin POC API", version="0.1.0", openapi_url="/api/v1/openapi.json", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["*"], allow_headers=["*"])
 API = "/api/v1"
-PERIOD = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+PERIOD_RX = r"^(20\d{2}|2100)-(0[1-9]|1[0-2])$"     # YYYY-MM, years 2000-2100: every period feeds date arithmetic (audit L3)
+PERIOD = re.compile(PERIOD_RX)
+MONTH_RX = r"^\d{4}-(0[1-9]|1[0-2])$"               # a month that is only displayed (a company's relationship_since)
+MAX_INT = 2147483647                                # PostgreSQL integer; no int parameter may exceed it (audit L2)
+MAX_OFFSET = 1_000_000
+Finite = Annotated[float, Field(allow_inf_nan=False)]          # a number field never takes NaN or +/-Infinity (audit L4)
 STATUSES = ("received", "extracting", "needs_review", "approved", "rejected", "published", "extraction_failed")
 
 
@@ -70,7 +75,80 @@ async def _http_error(_: Request, e: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def _validation_error(_: Request, e: RequestValidationError):
     return JSONResponse({"code": "invalid", "message": "request does not match the contract",
-                         "errors": json.loads(json.dumps(e.errors(), default=str))}, status_code=422)
+                         "errors": _strict_json(json.loads(json.dumps(e.errors(), default=str)))}, status_code=422)
+
+
+def _strict_json(v):
+    """NaN / Infinity echoed back in a validation error (the rejected input) as text: the response stays valid JSON."""
+    if isinstance(v, float) and not math.isfinite(v):
+        return str(v)
+    if isinstance(v, dict):
+        return {k: _strict_json(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_strict_json(x) for x in v]
+    return v
+
+
+# ---- NUL bytes never reach the database (audit L1) ----
+def _has_nul(v) -> bool:
+    if isinstance(v, str):
+        return "\x00" in v
+    if isinstance(v, dict):
+        return any(_has_nul(k) or _has_nul(x) for k, x in v.items())
+    if isinstance(v, list):
+        return any(_has_nul(x) for x in v)
+    return False
+
+
+class NulGuard:
+    """PostgreSQL refuses a NUL byte in text (an unhandled 500). One place refuses it first: in the path 404 not_found (no
+    resource has such a name), in the query string or in any JSON string of the body 422 invalid. Pure ASGI: the JSON body
+    is read once here and replayed to the route. Multipart forms carry file bytes, so their text fields are checked by the
+    route (POST /uploads)."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        refuse = None
+        if "\x00" in (scope.get("path") or ""):
+            refuse = JSONResponse({"code": "not_found", "message": "no such resource"}, status_code=404)
+        elif "\x00" in urllib.parse.unquote_plus((scope.get("query_string") or b"").decode("latin-1")):
+            refuse = JSONResponse({"code": "invalid", "message": "a query parameter holds a NUL character"}, status_code=422)
+        if refuse is not None:
+            return await refuse(scope, receive, send)
+        ctype = next((v for k, v in scope.get("headers") or [] if k == b"content-type"), b"").lower()
+        if scope.get("method") in ("POST", "PUT", "PATCH", "DELETE") and b"json" in ctype:
+            chunks, more = [], True
+            while more:
+                msg = await receive()
+                if msg["type"] != "http.request":             # client went away
+                    return
+                chunks.append(msg.get("body", b""))
+                more = msg.get("more_body", False)
+            body = b"".join(chunks)
+            if b"\\u0000" in body or b"\x00" in body:        # a NUL in a JSON string is written \u0000; confirm by parsing
+                try:
+                    bad = _has_nul(json.loads(body))
+                except ValueError:
+                    bad = False                               # not JSON: the route answers 422 as it always did
+                if bad:
+                    return await JSONResponse({"code": "invalid", "message": "a text value holds a NUL character"},
+                                              status_code=422)(scope, receive, send)
+            sent = False
+
+            async def replay():
+                nonlocal sent
+                if not sent:
+                    sent = True
+                    return {"type": "http.request", "body": body, "more_body": False}
+                return await receive()
+            return await self.app(scope, replay, send)
+        return await self.app(scope, receive, send)
+
+
+app.add_middleware(NulGuard)
 
 
 @app.get(API + "/health")
@@ -139,7 +217,7 @@ def _is_uuid(v: str) -> bool:
 
 def _check_period(p: str | None, name="period"):
     if p is not None and not PERIOD.match(p):
-        raise err(422, "invalid", f"{name} must be YYYY-MM")
+        raise err(422, "invalid", f"{name} must be YYYY-MM, between 2000-01 and 2100-12")
 
 
 def _upload_dir(upload_id: str):
@@ -153,13 +231,15 @@ async def create_upload(deal_slug: str = Form(...), collection_period: str = For
                         c: Caller = Depends(tao_caller), s: Session = Depends(get_db), q=Depends(get_queue)):
     tao_only(c)
     _check_period(collection_period, "collection_period")
-    if s.get(Deal, deal_slug) is None:
-        raise err(422, "unknown_deal", f"no deal {deal_slug}")
+    if "\x00" in deal_slug or s.get(Deal, deal_slug) is None:  # form field: NulGuard does not read multipart bodies
+        raise err(422, "unknown_deal", f"no deal {deal_slug!r}" if "\x00" in deal_slug else f"no deal {deal_slug}")
     published = s.scalars(select(Publication).where(Publication.deal_slug == deal_slug, Publication.collection_period == collection_period)).first()
     if published and not replace:
         raise err(409, "already_published", f"{deal_slug} {collection_period} is already published (R12); upload with replace=true for a corrected re-issue")
     if replace and not published:
         raise err(422, "nothing_to_replace", f"{deal_slug} {collection_period} has no publication to replace")
+    if "\x00" in (file.filename or ""):
+        raise err(422, "invalid", "the file name holds a NUL character")
     data = await file.read()
     try:
         pages = pdf.page_count(data)
@@ -386,7 +466,7 @@ Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=10)]
 # ---- value edits while in review (wave B) ----
 class ValueEditRequest(BaseModel):
     pointer: str
-    value: float
+    value: Finite
     reason: Reason
 
 
@@ -474,7 +554,7 @@ def revert_edit(upload_id: str, edit_id: str, body: RevertRequest, c: Caller = D
 # ---- corrections after publish (wave B) ----
 class CorrectionEditIn(BaseModel):
     pointer: str
-    value: float
+    value: Finite
 
 
 class CorrectionRequest(BaseModel):
@@ -737,8 +817,8 @@ class ProgramIn(BaseModel):
     partner_slug: str | None = None
     partner_slugs: list[str] | None = Field(default=None, min_length=1)
     currency: str = "CAD"
-    limit: float
-    warehouse_limit: float | None = None
+    limit: Finite
+    warehouse_limit: Finite | None = None
 
 
 class DealIn(BaseModel):
@@ -750,9 +830,9 @@ class DealIn(BaseModel):
 
 
 class Band(BaseModel):
-    lte: float | None = None
-    gt: float | None = None
-    threshold: float
+    lte: Finite | None = None
+    gt: Finite | None = None
+    threshold: Finite
 
 
 class ThresholdRule(BaseModel):
@@ -769,9 +849,9 @@ class CovenantIn(BaseModel):
     legal_ref: str
     description: str
     kind: Literal["ceiling", "floor"]
-    threshold: float | None = None
+    threshold: Finite | None = None
     threshold_rule: ThresholdRule | None = None
-    watch_buffer_pct: float = 0.1
+    watch_buffer_pct: Finite = 0.1
     effective_from: dt.date
     source: str | None = None
     unit: Literal["fraction", "ratio", "currency"] | None = None
@@ -972,7 +1052,7 @@ def published_program(program_slug: str, period: str | None = None, partner: str
 
 
 @app.get(API + "/published/programs/{program_slug}/deals/{deal_slug}")
-def published_deal(program_slug: str, deal_slug: str, period: str | None = None, version: int | None = Query(default=None, ge=1),
+def published_deal(program_slug: str, deal_slug: str, period: str | None = None, version: int | None = Query(default=None, ge=1, le=MAX_INT),
                    partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     _check_period(period)
     program = _visible_program(s, partner, program_slug)
@@ -1028,7 +1108,7 @@ def _audit_gate(c: Caller, scope: str | None) -> Caller:
 @app.get(API + "/audit")
 def audit(upload_id: str | None = None, action: str | None = None, scope: Scope | None = None, month: str | None = None,
           q: str | None = Query(default=None, min_length=2), actor_role: str | None = None, actor_user_id: str | None = None,
-          deal_slug: str | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0),
+          deal_slug: str | None = None, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
           c: Caller = Depends(caller), s: Session = Depends(get_db)):
     """Newest first. Every filter narrows; q searches across all months unless month is given. actor_user_id equal to the
     caller's own user (Profile, My activity) is readable by every role; anyone else's needs the scope rule."""
@@ -1402,7 +1482,7 @@ def _my_notifications(s: Session, c: Caller, partner: str | None, tab: str = "al
 
 @app.get(API + "/notifications")
 def list_notifications(tab: Tab = "all", unread: bool | None = None, limit: int = Query(default=50, ge=1, le=200),
-                       offset: int = Query(default=0, ge=0), c: Caller = Depends(user_caller),
+                       offset: int = Query(default=0, ge=0, le=MAX_OFFSET), c: Caller = Depends(user_caller),
                        partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
     notify.sweep(s)
     q = _my_notifications(s, c, partner, tab)
@@ -1585,7 +1665,6 @@ def reopen_thread(thread_id: str, c: Caller = Depends(tao_user_caller), s: Sessi
 
 # ---- wave D: companies, notes, contacts, follows, news and adverse media ----
 SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
-PERIOD_RX = r"^\d{4}-(0[1-9]|1[0-2])$"
 Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
 
 
@@ -1718,7 +1797,7 @@ class CompanyPatchIn(BaseModel):
     naics: str | None = None
     headquarters: str | None = None
     website: str | None = None
-    relationship_since: Annotated[str, StringConstraints(pattern=PERIOD_RX)] | None = None
+    relationship_since: Annotated[str, StringConstraints(pattern=MONTH_RX)] | None = None       # shown only; may predate 2000
     owner_user_id: str | None = None
     deal_slugs: list[str] | None = None
     news_search: dict | None = None                       # CompanyNewsSearch, checked in companies.check_news_search

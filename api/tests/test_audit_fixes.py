@@ -314,3 +314,205 @@ def test_m2_queue_down_leaves_the_upload_as_it_was(client, clean):
     r = _reextract(client, clean)
     assert r.status_code == 503 and r.json()["code"] == "queue_unavailable"
     assert client.get(f"{API}/uploads/{clean}", headers=TAO).json()["status"] == "needs_review"
+
+
+# ---- M1: the seed never changes master data that is already there ----
+def test_m1_reseed_keeps_sharing_limit_and_servicer_edited_in_the_app(client):
+    from app import seed
+    prog = next(p for p in client.get(f"{API}/master/programs", headers=TAO).json() if p["slug"] == "f-pil-2-0")
+    assert set(prog["partner_slugs"]) == {"investor", "manager"}
+    r = client.put(f"{API}/master/programs", headers=TAO, json={**{k: prog[k] for k in ("slug", "name", "currency", "warehouse_limit")},
+                                                               "partner_slugs": ["investor"], "limit": prog["limit"] + 1000000.0})
+    assert r.status_code == 200, r.text
+    deal = next(d for d in client.get(f"{API}/master/deals", headers=TAO).json() if d["slug"] == DEAL)
+    r = client.put(f"{API}/master/deals", headers=TAO, json={**{k: deal[k] for k in ("slug", "name", "program_slug", "template_id")},
+                                                            "servicer": "Moneda Servicing Ltd."})
+    assert r.status_code == 200, r.text
+    with db.session() as s:
+        s.get(Partner, "manager").name = "Manager renamed in the app"
+        s.commit()
+        counts = seed.load(s)
+        assert counts["programs_added"] == 0 and counts["deals_added"] == 0 and counts["partners_added"] == 0
+        seed.load(s)
+    after = next(p for p in client.get(f"{API}/master/programs", headers=TAO).json() if p["slug"] == "f-pil-2-0")
+    assert after["partner_slugs"] == ["investor"] and after["partner_slug"] == "investor" and after["limit"] == prog["limit"] + 1000000.0
+    assert next(d for d in client.get(f"{API}/master/deals", headers=TAO).json() if d["slug"] == DEAL)["servicer"] == "Moneda Servicing Ltd."
+    assert client.get(f"{API}/published/programs/f-pil-2-0", headers=MGR).status_code == 404         # still not shared with the manager
+    with db.session() as s:
+        assert s.get(Partner, "manager").name == "Manager renamed in the app"
+
+
+def test_m1_seed_still_adds_what_is_missing():
+    from app import seed
+    from app.models import ProgramPartner, Base
+    with db.session() as s:
+        for t in reversed(Base.metadata.sorted_tables):       # an empty database: everything in the files is added
+            s.execute(t.delete())
+        s.commit()
+        counts = seed.load(s)
+        assert counts["partners_added"] == counts["partners"] > 0 and counts["programs_added"] == counts["programs"] > 0
+        assert counts["deals_added"] == counts["deals"] > 0
+        shared = {r.partner_slug for r in s.scalars(select(ProgramPartner).where(ProgramPartner.program_slug == "f-pil-2-0")).all()}
+        assert shared == {"investor", "manager"}
+
+
+# ---- M19: account links go to a page the recipient can open ----
+def test_m19_user_change_links(client):
+    from test_users import A1, AN, IV, MV
+    from app import notify
+    from app.models import AppUser
+    with db.session() as s:
+        links = {uid: notify.account_link(s.get(AppUser, uid)) for uid in (A1, AN, IV, MV)}
+    assert links == {A1: "/admin/settings/users", AN: "/admin/settings/profile",
+                     IV: "/investor/settings/profile", MV: "/manager/settings/profile"}
+    subs = [{"program_slug": "f-pil-2-0", "deal_slug": None, "channels": ["in_app"]}]
+    for uid in (AN, IV, MV):                                   # a subscription change sends the person a user_change notification
+        assert client.put(f"{API}/users/{uid}/subscriptions", headers=TAO, json=subs).status_code == 200
+        [n] = [n for n in client.get(f"{API}/notifications", headers={"X-User": uid}).json() if n["kind"] == "user_change"]
+        assert n["link"] == links[uid]
+
+
+# ---- M23: CSV formula injection ----
+def test_m23_csv_cells_cannot_start_a_formula(client):
+    import csv, io
+    from test_users import IV
+    from app import auditlog
+    assert [auditlog.csv_cell(x) for x in ("=1+1", "+1", "-1", "@SUM(A1)", "\tx", "\rx", "plain", "", None, 5)] == \
+           ["'=1+1", "'+1", "'-1", "'@SUM(A1)", "'\tx", "'\rx", "plain", "", "", "5"]
+    assert client.patch(f"{API}/me", headers={"X-User": IV}, json={"name": "=1+1"}).status_code == 200
+    r = client.post(f"{API}/published/regenerate", headers=TAO, json={"program_slug": "f-pil-2-0"})
+    assert r.status_code == 202
+    uid = upload(client, period="2026-08").json()["id"]
+    assert client.post(f"{API}/uploads/{uid}/reject", headers=TAO, json={"reason": "=HYPERLINK(\"http://x\",\"open\")"}).status_code == 200
+    with db.session() as s:
+        month = auditlog.month_of(s.scalars(select(ReviewAction).order_by(ReviewAction.at.desc())).first().at)
+    for scope in ("platform", "reports"):
+        r = client.get(f"{API}/audit/export.csv", headers=TAO, params={"scope": scope, "month": month})
+        assert r.status_code == 200
+        rows = list(csv.reader(io.StringIO(r.text)))
+        assert len(rows) > 1
+        for row in rows[1:]:
+            assert not any(cell[:1] in ("=", "+", "-", "@", "\t", "\r") for cell in row), row
+        if scope == "platform":
+            assert any(cell.startswith("'=1+1") for row in rows for cell in row)           # the actor, kept readable
+        else:
+            assert any(cell.startswith("'=HYPERLINK") for row in rows for cell in row)     # the reason
+
+
+# ---- L1: NUL bytes are refused before the database sees them ----
+def test_l1_nul_bytes(client):
+    from test_users import IV
+    for path in ("/companies/%00", "/published/programs/move-trust/deals/%00", "/published/programs/%00", "/uploads/%00"):
+        r = client.get(API + path, headers=TAO)
+        assert r.status_code == 404 and r.json()["code"] == "not_found", (path, r.text)
+    r = client.patch(f"{API}/me", headers={"X-User": IV}, json={"name": "a\u0000b"})
+    assert r.status_code == 422 and r.json()["code"] == "invalid", r.text
+    r = client.put(f"{API}/master/deals", headers=TAO, json={"slug": "x", "name": "n", "program_slug": "f-pil-2-0", "servicer": {"a": ["\u0000"]},
+                                                            "template_id": "t"})
+    assert r.status_code == 422 and r.json()["code"] == "invalid"
+    for url in ("/audit?q=a%00b", "/audit?deal_slug=%00", "/master/deals?program_slug=%00x", "/users?q=ab%00"):
+        r = client.get(API + url, headers=TAO)
+        assert r.status_code == 422 and r.json()["code"] == "invalid", (url, r.text)
+    r = client.post(f"{API}/uploads", headers=TAO, data={"deal_slug": "a\x00b", "collection_period": "2026-08"},
+                    files={"file": ("x.pdf", make_pdf(1), "application/pdf")})
+    assert r.status_code == 422, r.text
+    # a body that only mentions the escape as text, and ordinary JSON bodies, pass untouched
+    r = client.patch(f"{API}/me", headers={"X-User": IV}, json={"name": "back\\u0000slash"})
+    assert r.status_code == 200, r.text
+    with db.session() as s:
+        from app.models import AppUser
+        assert s.get(AppUser, IV).name == "back\\u0000slash"
+    assert client.get(f"{API}/audit?q=ab", headers=TAO).status_code == 200
+
+
+# ---- L2: integer parameters are bounded ----
+def test_l2_integers_have_an_upper_bound(client):
+    from test_users import A1
+    big = 2 ** 63
+    for url, h in ((f"/published/programs/f-pil-2-0/deals/{DEAL}?version={big}", TAO), (f"/audit?offset={big}", TAO),
+                   (f"/published/programs/f-pil-2-0/deals/{DEAL}?version=2147483648", TAO), (f"/notifications?offset={big}", {"X-User": A1})):
+        r = client.get(API + url, headers=h)
+        assert r.status_code == 422 and r.json()["code"] == "invalid", (url, r.text)
+    assert client.get(f"{API}/audit?offset=1000000", headers=TAO).json() == []
+
+
+# ---- L3: a month is a month between 2000 and 2100 ----
+@pytest.mark.parametrize("month", ["0000-01", "9999-12", "1999-12", "2101-01", "0001-01"])
+def test_l3_month_year_range(client, month):
+    for url in (f"/audit?month={month}", f"/audit/export.csv?scope=reports&month={month}", f"/published/programs/f-pil-2-0?period={month}",
+                f"/uploads?collection_period={month}"):
+        r = client.get(API + url, headers=TAO)
+        assert r.status_code == 422 and r.json()["code"] == "invalid", (url, r.text)
+    r = client.post(f"{API}/uploads", headers=TAO, data={"deal_slug": DEAL, "collection_period": month},
+                    files={"file": ("x.pdf", make_pdf(1), "application/pdf")})
+    assert r.status_code == 422
+
+
+def test_l3_boundary_months_are_fine(client):
+    for month in ("2000-01", "2100-12"):
+        assert client.get(f"{API}/audit?month={month}", headers=TAO).json() == []
+        assert client.get(f"{API}/audit/export.csv", headers=TAO, params={"scope": "reports", "month": month}).status_code == 200
+
+
+# ---- L4: NaN and Infinity are not numbers a report can hold ----
+@pytest.mark.parametrize("bad", ["NaN", "Infinity", "-Infinity"])
+def test_l4_non_finite_numbers_are_422(client, bad):
+    def send(method, url, template):
+        r = client.request(method, API + url, headers={**TAO, "Content-Type": "application/json"}, content=template.replace('"BAD"', bad))
+        assert r.status_code == 422 and r.json()["code"] == "invalid", (url, r.status_code, r.text)
+        json.dumps(r.json(), allow_nan=False)                  # the refusal itself is strict JSON
+    uid = upload(client, period="2026-08").json()["id"]
+    worker_writes(uid, reference_deal(DEAL))
+    send("PUT", "/master/programs", '{"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slugs": ["investor"], "limit": "BAD"}')
+    send("PUT", "/master/programs", '{"slug": "f-pil-2-0", "name": "F-PIL 2.0", "partner_slugs": ["investor"], "limit": 1, "warehouse_limit": "BAD"}')
+    send("POST", f"/uploads/{uid}/edits", '{"pointer": "/period_history/3/principal", "value": "BAD", "reason": "principal re-read on page 2"}')
+    cov = '{"mode": "add", "reason": "new covenant from the amended agreement", "deal_slug": "%s", "legal_ref": "X 1.1", ' \
+          '"description": "d", "kind": "ceiling", "effective_from": "2026-01-01", %%s}' % DEAL
+    send("PUT", "/master/covenants", cov % '"threshold": "BAD"')
+    send("PUT", "/master/covenants", cov % '"threshold": 0.1, "watch_buffer_pct": "BAD"')
+    send("PUT", "/master/covenants", cov % '"threshold_rule": {"on": "x", "bands": [{"lte": "BAD", "threshold": 0.1}]}')
+    assert client.post(f"{API}/uploads/{uid}/approve", headers=TAO).json()["status"] == "published"
+    send("POST", f"/uploads/{uid}/corrections", '{"edits": [{"pointer": "/period_history/3/principal", "value": "BAD"}], "reason": "principal re-read on page 2"}')
+    assert next(p for p in client.get(f"{API}/master/programs", headers=TAO).json() if p["slug"] == "f-pil-2-0")["limit"] not in (None, 1)
+
+
+def test_l4_check_number_edit_refuses_non_finite():
+    doc = {"a": {"b": 1.5}}
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        assert "finite" in review.check_number_edit(doc, "/a/b", bad)
+    assert review.check_number_edit(doc, "/a/b", 2.5) is None
+
+
+# ---- L5: a correction's `applied` date is the Toronto date ----
+def test_l5_applied_is_the_toronto_date(client, monkeypatch):
+    import datetime as dt
+    from app import companies
+    monkeypatch.setattr(companies, "today", lambda: dt.date(2031, 2, 3))
+    assert review.correction_entry("/period_history/3/principal", "2026-08", 1.0, 2.0, "why")["applied"] == "2031-02-03"
+    f = Finding(id="f1", rule_id="R05", status="overridden", targets=["/a"], our_value=2.0, report_value=1.0,
+                resolution={"choice": "use_ours", "reason": "r"})
+    out, rows = review.apply_overrides({"a": 1.0}, [f], "2026-08")
+    assert out["a"] == 2.0 and rows[0]["applied"] == "2031-02-03"
+
+
+def test_l5_toronto_not_the_server_clock(monkeypatch):
+    """19:30 on 30 Nov in Toronto is 00:30 on 1 Dec in UTC: the date written is 30 Nov."""
+    import datetime as dt
+    from app import companies
+
+    class Late(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt.datetime(2026, 12, 1, 0, 30, tzinfo=dt.timezone.utc).astimezone(tz) if tz else dt.datetime(2026, 12, 1, 0, 30)
+    monkeypatch.setattr(companies.dt, "datetime", Late)
+    assert review.today_toronto() == dt.date(2026, 11, 30)
+
+
+# ---- L18: every signal anchor is a section the company page has ----
+def test_l18_signal_anchors_exist_on_the_page():
+    from app import companies
+    assert companies.chart_anchor("rolling_3month_loss_ratio_pct") == "loss-ratios"
+    assert companies.chart_anchor("rolling_12month_loss_ratio_pct") == "loss-ratios"
+    assert companies.chart_anchor("delinquency_ratio_pct") == "chart-delinquency_ratio_pct"
+    late = companies.late_signal({"late": True, "period": "2026-09", "due_on": "2026-10-15", "business_days_late": 3})
+    assert late["anchor"] == "record"
