@@ -15,7 +15,7 @@
   "difference": null,
   "tolerance": null,
   "unit": "percent_points",
-  "source_page": null,
+  "source_page": 12,
   "context": {
     "field": "/financial_ratios/0/value (delinquency_ratio)",
     "range": "-1.0 to 1.0"
