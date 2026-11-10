@@ -1,4 +1,4 @@
-/** A fake API for the company pages, shaped like contracts/openapi.yaml (Companies, wave D), with partner filtering the
+/** A fake API for the company pages, shaped like contracts/openapi.yaml (Companies, wave D; news in the wave E shape), with partner filtering the
  * way partner_filter applies it, plus helpers to render a page inside a router and a toast provider. */
 import { vi } from 'vitest'
 import { render } from '@testing-library/react'
@@ -72,7 +72,11 @@ export function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
     if (!visibleCompany(m[1]) || !shared.includes(programOf(m[2]))) return respond(404, { code: 'not_found', message: 'no' })
     return respond(200, apiInsights(m[2]))
   }
-  if ((m = path.match(/^\/companies\/([^/]+)\/news$/))) return visibleCompany(m[1]) ? respond(200, apiNews(m[1])) : respond(404, { code: 'not_found' })
+  if ((m = path.match(/^\/companies\/([^/]+)\/news$/))) {
+    // include is TAO only; ignored for partners (contract).
+    const include = url.searchParams.get('include') as 'excluded' | 'pending' | 'all' | null
+    return visibleCompany(m[1]) ? respond(200, apiNews(m[1], tao, include)) : respond(404, { code: 'not_found' })
+  }
   if ((m = path.match(/^\/companies\/([^/]+)\/adverse$/))) return visibleCompany(m[1]) ? respond(200, apiAdverse(m[1], tao)) : respond(404, { code: 'not_found' })
   if ((m = path.match(/^\/companies\/([^/]+)\/notes$/))) {
     if (!tao) return respond(403, { code: 'forbidden', message: 'TAO only' })

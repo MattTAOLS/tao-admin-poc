@@ -2,7 +2,8 @@
 /** Wave D fixtures. Companies are seed/companies.json; every figure (status, covenant counts, balance, delinquency, ratio
  * series, program median and mean, loss peers, covenant history, restatements, period history) is taken or computed
  * from the real objects in docs/dashboard-json, the way contracts/openapi.yaml says the API computes it. News, adverse
- * media items, notes, contacts and industry are test records (no report carries them); news uses source `fixture`. */
+ * media items, notes, contacts, industry and news search settings are test records (no report carries them). News items
+ * follow the wave E shape (confirmed dates, sources, language, the TAO-only check). */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { apiDeal, deals, programOf } from './fixtures'
@@ -10,7 +11,7 @@ import { displayStatus } from '../fmt'
 import type { Covenant, Deal } from '../types'
 import type {
   AdverseItem, Company, CompanyDealRef, CompanyInsights, CompanyNote, CompanyRow, CovenantHistoryRow, LossPeer, MetricSeries,
-  NewsItem, SeriesPoint, TaoUser, WatchSignal,
+  NewsCheck, NewsInclude, NewsItem, SeriesPoint, TaoUser, WatchSignal,
 } from '../companies/types'
 
 type SeedCompany = { slug: string; name: string; aliases: string[]; deal_slugs: string[] }
@@ -89,9 +90,14 @@ export function apiCompany(slug: string, tao: boolean, extra: Partial<Company> =
     owner: slug === 'essex-lease-financial-corp' ? ANALYST : null,
     deals: c.deal_slugs.map(dealRef),
     contacts: slug === 'essex-lease-financial-corp' ? [{ id: 'c0000000-0000-4000-8000-000000000001', name: 'R. Singh', role: 'Chief Financial Officer', email: 'r.singh@example.com', receives: 'Covenant queries' }] : [],
-    following: false, updated_at: '2026-11-05T15:00:00Z', ...extra,
+    following: false, updated_at: '2026-11-05T15:00:00Z',
+    // Test records (decision E7): Dynamic Capital is the generic name that needs context words; Essex has one exclusion.
+    news_search: slug === 'dynamic-capital' ? { context_terms: ['leasing', 'equipment', 'finance'], exclusions: [], languages: ['en', 'fr'] }
+      : slug === 'essex-lease-financial-corp' ? { context_terms: [], exclusions: ['Essex County Council'], languages: ['en', 'fr'] }
+      : { context_terms: [], exclusions: [], languages: ['en', 'fr'] },
+    ...extra,
   }
-  if (!tao) delete co.owner
+  if (!tao) { delete co.owner; delete co.news_search }
   return co
 }
 
@@ -179,13 +185,43 @@ export function apiInsights(dealSlug: string): CompanyInsights {
 
 // ---- Test records: news, adverse media, notes ----
 
-export function apiNews(slug: string): NewsItem[] {
+const check = (status: NewsCheck['status'], reason: string | null = null, confidence: number | null = null): NewsCheck => ({
+  status, confidence, reason, model: status === 'kept' || status === 'excluded' ? 'claude-haiku-4-5' : null,
+  checked_at: status === 'kept' || status === 'excluded' ? '2026-11-07T06:10:00Z' : null,
+})
+
+/** All news on file for a company, every check status, newest first by published_at, else source_date, else found_at. */
+export function newsOnFile(slug: string): NewsItem[] {
   if (slug !== 'essex-lease-financial-corp') return []
-  const n = (i: number, title: string, sentiment: NewsItem['sentiment'], day: string): NewsItem => ({
+  const n = (i: number, title: string, sentiment: NewsItem['sentiment'], day: string, more: Partial<NewsItem> = {}): NewsItem => ({
     id: `n0000000-0000-4000-8000-00000000000${i}`, company_slug: slug, title, url: `https://example.com/news/${i}`, publisher: 'Fixture publisher',
-    published_at: `${day}T11:00:00Z`, source: 'fixture', sentiment, found_at: `${day}T11:00:00Z`,
+    published_at: `${day}T11:00:00Z`, source_date: `${day}T09:00:00Z`, date_status: 'confirmed', source: 'fixture', sources: ['fixture'],
+    language: 'en', sentiment, found_at: `${day}T11:00:00Z`, check: check('kept', 'Names the lessor in the story', 0.9), ...more,
   })
-  return [n(1, 'Fixture headline: lessor opens a regional office', 'positive', '2026-11-05'), n(2, 'Fixture headline: higher funding costs for independent lessors', 'negative', '2026-10-31'), n(3, 'Fixture headline: registry annual filing list', 'neutral', '2026-10-29')]
+  const items = [
+    n(1, 'Fixture headline: lessor opens a regional office', 'positive', '2026-11-05',
+      { source: 'google_news', sources: ['google_news', 'newscatcher'], check: check('kept', 'Names Essex Lease Financial and its new office', 0.94) }),
+    n(2, 'Fixture headline: higher funding costs for independent lessors', 'negative', '2026-10-31', { source: 'gdelt', sources: ['gdelt'] }),
+    // The one deliberate change for wave E: a French story whose only date is the one Google News gave.
+    n(3, 'Fixture : liste des dépôts annuels au registre', 'neutral', '2026-11-06',
+      { published_at: null, date_status: 'source_only', source: 'google_news', sources: ['google_news'], language: 'fr' }),
+    n(4, 'Fixture headline: registry annual filing list', 'neutral', '2026-10-29', { check: check('unchecked') }),
+    n(5, 'Fixture headline: Essex County property market cools', 'negative', '2026-11-02',
+      { source: 'brave_news', sources: ['brave_news', 'event_registry'], check: check('excluded', 'About Essex County property, not the lender', 0.97) }),
+    n(6, 'Fixture headline: equipment lessors report third-quarter volumes', 'neutral', '2026-11-04',
+      { published_at: null, source_date: null, date_status: 'unknown', source: 'dow_jones', sources: ['dow_jones', 'lexisnexis'], language: null, check: check('pending') }),
+  ]
+  const key = (x: NewsItem) => x.published_at ?? x.source_date ?? x.found_at
+  return items.sort((a, b) => key(b).localeCompare(key(a)))
+}
+
+/** GET /companies/{slug}/news: kept and unchecked stories; TAO adds excluded and / or pending with include; partners
+ * get kept stories only, without the check block. */
+export function apiNews(slug: string, tao = true, include: NewsInclude | null = null): NewsItem[] {
+  const all = newsOnFile(slug)
+  if (!tao) return all.filter(x => x.check?.status === 'kept').map(({ check: _c, ...x }) => x)
+  const extra = new Set(include === 'all' ? ['excluded', 'pending'] : include ? [include] : [])
+  return all.filter(x => x.check?.status === 'kept' || x.check?.status === 'unchecked' || extra.has(x.check!.status))
 }
 
 export function apiAdverse(slug: string, tao: boolean): AdverseItem[] {
