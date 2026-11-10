@@ -64,11 +64,14 @@ export function RatioChart({ history }: { history: RatioHistoryRow[] }) {
         {segs.map((d, i) => <path key={i} d={d} className="pf-chart__line" />)}
         {pts.map(p => p.v !== null && <circle key={p.month} cx={x(p.i)} cy={y(p.v)} r={2.5} className="pf-chart__dot"><title>{`${p.month}: ${fmtNum(p.v, kind)}`}</title></circle>)}
       </svg>
-      <table className="ds-visually-hidden">
-        <caption>{label} by month</caption>
-        <thead><tr><th scope="col">Month</th><th scope="col">{label}</th></tr></thead>
-        <tbody>{pts.map(p => <tr key={p.month}><td>{p.month}</td><td><Num v={p.v} kind={kind} field={`ratio_history.${p.src}.${key}`} /></td></tr>)}</tbody>
-      </table>
+      {/* The div is hidden, not the table: a table ignores width: 1px and would widen the page (audit M18). */}
+      <div className="ds-visually-hidden" data-testid="chart-table">
+        <table>
+          <caption>{label} by month</caption>
+          <thead><tr><th scope="col">Month</th><th scope="col">{label}</th></tr></thead>
+          <tbody>{pts.map(p => <tr key={p.month}><td>{p.month}</td><td><Num v={p.v} kind={kind} field={`ratio_history.${p.src}.${key}`} /></td></tr>)}</tbody>
+        </table>
+      </div>
     </div>
   )
 }

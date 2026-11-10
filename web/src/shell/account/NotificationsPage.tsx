@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Card, SkeletonBlock, StatePanel, StatusPill, icons, useToast, type Tone } from '@/design/components'
 import type { ComponentType } from 'react'
@@ -7,7 +7,7 @@ import { usePageHeader } from '../header'
 import { loadRole } from '../roles'
 import { useSession } from '../session'
 import type { AppNotification, DisplayPrefs, NotificationKind, NotificationTab, NumberFormat, UnreadCount } from '../types'
-import { SignInNote, dayKey, formatAmount, formatDate, formatTime, periodLabel, profilePath, useShell, withDefaults, type ShellId } from './common'
+import { SignInNote, dayKey, formatAmount, formatDate, formatTime, notificationTarget, periodLabel, profilePath, useShell, withDefaults, type ShellId } from './common'
 import './account.css'
 
 type KindIcon = ComponentType<{ width?: number; height?: number }>
@@ -45,6 +45,8 @@ export const TABS: Record<'tao' | 'partner', { id: NotificationTab; label: strin
   partner: [{ id: 'all', label: 'All' }, { id: 'reports', label: 'Reports' }, { id: 'system', label: 'System' }],
 }
 const unreadFor = (u: UnreadCount | null, t: NotificationTab) => (u ? (t === 'all' ? u.total : u[t]) : 0)
+/** Notifications per request. A full page means there may be older ones: "Show older" asks for the next page (offset). */
+export const PAGE_SIZE = 100
 
 /** Notifications inbox (design D7 a and d), one component for /admin/notifications and the partner /notifications. */
 export default function NotificationsPage() {
@@ -68,17 +70,48 @@ export function NotificationsView({ shell, display }: { shell: ShellId; display?
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [items, setItems] = useState<AppNotification[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { unread } = useSession()
+  const [more, setMore] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const { unread, me, features } = useSession()
+  const role = me?.role ?? loadRole()
   const nav = useNavigate()
   const { toast } = useToast()
   const prefs = withDefaults(display)
 
+  // Every request takes a number; only the newest one may write its answer, so a slow tab's answer never lands on the
+  // tab selected after it (audit L19). Changing tab or filter, and leaving the page, retire the request in flight.
+  const seq = useRef(0)
+  const path = useCallback((offset: number) =>
+    `/notifications?tab=${tab}${unreadOnly ? '&unread=true' : ''}&limit=${PAGE_SIZE}${offset ? `&offset=${offset}` : ''}`, [tab, unreadOnly])
   const load = useCallback(async () => {
-    setError(null)
-    try { setItems(await api<AppNotification[]>(`/notifications?tab=${tab}${unreadOnly ? '&unread=true' : ''}&limit=100`)) }
-    catch (e) { setItems([]); setError((e as Error).message || 'The notifications could not be loaded.') }
-  }, [tab, unreadOnly])
-  useEffect(() => { setItems(null); void load() }, [load])
+    const id = ++seq.current
+    setError(null); setLoadingOlder(false)
+    try {
+      const page = await api<AppNotification[]>(path(0))
+      if (seq.current !== id) return
+      setItems(page); setMore(page.length === PAGE_SIZE)
+    } catch (e) {
+      if (seq.current !== id) return
+      setItems([]); setMore(false); setError((e as Error).message || 'The notifications could not be loaded.')
+    }
+  }, [path])
+  useEffect(() => { setItems(null); setMore(false); void load(); return () => { seq.current++ } }, [load])
+  /** The next page of older notifications, added under the ones shown (audit L22). */
+  const showOlder = async () => {
+    if (!items || loadingOlder) return
+    const id = ++seq.current
+    setLoadingOlder(true)
+    try {
+      const page = await api<AppNotification[]>(path(items.length))
+      if (seq.current !== id) return
+      setItems(cur => { const have = new Set((cur ?? []).map(n => n.id)); return [...(cur ?? []), ...page.filter(n => !have.has(n.id))] })
+      setMore(page.length === PAGE_SIZE); setLoadingOlder(false)
+    } catch (e) {
+      if (seq.current !== id) return
+      setLoadingOlder(false)
+      toast({ tone: 'bad', title: 'Could not load older notifications', message: (e as Error).message })
+    }
+  }
 
   const setTab = (t: NotificationTab) => { const n = new URLSearchParams(params); if (t === 'all') n.delete('tab'); else n.set('tab', t); setParams(n, { replace: true }) }
   const onTabKey = (e: KeyboardEvent, i: number) => {
@@ -95,7 +128,7 @@ export function NotificationsView({ shell, display }: { shell: ShellId; display?
       try { await api(`/notifications/${n.id}/read`, { method: 'POST' }) } catch { /* the link still opens */ }
       void refreshUnread()
     }
-    nav(n.link)
+    nav(notificationTarget(n.link, shell, role, features))
   }
   const markAll = async () => {
     try {
@@ -150,6 +183,9 @@ export function NotificationsView({ shell, display }: { shell: ShellId; display?
               </ul>
             </section>
           ))}
+          {items && !error && more && (
+            <div className="ntf-more"><Button variant="ghost" size="sm" onClick={() => void showOlder()} loading={loadingOlder}>Show older</Button></div>
+          )}
         </div>
       </Card>
       <HowNotified shell={shell} />
@@ -159,7 +195,7 @@ export function NotificationsView({ shell, display }: { shell: ShellId; display?
 
 export function NotificationRow({ n, partner, prefs, onOpen }: { n: AppNotification; partner: boolean; prefs: Required<DisplayPrefs>; onOpen: () => void }) {
   const k = KIND[n.kind] ?? KIND.system
-  const openLabel = n.kind === 'mention' && n.link.includes('?note=') ? 'Open note' : k.open   // company note vs comment thread
+  const openLabel = n.kind === 'mention' && (n.link ?? '').includes('?note=') ? 'Open note' : k.open   // company note vs comment thread
   const unread = !n.read_at
   const today = dayKey(n.created_at, prefs) === dayKey(new Date().toISOString(), prefs)
   return (

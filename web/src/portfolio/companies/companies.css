@@ -34,6 +34,8 @@
 .co-signal:first-child { border-top: 0; }
 .co-signal a { color: var(--indigo); font-weight: 600; text-decoration: none; }
 .co-signal a:hover { color: var(--purple); text-decoration: underline; }
+/* A signal whose section is not on the page: the same title, not a link. */
+.co-signal__title { color: var(--indigo); font-weight: 600; }
 .co-signal p { margin: 2px 0 0; font-size: var(--fs-small); color: var(--text); }
 .co-anchor { scroll-margin-top: 80px; }
 
@@ -64,6 +66,8 @@
   background: var(--card); border: 1px solid var(--border-card); border-radius: 10px; box-shadow: var(--sh-panel); padding: 9px 11px;
   font-size: var(--fs-small); color: var(--text); }
 .co-tip--left { transform: translateX(calc(-100% - 14px)); }
+/* Measured and placed in pixels by tipPlacement (charts.tsx): no offset left to apply. */
+.co-tip--placed { transform: none; }
 .co-tip b { display: block; color: var(--indigo); font-size: 12.5px; margin-bottom: 5px; }
 .co-tip ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .co-tip li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center; }

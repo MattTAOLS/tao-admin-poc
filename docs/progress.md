@@ -1641,3 +1641,33 @@ Run: `cd web && npx vitest run src/admin src/review`. Nothing stubbed. Nothing n
 Left as is: timestamps on the review pages and in admin tables show in the viewer's own zone (display only, no month or
 day decision hangs on them); the roll-forward table still does not list `interest` and `recoveries` per month (the
 current month's are under Balances).
+## UI-Partner / Design System — bug audit fixes on the portal, shell and design system (2026-11-10)
+
+Findings from `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`, branch `agent/ui-partner`.
+
+- **H8** wide tables: `DataTable` measures its wrapper; a table wider than it gets `.ds-table-wrap--x` (sideways scroll
+  inside the card, header sticks to the wrapper) and becomes a focusable region named by the caption. A table that
+  fits is untouched, so its header still sticks under the top bar. Trade-off: a table that scrolls sideways no longer
+  has the page-level sticky header (CSS cannot do both without a second scroll container). Checked in a real browser
+  on a static page with the real CSS. Every `.ds-table-wrap` in `web/src` is rendered by `DataTable`, so admin and
+  review tables get the same behaviour; none needs a change.
+- **M16** company profile opens on the first deal with a published report (`?deal=` still wins).
+- **M17** the page content remounts when the identity changes (`identityKey`: role, user id, whether calls carry
+  X-User), so every page reads its data again for the new person. Also: the previous person's role is no longer written
+  back over the new one right after a switch, and a late unread count for the previous person is dropped.
+- **M18** the charts' screen-reader tables sit in a visually hidden `div`; `.ds-visually-hidden` also clips with
+  `clip-path` and has a safety net for a bare table.
+- **L18** What to watch: old anchors map to the ids on the page (`signalAnchor`); a signal is a link only when its
+  target is on the page, else plain text.
+- **L19 / L22** Notifications: only the newest request may write its answer; "Show older" pages with `offset`.
+- **L20** the chart hover box is placed against the chart's card and the window (`tipPlacement`).
+- **L21** no negative zero: `formatCurrency`, `formatPercent`, `formatNumber` (so `fmtNum`) and the inbox `formatAmount`.
+- **L26** a role or user switch in another browser tab is taken over (`storage` event), then the content remounts.
+- **M19 (UI half)** `notificationTarget`: a link without a portal prefix gets the current portal's; a page the role
+  cannot open, or one this portal does not have, goes to Profile.
+
+Run: `cd web && npx tsc --noEmit -p . && npx vitest run src/portfolio src/shell src/design`. New tests:
+`design/components/__tests__/tableScroll.test.tsx`, `portfolio/__tests__/audit.test.tsx`,
+`shell/__tests__/identity.test.tsx`, `shell/account/__tests__/inbox.test.tsx`.
+Stubbed: nothing. Needed from others: the API halves of L18 (anchors) and M19 (portal-prefixed links); the UI works
+with the old and the new values.

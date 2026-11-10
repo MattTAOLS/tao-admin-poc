@@ -12,7 +12,10 @@ export const KEY = 'tao-admin-poc.role'
 /** The signed-in seeded user's id (wave C, "Sign in as (POC)"). Absent = role-only mode, exactly as in phase 1. */
 export const USER_KEY = 'tao-admin-poc.user'
 
-export function loadRole(): Role { try { return (localStorage.getItem(KEY) as Role) || 'tao_admin' } catch { return 'tao_admin' } }
+/** The stored role; anything that is not a role (nothing stored, or another tab wrote something else) is tao_admin. */
+export function loadRole(): Role {
+  try { const r = localStorage.getItem(KEY); return ROLES.some(x => x.id === r) ? (r as Role) : 'tao_admin' } catch { return 'tao_admin' }
+}
 /** Sets the role. A stored user with another role no longer matches, so it is cleared (role-only mode). */
 export function saveRole(r: Role, userRole?: Role) {
   try {

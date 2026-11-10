@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react'
 import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastProvider, PageHeader, StatePanel, Button, SkeletonBlock, icons, type Crumb, type LinkLike } from '@/design/components'
-import { ROLES, loadRole, loadUserId, saveRole, saveUser, type Role } from './roles'
+import { KEY, ROLES, USER_KEY, loadRole, loadUserId, saveRole, saveUser, type Role } from './roles'
 import { ADMIN_PAGES, PARTNER_PAGES, type Page } from './pages'
 import { RoleSwitcher } from './RoleSwitcher'
 import { usePageHeaderMeta } from './header'
@@ -144,7 +144,14 @@ function useUnreadBadge(session: Session, pathname: string) {
   return signedIn ? session.unread?.total : undefined
 }
 
-function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u: SeedUser) => void }) {
+/** Who the page content was loaded for: role (which fixes the partner), user id, and whether calls carry X-User. The
+ * content remounts when it changes, so no page keeps another person's data on screen (audit M17). `pending` and `user`
+ * both send X-User, so resolving GET /me does not remount; falling back to role-only does, because the headers change. */
+export function identityKey(role: Role, userId: string | null, mode: Session['mode']) {
+  return `${role}|${userId ?? ''}|${mode === 'role-only' ? 'role' : 'user'}`
+}
+
+function Shell({ shell, role, userId, onPick }: { shell: ShellId; role: Role; userId: string | null; onPick: (u: SeedUser) => void }) {
   const base = shell === 'admin' ? '' : '/' + shell
   const home = shell === 'admin' ? '/admin' : base + '/portfolio'
   const pages = shell === 'admin' ? ADMIN_PAGES : PARTNER_PAGES.map(p => ({ ...p, path: base + p.path }))
@@ -182,7 +189,7 @@ function Shell({ shell, role, onPick }: { shell: ShellId; role: Role; onPick: (u
       </aside>
       <div className="main">
         <TopBar current={current} crumbs={crumbs} />
-        <main className="content" key={loc.pathname} id="main">
+        <main className="content" key={`${loc.pathname}|${identityKey(role, userId, session.mode)}`} id="main">
           <Routes>
             {pages.map(p => (
               <Route key={p.path} path={p.path || '/'}
@@ -205,10 +212,23 @@ export function App() {
   const session = useSession()
   // Sign in as a seeded user: store the id and the user's role together, then resolve the user with GET /me.
   const onPick = (u: SeedUser) => { saveUser(u.id, u.role); setRoleState(u.role); setUserId(u.id) }
-  // GET /me on sign-in, and on a role change without a user (Me.features depends on the role).
-  useEffect(() => { void refreshMe() }, [userId, userId ? null : role])
-  // The API is the source of truth for a user's role (a TAO Admin may have changed it in User management).
-  const apiRole = session.mode === 'user' ? session.me?.role : undefined
+  // Another browser tab switched role or user: localStorage is shared, so this tab's calls already go out as the new
+  // identity. Take it over here too (sidebar, shell, GET /me) instead of showing the old one (audit L26).
+  const [storageTick, setStorageTick] = useState(0)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && e.key !== KEY && e.key !== USER_KEY) return   // null: storage was cleared
+      setRoleState(loadRole()); setUserId(loadUserId()); setStorageTick(t => t + 1)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+  // GET /me on sign-in, on a role change without a user (Me.features depends on the role), and on a change from another tab.
+  useEffect(() => { void refreshMe() }, [userId, userId ? null : role, storageTick])
+  // The API is the source of truth for a user's role (a TAO Admin may have changed it in User management). Only for the
+  // user now chosen: right after a switch the session still holds the previous person, whose role must not be written
+  // back over the new one (it used to flip the role, and with it the portal, until GET /me answered).
+  const apiRole = session.mode === 'user' && session.me?.user?.id === userId ? session.me?.role : undefined
   useEffect(() => {
     if (apiRole && apiRole !== role && ROLES.some(r => r.id === apiRole)) { saveRole(apiRole, apiRole); setRoleState(apiRole) }
   }, [apiRole, role])
@@ -220,6 +240,6 @@ export function App() {
   // A role may only see its own shell: a role never sees another shell's URLs; the API enforces the same.
   if (loc.pathname === '/') body = <Navigate to={home} replace />
   else if (!loc.pathname.startsWith(shell === 'admin' ? '/admin' : '/' + shell)) body = <Navigate to={home} replace />
-  else body = <Shell shell={shell} role={role} onPick={onPick} />
+  else body = <Shell shell={shell} role={role} userId={userId} onPick={onPick} />
   return <ToastProvider>{body}</ToastProvider>
 }

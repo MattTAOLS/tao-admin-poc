@@ -85,6 +85,9 @@ async function roleOnlyFeatures(id: string | null, role: string): Promise<void> 
 /** Unread counts for the sidebar badge and the Notifications tabs. Only for a signed-in user. */
 export async function refreshUnread(): Promise<void> {
   if (sessionStore.get().mode !== 'user') { if (sessionStore.get().unread) sessionStore.set({ unread: null }); return }
-  try { sessionStore.set({ unread: await api<UnreadCount>('/notifications/unread-count') }) }
-  catch { sessionStore.set({ unread: null }) }
+  // An answer that arrives after the user changed (or signed out) is dropped: it is the previous person's count.
+  const id = sessionStore.get().userId
+  const current = () => sessionStore.get().mode === 'user' && sessionStore.get().userId === id
+  try { const unread = await api<UnreadCount>('/notifications/unread-count'); if (current()) sessionStore.set({ unread }) }
+  catch { if (current()) sessionStore.set({ unread: null }) }
 }
