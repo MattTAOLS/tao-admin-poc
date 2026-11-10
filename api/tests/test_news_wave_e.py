@@ -143,6 +143,17 @@ def test_put_merges_secrets_and_config(client, key):
     assert row.secrets_enc is None and row.secrets_last4 == {}
 
 
+def test_config_keys_not_sent_keep_their_stored_value(client, key):
+    """UI-Admin sends only the changed config keys: each PUT merges into the stored config."""
+    assert put(client, "brave", {"config": {"web": False}}).json()["config"] == {"news": True, "web": False}
+    assert put(client, "brave", {"config": {"news": False}}).json()["config"] == {"news": False, "web": False}
+    assert put(client, "brave", {"secrets": {"api_key": SECRET}}).json()["config"] == {"news": False, "web": False}
+    assert put(client, "brave", {"enabled": True}).json()["config"] == {"news": False, "web": False}
+    assert stored("brave").config == {"news": False, "web": False}
+    put(client, "dow_jones", {"config": {"base_url": "https://api.example.test/dj"}})
+    assert put(client, "dow_jones", {"config": {}}).json()["config"] == {"base_url": "https://api.example.test/dj"}
+
+
 def test_removing_the_last_secret_needs_no_key(client, key, monkeypatch):
     put(client, "brave", {"secrets": {"api_key": SECRET}})
     monkeypatch.delenv("NEWS_SECRET_KEY")
