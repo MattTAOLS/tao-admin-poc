@@ -22,16 +22,18 @@ Three named volumes hold the data:
 - `filestore`: uploaded PDFs and page images.
 - `redisdata`: the queue.
 
-Back up `pgdata` and `filestore`.
+Back up `pgdata` and `filestore` (the backup script does both), and keep a safe copy of `.env`, which holds the passwords and `NEWS_SECRET_KEY`.
 
 ## Server requirements
 
 - **Docker:** Linux with Docker Engine 24 or later and the Compose plugin v2.20 or later. Windows Server works only with Linux containers (WSL2); Windows containers are not supported.
 - **Size:** 2 vCPU, 4 GB RAM and 20 GB disk is plenty for a handful of users. Each SetRep adds a few MB.
 - **Outbound HTTPS:**
-  - `api.anthropic.com`: extraction (required).
-  - The Azure Document Intelligence endpoint: an optional OCR fallback.
-  - `news.google.com` and `api.gdeltproject.org`: only once the company news search is switched on.
+  - `api.anthropic.com`: the news check (required for news) and the extraction fallback.
+  - Only once the company news search is used:
+    - `news.google.com` and `api.gdeltproject.org`, the free sources.
+    - The paid sources that are switched on: `eventregistry.org`, `v3-api.newscatcherapi.com`, `api.search.brave.com`.
+    - **Publisher websites in general.** The news worker opens each article's own page to confirm its publish date, so it needs outbound web access (ports 80 and 443) to public sites. Without it, stories show "Date not confirmed". It refuses internal addresses.
   - Docker Hub, PyPI and npm: only while images are built.
 
 ## Sign-in: read this first
@@ -57,11 +59,15 @@ Do not expose it to the internet.
    ```
 
    - `POSTGRES_PASSWORD`: required. Use letters and digits only.
-   - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`: required for extraction. Same values as the laptop.
-   - `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY`: optional.
+   - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`: required for the news check; extraction uses Claude only as a fallback. Same values as the laptop.
+   - `NEWS_SECRET_KEY`: encrypts the client API keys entered under System settings → News sources.
+     - **Moving data from the laptop:** copy the laptop's `NEWS_SECRET_KEY` here, or the stored keys cannot be read after the restore and must be entered again.
+     - **Starting fresh:** generate one with the command in `.env.production.example`.
+   - `NEWS_MODEL`: the model for the news check (default `claude-haiku-5-5`).
+   - `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY`: reserved; no code reads them yet. Leave empty.
    - `HTTP_PORT`: the host port (default 80).
 
-   Keep `.env` readable by the service account only (`chmod 600 .env`). It is git-ignored and never copied into an image.
+   Keep `.env` readable by the service account only (`chmod 600 .env`). It is git-ignored and never copied into an image. Keep a copy of it somewhere safe: the backup script does not include it.
 
 3. Build and start:
 
@@ -103,16 +109,18 @@ The web container speaks plain HTTP on `HTTP_PORT`. Put the organisation's usual
 | Status | `docker compose -f docker-compose.prod.yml ps` |
 | Logs | `docker compose -f docker-compose.prod.yml logs -f --tail 100 api worker` |
 | Stop / start | `docker compose -f docker-compose.prod.yml stop` / `... up -d` |
-| Back up | `scripts/prod-backup.sh` (database and files into `backups/`; the stack keeps running) |
+| Back up | `scripts/prod-backup.sh` (database and files into `backups/`; the stack keeps running; backups older than 14 days are removed, change with `KEEP_DAYS=30`) |
 | Restore | `scripts/prod-restore.sh <file.dump> <filestore.tgz>` (replaces everything; asks you to type RESTORE) |
 
 The containers restart on their own after a crash or a server reboot (`restart: unless-stopped`). Logs rotate at 10 MB × 5 files per container.
 
-Schedule the backup daily and copy `backups/` off the server. For example, in cron:
+Schedule the backup daily and copy `backups/` off the server. `backups/` sits on the same disk as the database, so the off-server copy is the real backup. For example, in cron:
 
 ```bash
-15 2 * * * cd /opt/tao-admin-poc && scripts/prod-backup.sh >> backups/backup.log 2>&1
+15 2 * * * cd /opt/tao-admin-poc && mkdir -p backups && scripts/prod-backup.sh >> backups/backup.log 2>&1
 ```
+
+**How a restore protects what you have.** The restore script checks both backup files before it stops anything. It then loads the dump into a scratch database and unpacks the files into a scratch folder. Only when both have loaded does it swap them in. If anything fails before the swap, your existing data is untouched and the app is started again. After the swap it clears the job queues, because queued jobs belonged to the replaced data.
 
 ## Updating to a new version
 

@@ -8,7 +8,6 @@ name: tao-admin
 
 x-common: &common
   restart: unless-stopped
-  env_file: .env
   logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
 
 x-db: &db
@@ -38,6 +37,7 @@ services:
     <<: *common
     build: { context: ., dockerfile: deploy/api.Dockerfile }
     image: tao-admin/api:latest
+    env_file: .env                                         # only the three app containers get the keys in .env
     environment: { <<: *db, FILE_STORE: /data, MIGRATIONS_DIR: /migrations }
     volumes: ["filestore:/data"]
     depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
@@ -52,6 +52,7 @@ services:
     <<: *common
     build: { context: ., dockerfile: deploy/worker.Dockerfile }
     image: tao-admin/worker:latest
+    env_file: .env
     environment: { <<: *db, FILE_STORE: /data }
     volumes: ["filestore:/data"]
     depends_on: { api: { condition: service_healthy } }    # the API applies migrations first
@@ -60,6 +61,7 @@ services:
     <<: *common
     build: { context: ., dockerfile: deploy/news.Dockerfile }
     image: tao-admin/news:latest
+    env_file: .env
     environment: { <<: *db, NEWS_QUEUE: news }
     depends_on: { api: { condition: service_healthy } }
 

@@ -1543,3 +1543,24 @@ migration 014) and works while the daily search is off; an every-company Run now
 reloads the news, adverse items and counts without clearing the screen. `run_active` reads "A news run is already in
 progress." System settings lists such a run as "Manual · <company> only"; the audit entry links to the company.
 Tests: API (403/404/409, feeds off, audit), news worker (only that company is searched), three UI tests.
+
+## Lead — audit fixes: hosting, scripts, guide (2026-11-10)
+
+Audit report: `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`. Fixed here: H11, H12, M13, M14, M15, L13, L14, L15
+(queues), L16, L17.
+- `scripts/prod-restore.sh`: both files are checked first (dump listed, archive `gzip -t` and listed, right
+  extensions); the dump loads into a scratch database and the files into a scratch folder; the swap happens only when
+  both have loaded; a failure before the swap removes the scratch copies and starts the app again on the old data; the
+  job queues are cleared after the swap; waits are bounded; commands that take no file read `/dev/null`, so the
+  RESTORE prompt gets its answer.
+- `scripts/prod-backup.sh`: temporary names renamed on success, seconds in the name, pruning after `KEEP_DAYS` (14).
+- `scripts/export-dev-data.sh`: `MSYS_NO_PATHCONV=1` (Git Bash rewrote `/data`), temporary names, a note on
+  `NEWS_SECRET_KEY`.
+- `docker-compose.prod.yml`: `env_file` only on api, worker and news. `deploy/nginx.conf`: all three security headers
+  in every location.
+- `docs/hosting.md`, `.env.production.example`: outbound list (publisher sites, paid sources), `NEWS_SECRET_KEY` and
+  `NEWS_MODEL`, copy the laptop's key when moving data, keep a copy of `.env`, cron line creates `backups/`, Azure
+  marked as reserved, how a restore protects existing data.
+Tested on a throwaway production stack: swapped arguments, a truncated dump, a truncated archive and an unconfirmed
+prompt are refused with nothing changed; a dump that fails while loading leaves the data intact and the app running;
+a real restore works; a laptop export made in Git Bash restores to the same 23 uploads and 70 files.
