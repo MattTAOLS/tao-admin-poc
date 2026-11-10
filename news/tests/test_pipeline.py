@@ -144,7 +144,11 @@ def test_google_links_resolved_then_pooled_with_the_publisher_url(on):
                                                published_at=NOW - dt.timedelta(days=2))]}, paid=True)
     run(on, [g, p], resolver=lambda url: "https://example.com/pub?utm_campaign=z")
     [row] = items(on)
-    assert row["sources"] == ["google_news", "event_registry"] and row["url"].startswith("https://example.com/pub")
+    assert row["sources"] == ["google_news", "event_registry"]
+    # `url` keeps the link the source gave (so the next run knows it is on file, audit H9); the publisher URL is
+    # `resolved_url`, which is what the API serves.
+    assert row["url"] == "https://news.google.com/rss/articles/AAA"
+    assert row["resolved_url"].startswith("https://example.com/pub")
 
 
 # --- windows and the date rule -----------------------------------------------------------------------------------
@@ -157,7 +161,8 @@ def test_windows_first_search_then_seven_days(on):
     src2 = Fake("google_news", {"tlfc": [], "vcc-iv-lp": []})
     run(on, [src2])
     asked = dict(src2.asked)
-    assert asked["tlfc#0"] == dt.timedelta(days=7) and asked["vcc-iv-lp#0"] == dt.timedelta(days=90)
+    # Both first searches completed in run 1, with or without stories (audit L8).
+    assert asked["tlfc#0"] == dt.timedelta(days=7) and asked["vcc-iv-lp#0"] == dt.timedelta(days=7)
 
 
 def test_first_search_is_twelve_months_with_a_paid_archive(on, monkeypatch):

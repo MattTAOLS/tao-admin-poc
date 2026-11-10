@@ -28,6 +28,7 @@ from sources import paid as paid_sources
 log = logging.getLogger("news")
 SETTING_KEY = "company_feeds"
 CHECK_EVERY = 60
+STALE_AFTER = dt.timedelta(hours=2)      # a run still `running` after this long belongs to a worker that is gone
 TEST_TIMEOUT = 30
 TEST_QUERY = "equipment leasing"
 TEST_COUNT = 5
@@ -61,9 +62,12 @@ class Worker:
             return feeds.settings(store.read_setting(conn, SETTING_KEY))
 
     def recover(self):
-        """At start-up: a run left `running` by a stopped worker is failed, so Run now is not blocked for ever."""
+        """At start-up and on every pass: a run left `running` by a stopped worker is failed, so Run now is not
+        blocked for ever. Only runs older than STALE_AFTER: a younger one may be another worker's live run, and this
+        worker cannot tell (there is no heartbeat column). The price: after a crash, Run now stays blocked for up to
+        STALE_AFTER."""
         with self.eng.begin() as conn:
-            ids = store.fail_stale_running(conn, self.now())
+            ids = store.fail_stale_running(conn, self.now(), STALE_AFTER)
         if ids:
             log.warning("marked %d interrupted run(s) failed: %s", len(ids), ids)
 
@@ -116,6 +120,7 @@ class Worker:
         """One pass: queued runs (manual, recheck), then the schedule. Returns the ids run, for tests."""
         cfg = self.config()
         done = []
+        self.recover()
         with self.eng.connect() as conn:
             queued = store.queued_runs(conn)
         for rid in queued:
@@ -125,10 +130,13 @@ class Worker:
         with self.eng.connect() as conn:
             recent = store.schedule_run_times(conn, now - dt.timedelta(days=3))
         if feeds.schedule_due(now, cfg, recent):
+            # Atomic: inserted only if no scheduled run exists for this local day, so two workers start one between
+            # them; the claim (queued -> running) then lets only one of them run it.
             with self.eng.begin() as conn:
-                rid = store.insert_run(conn, "schedule", now)
-            self._run(rid, cfg)
-            done.append(rid)
+                rid = store.insert_schedule_run(conn, now, feeds.day_start_utc(now, cfg["time_zone"]),
+                                                feeds.day_end_utc(now, cfg["time_zone"]))
+            if rid is not None and self._run(rid, cfg) is not None:
+                done.append(rid)
         return done
 
     # --- Test connection -----------------------------------------------------------------------------------------

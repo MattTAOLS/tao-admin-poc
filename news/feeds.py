@@ -35,6 +35,13 @@ def day_start_utc(now_utc, tz_name):
     return dt.datetime.combine(local.date(), dt.time(), tzinfo=tz).astimezone(dt.timezone.utc)
 
 
+def day_end_utc(now_utc, tz_name):
+    """Midnight that ends the local day containing now, in UTC."""
+    tz = ZoneInfo(tz_name)
+    local = now_utc.astimezone(tz)
+    return dt.datetime.combine(local.date() + dt.timedelta(days=1), dt.time(), tzinfo=tz).astimezone(dt.timezone.utc)
+
+
 def _parse_time(s):
     try:
         h, m = str(s).split(":")

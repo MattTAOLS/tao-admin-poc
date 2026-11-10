@@ -70,13 +70,14 @@ def test_first_search_keeps_90_days_later_runs_keep_7(eng):
     assert urls == ["https://example.com/lb/1", "https://example.com/lb/2", "https://example.com/lb/3"]
     assert dict(src.asked)["tlfc"] == dt.timedelta(days=90)
 
-    # Second run: TLFC has rows now, so 7 days; a new 30-day-old story is not kept. Others still have none: 90 days.
+    # Second run: the source completed its first search for every company in run 1 (recorded in stats.first_search,
+    # audit L8), so 7 days for all of them, with or without stories; a new 30-day-old story is not kept.
     src2 = Dated([_item(5, 30), _item(6, 3)])
     run2 = _run(eng, clock, src2)
     assert run2["items_added"] == 1
     asked = dict(src2.asked)
     assert asked["tlfc"] == dt.timedelta(days=7)
-    assert asked["stride-capital"] == dt.timedelta(days=90)
+    assert asked["stride-capital"] == dt.timedelta(days=7)
 
 
 def test_google_parse_honours_max_age():
