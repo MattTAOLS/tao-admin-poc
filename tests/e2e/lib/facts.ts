@@ -151,7 +151,7 @@ export const STEP12 = {
   /** A deal name that is not a company name: finds TLFC through its deal "TLFC (Loans)". */
   searchByDeal: { q: 'Loans', finds: 'TLFC' },
   fixture: {
-    prefix: 'Test item:', items: 10, adverse: 7,
+    prefix: 'Test item:', items: 11, adverse: 7,
     essexTitle: 'Test item: Essex Lease Financial named in a fictional lawsuit over equipment leases',
     monedaTitle: 'Test item: securities commission fined Moneda Capital Corp. in a fictional hearing',
     falseFriends: ['TLFCX Holdings', 'Essex Lease Financing Ltd'],
@@ -163,4 +163,23 @@ export const STEP12 = {
   partnerReason: 'QA demo: let partners see company pages',
   record: { industry: 'Equipment leasing (QA demo value)', headquarters: 'QA demo HQ, not a real address', reason: 'QA demo: record filled in for the walkthrough' },
   contact: { name: 'Q. Contact', role: 'Servicer reporting (QA demo)', email: 'qa.contact@example.com', receives: 'Monthly SetRep', reason: 'QA demo: contact added for the walkthrough' },
+}
+
+/** Step 13 (phase 2, wave E): news screening version 2 on the fixture stack (NEWS_SOURCE=fixture, so the Claude check is
+ * the labelled `_check` in news/fixtures/example.json and makes no API call). The Brave key is fake test data. */
+export const STEP13 = {
+  providers: ['event_registry', 'newscatcher', 'brave', 'dow_jones', 'lexisnexis'],
+  notAvailable: ['Dow Jones (Factiva)', 'LexisNexis (Nexis Data+)'],
+  brave: { provider: 'brave', label: 'Brave Search', key: 'qa-fake-brave-key-not-real-7Q4Z', last4: '7Q4Z' },
+  keyReason: 'QA demo: store a fake Brave key to test the write-only key field',
+  removeReason: 'QA demo: remove the fake Brave key',
+  onReason: 'QA demo: try to switch Brave on with no key',
+  missingCredentials: 'A required key is not set. Enter every required key and save before switching this source on or testing it.',
+  xpedite: { slug: 'xpedite-leasing', name: 'Xpedite Leasing', title: 'Test item: Xpedite Leasing sponsors a fictional trade show, date not confirmed' },
+  dynamic: {
+    slug: 'dynamic-capital', name: 'Dynamic Capital',
+    excludedTitle: 'Test item: a fictional city market called the dynamic capital of street food',
+    excludedReason: 'About a fictional city market, not the lender (labelled test answer)',
+  },
+  search: { context: ['leasing', 'equipment', 'finance'], exclusion: 'dynamic capital of street food', reason: 'QA demo: news search words for a generic company name' },
 }

@@ -229,13 +229,14 @@ test('step 12c: news and adverse media: feed on, Run now on the fixture, sentime
   // Run now: the list refreshes until the run finishes.
   await page.getByRole('button', { name: 'Run now' }).click()
   await expect(page.getByRole('status').filter({ hasText: /^Run (queued|finished)/ })).toBeVisible()
-  await expect(page.getByRole('status').filter({ hasText: /^Run finished: Done\. 10 news items and 7 adverse items added\./ })).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('status').filter({ hasText: new RegExp(`^Run finished: Done\\. ${S.fixture.items} news items and ${S.fixture.adverse} adverse items added\\.`) })).toBeVisible({ timeout: 120_000 })
   // The worker also starts the day's scheduled run once the feed is on and 06:00 Toronto has passed; it finds nothing new.
   const run = ((await patel.get('/news/runs')).body as any[]).find(r => r.trigger === 'manual')
   expect(run).toMatchObject({ trigger: 'manual', status: 'ok', companies: S.companies, items_added: S.fixture.items, adverse_added: S.fixture.adverse, errors: [] })
   await shot(page, '12-news-run-ok')
 
-  // Every item is a fixture item; the false friends matched nobody.
+  // Every item is a fixture item; the false friends matched nobody. The default lists hide the story the news check
+  // excluded (Dynamic Capital, wave E), so 11 of the 12 stored stories show.
   const all: any[] = [], adverse: any[] = []
   for (const c of (await patel.get('/companies')).body as any[]) {
     all.push(...(await patel.get(`/companies/${c.slug}/news`)).body)

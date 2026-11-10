@@ -625,6 +625,16 @@ The Lead reads this at every merge.
   would read better. (3) The delinquency legend reads "Program median, 1 other deals" (plural with 1), and the
   Performance subtitle says "one point per deal" where the contract (MetricSeries) and the API use one point per
   company. Seen in `specs/12-companies.spec.ts` screenshots; no test depends on them.
+- 2026-11-10 — QA & Demo to Lead / UI-Admin (wave E, step 13; nothing blocks the demo): the Audit log shows the
+  wave E `news_source_change` entry raw. In `web/src/admin/AuditLogPage.tsx` `ACTION_LABEL` (lines 15-27) has no
+  `news_source_change`, so the Action column prints the code; `subject()` (line 251) has no case for it, so Subject is
+  "—"; and the Detail cell prints "label: Brave Search · enabled: … · provider: brave", hiding what changed (the
+  secrets_set / secrets_removed names and enabled before/after). Suggest the label "News source change", the subject
+  "<label> · News sources" linking to `/admin/settings/system#set-sources`, and a detail such as "API key set" / "API
+  key removed" / "Off → On". Seen in `docs/demo/13-audit-news-source.png`; the test checks only the reasons and that
+  the key is absent. Also for the record (not a bug): a run's `stats.date_confirmed` counts every stored story with a
+  confirmed date, excluded ones included (`news/runner.py` line 359), so the fixture run shows 11 kept and 11 dates
+  confirmed although one kept story (Xpedite) has no confirmed date; say if the column should count kept stories only.
 
 ## News
 - 2026-11-06 — To Data & API (no contract change needed): Run now = insert `news_run` (trigger `manual`, status `queued`), then `LPUSH news <run id as a plain string>` (list name from `NEWS_QUEUE`, default `news`). The worker BRPOPs and treats the message as a wake-up only: it runs every queued row oldest first, so the payload shape is not load-bearing and a lost push still runs within a minute. `run_active` should look at both `queued` and `running`; the worker fails any row left `running` when it restarts, and fails a queued row with `{company_slug: null, source: "worker", message: "company_feeds is off; nothing was fetched"}` if the setting was switched off before it started. The worker reads companies from the `company` table only: seeding `seed/companies.json` into it is on the API side.

@@ -1,7 +1,7 @@
 # TAO Admin POC — demo walkthrough
 
 The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
-9), the wave B editing steps (step 10) and the wave C people steps (step 11) and the wave D company pages (step 12), run in order from a fresh database,
+9), the wave B editing steps (step 10) and the wave C people steps (step 11), the wave D company pages (step 12) and the wave E news screening (step 13), run in order from a fresh database,
 with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a
 few) in `tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
@@ -19,7 +19,7 @@ docker compose exec api python -m app.seed  # Git Bash: prefix MSYS_NO_PATHCONV=
 cd tests/e2e
 npm ci
 npx playwright install chromium
-npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-12, 40-70 minutes on a busy host
+npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-13, 40-70 minutes on a busy host
 npm run lighthouse                          # optional: accessibility on the four main pages, after test:e2e
 ```
 
@@ -435,9 +435,11 @@ TLFC (Loans) say "Not published yet".
 ![TLFC deal picker](demo/12-tlfc-deal-picker.png)
 
 **12c. News and adverse media.** With the feed off, Run now is 409 `feeds_off`. System settings › Daily news search
-on, with a reason; Run now; the list refreshes to "Run finished: Done. 10 news items and 7 adverse items added." The
+on, with a reason; Run now; the list refreshes to "Run finished: Done. 11 news items and 7 adverse items added." The
 worker then starts the day's scheduled run as well (06:00 Toronto has passed), which finds nothing new. Every item
-is a fixture item and the two false friends (TLFCX Holdings, Essex Lease Financing Ltd) match nobody. The Essex
+is a fixture item and the two false friends (TLFCX Holdings, Essex Lease Financing Ltd) match nobody. The run stores
+12 stories: the fixture's Dynamic Capital story about a city market is excluded by the news check (fixture mode: the
+labelled answer stands in for Claude, no API call) and hidden from the default lists, so 11 show (step 13b). The Essex
 profile shows its one item marked Negative, and one Open adverse item (Litigation, "1 to review"). Mark reviewed with
 a note: the row shows Reviewed, A. Patel and the note. On Moneda, Dismiss with a reason. A. Patel follows Essex, so
 she has an "Adverse media to review" and a "Negative news" notification. The Platform audit has the two adverse_change
@@ -477,9 +479,75 @@ changed fields, and a `contact_added` entry. J. Moreau sees no Edit record or Ad
 ![Audit, company change](demo/12-audit-company-change.png)
 
 **12g. News runs.** System settings lists the runs, newest first: the scheduled run and the manual run from 12c (Done,
-10 companies, 10 items, 7 adverse, no errors). Analysts may read the runs; partners get 403.
+10 companies, 11 items, 7 adverse, no errors). Analysts may read the runs; partners get 403.
 
 ![News runs](demo/12-news-runs.png)
+
+## Journey 8 — news screening, version 2 (phase 2, wave E)
+
+### Step 13. News sources, checked stories, and the re-check
+
+Wave E puts every story through a date check and a mandatory Claude check, and adds paid sources with the client's
+own keys (`docs/phase2/tao-admin-poc-news_Architecture_v1.md`). On the fixture stack the check is the labelled answer
+in `news/fixtures/example.json` and no paid source or Claude call is made. `specs/13-news-screening.spec.ts`; the Brave
+key, the search words and the reasons are test data.
+
+**13a. News sources.** A. Patel opens System settings › 6 News sources: five rows, Event Registry, NewsCatcher, Brave
+Search, Dow Jones (Factiva) and LexisNexis (Nexis Data+); the last two read "Not available yet" and their Test
+connection is off. Analysts and partners get 403 on `/news/sources`. Edit Brave Search, type a fake API key and a
+reason: the summary says "API key: set", never the key. After Save the row reads "Set, ends in ••••7Q4Z" (also after a
+reload); the key is in no API response the page received, not in the page, and not in `GET /news/sources`. Test
+connection queues one small query; the worker writes the result and the row shows it. On the QA stack the news
+container reached Brave, which answered "HTTP 422: The provided subscription token is invalid.", so the row reads
+Failed with that message; the test accepts any clear result within 40 seconds. Remove the key: "Not set", "Key not
+set". Switching Brave on with no key is refused in plain words ("A required key is not set. …"; the API's 409
+`missing_credentials`) and nothing changes. The Platform audit has two news_source_change entries (key set, key
+removed) naming the field, never the value; the refused switch-on wrote none.
+
+![News sources](demo/13-news-sources.png)
+![Brave key dialog](demo/13-brave-key-dialog.png)
+![Key set, last four only](demo/13-brave-key-set.png)
+![Test connection result](demo/13-brave-test-result.png)
+![Switch on without a key](demo/13-brave-missing-key.png)
+![Audit, news source change](demo/13-audit-news-source.png)
+
+**13b. Latest news.** On Xpedite Leasing the fixture's trade-show story reads "Date not confirmed" with the source's
+date in small text, "Found by Test fixture" and "Kept by the news check"; it is not counted in Xpedite's `news_7d`
+(1, the other Xpedite story), and neither it nor the excluded story raised a notification. On Dynamic Capital the
+default list leaves out the city-market story; "Show excluded" (TAO only) brings it back muted, with "Excluded by the
+news check" and its reason. "View as partner" hides the toggle, the check lines and the excluded story.
+
+![Date not confirmed](demo/13-date-not-confirmed.png)
+![Show excluded](demo/13-show-excluded.png)
+![View as partner](demo/13-view-as-partner.png)
+
+**13c. Partners.** With company pages on for partners (step 12e), D. Alvarez (investor) and L. Haddad (manager) ask for
+every company's news with no filter and with `include=excluded`, `include=all` and `include=pending`: kept stories
+only, no check block, and neither the excluded headline nor its reason anywhere. Their company record has no news
+search settings. On the Dynamic Capital page the investor sees no Show excluded toggle and no check lines.
+
+![Partner news](demo/13-partner-news.png)
+
+**13d. News search settings.** A. Patel edits the Dynamic Capital record: context words "leasing, equipment, finance"
+and the exclusion phrase "dynamic capital of street food", with a reason. The record panel shows both (TAO only); the
+company_change entry carries them; partners do not receive them and an analyst gets 403.
+
+![Edit news search](demo/13-edit-news-search.png)
+![Record panel](demo/13-record-news-search.png)
+
+**13e. Re-check stories.** System settings › Re-check stories, confirm: the run is queued, the list refreshes, and the
+note reads "Re-check finished: Done. …". The runs list has a Re-check row (Done) with its stats; the Platform audit has
+its news_run entry with trigger `recheck`. After a fixture run every story is already checked, so the re-check finds
+nothing to change.
+
+![Re-check confirm](demo/13-recheck-confirm.png)
+![Re-check done](demo/13-recheck-done.png)
+
+**13f. Checks and calls.** The manual fixture run from 12c shows its stats in the new column: "140 candidates · 11 kept
+· 1 excluded" (the Dynamic Capital story), and, opened, calls per source (Test fixture 10), the daily cap (None),
+pending 0, dates confirmed 11 (the 12 stored stories, excluded one included, less the Xpedite story) and Claude tokens "0 in, 0 out" (fixture mode makes no call).
+
+![Run stats](demo/13-run-stats.png)
 
 ## Acceptance (build plan), measured 2026-11-04
 
@@ -523,3 +591,10 @@ up, seed and `npx playwright test --project=demo`: run 1, 38 of 38 in 46 min 37 
 41 min 56 s; step 12 about 5 min 50 s); run 2, 38 of 38 in 30 min 18 s (2 min 11 s, 28 min 7 s; step 12 about 3 min).
 Screens in the TAO shell were re-taken because the sidebar now has Companies; partner-shell screenshots of earlier
 steps did not change and were kept.
+
+**Wave E runs, 2026-11-10.** On `integration/wave-e` (b166e53) with step 12 moved to the new fixture (11 news items) and
+step 13 added: two full runs from `down -v`, up, seed and `npx playwright test --project=demo` (stack with
+`scripts/compose.news-fixture.yml`). Run 1, 44 of 44: tests 18 min 36 s (images rebuilt first); step 12 about 2 min 10 s,
+step 13 about 1 min 10 s. Run 2, 44 of 44: 16 min 6 s (start and seed 1 min 33 s, tests 14 min 24 s); step 12 about 2 min
+6 s, step 13 about 1 min 9 s. Test connection with the fake Brave key ended Failed both times ("HTTP 422: The provided
+subscription token is invalid.") within a few seconds.
