@@ -1543,3 +1543,34 @@ migration 014) and works while the daily search is off; an every-company Run now
 reloads the news, adverse items and counts without clearing the screen. `run_active` reads "A news run is already in
 progress." System settings lists such a run as "Manual · <company> only"; the audit entry links to the company.
 Tests: API (403/404/409, feeds off, audit), news worker (only that company is searched), three UI tests.
+
+## News — bug audit fixes (2026-11-10)
+
+On `agent/news`, from `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`. Run: `cd news && python -m pytest -q` (256
+tests; 99 new). Detail in `news/README.md`.
+
+- H9. A story is on file under every URL it is known by. `news_item.url` now holds the link the source gave and
+  `resolved_url` the publisher URL (the API already serves `resolved_url or url`); both are compared without scheme
+  and "www.". On file is asked before fetching, after a Google link resolves, and after the page read; a unique
+  violation is on file, not an error. A story on file is not resolved, read or checked again.
+- H10. The page text replaces the provider's text only when it is longer and the page names the company.
+- M9. One guard for every confirmed date: 1990 or later, not past tomorrow.
+- M10. Article pages and Google link resolution fetch public http(s) hosts only, on every redirect hop; the address
+  really connected to is checked. A refused URL is an unreadable page.
+- M11. A fetch has a 10-second total deadline.
+- M12. A `<form>` wrapper no longer drops the article; `<header>` and `<footer>` are skipped only outside `<article>`.
+- L8. The first-search window is per company and source, recorded in `news_run.stats.first_search`.
+- L9. A check refused or cut off three times excludes the story; an outage or a missing key never counts.
+- L10. Atomic schedule insert; only runs `running` for over 2 hours are failed as interrupted.
+- L11. Names, aliases, context words and exclusions: whole phrases, accents folded.
+- L12 and the prompt: verdict fields are not coerced; story and company text cannot write prompt tags.
+
+Stubbed or not proven here: the PostgreSQL path of the schedule insert (`pg_advisory_xact_lock`, then check, then
+insert) is exercised only on SQLite's single-statement path in the tests; it needs one run under `docker compose`.
+Nothing called a paid API or the Anthropic API.
+
+For the Lead: (1) `stats.first_search` is a new key inside `news_run.stats`; the contract lists the stats properties
+without closing the object, so nothing breaks, but it is not documented in `contracts/openapi.yaml`. (2) After a
+worker crash, Run now is blocked for up to 2 hours; a `news_run.heartbeat_at` column (migration) would let the bound
+drop to minutes. (3) A story has one `url`; remembering every source link would need a column
+(`news_item.source_urls jsonb`). (4) Existing rows keep the old shape (`url` = final URL); no migration is needed.
