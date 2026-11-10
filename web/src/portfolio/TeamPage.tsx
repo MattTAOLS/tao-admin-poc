@@ -168,7 +168,9 @@ function EditUser({ user, self, partner, programs, progErr, onClose, onChanged }
   const [statusOpen, setStatusOpen] = useState(false), [reason, setReason] = useState('')
 
   useEffect(() => {
-    api<Subscription[]>(`/users/${encodeURIComponent(user.id)}/subscriptions`).then(setSubs, (e: ApiErr) => { setSubs([]); setSubsErr(errorText(e, partner)) })
+    let live = true
+    api<Subscription[]>(`/users/${encodeURIComponent(user.id)}/subscriptions`).then(s => { if (live) setSubs(s) }, (e: ApiErr) => { if (live) { setSubs([]); setSubsErr(errorText(e, partner)) } })
+    return () => { live = false }
   }, [user.id, partner])
   useEffect(() => {
     if (!subs || !programs) return
