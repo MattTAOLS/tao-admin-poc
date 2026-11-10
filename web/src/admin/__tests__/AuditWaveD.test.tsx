@@ -8,7 +8,7 @@ import type { AuditEntry } from '../data'
 
 vi.mock('@/shell/api', () => ({ api: vi.fn(), apiBlob: vi.fn() }))
 import { api } from '@/shell/api'
-import AuditLogPage, { ACTION_LABEL, adverseDecision, dealLinks, entryChanges, summary, torontoMonth } from '../AuditLogPage'
+import AuditLogPage, { ACTION_LABEL, adverseDecision, dealLinks, entryChanges, newsSourceSummary, summary, torontoMonth } from '../AuditLogPage'
 import { AUDIT_ACTIONS, PLATFORM_ACTIONS, REPORT_ACTIONS, auditScope } from '../data'
 
 const mockApi = vi.mocked(api)
@@ -115,6 +115,17 @@ describe('wave D audit actions', () => {
     // the state can also arrive as before → after
     expect(adverseDecision(e({ id: 'x', at: at(1), action: 'adverse_change', reason: 'checked', detail: { before: { state: 'open' }, after: { state: 'reviewed' } } })))
       .toMatchObject({ label: 'Reviewed', note: 'checked' })
+  })
+
+  it('news_source_change (wave E): labelled, on the Platform tab, and summarised by field name only', () => {
+    expect(ACTION_LABEL.news_source_change).toBe('News source change')
+    expect(auditScope({ action: 'news_source_change', upload_id: null })).toBe('platform')
+    expect(AUDIT_ACTIONS).toContain('news_source_change')
+    expect(newsSourceSummary({ provider: 'brave', label: 'Brave Search', enabled: { before: false, after: false }, config_changed: [], secrets_set: ['api_key'], secrets_removed: [] }))
+      .toBe('Key set: api key')
+    expect(newsSourceSummary({ enabled: { before: false, after: true }, config_changed: ['archive_months'], secrets_set: [], secrets_removed: ['api_key'] }))
+      .toBe('Switched on · Key removed: api key · Settings changed: archive months')
+    expect(summary({ ...ENTRIES[7], action: 'news_source_change', detail: { label: 'Brave Search', enabled: { before: true, after: false } } }, C)).toBe('Switched off')
   })
 
   it('news_run: manual, with who', () => {

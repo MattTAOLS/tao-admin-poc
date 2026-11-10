@@ -61,7 +61,7 @@ def test_fixture_run_writes_items_adverse_and_counts(eng):
     assert unconfirmed["date_status"] == "source_only" and unconfirmed["published_at"] is None
     assert unconfirmed["source_date"] is not None
     assert run["stats"]["kept"] == 11 and run["stats"]["excluded"] == 1 and run["stats"]["pending"] == 0
-    assert run["stats"]["date_confirmed"] == 11 and run["stats"]["calls"] == {"fixture": 10}
+    assert run["stats"]["date_confirmed"] == 10 and run["stats"]["calls"] == {"fixture": 10}
 
     adverse = rows(eng, store.adverse_item)
     cats = sorted((a["company_slug"], a["category"]) for a in adverse)

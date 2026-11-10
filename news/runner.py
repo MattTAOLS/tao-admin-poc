@@ -356,9 +356,9 @@ class Run:
             log.exception("news run %s: writing an item for %s failed", self.run_id, slug)
             self.err(slug, "worker", f"could not save items: {exc}")
             return
-        if status == "confirmed":
-            self.stats["date_confirmed"] += 1
         if row["check_status"] == "kept":
+            if status == "confirmed":                   # dates confirmed: kept stories only, like the kept count
+                self.stats["date_confirmed"] += 1
             self.items_added += 1
             self.adverse_added += len(cats)
 

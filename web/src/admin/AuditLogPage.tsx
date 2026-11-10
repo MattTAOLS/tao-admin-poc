@@ -24,6 +24,8 @@ export const ACTION_LABEL: Record<string, string> = {
   // wave D: Platform (companies and news)
   company_change: 'Company change', company_note: 'Company note', company_note_edit: 'Company note edited',
   adverse_change: 'Adverse media decision', news_run: 'News run',
+  // wave E: Platform (paid news sources; the detail names fields, never key values)
+  news_source_change: 'News source change',
 }
 /** Actions whose detail carries before → after values (shown in the Detail cell and the expanded row). */
 const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
@@ -183,6 +185,7 @@ export function entryChanges(e: AuditEntry, c: Pick<Ctx, 'deals' | 'programs'> &
 /** One line from `detail` for the table; the full detail is in the expanded row. */
 export function summary(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs'> & { users?: AppUser[] }): string {
   const d = (e.detail ?? {}) as Record<string, unknown>
+  if (e.action === 'news_source_change') return newsSourceSummary(d)
   if (e.action === 'company_change') {
     const kind = str(d.change) ?? 'updated'
     const head = COMPANY_CHANGE_LABEL[kind] ?? cap(kind)
@@ -243,6 +246,20 @@ export function summary(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs'> & { u
   return keys.length ? keys.slice(0, 3).map(k => `${k}: ${typeof d[k] === 'object' ? '…' : String(d[k])}`).join(' · ') : '—'
 }
 
+/** news_source_change: what changed on a paid news source, by field name only (the API never records key values). */
+export function newsSourceSummary(d: Record<string, unknown>): string {
+  const en = obj(d.enabled)
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  const field = (f: string) => f.replace(/_/g, ' ')
+  const parts = [
+    en.before !== en.after && typeof en.after === 'boolean' ? (en.after ? 'Switched on' : 'Switched off') : null,
+    list(d.secrets_set).length ? `Key set: ${list(d.secrets_set).map(field).join(', ')}` : null,
+    list(d.secrets_removed).length ? `Key removed: ${list(d.secrets_removed).map(field).join(', ')}` : null,
+    list(d.config_changed).length ? `Settings changed: ${list(d.config_changed).map(field).join(', ')}` : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Updated'
+}
+
 /** The Report (or Subject) of an entry: the deal and collection period, linking to the report the way the Uploads
  * table does (Review, the deal page at that period, or upload details). Deal and period come from the entry itself
  * (`deal_slug`, `deal_name`, `collection_period`, set by the API from the upload), never from the file name: MOVE
@@ -254,6 +271,7 @@ function subject(e: AuditEntry, c: Ctx): { title: string; sub?: string; href?: s
   const slug = e.deal_slug ?? u?.deal_slug ?? (typeof d.deal_slug === 'string' ? d.deal_slug : undefined)
   const per = e.collection_period ?? u?.collection_period ?? (typeof d.collection_period === 'string' ? d.collection_period : undefined)
   if (e.action === 'news_run') return { title: 'Company news', sub: 'News run', href: '/admin/settings/system#set-companies' }
+  if (e.action === 'news_source_change') return { title: str(d.label) ?? str(d.provider) ?? 'News source', sub: 'News source', href: '/admin/settings/system#set-sources' }
   if (e.action === 'company_change' || e.action === 'company_note' || e.action === 'company_note_edit' || e.action === 'adverse_change') {
     const cs = str(d.company_slug)
     const name = str(d.company_name) ?? (e.action === 'company_change' && !isContact(d) ? str(obj(d.after).name) ?? str(obj(d.before).name) : undefined) ?? (cs ? cap(cs) : 'Company')
