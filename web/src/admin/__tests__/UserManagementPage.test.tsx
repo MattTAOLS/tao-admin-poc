@@ -230,6 +230,32 @@ describe('User management page', () => {
     expect(sent('PATCH', `/users/${MOREAU.id}`)).toHaveLength(0) // details unchanged
   })
 
+  it('audit M21: after a save the drawer compares against what was saved, so Save is clean and a change back can be saved', async () => {
+    let stored: Subscription[] = []
+    mockApi.mockImplementation(usersApi({
+      [`GET /users/${MOREAU.id}/subscriptions`]: () => stored,
+      [`PUT /users/${MOREAU.id}/subscriptions`]: (_p: string, i?: RequestInit) => { stored = JSON.parse(String(i!.body)); return stored },
+    }))
+    renderPage(`${PATH}?user=${MOREAU.id}`, route)
+    const all = await screen.findByRole('checkbox', { name: /All deals in MOVE Trust/ })
+    const save = () => screen.getByRole('button', { name: 'Save changes' })
+    expect(save()).toBeDisabled()
+    await userEvent.click(all)
+    expect(save()).not.toBeDisabled()
+    await userEvent.click(save())
+    await waitFor(() => expect(sent('PUT', `/users/${MOREAU.id}/subscriptions`)).toHaveLength(1))
+    // Saved: nothing left to save, so a second click cannot re-send the same list.
+    await waitFor(() => expect(save()).toBeDisabled())
+    // Ticking back to the list the drawer opened with is a change against what is saved now.
+    await userEvent.click(screen.getByRole('checkbox', { name: /All deals in MOVE Trust/ }))
+    expect(save()).not.toBeDisabled()
+    await userEvent.click(save())
+    await waitFor(() => expect(sent('PUT', `/users/${MOREAU.id}/subscriptions`)).toHaveLength(2))
+    expect(body('PUT', `/users/${MOREAU.id}/subscriptions`, 1)).toEqual([])
+    expect(stored).toEqual([])
+    await waitFor(() => expect(save()).toBeDisabled())
+  })
+
   it('a partner user’s tree lists only the programs shared with that partner', async () => {
     const progs: Program[] = [PROGRAMS[0], { ...PROGRAMS[1], partner_slugs: ['investor'] }] // MOVE Trust not shared with Manager
     mockApi.mockImplementation(usersApi({}, USERS, progs))

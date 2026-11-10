@@ -150,7 +150,10 @@ function UserDrawer({ user, ctx, onClose, onSaved }: { user: AppUser | null; ctx
   const [statusDialog, setStatusDialog] = useState<'deactivate' | 'reactivate' | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const subsRes = useResource(() => (user ? usersApi.subscriptions(user.id) : Promise.resolve([] as Subscription[])), [user?.id])
-  useEffect(() => { if (subsRes.data) setTree(toTree(subsRes.data)) }, [subsRes.data])
+  // What the server holds now: the loaded list, then the list each PUT returns. Comparing against the first load
+  // alone left Save enabled after a save and disabled after ticking back to the first list.
+  const [savedSubs, setSavedSubs] = useState<Subscription[]>()
+  useEffect(() => { if (subsRes.data) { setTree(toTree(subsRes.data)); setSavedSubs(subsRes.data) } }, [subsRes.data])
   useEffect(() => { heading.current?.focus() }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy && !statusDialog) onClose() }
@@ -184,7 +187,7 @@ function UserDrawer({ user, ctx, onClose, onSaved }: { user: AppUser | null; ctx
     if (role !== user.role) patch.role = role
     if (draftUser.partner_slug !== user.partner_slug) patch.partner_slug = draftUser.partner_slug
   }
-  const subsChanged = !subsRes.data ? subs.length > 0 : !sameSubs(subsRes.data, subs)
+  const subsChanged = !savedSubs ? subs.length > 0 : !sameSubs(savedSubs, subs)
   const dirty = isNew || Object.keys(patch).length > 0 || subsChanged
 
   const save = async () => {
@@ -195,7 +198,10 @@ function UserDrawer({ user, ctx, onClose, onSaved }: { user: AppUser | null; ctx
       let saved = user
       if (!user) saved = await usersApi.create({ name: name.trim(), email: email.trim(), role, partner_slug: draftUser.partner_slug })
       else if (Object.keys(patch).length) saved = await usersApi.patch(user.id, patch)
-      if (subsChanged && saved) await usersApi.putSubscriptions(saved.id, subs)
+      if (subsChanged && saved) {
+        const stored = await usersApi.putSubscriptions(saved.id, subs)
+        setSavedSubs(Array.isArray(stored) ? stored : subs)
+      }
       toast({ tone: 'ok', title: isNew ? `${name.trim()} added` : `${name.trim()} saved`, message: 'Each change is recorded on the Platform tab of the Audit log.' })
       onSaved(saved!)
     } catch (err) { setError(errorText(err as ApiError)) }
