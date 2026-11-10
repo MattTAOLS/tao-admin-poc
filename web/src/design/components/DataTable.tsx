@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { SkeletonBlock } from './SkeletonBlock'
 import { IconChevronRight, IconSort, IconChevronUp, IconChevronDown } from './icons'
 
@@ -65,6 +65,27 @@ export function DataTable<T>({
   const expandable = !!renderExpanded
   const hasFooter = columns.some(c => c.footer !== undefined)
   const colCount = columns.length + (expandable ? 1 : 0)
+  // A table wider than its wrapper scrolls sideways inside the wrapper (audit H8) instead of being cut off by the card.
+  // Only then does the wrapper become a scroll container, so a table that fits keeps its header sticky under the top bar.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [overflowX, setOverflowX] = useState(false)
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const measure = () => setOverflowX(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    const table = el.querySelector('table')
+    if (table) ro.observe(table)
+    return () => ro.disconnect()
+  }, [])
+  // A scrolling wrapper is a focusable, named region so the keyboard can scroll it.
+  const scrolls = maxHeight !== undefined || overflowX
 
   const sorted = useMemo(() => {
     if (!sort) return rows
@@ -98,8 +119,8 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={['ds-table-wrap', maxHeight !== undefined && 'ds-table-wrap--scroll', className].filter(Boolean).join(' ')} style={{ maxHeight }} aria-busy={loading || undefined}
-      tabIndex={maxHeight ? 0 : undefined} role={maxHeight ? 'region' : undefined} aria-label={maxHeight && typeof caption === 'string' ? caption : undefined}>
+    <div ref={wrapRef} className={['ds-table-wrap', maxHeight !== undefined && 'ds-table-wrap--scroll', overflowX && 'ds-table-wrap--x', className].filter(Boolean).join(' ')} style={{ maxHeight }} aria-busy={loading || undefined}
+      tabIndex={scrolls ? 0 : undefined} role={scrolls ? 'region' : undefined} aria-label={scrolls ? (typeof caption === 'string' ? caption : 'Data table') : undefined}>
       <table className={['ds-table', density === 'compact' && 'ds-table--compact'].filter(Boolean).join(' ')}>
         {caption && <caption className={captionHidden ? 'ds-visually-hidden' : undefined}>{caption}</caption>}
         <thead>
