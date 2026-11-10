@@ -141,11 +141,14 @@ def deal_ref(s: Session, deal: Deal, pub: Publication | None = None, now: dt.dat
 
 # ---- screening state ----
 def screened(s: Session, company: Company | None) -> bool:
-    """True once a news run with status ok or partial finished after the company was created."""
+    """True once a news run that covered this company finished (status ok or partial) after the company was created.
+    A run for one company (Run now on its profile, news_run.company_slug) covers that company only; a re-check searches
+    nothing, so it screens no one."""
     if company is None:
         return False
-    return s.scalar(select(func.count()).select_from(NewsRun).where(NewsRun.status.in_(("ok", "partial")), NewsRun.finished_at.is_not(None),
-                                                                   NewsRun.finished_at >= company.created_at)) > 0
+    return s.scalar(select(func.count()).select_from(NewsRun).where(
+        NewsRun.status.in_(("ok", "partial")), NewsRun.finished_at.is_not(None), NewsRun.finished_at >= company.created_at,
+        NewsRun.trigger != "recheck", or_(NewsRun.company_slug.is_(None), NewsRun.company_slug == company.slug))) > 0
 
 
 def _following(s: Session, user_id: str | None, slug: str) -> bool:

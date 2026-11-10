@@ -441,6 +441,21 @@ def test_run_now_for_one_company_works_while_feeds_are_off(client, news_queue):
     assert e[0]["detail"] == {"run_id": run["id"], "trigger": "manual", "company_slug": "stride-capital", "company_name": "Stride Capital"}
 
 
+def test_a_one_company_run_or_a_recheck_screens_only_what_it_covered(client):
+    """not_screened means no finished run has covered this company: a Run now for one company screens that company
+    only, and a re-check (which searches nothing) screens no one. Audit finding M3."""
+    state = lambda slug: rows(client, TAO)[slug]["adverse"]["state"]
+    with db.session() as s:
+        s.add(NewsRun(trigger="recheck", status="ok", started_at=utcnow(), finished_at=utcnow(), companies=0)); s.commit()
+    assert state("stride-capital") == "not_screened" and state("essex-lease-financial-corp") == "not_screened"
+    with db.session() as s:
+        s.add(NewsRun(trigger="manual", status="ok", started_at=utcnow(), finished_at=utcnow(), companies=1, company_slug="stride-capital")); s.commit()
+    assert state("stride-capital") == "clear"
+    assert state("essex-lease-financial-corp") == "not_screened" and state("tlfc") == "not_screened"
+    finished_run("ok")                                   # an every-company run covers the rest
+    assert state("essex-lease-financial-corp") == "clear" and state("tlfc") == "clear"
+
+
 def test_run_now_queue_down_marks_the_run_failed(client):
     class Down:
         def push(self, _):
