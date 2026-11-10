@@ -131,8 +131,11 @@ def review_link(upload_id: str, thread_id: str | None = None) -> str:
 
 
 def account_link(u: AppUser) -> str:
-    """user_change and system: User management for TAO, the profile page for a partner."""
-    return "/admin/settings/users" if u.role in TAO else "/settings/profile"
+    """user_change and system: User management for a TAO Admin; the recipient's own profile page for a TAO analyst (User
+    management is admin-only) and for a partner, under the partner's portal prefix (/investor, /manager) (audit M19)."""
+    if u.role == "tao_admin":
+        return "/admin/settings/users"
+    return "/admin/settings/profile" if u.role in TAO else f"/{u.partner_slug}/settings/profile"
 
 
 def covenant_link(s: Session, deal_slug: str) -> str:
