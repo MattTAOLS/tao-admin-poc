@@ -1533,3 +1533,13 @@ readout on hover: a guide line at the nearest month, a highlighted point on each
 every line's value plus the limit. Pool balance shows the closing balance or "Not loaded". With the chart focused
 (Tab), Left/Right/Home/End move along the months and Escape clears. The readout is aria-hidden; screen readers keep
 the hidden data table. Native SVG tooltips removed. Two new tests in `profile.test.tsx`.
+
+## Lead — Run now for one company (2026-11-10)
+
+Company profile, Latest news: a "Run now" button for TAO Admin (not the analyst, not "View as partner", not partners).
+It queues a manual news run for that company alone (`POST /news/runs?company_slug=<slug>`, `news_run.company_slug`,
+migration 014) and works while the daily search is off; an every-company Run now still needs it on. The page shows
+"Searching…", then what the run found ("2 stories added, 3 excluded by the news check" or "no new stories"), and
+reloads the news, adverse items and counts without clearing the screen. `run_active` reads "A news run is already in
+progress." System settings lists such a run as "Manual · <company> only"; the audit entry links to the company.
+Tests: API (403/404/409, feeds off, audit), news worker (only that company is searched), three UI tests.

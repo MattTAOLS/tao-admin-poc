@@ -157,3 +157,11 @@ export type NoteInput = { body: string; mentions?: string[]; collection_period?:
 
 /** GET /users?partner_slug=tao&status=active: the TAO people for @mentions and the owner picker. */
 export type TaoUser = { id: string; name: string; email: string; role: string; status: string }
+
+/** A news worker run (contract NewsRun), as far as the company profile's Run now needs it. */
+export type NewsRun = {
+  id: string; trigger: 'schedule' | 'manual' | 'recheck'; status: 'queued' | 'running' | 'ok' | 'partial' | 'failed'
+  company_slug?: string | null; items_added: number; adverse_added: number
+  errors: { company_slug?: string | null; source: string; message: string }[]
+  stats?: { kept?: number; excluded?: number; pending?: number; candidates?: number }
+}

@@ -524,7 +524,7 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
                 const st = RUN_STATUS[r.status] ?? { tone: 'neutral' as const, label: cap(String(r.status)) }
                 return (
                   <tr key={r.id}>
-                    <th scope="row">{TRIGGER_LABEL[r.trigger] ?? cap(String(r.trigger))}</th>
+                    <th scope="row">{TRIGGER_LABEL[r.trigger] ?? cap(String(r.trigger))}{r.company_slug && <div className="adm-muted">{cap(r.company_slug.replace(/-/g, ' '))} only</div>}</th>
                     <td><StatusPill tone={st.tone} size="sm">{st.label}</StatusPill></td>
                     <td className="adm-nowrap">{r.started_at ? formatDateTime(r.started_at) : <span className="adm-muted">Queued {formatDateTime(r.queued_at)}</span>}</td>
                     <td className="adm-nowrap">{r.finished_at ? formatDateTime(r.finished_at) : <span className="adm-muted">—</span>}</td>

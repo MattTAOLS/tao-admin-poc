@@ -120,6 +120,8 @@ export type NewsRun = {
   errors: { company_slug?: string | null; source: string; message: string }[]
   /** Wave E (E10); {} or absent for runs from before wave E. */
   stats?: RunStats
+  /** A manual run for one company (Run now on its profile); null or absent = every company. */
+  company_slug?: string | null
 }
 export const RUN_STATUS: Record<string, { tone: 'ok' | 'warn' | 'bad' | 'blue' | 'neutral'; label: string }> = {
   queued: { tone: 'neutral', label: 'Queued' },

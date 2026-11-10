@@ -344,10 +344,12 @@ function NewsCheckLine({ n }: { n: NewsItem }) {
   return <div className="co-check"><StatusPill tone="neutral" size="sm">Not checked yet</StatusPill><span className="co-check__reason">Found before the news check. Waiting for the re-check.</span></div>
 }
 
-export function NewsSection({ items, screened, taoView, showExcluded, onShowExcluded }: {
+export function NewsSection({ items, screened, taoView, showExcluded, onShowExcluded, run }: {
   items: NewsItem[] | null | 'error'; screened: boolean | null
   /** TAO roles outside "View as partner": check results and the Show excluded toggle. */
   taoView: boolean; showExcluded: boolean; onShowExcluded: (v: boolean) => void
+  /** TAO Admin only: Run now, a news search for this company alone. Absent for everyone else. */
+  run?: { busy: boolean; tone: 'ok' | 'bad' | null; message: string | null; onRun: () => void }
 }) {
   const [only, setOnly] = useState<'all' | 'negative'>('all')
   const all = Array.isArray(items) ? (taoView ? items : items.filter(partnerVisible)) : []
@@ -362,6 +364,10 @@ export function NewsSection({ items, screened, taoView, showExcluded, onShowExcl
       </>}
       actions={
         <div className="pf-actions">
+          {run && (
+            <Button type="button" variant="ghost" size="sm" loading={run.busy} onClick={run.onRun}
+              title="Search the news for this company now. Works while the daily search is off.">Run now</Button>
+          )}
           {taoView && (
             <span className="co-newsopt">
               <label className="pf-check">
@@ -377,6 +383,9 @@ export function NewsSection({ items, screened, taoView, showExcluded, onShowExcl
           </div>
         </div>
       }>
+      {run?.message && (
+        <p className={run.tone === 'bad' ? 'co-err' : 'co-hint'} role={run.tone === 'bad' ? 'alert' : 'status'} data-testid="news-run-status">{run.message}</p>
+      )}
       {items === null ? <p className="pf-muted">Loading news…</p>
         : items === 'error' ? <p className="co-err" role="alert">The news could not be loaded.</p>
         : all.length === 0 ? <p className="pf-muted">{screened === false ? 'Not screened yet. The daily news search has not covered this company.' : 'No news in 30 days.'}</p>

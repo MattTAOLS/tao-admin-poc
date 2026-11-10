@@ -1971,23 +1971,34 @@ def list_news_runs(limit: int = Query(default=10, ge=1, le=50), c: Caller = Depe
 
 
 @app.post(API + "/news/runs", status_code=202)
-def run_news_now(c: Caller = Depends(admin_caller), s: Session = Depends(get_db), q=Depends(get_news_queue)):
+def run_news_now(company_slug: str | None = Query(default=None), c: Caller = Depends(admin_caller), s: Session = Depends(get_db),
+                 q=Depends(get_news_queue)):
     """Queues a manual run: a news_run row (trigger manual, status queued), its id LPUSHed to the news queue. If the queue
-    cannot be reached the run is recorded as failed (errors say why) and still returned."""
+    cannot be reached the run is recorded as failed (errors say why) and still returned. With company_slug the run covers
+    that company only (Run now on a company profile) and does not need the daily search to be on."""
+    if company_slug is not None:
+        if s.get(Company, company_slug) is None:
+            raise err(404, "not_found", f"no company {company_slug}")
+        return _queue_news_run(s, c, q, "manual", company_slug)
     if not (people.get_setting(s, "company_feeds") or {}).get("enabled"):
         raise err(409, "feeds_off", "company feeds are switched off (System settings, company_feeds.enabled)")
     return _queue_news_run(s, c, q, "manual")
 
 
-def _queue_news_run(s: Session, c: Caller, q, trigger: str) -> dict:
+def _queue_news_run(s: Session, c: Caller, q, trigger: str, company_slug: str | None = None) -> dict:
     """A news_run row (status queued), its id LPUSHed to the news queue, a news_run audit entry. 409 run_active while another
     run is queued or running."""
     active = s.scalars(select(NewsRun).where(NewsRun.status.in_(("queued", "running")))).first()
     if active is not None:
         raise err(409, "run_active", f"a news run is already {active.status} (queued {views.iso(active.queued_at)})")
-    r = NewsRun(id=new_id(), trigger=trigger, status="queued", queued_at=utcnow(), companies=0, items_added=0, adverse_added=0, errors=[], stats={})
+    r = NewsRun(id=new_id(), trigger=trigger, status="queued", queued_at=utcnow(), companies=0, items_added=0, adverse_added=0, errors=[], stats={},
+                company_slug=company_slug)
     s.add(r); s.flush()
-    views.audit(s, c, "news_run", detail={"run_id": r.id, "trigger": trigger})
+    detail = {"run_id": r.id, "trigger": trigger}
+    if company_slug is not None:
+        co = s.get(Company, company_slug)
+        detail.update(company_slug=company_slug, company_name=co.name if co else None)
+    views.audit(s, c, "news_run", detail=detail)
     s.commit()
     try:
         q.push(r.id)

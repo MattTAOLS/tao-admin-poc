@@ -377,7 +377,8 @@ def adverse_dict(s: Session, a: AdverseItem) -> dict:
 def run_dict(r: NewsRun) -> dict:
     return {"id": r.id, "trigger": r.trigger, "status": r.status, "queued_at": views.iso(r.queued_at), "started_at": views.iso(r.started_at),
             "finished_at": views.iso(r.finished_at), "companies": r.companies or 0, "items_added": r.items_added or 0,
-            "adverse_added": r.adverse_added or 0, "errors": list(r.errors or []), "stats": dict(r.stats or {})}
+            "adverse_added": r.adverse_added or 0, "errors": list(r.errors or []), "stats": dict(r.stats or {}),
+            "company_slug": r.company_slug}
 
 
 # ---- insights ----

@@ -52,6 +52,7 @@ news_run = Table(
     Column("adverse_added", Integer, nullable=False, default=0),
     Column("errors", Json, nullable=False, default=list),
     Column("stats", Json, nullable=False, default=dict),
+    Column("company_slug", Text),                 # 014: a manual run for one company; null = every company
 )
 
 news_item = Table(

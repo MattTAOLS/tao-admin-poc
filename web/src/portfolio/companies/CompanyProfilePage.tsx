@@ -2,7 +2,7 @@
  * D6). One page for TAO and partners. `?deal=` picks the deal of a multi-deal company (TLFC has three; the first is the
  * default). Sections follow D6 order; TAO-only parts (Edit record, owner, adverse items not yet reviewed and their actions,
  * analyst notes, contact edits) disappear for partners and under "View as partner". A partner gets Not found on a 404. */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, DataTable, Field, Select, StatePanel, StatusPill, formatPeriod, useToast, type Column } from '@/design/components'
 import { api } from '@/shell/api'
@@ -19,8 +19,8 @@ import {
   AdverseSection, BalanceChartSection, BalanceSection, CovenantFocus, CovenantHistorySection, DocumentsSection, KpiSection, LossSection, NewsSection,
   PerformanceSection, RestatementsSection, Section, SignalsSection, featuredSeries, type Compare,
 } from './sections'
-import type { AdverseItem, Company, CompanyContact, CompanyDealRef, CompanyInsights, CompanyNewsSearch, CompanyNote, CompanyRow, NewsItem, TaoUser } from './types'
-import { LANGUAGE_WORD, companyLinks, fmtDay, useCaller, useCompaniesEnabled } from './util'
+import type { AdverseItem, Company, CompanyContact, CompanyDealRef, CompanyInsights, CompanyNewsSearch, CompanyNote, CompanyRow, NewsItem, NewsRun, TaoUser } from './types'
+import { LANGUAGE_WORD, companyLinks, errText, fmtDay, useCaller, useCompaniesEnabled } from './util'
 import './companies.css'
 
 export default function CompanyProfilePage() {
@@ -55,18 +55,23 @@ function NewsSearchSummary({ s }: { s: CompanyNewsSearch }) {
 }
 
 /** A GET that a section can show on its own: null while loading, 'error' on failure. */
-function useGet<T>(path: string | null): [T | null | 'error', (fn: (v: T) => T) => void] {
+function useGet<T>(path: string | null, reload = 0): [T | null | 'error', (fn: (v: T) => T) => void] {
   const [v, setV] = useState<{ path: string | null; data: T | null | 'error' }>({ path, data: null })
   useEffect(() => {
     if (!path) return
     let live = true
-    setV({ path, data: null })
+    // A reload (Run now finished) keeps what is on screen until the fresh answer arrives; a new path starts empty.
+    setV(s => (s.path === path ? s : { path, data: null }))
     api<T>(path).then(d => { if (live) setV({ path, data: d }) }, () => { if (live) setV({ path, data: 'error' }) })
     return () => { live = false }
-  }, [path])
+  }, [path, reload])
   const update = (fn: (x: T) => T) => setV(s => (s.data === null || s.data === 'error' ? s : { ...s, data: fn(s.data as T) }))
   return [v.path === path ? v.data : null, update]
 }
+
+const RUN_DONE: readonly string[] = ['ok', 'partial', 'failed']
+/** Run now: ask for the run every 3 s for up to 5 minutes. */
+const RUN_POLL_MS = 3000, RUN_POLLS = 100
 
 function Profile({ initial }: { initial: Company }) {
   const shell = useShell()
@@ -84,6 +89,11 @@ function Profile({ initial }: { initial: Company }) {
   const [removing, setRemoving] = useState<CompanyContact | null>(null)
   const [acting, setActing] = useState<{ item: AdverseItem; action: 'review' | 'dismiss' } | null>(null)
   const [showExcluded, setShowExcluded] = useState(false)
+  // Run now (TAO Admin): a news search for this company alone; when it ends the news, adverse items and counts reload.
+  const [newsReload, setNewsReload] = useState(0)
+  const [run, setRun] = useState<{ busy: boolean; tone: 'ok' | 'bad' | null; message: string | null }>({ busy: false, tone: null, message: null })
+  const live = useRef(true)
+  useEffect(() => { live.current = true; return () => { live.current = false } }, [])
 
   const slug = company.slug
   const enc = encodeURIComponent(slug)
@@ -96,9 +106,35 @@ function Profile({ initial }: { initial: Company }) {
   const [ins] = useGet<CompanyInsights>(ref && published ? `/companies/${enc}/deals/${encodeURIComponent(ref.deal_slug)}/insights` : null)
   // TAO only: "Show excluded" adds the stories the check excluded and those awaiting it (include=all). Never sent for
   // partners or under "View as partner".
-  const [news] = useGet<NewsItem[]>(`/companies/${enc}/news?days=30${!partnerView && showExcluded ? '&include=all' : ''}`)
-  const [adverse, setAdverse] = useGet<AdverseItem[]>(`/companies/${enc}/adverse`)
-  const [rows] = useGet<CompanyRow[]>('/companies')
+  const [news] = useGet<NewsItem[]>(`/companies/${enc}/news?days=30${!partnerView && showExcluded ? '&include=all' : ''}`, newsReload)
+  const [adverse, setAdverse] = useGet<AdverseItem[]>(`/companies/${enc}/adverse`, newsReload)
+  const [rows] = useGet<CompanyRow[]>('/companies', newsReload)
+
+  const runNow = async () => {
+    setRun({ busy: true, tone: null, message: 'Searching the news for this company…' })
+    try {
+      const queued = await api<NewsRun>(`/news/runs?company_slug=${enc}`, { method: 'POST' })
+      let r: NewsRun | undefined = queued
+      for (let i = 0; i < RUN_POLLS && live.current && r && !RUN_DONE.includes(r.status); i++) {
+        await new Promise(res => setTimeout(res, RUN_POLL_MS))
+        r = (await api<NewsRun[]>('/news/runs?limit=10')).find(x => x.id === queued.id) ?? r
+      }
+      if (!live.current) return
+      if (!r || !RUN_DONE.includes(r.status)) {
+        setRun({ busy: false, tone: null, message: 'The search is still running. Reload the page in a few minutes to see what it found.' })
+        return
+      }
+      setNewsReload(n => n + 1)
+      const kept = r.stats?.kept ?? r.items_added, excluded = r.stats?.excluded ?? 0
+      const found = `${kept ? `${kept} ${kept === 1 ? 'story' : 'stories'} added` : 'no new stories'}${excluded ? `, ${excluded} excluded by the news check` : ''}`
+      if (r.status === 'failed') setRun({ busy: false, tone: 'bad', message: `The search failed: ${r.errors[0]?.message ?? 'no reason given'}` })
+      else setRun({ busy: false, tone: 'ok', message: r.status === 'partial' ? `Search finished with ${r.errors.length} ${r.errors.length === 1 ? 'problem' : 'problems'}: ${found}. First: ${r.errors[0]?.message ?? ''}` : `Search finished: ${found}.` })
+    } catch (e) {
+      if (!live.current) return
+      const code = (e as { code?: string })?.code
+      setRun({ busy: false, tone: 'bad', message: code === 'run_active' ? 'A news run is already in progress. Try again when it finishes.' : errText(e) })
+    }
+  }
   const [notes, setNotes] = useGet<CompanyNote[]>(tao ? `/companies/${enc}/notes` : null)
   const [users] = useGet<TaoUser[]>(tao ? '/users?partner_slug=tao&status=active' : null)
   const [portfolio] = useGet<Portfolio>(admin && editing ? '/published/portfolio' : null)
@@ -234,7 +270,8 @@ function Profile({ initial }: { initial: Company }) {
         )}
 
       <NewsSection items={news} screened={row ? row.adverse.state !== 'not_screened' : null}
-        taoView={!partnerView} showExcluded={showExcluded} onShowExcluded={setShowExcluded} />
+        taoView={!partnerView} showExcluded={showExcluded} onShowExcluded={setShowExcluded}
+        run={admin && !asPartner ? { ...run, onRun: runNow } : undefined} />
       <AdverseSection items={adverse} row={row} partnerView={partnerView} admin={admin} onAct={(item, action) => setActing({ item, action })} />
 
       <Section id="alerts" title="Watchlist and alerts" subtitle="Per person. Following adds this company to your watchlist and turns on its alerts.">

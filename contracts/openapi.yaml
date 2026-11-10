@@ -1022,6 +1022,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         trigger: { type: string, enum: [schedule, manual, recheck] }
+        company_slug: { type: [string, 'null'], description: 'set on a manual run for one company; null = every company' }
         status: { type: string, enum: [queued, running, ok, partial, failed] }
         queued_at: { type: string, format: date-time }
         started_at: { type: [string, 'null'], format: date-time }
@@ -1855,13 +1856,14 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
-      summary: Run the news search now (tao_admin); queues a manual run on the news queue; news_run audit
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      summary: 'Run the news search now (tao_admin); queues a manual run on the news queue; news_run audit. With company_slug the run searches only that company (the Run now button on a company profile) and is allowed while company_feeds.enabled is false.'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: query, schema: { type: string }, description: 'search this company only; omitted = every company' } ]
       responses:
         '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/NewsRun' } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict', description: '`run_active` or `feeds_off`' }
+        '404': { $ref: '#/components/responses/NotFound', description: 'no company with that slug' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`run_active`, or `feeds_off` (an every-company run while the daily search is off)' }
   /news/recheck:
     post:
       summary: 'Re-check every stored story with the date and Claude checks (tao_admin); queues a recheck run; news_run audit. Allowed while feeds are off.'

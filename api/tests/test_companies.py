@@ -422,6 +422,25 @@ def test_run_now(client, news_queue):
     assert len(e) == 2 and e[1]["detail"] == {"run_id": run["id"], "trigger": "manual"} and e[1]["actor_user_id"] == A1
 
 
+def test_run_now_for_one_company_works_while_feeds_are_off(client, news_queue):
+    """Run now on a company profile: tao_admin only, that company only, allowed while the daily search is off."""
+    assert code(client.post(V1 + "/news/runs", headers=TAO)) == (409, "feeds_off")
+    assert code(client.post(V1 + "/news/runs", headers=ANALYST, params={"company_slug": "stride-capital"})) == (403, "admin_only")
+    assert code(client.post(V1 + "/news/runs", headers=INV, params={"company_slug": "stride-capital"}))[0] == 403
+    assert code(client.post(V1 + "/news/runs", headers=TAO, params={"company_slug": "no-such-company"})) == (404, "not_found")
+    assert news_queue.jobs == []
+    r = client.post(V1 + "/news/runs", headers=H(A1), params={"company_slug": "stride-capital"})
+    assert r.status_code == 202, r.text
+    run = r.json()
+    assert (run["trigger"], run["status"], run["company_slug"]) == ("manual", "queued", "stride-capital")
+    assert news_queue.jobs == [run["id"]]
+    assert code(client.post(V1 + "/news/runs", headers=TAO, params={"company_slug": "moneda-capital-corp"})) == (409, "run_active")
+    listed = client.get(V1 + "/news/runs", headers=TAO).json()
+    assert listed[0]["company_slug"] == "stride-capital"
+    e = audit(client, scope="platform", action="news_run")
+    assert e[0]["detail"] == {"run_id": run["id"], "trigger": "manual", "company_slug": "stride-capital", "company_name": "Stride Capital"}
+
+
 def test_run_now_queue_down_marks_the_run_failed(client):
     class Down:
         def push(self, _):

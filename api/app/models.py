@@ -417,6 +417,7 @@ class NewsRun(Base):
     adverse_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     errors: Mapped[list] = mapped_column(Json, default=list)
     stats: Mapped[dict] = mapped_column(Json, default=dict, server_default=text("'{}'"))       # 013
+    company_slug: Mapped[str | None] = mapped_column(Text, ForeignKey("company.slug"), nullable=True)   # 014: one-company run
 
 
 class NewsItem(Base):

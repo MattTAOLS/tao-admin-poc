@@ -89,10 +89,11 @@ class Worker:
                 return None
             row = store.get_run(conn, run_id)
         trigger = (row or {}).get("trigger") or "manual"
+        only = (row or {}).get("company_slug")        # Run now on a company profile: that company only, feeds on or off
         try:
             if trigger == "recheck":
                 return execute_recheck(self.eng, run_id, now=self.now, **self._extras())["status"]
-            if not cfg["enabled"]:
+            if not cfg["enabled"] and not only:
                 self._fail(run_id, "company_feeds is off; nothing was fetched")
                 log.info("news run %s not started: company_feeds is off", run_id)
                 return "failed"
@@ -102,7 +103,7 @@ class Worker:
             secrets = [v for p in paid for v in p["secrets"].values()]
             srcs, pre = self.source_factory(cfg["sources"], self.env, paid)
             return execute(self.eng, run_id, srcs, now=self.now, pre_errors=list(paid_errors) + list(pre), cfg=cfg,
-                           archive=sources.has_archive(paid), secrets=secrets, **self._extras())["status"]
+                           archive=sources.has_archive(paid), secrets=secrets, only=only, **self._extras())["status"]
         except AssertionError as exc:     # the tests' network guard: fail the row, then let the test see it
             self._fail(run_id, exc)
             raise

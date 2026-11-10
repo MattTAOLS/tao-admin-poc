@@ -164,6 +164,24 @@ def test_disabled_fetches_nothing_and_fails_a_queued_run(eng):
     assert len(rows(eng, store.news_run)) == 1
 
 
+def test_a_run_for_one_company_searches_only_it_and_runs_while_feeds_are_off(eng):
+    """Run now on a company profile: news_run.company_slug set. Feeds stay off; only that company is searched."""
+    clock = Clock(NOON)
+    with eng.begin() as c:
+        rid = store.insert_run(c, "manual", clock())
+        c.execute(store.news_run.update().where(store.news_run.c.id == rid).values(company_slug="essex-lease-financial-corp"))
+    assert worker(eng, clock).tick() == [rid]                 # setting absent: enabled false
+    run = rows(eng, store.news_run, id=rid)[0]
+    assert run["status"] == "ok" and run["companies"] == 1 and run["errors"] == []
+    items = rows(eng, store.news_item)
+    assert items and {i["company_slug"] for i in items} == {"essex-lease-financial-corp"}
+    assert run["items_added"] == len([i for i in items if i["check_status"] == "kept"])
+    # an every-company manual run is still refused while feeds are off
+    rid2 = queue_manual(eng, clock())
+    worker(eng, clock).tick()
+    assert rows(eng, store.news_run, id=rid2)[0]["status"] == "failed"
+
+
 def test_schedule_creates_one_run_per_local_day(eng):
     set_feeds(eng, enabled=True, run_at="06:00", time_zone="America/Toronto")
     clock = Clock(dt.datetime(2026, 11, 6, 10, 0, tzinfo=UTC))     # 05:00 Toronto

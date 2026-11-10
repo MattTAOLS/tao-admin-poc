@@ -279,6 +279,43 @@ describe('Latest news (wave E: confirmed dates, sources, the news check)', () =>
     expect(within(list).queryByText('Awaiting check')).toBeNull()
   }, 60_000)
 
+  it('Run now (TAO Admin): searches this company only, says what it found, and reloads the news', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    const news = () => document.getElementById('news')!
+    await within(news()).findByRole('list', { name: 'News items' })
+    const before = newsCalls().length
+    await userEvent.click(within(news()).getByRole('button', { name: 'Run now' }))
+    const status = await within(news()).findByTestId('news-run-status')
+    await waitFor(() => expect(status.textContent).toBe('Search finished: 2 stories added, 3 excluded by the news check.'))
+    const post = state.calls.find(c => c.method === 'POST' && c.path.startsWith('/news/runs'))!
+    expect(post.path).toBe('/news/runs?company_slug=essex-lease-financial-corp')
+    await waitFor(() => expect(newsCalls().length).toBeGreaterThan(before))            // the list was asked for again
+    expect(within(news()).getByRole('list', { name: 'News items' })).toBeTruthy()      // and stayed on screen meanwhile
+  }, 60_000)
+
+  it('Run now says so in plain words when another run is in progress', async () => {
+    state.run = 'active'
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    await userEvent.click(within(document.getElementById('news')!).getByRole('button', { name: 'Run now' }))
+    const status = await within(document.getElementById('news')!).findByTestId('news-run-status')
+    expect(status.textContent).toBe('A news run is already in progress. Try again when it finishes.')
+    expect(status.getAttribute('role')).toBe('alert')
+  }, 60_000)
+
+  it('Run now is for TAO Admin only: not the analyst, not "View as partner", not a partner', async () => {
+    const view = renderAt(ESSEX, 'tao_analyst')
+    await ready()
+    expect(within(document.getElementById('news')!).queryByRole('button', { name: 'Run now' })).toBeNull()
+    view.unmount()
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    expect(within(document.getElementById('news')!).getByRole('button', { name: 'Run now' })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'View as partner' }))
+    expect(within(document.getElementById('news')!).queryByRole('button', { name: 'Run now' })).toBeNull()
+  }, 60_000)
+
   it('"Show excluded" refetches with include and lists excluded stories muted with the reason, and pending ones as "Awaiting check"', async () => {
     renderAt(ESSEX, 'tao_admin')
     await newsList()

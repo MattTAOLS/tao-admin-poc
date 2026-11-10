@@ -364,14 +364,17 @@ class Run:
 
 
 def execute(eng, run_id, sources, now=store.utcnow, pre_errors=(), checker=None, cfg=None, archive=False,
-            page_reader=pages.read, resolver=google_links.resolve, secrets=(), read_pages=True):
-    """Run a claimed (running) schedule or manual news_run to the end: pending retries, then the search."""
+            page_reader=pages.read, resolver=google_links.resolve, secrets=(), read_pages=True, only=None):
+    """Run a claimed (running) schedule or manual news_run to the end: pending retries, then the search. `only` is a
+    company slug: the run covers that company alone (its pending stories and its search)."""
     cfg = cfg or feeds.settings(None)
     run = Run(eng, run_id, now, checker, cfg, page_reader, resolver, secrets, pre_errors, read_pages)
     with eng.connect() as conn:
         companies = store.companies(conn)
         have_items = store.companies_with_items(conn)
         used = store.calls_since(conn, feeds.day_start_utc(run.started, cfg["time_zone"]), exclude_run=run_id)
+    if only:
+        companies = [c for c in companies if c["slug"] == only]
     by_slug = {c["slug"]: c for c in companies}
     log.info("news run %s started: %d companies, sources %s, check %s", run_id, len(companies),
              [s.name for s in sources], getattr(run.checker, "mode", "?"))

@@ -270,7 +270,11 @@ function subject(e: AuditEntry, c: Ctx): { title: string; sub?: string; href?: s
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
   const slug = e.deal_slug ?? u?.deal_slug ?? (typeof d.deal_slug === 'string' ? d.deal_slug : undefined)
   const per = e.collection_period ?? u?.collection_period ?? (typeof d.collection_period === 'string' ? d.collection_period : undefined)
-  if (e.action === 'news_run') return { title: 'Company news', sub: 'News run', href: '/admin/settings/system#set-companies' }
+  if (e.action === 'news_run') {
+    const cs = str(d.company_slug)        // Run now on a company profile: the run covered that company only
+    return cs ? { title: str(d.company_name) ?? cap(cs), sub: 'Company · news run', href: `/admin/companies/${encodeURIComponent(cs)}` }
+      : { title: 'Company news', sub: 'News run', href: '/admin/settings/system#set-companies' }
+  }
   if (e.action === 'news_source_change') return { title: str(d.label) ?? str(d.provider) ?? 'News source', sub: 'News source', href: '/admin/settings/system#set-sources' }
   if (e.action === 'company_change' || e.action === 'company_note' || e.action === 'company_note_edit' || e.action === 'adverse_change') {
     const cs = str(d.company_slug)

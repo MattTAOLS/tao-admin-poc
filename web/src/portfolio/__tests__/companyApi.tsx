@@ -21,6 +21,8 @@ export const state = {
   /** Me.features.companies for partner roles. */
   partnerFeature: true,
   following: [] as string[],
+  /** Run now on a company profile: 'ok' answers a finished run, 'active' answers 409 run_active. */
+  run: 'ok' as 'ok' | 'active',
 }
 
 function respond(status: number, body?: unknown) {
@@ -93,6 +95,13 @@ export function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
     return respond(200, { ...a, state: m[2] === 'review' ? 'reviewed' : 'dismissed', note: body.note, state_by: { id: '00000000-0000-4000-8000-000000000001', name: 'A. Patel' }, state_at: '2026-11-06T10:00:00Z' })
   }
   if ((m = path.match(/^\/companies\/([^/]+)\/contacts$/)) && method === 'POST') return respond(201, { id: 'c0000000-0000-4000-8000-0000000000ff', name: body.name, role: body.role, email: body.email, receives: body.receives })
+  if (path === '/news/runs' && method === 'POST') {
+    if (role !== 'tao_admin') return respond(403, { code: 'admin_only', message: 'TAO Admin only' })
+    if (state.run === 'active') return respond(409, { code: 'run_active', message: 'a news run is already running' })
+    return respond(202, { id: 'r0000000-0000-4000-8000-000000000001', trigger: 'manual', status: 'ok', company_slug: url.searchParams.get('company_slug'),
+      queued_at: '2026-11-10T15:00:00Z', started_at: '2026-11-10T15:00:01Z', finished_at: '2026-11-10T15:00:20Z', companies: 1, items_added: 2, adverse_added: 0,
+      errors: [], stats: { candidates: 9, kept: 2, excluded: 3, pending: 0 } })
+  }
   if ((m = path.match(/^\/company-contacts\/([^/]+)$/))) return method === 'DELETE' ? respond(204) : respond(200, { id: m[1], ...body })
   if ((m = path.match(/^\/companies\/([^/]+)$/))) {
     if (!visibleCompany(m[1])) return respond(404, { code: 'not_found', message: 'not found' })
@@ -108,7 +117,7 @@ export function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 export function setup() {
-  state.calls = []; state.shared = ['f-pil-2-0', 'move-trust']; state.partnerFeature = true; state.following = []
+  state.calls = []; state.shared = ['f-pil-2-0', 'move-trust']; state.partnerFeature = true; state.following = []; state.run = 'ok'
   localStorage.clear(); sessionStore.reset()
   vi.stubGlobal('fetch', vi.fn(fakeFetch))
 }
