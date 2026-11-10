@@ -1,6 +1,6 @@
 /** Read-only sections of the company profile, in D6 order. Figures come from the published deal object or from
  * CompanyInsights; nothing is computed here beyond picking which series to draw. No industry averages (decision D2). */
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 import { Button, Card, DataTable, KpiRow, KpiTile, StatusPill, formatPeriod, type Column } from '@/design/components'
 import { HISTORY_LABELS, historyKind, type NumKind } from '../fmt'
 import { Num, fmtNum } from '../Num'
@@ -59,7 +59,25 @@ export function KpiSection({ d }: { d: Deal }) {
 const SEVERITY: Record<string, { tone: 'warn' | 'bad' | 'blue'; word: string }> = {
   watch: { tone: 'warn', word: 'Watch' }, rising: { tone: 'bad', word: 'Rising' }, info: { tone: 'blue', word: 'Info' },
 }
+/** Where a signal points on this page. The ids are loss-ratios, record, chart-<metric>, pool-balance, covenant-history,
+ * news and adverse; an older API also sent `losses`, `next-report` and the loss charts by metric, which are not ids
+ * here (the loss ratios share one card), so they map to the section that holds them (audit L18). */
+export function signalAnchor(anchor: string): string {
+  if (anchor === 'losses' || /^chart-rolling_\w+_loss_ratio_pct$/.test(anchor)) return 'loss-ratios'
+  if (anchor === 'next-report') return 'record'
+  return anchor
+}
+
 export function SignalsSection({ signals, period }: { signals: WatchSignal[]; period: string }) {
+  // A signal is a link only when its target is on the page (checked after every render, since sections come and go
+  // with the data and with "View as partner"); otherwise its title is plain text.
+  const targets = signals.map(s => signalAnchor(s.anchor))
+  const [present, setPresent] = useState<string>('')
+  useLayoutEffect(() => {
+    const found = [...new Set(targets)].filter(id => id && document.getElementById(id)).sort().join(' ')
+    setPresent(p => (p === found ? p : found))
+  })
+  const onPage = new Set(present.split(' '))
   return (
     <Section id="what-to-watch" title="What to watch"
       subtitle={`Early-warning signals from the ${formatPeriod(period)} report · ${signals.length} signal${signals.length === 1 ? '' : 's'} · computed from published data, the same for TAO and partners`}>
@@ -70,7 +88,7 @@ export function SignalsSection({ signals, period }: { signals: WatchSignal[]; pe
             return (
               <li key={i} className="co-signal">
                 <span><StatusPill tone={sv.tone} size="sm">{sv.word}</StatusPill></span>
-                <div><a href={`#${s.anchor}`}>{s.title}</a><p>{s.detail}</p></div>
+                <div>{onPage.has(targets[i]) ? <a href={`#${targets[i]}`}>{s.title}</a> : <span className="co-signal__title">{s.title}</span>}<p>{s.detail}</p></div>
               </li>
             )
           })}

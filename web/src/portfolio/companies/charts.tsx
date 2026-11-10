@@ -87,10 +87,38 @@ function useReadout(count: number, W: number, indexAt: (vx: number) => number) {
 
 type TipRow = { key: string; cls: string; label: string; value: string }
 
-/** The readout box beside the hovered month: flips to the left of the guide in the right half of the chart. */
+/** Where the readout box goes, all in the same pixel frame: `guide` is the hovered month's x, `tip` the box width,
+ * `min`..`max` the space it may use (the chart's card, cut to the window). Right of the guide when it fits, else left
+ * of it, else clamped inside the space on the roomier side. Returns the box's left edge. */
+export function tipPlacement({ guide, tip, min, max, gap = 14 }: { guide: number; tip: number; min: number; max: number; gap?: number }): { side: 'left' | 'right'; left: number } {
+  const right = guide + gap, left = guide - gap - tip
+  if (right + tip <= max) return { side: 'right', left: right }
+  if (left >= min) return { side: 'left', left }
+  const side = max - guide >= guide - min ? 'right' : 'left'
+  return { side, left: Math.max(min, Math.min(max - tip, side === 'right' ? right : left)) }
+}
+const TIP_MARGIN = 8
+
+/** The readout box beside the hovered month. It is measured against the chart's card and the window and placed by
+ * tipPlacement, so it is never cut off at the window edge (audit L20). Before it has a size (first paint, tests) it
+ * flips to the left of the guide in the right half of the chart. */
 function Tip({ x, W, month, rows }: { x: number; W: number; month: string; rows: TipRow[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ side: 'left' | 'right'; left: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current, wrap = el?.parentElement
+    if (!el || !wrap) return
+    const w = wrap.getBoundingClientRect(), tip = el.offsetWidth
+    if (!w.width || !tip) { setPos(null); return }
+    const box = (wrap.closest('.ds-dialog, .ds-card') ?? wrap).getBoundingClientRect()
+    const vw = document.documentElement.clientWidth || window.innerWidth
+    const p = tipPlacement({ guide: w.left + (x / W) * w.width, tip, min: Math.max(box.left, 0) + TIP_MARGIN, max: Math.min(box.right, vw) - TIP_MARGIN })
+    setPos({ side: p.side, left: p.left - w.left })
+  }, [x, W, month, rows.length])
+  const side = pos ? pos.side : x > W / 2 ? 'left' : 'right'
   return (
-    <div className={`co-tip${x > W / 2 ? ' co-tip--left' : ''}`} style={{ left: `${(x / W) * 100}%` }} aria-hidden="true" data-testid="chart-tip">
+    <div ref={ref} className={`co-tip${side === 'left' ? ' co-tip--left' : ''}${pos ? ' co-tip--placed' : ''}`} style={{ left: pos ? `${pos.left}px` : `${(x / W) * 100}%` }}
+      aria-hidden="true" data-testid="chart-tip">
       <b>{month}</b>
       <ul>
         {rows.map(r => <li key={r.key}><span className={`co-key co-key--${r.cls}`} /><span>{r.label}</span><span className="co-tip__num">{r.value}</span></li>)}
@@ -180,11 +208,14 @@ function LineDrawing({ title, months, lines, limit, kind, dims }: LineProps & { 
         {lines.map(l => <li key={l.id}><span className={`co-key co-key--${l.cls}`} aria-hidden="true" />{l.label}</li>)}
         {limit && <li><span className="co-key co-key--limit" aria-hidden="true" />{limit.label} {fmtNum(limit.value, kind)}</li>}
       </ul>
-      <table className="ds-visually-hidden">
-        <caption>{title} by month</caption>
-        <thead><tr><th scope="col">Month</th>{lines.map(l => <th key={l.id} scope="col">{l.label}</th>)}</tr></thead>
-        <tbody>{months.map(m => <tr key={m}><th scope="row">{shortMonth(m)}</th>{lines.map(l => <td key={l.id}>{fmtNum(val(l, m), kind)}</td>)}</tr>)}</tbody>
-      </table>
+      {/* The div is hidden, not the table: a table ignores width: 1px and would widen the page (audit M18). */}
+      <div className="ds-visually-hidden" data-testid="chart-table">
+        <table>
+          <caption>{title} by month</caption>
+          <thead><tr><th scope="col">Month</th>{lines.map(l => <th key={l.id} scope="col">{l.label}</th>)}</tr></thead>
+          <tbody>{months.map(m => <tr key={m}><th scope="row">{shortMonth(m)}</th>{lines.map(l => <td key={l.id}>{fmtNum(val(l, m), kind)}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
     </>
   )
 }
