@@ -210,6 +210,35 @@ describe('Comment threads on the Review report', () => {
     expect(screen.getByRole('button', { name: 'Comments (3)' })).toBeTruthy()
   }, 40000)
 
+  it('audit M22: a ?thread= link opens that thread once; a comment on another value keeps the panel where it is', async () => {
+    const state = fresh()
+    stack(state, [
+      on('POST', new RegExp(`^/uploads/${ID}/threads$`), c => {
+        const b = c.body as { anchor: { pointer: string }; body: string; mentions: string[] }
+        const t: Thread = { id: 'new-thread', upload_id: ID, anchor: b.anchor, status: 'open', version: null, created_by: author(PATEL), created_at: '2026-11-05T16:00:00+00:00',
+          resolved_by: null, resolved_at: null, comments: [{ id: 'c10', thread_id: 'new-thread', author: author(PATEL), body: b.body, mentions: b.mentions, created_at: '2026-11-05T16:00:00+00:00', edited_at: null }] }
+        state.threads = [...state.threads, t]
+        return { status: 201, body: t }
+      }),
+    ])
+    renderPage(<ReviewPage />, { path: `${PATH}?thread=${T_FINDING}`, route: '/admin/uploads/queue/:uploadId' })
+    const linked = await screen.findByRole('dialog', { name: /^Comments on R05/ })
+    await userEvent.click(within(linked).getAllByRole('button', { name: 'Close' })[0])
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: 'Comment on Tranche balance, Closing' }))
+    const panel = await screen.findByRole('dialog', { name: 'Comments on Tranche balance · closing' })
+    await userEvent.type(within(panel).getByRole('combobox', { name: /Comment on Tranche balance/ }), 'Check closing')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Comment' }))
+    // The threads reload with the new one; the panel stays on the value the reviewer is commenting on.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Comments (3)' })).toBeTruthy())
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getAllByTestId('comment')).toHaveLength(1))
+    expect(screen.getByRole('dialog', { name: 'Comments on Tranche balance · closing' })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: /^Comments on R05/ })).toBeNull()
+    // Closed, it stays closed: nothing re-applies the link.
+    await userEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: 'Close' })[0])
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  }, 40000)
+
   it('TAO Admin resolves any thread and reopens it; resolving leaves the finding open', async () => {
     const state = fresh()
     const calls = stack(state, [

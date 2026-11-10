@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   Button, Card, FindingCard, SeverityPill, StatusPill, SkeletonBlock, StatePanel, UploadStatusPill, useToast, formatPeriod, type Severity,
@@ -54,7 +54,7 @@ function Review({ uploadId }: { uploadId: string }) {
   const edits = useLoad(() => reviewApi.edits(uploadId).catch(() => [] as ValueEdit[]), [uploadId])
   const published = upload.data?.status === 'published'
   const corrections = useLoad(() => (published ? reviewApi.uploadCorrections(uploadId).catch(() => [] as Correction[]) : Promise.resolve([] as Correction[])), [uploadId, published])
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const correctionId = params.get('correction')
   // Wave C comments (D7 b). The routes need a signed-in user: without one (demo mode, or 401 user_required) the page
   // shows the threads it can read and "Sign in as a user to comment" in place of the controls.
@@ -65,10 +65,19 @@ function Review({ uploadId }: { uploadId: string }) {
   const userList = useLoad(() => reviewApi.taoUsers().catch(() => [] as AppUser[]), [me?.id], !!me)
   const [panel, setPanel] = useState<PanelTarget | null>(null)
   const threadParam = params.get('thread')
+  // A ?thread=<id> link (a notification) opens that thread once. It is then taken out of the address, so a reload of
+  // the threads (a comment on another value, a reply, resolve, edit) does not pull the panel back to it, and the same
+  // link followed again opens it again.
+  const appliedThread = useRef<string | null>(null)
   useEffect(() => {
-    const t = threadParam && threads.data?.find(x => x.id === threadParam)
-    if (t) setPanel({ kind: 'anchor', anchor: t.anchor })
-  }, [threadParam, threads.data])
+    if (!threadParam) { appliedThread.current = null; return }
+    if (appliedThread.current === threadParam) return
+    const t = threads.data?.find(x => x.id === threadParam)
+    if (!t) return
+    appliedThread.current = threadParam
+    setPanel({ kind: 'anchor', anchor: t.anchor })
+    setParams(prev => { const n = new URLSearchParams(prev); n.delete('thread'); return n }, { replace: true })
+  }, [threadParam, threads.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const openThread = useCallback((anchor: ThreadAnchor) => setPanel({ kind: 'anchor', anchor }), [])
   const commentsCtx = useMemo(() => ({ threads: threads.data, enabled: true, open: openThread }), [threads.data, openThread])
   const [editing, setEditing] = useState<EditTarget | null>(null)
