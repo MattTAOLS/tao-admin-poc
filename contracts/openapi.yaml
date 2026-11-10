@@ -31,6 +31,15 @@ info:
     and queue, never the extraction queue) that searches free sources (Google News RSS, GDELT) by company name and aliases
     once a day while `company_feeds.enabled` is true; sentiment and the five adverse categories come from our own keyword
     screening. Partners see adverse items only once a TAO Admin marks them reviewed.
+
+    News screening version 2 (wave E, docs/phase2/tao-admin-poc-news_Architecture_v1.md). Paid sources (Event Registry,
+    NewsCatcher, Brave; Dow Jones and LexisNexis once a client supplies their API documentation) join the free two, each
+    switched on in System settings with the client's own credentials. Credentials are write-only: stored encrypted with
+    NEWS_SECRET_KEY from the server's .env, and only their last four characters ever leave the API. Every new story passes
+    a Claude check (is it about this company; adverse or not, which categories; sentiment) and a date check (published_at
+    comes only from the article itself or a provider's publication field; the search source's own date is source_date).
+    Stories the check excludes are kept, never deleted, and shown to TAO only on request. Counts ("last 7 days") and
+    negative_news / adverse_media notifications use kept stories with a confirmed date only.
 servers:
   - url: http://localhost:8000/api/v1
 
@@ -108,6 +117,10 @@ components:
         409 (threads) `bad_state` (comment on a resolved thread; resolve a resolved one; reopen an open one);
         409 (companies) `slug_taken`, `bad_state` (review or dismiss an adverse item that is not open), `run_active` (a news
         run is already queued or running), `feeds_off` (Run now while company_feeds.enabled is false);
+        409 (news sources) `no_secret_key` (NEWS_SECRET_KEY is not set on the server, so credentials cannot be stored),
+        `not_available` (switching on Dow Jones or LexisNexis before their adapter exists), `missing_credentials` (switching
+        on or testing a source whose required secret fields are not all set), `run_active` (re-check while a run is queued
+        or running);
         409 `already_published` (period published for this deal and `replace` not set; R12 pre-check), `upload_in_progress` (another active
         upload for deal + period), `bad_state` (action not allowed in the upload's status), `open_block_findings`
         (approve while a block finding is open), `not_open` (override of a resolved finding), `no_extraction`,
@@ -457,7 +470,7 @@ components:
         actor_role: { type: string }
         actor_label: { type: string }
         actor_user_id: { type: [string, 'null'], format: uuid, description: 'set when the caller sent X-User; null in demo mode' }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen, company_change, company_note, company_note_edit, adverse_change, news_run] }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen, company_change, company_note, company_note_edit, adverse_change, news_run, news_source_change] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -760,7 +773,7 @@ components:
             min: { type: [number, 'null'] }
             max: { type: [number, 'null'] }
             direction: { type: [string, 'null'], enum: [up, down, flat, null] }
-        news_7d: { type: integer, description: news items found in the last 7 days }
+        news_7d: { type: integer, description: 'kept news items (check_status kept) with a confirmed publish date in the last 7 days' }
         adverse:
           type: object
           required: [state, to_review]
@@ -788,6 +801,15 @@ components:
         contacts: { type: array, items: { $ref: '#/components/schemas/CompanyContact' } }
         following: { type: boolean }
         updated_at: { type: string, format: date-time }
+        news_search: { $ref: '#/components/schemas/CompanyNewsSearch' }
+    CompanyNewsSearch:
+      type: object
+      required: [context_terms, exclusions, languages]
+      description: 'TAO only (absent for partners). How the news search treats this company (decision E7). Claude gets all three as guidance; the context-term rule and the exclusions are also applied before the check.'
+      properties:
+        context_terms: { type: array, items: { type: string, minLength: 2 }, description: 'for a generic name: a story must mention at least one of these (e.g. leasing, equipment, finance). Empty = no context rule.' }
+        exclusions: { type: array, items: { type: string, minLength: 2 }, description: 'phrases that always mean the wrong company; a story containing one is dropped before the check' }
+        languages: { type: array, minItems: 1, uniqueItems: true, items: { type: string, enum: [en, fr] }, description: 'languages searched; default both' }
     CompanyCreate:
       type: object
       required: [slug, name, deal_slugs, reason]
@@ -811,6 +833,7 @@ components:
         relationship_since: { type: [string, 'null'], pattern: '^\d{4}-(0[1-9]|1[0-2])$', description: 'null returns to the first-vintage default' }
         owner_user_id: { type: [string, 'null'], format: uuid, description: an active TAO user }
         deal_slugs: { type: array, items: { type: string } }
+        news_search: { $ref: '#/components/schemas/CompanyNewsSearch' }
         reason: { type: string, minLength: 3 }
     CompanyContact:
       type: object
@@ -921,19 +944,36 @@ components:
               now: { type: [number, 'null'] }
               changed_in: { type: string, description: 'source_period of the report that changed it, or the date TAO applied a correction' }
               type: { type: string, enum: [restated_by_company, tao_correction] }
+    NewsSourceName:
+      type: string
+      enum: [google_news, gdelt, event_registry, newscatcher, brave_news, brave_web, dow_jones, lexisnexis, fixture]
     NewsItem:
       type: object
-      required: [id, company_slug, title, url, publisher, published_at, source, sentiment, found_at]
+      required: [id, company_slug, title, url, publisher, published_at, source, sentiment, found_at, source_date, date_status, sources, language]
       properties:
         id: { type: string, format: uuid }
         company_slug: { type: string }
         title: { type: string }
-        url: { type: string, format: uri }
+        url: { type: string, format: uri, description: 'the publisher URL where known (resolved_url), else the link the source gave' }
         publisher: { type: [string, 'null'] }
-        published_at: { type: [string, 'null'], format: date-time }
-        source: { type: string, enum: [google_news, gdelt, fixture] }
-        sentiment: { type: string, enum: [positive, neutral, negative], description: our keyword screening }
+        published_at: { type: [string, 'null'], format: date-time, description: 'confirmed publish date only: from the article page, or a provider publication field (NewsCatcher published_date, Event Registry date). null when not confirmed.' }
+        source_date: { type: [string, 'null'], format: date-time, description: 'the date the search source gave (Google pubDate, GDELT seendate, Brave page_age); often an index or crawl date, never used for counts or alerts' }
+        date_status: { type: string, enum: [confirmed, source_only, unknown], description: 'confirmed: published_at is set. source_only / unknown: the screen says "Date not confirmed".' }
+        source: { $ref: '#/components/schemas/NewsSourceName' }
+        sources: { type: array, items: { $ref: '#/components/schemas/NewsSourceName' }, description: every source that found this story }
+        language: { type: [string, 'null'], enum: [en, fr, null] }
+        sentiment: { type: string, enum: [positive, neutral, negative], description: 'from the Claude check (keyword screening for unchecked rows from before wave E)' }
         found_at: { type: string, format: date-time }
+        check:
+          description: 'TAO only (absent for partners). The Claude check on this story.'
+          type: object
+          required: [status, confidence, reason, model, checked_at]
+          properties:
+            status: { type: string, enum: [kept, excluded, pending, unchecked], description: 'pending: the check could not run yet (retried each run; never shown to partners). unchecked: from before wave E, awaiting the re-check.' }
+            confidence: { type: [number, 'null'], minimum: 0, maximum: 1 }
+            reason: { type: [string, 'null'], description: one line from the check, e.g. "About a Mexico City property market, not the lender" }
+            model: { type: [string, 'null'] }
+            checked_at: { type: [string, 'null'], format: date-time }
     AdverseItem:
       type: object
       required: [id, company_slug, category, title, url, publisher, found_at, state, note, state_by, state_at]
@@ -981,7 +1021,7 @@ components:
       required: [id, trigger, status, queued_at, started_at, finished_at, companies, items_added, adverse_added, errors]
       properties:
         id: { type: string, format: uuid }
-        trigger: { type: string, enum: [schedule, manual] }
+        trigger: { type: string, enum: [schedule, manual, recheck] }
         status: { type: string, enum: [queued, running, ok, partial, failed] }
         queued_at: { type: string, format: date-time }
         started_at: { type: [string, 'null'], format: date-time }
@@ -990,6 +1030,62 @@ components:
         items_added: { type: integer }
         adverse_added: { type: integer }
         errors: { type: array, items: { type: object, required: [source, message], properties: { company_slug: { type: [string, 'null'] }, source: { type: string }, message: { type: string } } } }
+        stats:
+          type: object
+          description: 'Filled as the run goes; {} for runs from before wave E.'
+          properties:
+            calls: { type: object, additionalProperties: { type: integer }, description: requests per source }
+            capped: { type: array, items: { type: string }, description: sources that hit their daily request cap this run }
+            candidates: { type: integer }
+            kept: { type: integer }
+            excluded: { type: integer }
+            pending: { type: integer }
+            date_confirmed: { type: integer }
+            claude_input_tokens: { type: integer }
+            claude_output_tokens: { type: integer }
+    NewsSource:
+      type: object
+      required: [provider, label, available, enabled, fields, secrets, config, last_test]
+      description: 'A paid news source and the client credentials for it (TAO Admin only). Secret values never leave the API; secrets shows only whether each is set and its last four characters.'
+      properties:
+        provider: { type: string, enum: [event_registry, newscatcher, brave, dow_jones, lexisnexis] }
+        label: { type: string, description: 'e.g. "Event Registry (newsapi.ai)"' }
+        available: { type: boolean, description: 'false for Dow Jones and LexisNexis until their adapter is built from the client''s API documentation; credentials can still be stored' }
+        note: { type: [string, 'null'], description: 'shown under the row, e.g. "Needs the client''s API documentation" or "Free plan: last 30 days only"' }
+        enabled: { type: boolean }
+        fields:
+          type: array
+          description: the provider's fields, in display order
+          items:
+            type: object
+            required: [name, label, secret, required]
+            properties:
+              name: { type: string, description: 'e.g. api_key, client_id, client_secret, user_key, base_url, archive_months, news, web' }
+              label: { type: string }
+              secret: { type: boolean }
+              required: { type: boolean }
+              kind: { type: string, enum: [text, url, boolean, integer], default: text }
+              help: { type: [string, 'null'] }
+        secrets: { type: object, additionalProperties: { type: object, required: [set, last4], properties: { set: { type: boolean }, last4: { type: [string, 'null'] } } } }
+        config: { type: object, description: 'non-secret field values, e.g. {"archive_months": 12} or {"news": true, "web": true}' }
+        last_test:
+          type: object
+          required: [at, ok, message]
+          properties:
+            at: { type: [string, 'null'], format: date-time }
+            ok: { type: [boolean, 'null'] }
+            message: { type: [string, 'null'], description: 'e.g. "OK: 12 results for the test query" or the provider''s error' }
+        updated_at: { type: [string, 'null'], format: date-time }
+        updated_by: { oneOf: [ { $ref: '#/components/schemas/CommentAuthor' }, { type: 'null' } ] }
+    NewsSourceUpdate:
+      type: object
+      required: [reason]
+      description: 'Only what is sent changes. secrets: a field set to a string replaces it, set to null removes it; fields not sent keep their stored value. news_source_change audit with which fields changed, never the values.'
+      properties:
+        enabled: { type: boolean }
+        config: { type: object }
+        secrets: { type: object, additionalProperties: { type: [string, 'null'] } }
+        reason: { type: string, minLength: 3 }
     Setting:
       type: object
       required: [key, value, updated_at, updated_by]
@@ -1002,7 +1098,9 @@ components:
         publish_note_templates: {new_report: string, correction: string}; fields in braces ({deal_name},
         {collection_period}, {program_name}, {covenant_summary}, {change_list}, {reason}) are filled when the dialog opens.
         company_feeds: {enabled: boolean (default false), run_at: "HH:MM" (default "06:00"), time_zone: IANA (default
-        America/Toronto), sources: subset of [google_news, gdelt] (default both)}. Read by the news worker each minute.
+        America/Toronto), sources: subset of [google_news, gdelt] (the free sources; default both; paid sources are switched
+        on per source under /news/sources), daily_cap: requests per source per day (1-5000, default 200)}. Read by the news
+        worker each minute.
         company_profiles_partner_enabled: boolean, default false. Off: partners get 404 on /companies* and no Companies
         nav entry (Me.features.companies), and receive no adverse_media or negative_news notifications.
         Not settings: validation rules and tolerances (contracts/rules.yaml) and extraction templates are read-only on
@@ -1628,8 +1726,8 @@ paths:
         '404': { $ref: '#/components/responses/NotFound', description: 'unknown, not this company''s, not visible, or never published' }
   /companies/{company_slug}/news:
     get:
-      summary: News items for the company, newest first
-      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } }, { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }, { name: sentiment, in: query, schema: { type: string, enum: [positive, neutral, negative] } } ]
+      summary: 'News items for the company, newest first by published_at, else source_date, else found_at. Kept and unchecked stories; TAO can add excluded and pending ones with include. Partners get kept stories only.'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: company_slug, in: path, required: true, schema: { type: string } }, { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 365, default: 30 } }, { name: sentiment, in: query, schema: { type: string, enum: [positive, neutral, negative] } }, { name: include, in: query, schema: { type: string, enum: [excluded, pending, all] }, description: 'TAO only; ignored for partners. excluded: also the stories the check excluded; pending: also those awaiting the check; all: both.' } ]
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NewsItem' } } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1764,6 +1862,45 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict', description: '`run_active` or `feeds_off`' }
+  /news/recheck:
+    post:
+      summary: 'Re-check every stored story with the date and Claude checks (tao_admin); queues a recheck run; news_run audit. Allowed while feeds are off.'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/NewsRun' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`run_active`' }
+  /news/sources:
+    get:
+      summary: The paid news sources, their fields and whether credentials are set (tao_admin)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [secret_key_set, sources], properties: { secret_key_set: { type: boolean, description: 'NEWS_SECRET_KEY is set on the server; false = credentials cannot be stored (the screen says so)' }, sources: { type: array, items: { $ref: '#/components/schemas/NewsSource' } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /news/sources/{provider}:
+    put:
+      summary: Switch a source on or off, change its settings, or replace or remove credentials, with a reason (tao_admin); news_source_change audit (Platform)
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: provider, in: path, required: true, schema: { type: string, enum: [event_registry, newscatcher, brave, dow_jones, lexisnexis] } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NewsSourceUpdate' } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/NewsSource' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`no_secret_key`, `not_available`, `missing_credentials`' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`invalid`: an unknown field, a secret sent as config, or a value of the wrong kind' }
+  /news/sources/{provider}/test:
+    post:
+      summary: 'Test the stored credentials with one small query (tao_admin). The news worker runs it; poll GET /news/sources until last_test.at changes (normally a few seconds; the worker gives up after 30 s and records that).'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XPartner' }, { $ref: '#/components/parameters/XUser' }, { name: provider, in: path, required: true, schema: { type: string, enum: [event_registry, newscatcher, brave, dow_jones, lexisnexis] } } ]
+      responses:
+        '202': { description: Queued, content: { application/json: { schema: { $ref: '#/components/schemas/NewsSource' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`no_secret_key`, `not_available`, `missing_credentials`' }
 
   /health:
     get:
