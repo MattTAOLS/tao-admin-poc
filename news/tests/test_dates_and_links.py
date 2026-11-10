@@ -129,3 +129,25 @@ def test_read_uses_the_limits_and_rejects_non_html():
         return url, b"%PDF", "application/pdf"
     with pytest.raises(SourceError, match="not an HTML page"):
         pages.read("https://example.com/x.pdf", NOW, http=pdf)
+
+
+# --- audit M12: a page wrapped in a <form>; a headline inside <article><header> ----------------------------------
+
+def test_an_article_wrapped_in_a_form_keeps_its_text():
+    body = "TLFC, the equipment leasing company, was sued today. " * 10
+    html = ("<html><head><title>T</title></head><body><form id='aspnetForm'><input type='hidden' name='__VIEWSTATE' "
+            "value='abc'><nav><p>Menu item</p></nav><div><p>" + body + "</p></div><button>Subscribe now</button>"
+            "<select><option>Pick a region</option></select><textarea>Your comment</textarea></form></body></html>")
+    text = pages.extract(html, NOW)["text"]
+    assert text.startswith("TLFC, the equipment leasing company, was sued today.")
+    for chrome in ("Menu item", "Subscribe now", "Pick a region", "Your comment"):
+        assert chrome not in text
+
+
+def test_header_is_page_chrome_outside_the_article_and_the_headline_inside_it():
+    html = ("<body><header><div>Site banner and login</div></header><main><article><header><h1>TLFC sued over leases"
+            "</h1><div>By A. Writer</div></header><div>Short body.</div><footer>Filed under courts</footer></article>"
+            "</main><footer><div>Copyright notice</div></footer></body>")
+    text = pages.extract(html, NOW)["text"]
+    assert "TLFC sued over leases" in text and "By A. Writer" in text and "Filed under courts" in text
+    assert "Site banner" not in text and "Copyright notice" not in text

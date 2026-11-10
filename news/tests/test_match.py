@@ -1,3 +1,4 @@
+import match
 from match import matcher, terms
 
 ESSEX = {"slug": "essex", "name": "Essex Lease Financial Corp.", "aliases": ["Essex Lease Financial"]}
@@ -34,3 +35,28 @@ def test_short_all_caps_alias_matches_as_a_word_only():
 
 def test_terms_dedupe_and_skip_blank():
     assert terms({"name": "TLFC", "aliases": ["tlfc", "", "  "]}) == ["TLFC"]
+
+
+# --- audit L11: context words and exclusions are whole phrases, accents folded on both sides ---------------------
+
+def test_phrases_are_whole_words_and_accent_insensitive():
+    import runner
+    assert match.phrases_in("party time", ["art"]) == []
+    assert match.phrases_in("An art gallery opened", ["art"]) == ["art"]
+    assert match.phrases_in("financement d'équipement", ["equipement"]) == ["equipement"]
+    assert match.phrases_in("financement d'equipement", ["équipement"]) == ["équipement"]
+    assert match.phrases_in("Le siège de Montréal", ["Montreal"]) == ["Montreal"]
+    assert match.phrases_in("EQUIPMENT   Leasing today", ["equipment leasing"]) == ["equipment leasing"]
+    assert match.phrases_in("anything", ["", "  ", None]) == []
+    assert runner._phrase_in("party time", ["art"]) == []
+    assert runner._phrase_in("Le siège de Montréal", ["Montreal"]) == ["Montreal"]
+
+
+def test_names_and_aliases_fold_accents_and_keep_word_boundaries():
+    hit = match.matcher({"name": "Crédit Équipement Québec", "aliases": ["TLFC"]})
+    assert hit({"title": "Credit Equipement Quebec signe un accord"})
+    assert hit({"title": "CRÉDIT ÉQUIPEMENT QUÉBEC"})
+    assert not hit({"title": "éTLFCé"})                # an accented letter is still a letter
+    assert hit({"title": "TLFC's results"}) and hit({"title": "TLFC-Group"})
+    plain = match.matcher({"name": "Montreal Leasing", "aliases": []})
+    assert plain({"description": "Montréal Leasing a annoncé"})

@@ -1,11 +1,24 @@
 """Polite HTTP for every source: standard library only, a timeout, a plain User-Agent naming the app, no cookies and
 no personal data, and a minimum gap between requests per source. Secrets (paid API keys) travel only in headers or
-request bodies, never in a URL, and never in the message of a SourceError (see secrets.scrub)."""
+request bodies, never in a URL, and never in the message of a SourceError (see secrets.scrub).
+
+Two protections for URLs that come from the web rather than from this code (article pages, Google link resolution):
+  - `guard` (PublicOnly): before the request and on every redirect hop, only http and https, and only hosts that
+    resolve to public addresses. Loopback, private, link-local, unique-local, multicast and unspecified addresses and
+    hostnames without a dot (compose service names: postgres, api, redis) are refused, so an article link cannot make
+    the worker read an internal page (audit M10). The address actually connected to is checked as well.
+  - `deadline`: a total wall-clock limit for the whole fetch (connect, redirects, headers and body), because the
+    socket timeout only limits each read (audit M11).
+The provider API hosts are fixed in the code and use neither."""
 import datetime as dt
+import http.client
+import ipaddress
 import json
+import socket
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 USER_AGENT = "tao-admin-poc news worker"
@@ -76,19 +89,172 @@ def _error_text(exc):
     return msg or str(getattr(exc, "reason", "") or "")
 
 
+class Refused(SourceError):
+    """The URL may not be fetched: not http(s), or its host is not a public internet address."""
+
+
+def _public(address):
+    try:
+        ip = ipaddress.ip_address(str(address).split("%")[0])
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None) is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+class PublicOnly:
+    """The guard for URLs taken from the web. `check(url)` raises Refused unless the URL is http(s) on a host whose
+    every address is public. `allow` exempts exact "host:port" pairs; it exists for the tests (a server on loopback)
+    and is only ever set in code, never from the environment or a setting."""
+
+    def __init__(self, resolve=socket.getaddrinfo, allow=()):
+        self.resolve = resolve
+        self.allow = {a.lower() for a in allow}
+        self._checked = set()
+
+    def check(self, url):
+        try:
+            p = urllib.parse.urlsplit(url)
+            host = (p.hostname or "").lower().rstrip(".")
+            port = p.port or (443 if p.scheme.lower() == "https" else 80)
+        except ValueError:
+            raise Refused("not a valid URL") from None
+        if p.scheme.lower() not in ("http", "https"):
+            raise Refused("only http and https links are read")
+        if not host:
+            raise Refused("the link has no host")
+        if f"{host}:{port}" in self.allow:
+            return
+        try:
+            addresses = [str(ipaddress.ip_address(host))]
+        except ValueError:
+            if "." not in host or host.endswith((".localhost", ".local", ".internal")):
+                raise Refused("the host is not a public internet name") from None
+            try:
+                addresses = [info[4][0] for info in self.resolve(host, port, type=socket.SOCK_STREAM)]
+            except OSError as exc:
+                raise SourceError(f"the host could not be resolved ({type(exc).__name__})") from None
+        if not addresses or not all(_public(a) for a in addresses):
+            raise Refused("the host is not a public internet address")
+        self._checked.add(host)
+
+    def peer_ok(self, host, port, address):
+        """The address a connection really reached (a name can resolve differently the second time)."""
+        host = (host or "").lower().rstrip(".")
+        if f"{host}:{port}" in self.allow or host not in self._checked:      # not checked: a configured proxy
+            return True
+        return _public(address)
+
+
+PUBLIC = PublicOnly()
+
+
+def _guarded(base, guard):
+    class Connection(base):
+        def connect(self):
+            super().connect()
+            try:
+                address = self.sock.getpeername()[0]
+            except (OSError, AttributeError):
+                return
+            if not guard.peer_ok(self.host, self.port, address):
+                self.close()
+                raise Refused("the host is not a public internet address")
+    return Connection
+
+
+class _Redirects(urllib.request.HTTPRedirectHandler):
+    def __init__(self, guard):
+        self.guard = guard
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        self.guard.check(newurl)                      # every hop, before it is requested
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class _Http(urllib.request.HTTPHandler):
+    def __init__(self, guard):
+        super().__init__()
+        self.guard = guard
+
+    def http_open(self, req):
+        return self.do_open(_guarded(http.client.HTTPConnection, self.guard), req)
+
+
+class _Https(urllib.request.HTTPSHandler):
+    def __init__(self, guard):
+        super().__init__()
+        self.guard = guard
+
+    def https_open(self, req):
+        return self.do_open(_guarded(http.client.HTTPSConnection, self.guard), req,
+                            context=getattr(self, "_context", None))
+
+
+def _open(req, timeout, guard):
+    if guard is None:
+        return urllib.request.urlopen(req, timeout=timeout)
+    return urllib.request.build_opener(_Http(guard), _Https(guard), _Redirects(guard)).open(req, timeout=timeout)
+
+
+def _read(resp, limit, end):
+    """Up to `limit` bytes. With a deadline: in pieces, giving up when the time is over."""
+    if end is None:
+        return resp.read(limit)
+    chunks, size = [], 0
+    while size < limit:
+        if time.monotonic() >= end:
+            raise SourceError("the response took too long")
+        chunk = resp.read1(min(65536, limit - size))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b"".join(chunks)
+
+
 def request(url, limiter=None, timeout=TIMEOUT, method="GET", headers=None, data=None, max_bytes=MAX_BYTES,
-            truncate=False):
+            truncate=False, guard=None, deadline=None):
     """(final_url, body bytes, content_type). `data`: bytes for a POST. `truncate`: read at most max_bytes and keep
-    them (article pages) instead of failing on a larger response."""
+    them (article pages) instead of failing on a larger response. `guard`: a PublicOnly for a URL that came from the
+    web; a refused URL raises Refused (a SourceError). `deadline`: seconds for the whole fetch; past it the fetch is
+    abandoned with a SourceError, whatever the server is doing."""
     if limiter is not None:
         limiter.wait()
+    if guard is not None:
+        guard.check(url)
+    args = (url, timeout, method, headers, data, max_bytes, truncate, guard)
+    if deadline is None:
+        return _fetch(*args, None)
+    end = time.monotonic() + deadline
+    box = {}
+
+    def work():
+        try:
+            box["out"] = _fetch(*args, end)
+        except BaseException as exc:              # handed to the caller, the tests' AssertionError included
+            box["exc"] = exc
+    worker = threading.Thread(target=work, name="news-fetch", daemon=True)
+    worker.start()
+    worker.join(deadline)
+    if worker.is_alive():                         # the thread ends by itself at its next read (see _read)
+        raise SourceError(f"no complete response within {deadline:g} seconds")
+    if "exc" in box:
+        raise box["exc"]
+    return box["out"]
+
+
+def _fetch(url, timeout, method, headers, data, max_bytes, truncate, guard, end):
     h = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     h.update(headers or {})
     req = urllib.request.Request(url, headers=h, data=data, method=method)
+    if end is not None:
+        timeout = max(0.05, min(timeout, end - time.monotonic()))
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _open(req, timeout, guard) as resp:
             status = getattr(resp, "status", 200)
-            body = resp.read(max_bytes + 1)
+            body = _read(resp, max_bytes + 1, end)
             final = resp.geturl() if hasattr(resp, "geturl") else url
             ctype = ""
             try:
@@ -96,6 +262,8 @@ def request(url, limiter=None, timeout=TIMEOUT, method="GET", headers=None, data
             except Exception:
                 pass
     except AssertionError:                          # tests forbid the network this way; never swallow it
+        raise
+    except SourceError:                             # a refused redirect hop, or the deadline
         raise
     except urllib.error.HTTPError as exc:
         detail = _error_text(exc)

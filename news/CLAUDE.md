@@ -45,15 +45,29 @@ date and check fields, NewsRun.stats, NewsSource, company_feeds.daily_cap, `/new
 search settings, news_source). Why: a 2009 private equity page titled "Dynamic capital" was stored with Google's 2026
 pubDate, and three stories using "dynamic capital" as an ordinary phrase were stored as the lender's news.
 
-Per company: search (queries.py) → pool (urls.canonical) → filter (on file, exclusions, name) → date (Google links,
+Per company: search (queries.py) → pool (urls.key) → filter (on file, exclusions, name) → date (Google links,
 article page, date_status) → context terms → Claude check (check.py) → write. Rules this worker keeps:
 
 - `published_at` is only a confirmed date: the article page metadata (pages.py), a provider publication field (Event
   Registry date+time, NewsCatcher published_date) or a date Claude reads in the text. Google pubDate, GDELT seendate and
-  Brave page_age are `source_date` only. A confirmed date outside the window drops the story.
+  Brave page_age are `source_date` only. A confirmed date outside the window drops the story. Every confirmed date
+  passes `sources.base.plausible` (1990 or later, not past tomorrow); set `published_at` nowhere else.
 - Windows: first search 3 months, 12 months when an enabled paid source has `config.archive_months` >= 12; later 7 days.
+  First is per company and source, until that source completes one (recorded in `news_run.stats.first_search`).
 - The Claude check is mandatory. Kept = about the company with confidence >= 0.7. Adverse items only for kept stories.
-  A check that cannot run leaves the story `pending`; pending stories are retried at the start of every run.
+  A check that cannot run leaves the story `pending`; pending stories are retried at the start of every run. A check
+  that fails on the story itself (refusal, cut-off, unusable verdict: `check.CheckFailed`) counts as an attempt in
+  `check_reason`; after 3 the story is excluded. Verdict fields are never coerced. Story and company text is escaped
+  in the prompt.
+- On file: `url` is the link the source gave, `resolved_url` the publisher URL; a story is on file when `urls.key` of
+  any of its URLs is. Ask before fetching, after resolving, and after the page read; a unique violation is on file.
+- Page text replaces the provider's text only when longer and naming the company (`Run.read_page`).
+- URLs that come from the web (article pages, Google resolution) are fetched only through `sources.net.request` with
+  `guard=PUBLIC` and a `deadline`. Never add an environment switch that turns the guard off.
+- Matching of names, aliases, context words and exclusions goes through `match.py` (whole phrase, accents folded).
+- Two workers must be safe: the schedule insert is `store.insert_schedule_run`; a running run is failed only when
+  its `heartbeat_at` (migration 015; `started_at` when null) is older than `main.STALE_AFTER` (10 minutes). Any new
+  long step inside a run calls `Run.beat()` first.
 - `NEWS_SOURCE=fixture` implies `NEWS_CHECK=fixture`: no model call, no page reads, fixture items never dropped for age.
 - Paid credentials: decrypted per run from `news_source.secrets_enc` with `NEWS_SECRET_KEY`; never logged or stored;
   every error message passes `credentials.scrub`.

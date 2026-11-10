@@ -10,13 +10,18 @@ import re
 from html.parser import HTMLParser
 
 from sources.base import parse_dt
-from sources.net import SourceError, request
+from sources.net import PUBLIC, SourceError, request
 
-TIMEOUT = 10
+TIMEOUT = 10            # per read, and for the whole fetch (connect, redirects, headers, body)
 MAX_BYTES = 1_500_000
 TEXT_CHARS = 4000
-SKIP = {"script", "style", "noscript", "template", "svg", "nav", "header", "footer", "aside", "form", "button",
-        "iframe", "select"}
+# Containers whose text is not the article. `form` is not one of them: ASP.NET sites wrap the whole page in a <form>
+# (audit M12); the form controls themselves are skipped. `header` and `footer` are skipped only outside <article> and
+# <main>: inside, a <header> usually holds the headline and the dateline.
+SKIP = {"script", "style", "noscript", "template", "svg", "nav", "aside", "button", "iframe", "select", "textarea",
+        "datalist"}
+SKIP_OUTSIDE_ARTICLE = {"header", "footer"}
+ARTICLE = {"article", "main"}
 BLOCK = {"p", "div", "li", "h1", "h2", "h3", "h4", "br", "section", "article", "tr", "blockquote"}
 META_DATE = ("article:published_time", "og:published_time", "og:article:published_time", "datepublished",
              "pubdate", "publishdate", "dc.date.issued", "parsely-pub-date", "sailthru.date")
@@ -31,6 +36,8 @@ class _Reader(HTMLParser):
         self.ld = []
         self._ld_buf = None
         self.skip = 0
+        self.in_article = 0
+        self._chrome = {"header": [], "footer": []}     # per open tag: was it skipped?
         self.parts = []
         self.para = []
         self._in_p = 0
@@ -57,8 +64,14 @@ class _Reader(HTMLParser):
             return
         if tag == "title":
             self._in_title = True
+        if tag in ARTICLE:
+            self.in_article += 1
         if tag in SKIP:
             self.skip += 1
+        elif tag in SKIP_OUTSIDE_ARTICLE:
+            skipped = self.in_article == 0
+            self._chrome[tag].append(skipped)
+            self.skip += skipped
         elif tag == "p":
             self._in_p += 1
         if tag in BLOCK:
@@ -73,8 +86,13 @@ class _Reader(HTMLParser):
             return
         if tag == "title":
             self._in_title = False
+        if tag in ARTICLE:
+            self.in_article = max(0, self.in_article - 1)
         if tag in SKIP:
             self.skip = max(0, self.skip - 1)
+        elif tag in SKIP_OUTSIDE_ARTICLE:
+            if self._chrome[tag] and self._chrome[tag].pop():
+                self.skip = max(0, self.skip - 1)
         elif tag == "p" and self._in_p:
             self._in_p -= 1
             self.para.append("\n")
@@ -158,10 +176,11 @@ def _charset(ctype, body):
     return cs.decode("ascii", "ignore") if isinstance(cs, bytes) else cs
 
 
-def read(url, now=None, http=request):
-    """Fetch and extract one page: 10-second timeout, at most 1.5 MB read. SourceError when it cannot be read."""
+def read(url, now=None, http=request, guard=PUBLIC):
+    """Fetch and extract one page: 10 seconds in all, at most 1.5 MB read, public http(s) hosts only on every
+    redirect hop (`guard`, sources.net.PublicOnly). SourceError when it cannot or may not be read."""
     final, body, ctype = http(url, timeout=TIMEOUT, max_bytes=MAX_BYTES, truncate=True,
-                              headers={"Accept": "text/html,application/xhtml+xml"})
+                              headers={"Accept": "text/html,application/xhtml+xml"}, guard=guard, deadline=TIMEOUT)
     if ctype and "html" not in ctype.lower() and "xml" not in ctype.lower():
         raise SourceError(f"not an HTML page ({ctype.split(';')[0]})")
     try:

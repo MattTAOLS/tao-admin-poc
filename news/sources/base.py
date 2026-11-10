@@ -37,6 +37,21 @@ def parse_dt(value):
     return d.replace(tzinfo=dt.timezone.utc) if d.tzinfo is None else d.astimezone(dt.timezone.utc)
 
 
+def plausible(when, now):
+    """The one guard for a confirmed publication date (audit M9), wherever it comes from: the page metadata, a paid
+    provider's field or a date Claude read. Not before 1990 and not more than a day after `now`; otherwise None, and
+    the story's date falls back to source_only or unknown."""
+    if when is None:
+        return None
+    if not isinstance(when, dt.datetime):
+        when = dt.datetime.combine(when, dt.time(), tzinfo=dt.timezone.utc)
+    elif when.tzinfo is None:
+        when = when.replace(tzinfo=dt.timezone.utc)
+    if when.year < 1990 or when > now + dt.timedelta(days=1):
+        return None
+    return when
+
+
 def item(title, url, publisher=None, published_at=None, source_date=None, description="", text="", language=None):
     return {"title": (title or "").strip(), "url": (url or "").strip(), "publisher": publisher or None,
             "published_at": published_at, "source_date": source_date, "description": (description or "").strip(),
