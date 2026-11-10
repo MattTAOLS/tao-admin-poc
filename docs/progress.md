@@ -1485,3 +1485,19 @@ Files: `web/src/admin/newsSources.ts`, `web/src/admin/NewsSourcesSection.tsx`, `
 `settings.ts`, `admin.css`; tests in `web/src/admin/__tests__/NewsSourcesSettings.test.tsx` (16 new).
 Run: `npx vitest run src/admin` in `web/`. Assumption to confirm with Data & API: a PUT with a partial `config`
 merges into the stored config (the contract says "only what is sent changes").
+## UI-Partner — wave E news screening on the company pages (2026-11-10)
+
+Built against the wave E contract (72ff34e). Latest news: each story shows its confirmed date, or "Date not confirmed"
+with the source's date in muted text ("source says 6 Nov 2026"); "Found by" lists every source by name (Google News,
+GDELT, Event Registry, NewsCatcher, Brave, Brave web, Dow Jones, LexisNexis); French stories carry an FR marker. The
+API order is kept. The subtitle says counts and alerts use only checked stories with a confirmed date, and "new this
+week" counts only those. TAO only (gone under "View as partner" and for partner roles): a "Show excluded" toggle that
+refetches with `include=all`, excluded stories muted with "Excluded by the news check" and the reason, "Awaiting check"
+for pending, "Not checked yet" for stories from before wave E, and "Kept by the news check" with the reason on hover and
+in an expandable "Why". Partner view filters to kept stories and never sends `include`. Edit record (TAO Admin) has a
+News search group: context words (commas), exclusion phrases (one per line), English / French (at least one); each term
+at least 2 characters, duplicates dropped; `news_search` goes in the PATCH, whole, only when it changed. The record
+panel shows the settings read-only for TAO. The `news_7d` column headers (Companies list, Portfolio summary section)
+and cells carry "Checked stories with a confirmed date in the last 7 days". Fixtures: Essex news on file is six test
+stories covering every check status and date status; news search settings are test records. Run: `npx vitest run
+src/portfolio` in `web/`. Nothing stubbed; no requests.

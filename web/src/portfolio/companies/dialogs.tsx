@@ -3,11 +3,18 @@
 import { useState } from 'react'
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/design/components'
 import { api } from '@/shell/api'
-import type { AdverseItem, Company, CompanyContact, CompanyPatch, ContactInput, TaoUser } from './types'
-import { errText } from './util'
+import type { AdverseItem, Company, CompanyContact, CompanyPatch, ContactInput, NewsLanguage, TaoUser } from './types'
+import { LANGUAGE_WORD, errText } from './util'
 
 const MIN_REASON = 3
 const orNull = (s: string) => (s.trim() ? s.trim() : null)
+/** Contract: each context word and exclusion phrase has at least 2 characters. */
+const MIN_TERM = 2
+const LANGS: NewsLanguage[] = ['en', 'fr']
+const uniqueTerms = (xs: string[]) => {
+  const seen = new Set<string>()
+  return xs.map(x => x.trim()).filter(x => x && !seen.has(x.toLowerCase()) && (seen.add(x.toLowerCase()), true))
+}
 
 export type DealOption = { deal_slug: string; deal_name: string; program_name: string }
 
@@ -23,6 +30,11 @@ export function EditRecordDialog({ company, users, deals, onClose, onSaved }: {
   const [aliases, setAliases] = useState(company.aliases.join(', '))
   const current = company.deals.map(d => d.deal_slug)
   const [links, setLinks] = useState<string[]>(current)
+  // News search (decision E7): only when the API sends the settings (TAO callers on a wave E API).
+  const ns = company.news_search
+  const [context, setContext] = useState(ns ? ns.context_terms.join(', ') : '')
+  const [exclusions, setExclusions] = useState(ns ? ns.exclusions.join('\n') : '')
+  const [langs, setLangs] = useState<NewsLanguage[]>(ns ? ns.languages : LANGS)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string>()
@@ -41,11 +53,22 @@ export function EditRecordDialog({ company, users, deals, onClose, onSaved }: {
   const aliasList = aliases.split(',').map(a => a.trim()).filter(Boolean)
   if (aliasList.join('|') !== company.aliases.join('|')) patch.aliases = aliasList
   if ([...links].sort().join('|') !== [...current].sort().join('|')) patch.deal_slugs = links
+  const terms = uniqueTerms(context.split(','))
+  const excl = uniqueTerms(exclusions.split(/\r?\n/))
+  const langList = LANGS.filter(l => langs.includes(l))
+  const termsOk = terms.every(t => t.length >= MIN_TERM)
+  const exclOk = excl.every(t => t.length >= MIN_TERM)
+  const langsOk = langList.length > 0
+  const searchOk = !ns || (termsOk && exclOk && langsOk)
+  if (ns && (terms.join('|') !== ns.context_terms.join('|') || excl.join('|') !== ns.exclusions.join('|')
+    || langList.join('|') !== LANGS.filter(l => ns.languages.includes(l)).join('|'))) {
+    patch.news_search = { context_terms: terms, exclusions: excl, languages: langList }
+  }
   const changed = Object.keys(patch).length > 1
 
   const save = async () => {
     setTried(true)
-    if (!reasonOk || !sinceOk || !changed || !links.length) return
+    if (!reasonOk || !sinceOk || !searchOk || !changed || !links.length) return
     setBusy(true); setErr(undefined)
     try { onSaved(await api<Company>(`/companies/${encodeURIComponent(company.slug)}`, { method: 'PATCH', body: JSON.stringify(patch) })) }
     catch (e) { setErr(errText(e)); setBusy(false) }
@@ -87,6 +110,32 @@ export function EditRecordDialog({ company, users, deals, onClose, onSaved }: {
           <p className="co-hint">A deal belongs to one company. A deal you unlink shows as its own company until linked again.</p>
           {tried && !links.length && <p className="co-err" role="alert">Keep at least one deal linked.</p>}
         </fieldset>
+        {ns && (
+          <fieldset className="tm-sec co-fieldset co-form" data-testid="news-search-edit">
+            <legend className="tm-sec__title">News search</legend>
+            <Field label="Context words" hint="For a generic name: a story must mention at least one of these, e.g. leasing, equipment, finance. Separate with commas; leave empty for no rule."
+              error={termsOk ? undefined : `Each context word needs at least ${MIN_TERM} characters.`}>
+              <Input value={context} onChange={e => setContext(e.target.value)} placeholder="None" />
+            </Field>
+            <Field label="Exclusion phrases" hint="Phrases that always mean a different company. One per line."
+              error={exclOk ? undefined : `Each phrase needs at least ${MIN_TERM} characters.`}>
+              <Textarea rows={2} value={exclusions} onChange={e => setExclusions(e.target.value)} placeholder="None" />
+            </Field>
+            <fieldset className="co-fieldset">
+              <legend className="ds-field__label">Languages</legend>
+              <div className="co-langs">
+                {LANGS.map(l => (
+                  <label key={l} className="pf-check">
+                    <input type="checkbox" checked={langs.includes(l)}
+                      onChange={e => setLangs(x => (e.target.checked ? [...x, l] : x.filter(y => y !== l)))} />
+                    {LANGUAGE_WORD[l]}
+                  </label>
+                ))}
+              </div>
+              {!langsOk && <p className="co-err" role="alert">Choose at least one language.</p>}
+            </fieldset>
+          </fieldset>
+        )}
         <Field label="Reason" required error={tried && !reasonOk ? `Give a reason (at least ${MIN_REASON} characters).` : undefined}>
           <Textarea rows={2} value={reason} onChange={e => setReason(e.target.value)} />
         </Field>

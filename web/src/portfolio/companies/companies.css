@@ -120,3 +120,19 @@
 .co-err { margin: 0; padding: 8px 12px; border-radius: var(--r-control); background: color-mix(in srgb, var(--bad) 10%, var(--card)); color: var(--bad); font-size: var(--fs-small); font-weight: 600; }
 @media (max-width: 700px) { .co-signal, .co-item { grid-template-columns: 1fr; } }
 .co-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* Wave E news: unconfirmed dates, sources, language, the TAO-only check line and excluded rows. */
+.co-item__nodate { display: block; color: var(--text); font-weight: 600; }
+.co-item__srcdate { display: block; color: var(--muted); }
+.co-lang { display: inline-block; margin-left: 4px; padding: 0 5px; border: 1px solid var(--border-card); border-radius: var(--r-control);
+  font: 600 11px var(--font); color: var(--muted); text-decoration: none; vertical-align: 1px; cursor: help; }
+.co-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: var(--fs-small); color: var(--muted); }
+details.co-check { display: block; }
+details.co-check summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+details.co-check summary:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-control); }
+.co-check__why { color: var(--purple); font-weight: 600; }
+.co-check__reason { margin: 4px 0 0; color: var(--muted); }
+.co-item.is-excluded .co-item__title { color: var(--muted); font-weight: 400; }
+.co-item.is-excluded .co-item__when, .co-item.is-excluded .co-item__meta { opacity: .75; }
+.co-newsopt { display: inline-flex; align-items: center; gap: 6px; }
+.co-langs { display: flex; gap: 16px; }

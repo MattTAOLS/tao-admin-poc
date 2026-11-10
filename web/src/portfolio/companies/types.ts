@@ -53,11 +53,24 @@ export type Company = {
   contacts: CompanyContact[]
   following: boolean
   updated_at: string
+  /** TAO only (absent for partners): how the news search treats this company (wave E, decision E7). */
+  news_search?: CompanyNewsSearch
+}
+
+export type NewsLanguage = 'en' | 'fr'
+export type CompanyNewsSearch = {
+  /** For a generic name: a story must mention at least one. Empty = no context rule. */
+  context_terms: string[]
+  /** Phrases that always mean the wrong company. */
+  exclusions: string[]
+  /** At least one. */
+  languages: NewsLanguage[]
 }
 
 export type CompanyPatch = {
   name?: string; aliases?: string[]; industry?: string | null; naics?: string | null; headquarters?: string | null
-  website?: string | null; relationship_since?: Month | null; owner_user_id?: string | null; deal_slugs?: string[]; reason: string
+  website?: string | null; relationship_since?: Month | null; owner_user_id?: string | null; deal_slugs?: string[]
+  news_search?: CompanyNewsSearch; reason: string
 }
 
 export type ContactInput = { name: string; role: string | null; email: string | null; receives: string | null; reason: string }
@@ -103,10 +116,31 @@ export type CompanyInsights = {
   restatements: Restatement[]
 }
 
-export type NewsItem = {
-  id: string; company_slug: string; title: string; url: string; publisher: string | null; published_at: string | null
-  source: 'google_news' | 'gdelt' | 'fixture'; sentiment: 'positive' | 'neutral' | 'negative'; found_at: string
+export type NewsSourceName = 'google_news' | 'gdelt' | 'event_registry' | 'newscatcher' | 'brave_news' | 'brave_web' | 'dow_jones'
+  | 'lexisnexis' | 'fixture'
+/** TAO only (absent for partners): the Claude check on one story. */
+export type NewsCheck = {
+  status: 'kept' | 'excluded' | 'pending' | 'unchecked'
+  confidence: number | null
+  reason: string | null
+  model: string | null
+  checked_at: string | null
 }
+export type NewsItem = {
+  id: string; company_slug: string; title: string; url: string; publisher: string | null
+  /** Confirmed publish date only (decision E3); null when not confirmed. */
+  published_at: string | null
+  /** The date the search source gave; never used for counts or alerts. */
+  source_date: string | null
+  date_status: 'confirmed' | 'source_only' | 'unknown'
+  source: NewsSourceName
+  sources: NewsSourceName[]
+  language: NewsLanguage | null
+  sentiment: 'positive' | 'neutral' | 'negative'; found_at: string
+  check?: NewsCheck
+}
+/** GET /companies/{slug}/news include (TAO only). */
+export type NewsInclude = 'excluded' | 'pending' | 'all'
 
 export type AdverseCategory = 'litigation' | 'regulatory' | 'fraud' | 'insolvency' | 'sanctions'
 export type AdverseItem = {

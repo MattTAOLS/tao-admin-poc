@@ -10,7 +10,7 @@ import { usePublished } from '../data'
 import { useShell } from '../nav'
 import { Num } from '../Num'
 import { LoadGate, PageSkeleton, SHELL_TITLE } from '../shared'
-import { AdverseCell, DelinquencyCell, FollowStar, NameCell, NewsCell, StatusCell } from './cells'
+import { AdverseCell, DelinquencyCell, FollowStar, NameCell, NewsCell, NewsHeader, StatusCell } from './cells'
 import type { CompanyRow } from './types'
 import {
   ADVERSE_FILTER_LABEL, STATUS_FILTER_LABEL, anyFilter, applyFilters, companiesCsv, companyLinks, downloadText, latestMonth,
@@ -75,7 +75,7 @@ export function CompaniesView({ initial }: { initial: CompanyRow[] }) {
     { key: 'status', header: 'Status', sortValue: r => -statusRank(r.status) * 1000 - r.breach * 10 - r.watch, render: r => <StatusCell r={r} /> },
     { key: 'balance', header: 'Balance', numeric: true, sortValue: r => r.balance, render: r => <Num v={r.balance} kind="money" /> },
     { key: 'delinquency', header: 'Delinquency', numeric: true, sortValue: r => r.delinquency.max, render: r => <DelinquencyCell d={r.delinquency} /> },
-    { key: 'news', header: 'News 7 days', numeric: true, sortValue: r => r.news_7d, render: r => <NewsCell n={r.news_7d} /> },
+    { key: 'news', header: <NewsHeader label="News 7 days" />, numeric: true, sortValue: r => r.news_7d, render: r => <NewsCell n={r.news_7d} /> },
     { key: 'adverse', header: 'Adverse media', sortValue: r => (r.adverse.state === 'to_review' ? 0 : r.adverse.state === 'clear' ? 1 : 2) * 1000 - r.adverse.to_review,
       render: r => <AdverseCell a={r.adverse} /> },
     ...(tao ? [{ key: 'notes', header: 'Notes', numeric: true, sortValue: (r: CompanyRow) => r.notes ?? 0, render: (r: CompanyRow) => <Num v={r.notes ?? 0} kind="count" /> }] : []),

@@ -5,7 +5,7 @@ import { Button, StatusPill, useToast } from '@/design/components'
 import { api } from '@/shell/api'
 import { deltaTone } from '../polarity'
 import type { CompanyRow, WorstStatus } from './types'
-import { ADVERSE_WORD, STATUS_TONE, STATUS_WORD, dealCount, delinquencyText, errText } from './util'
+import { ADVERSE_WORD, NEWS_7D_MEANING, STATUS_TONE, STATUS_WORD, dealCount, delinquencyText, errText } from './util'
 import './companies.css'
 
 export function NameCell({ r, href }: { r: { name: string; deals: unknown[] }; href: string }) {
@@ -54,7 +54,12 @@ export function DelinquencyCell({ d }: { d: CompanyRow['delinquency'] }) {
 }
 
 export function NewsCell({ n }: { n: number }) {
-  return <span className={n ? 'pf-num' : 'pf-num pf-muted'}>{n ? `${n} new` : '0'}</span>
+  return <span className={n ? 'pf-num' : 'pf-num pf-muted'} title={NEWS_7D_MEANING}>{n ? `${n} new` : '0'}</span>
+}
+
+/** The news_7d column header: the tooltip says what is counted (decision E3). */
+export function NewsHeader({ label }: { label: string }) {
+  return <span title={NEWS_7D_MEANING}>{label}<span className="ds-visually-hidden">: {NEWS_7D_MEANING.toLowerCase()}</span></span>
 }
 
 export function AdverseCell({ a }: { a: CompanyRow['adverse'] }) {

@@ -115,7 +115,7 @@ describe('Company profile (TAO Admin)', () => {
     renderAt(ESSEX, 'tao_admin')
     await ready()
     const news = await screen.findByRole('list', { name: 'News items' })
-    expect(within(news).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(news).getAllByRole('listitem')).toHaveLength(4) // kept and unchecked; excluded and pending only on request
     expect(within(news).getByText('Positive')).toBeTruthy()
     expect(within(news).getAllByRole('link', { name: /Open source/ })[0].getAttribute('target')).toBe('_blank')
     await userEvent.click(within(document.getElementById('news')!).getByRole('button', { name: 'Negative' }))
@@ -183,6 +183,170 @@ describe('Company profile (TAO Admin)', () => {
     expect(within(adverse).getByText('Clear')).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'TAO view' }))
     expect(screen.getByRole('heading', { name: /Analyst notes/ })).toBeTruthy()
+  }, 60_000)
+})
+
+describe('Latest news (wave E: confirmed dates, sources, the news check)', () => {
+  const newsList = () => screen.findByRole('list', { name: 'News items' }, { timeout: 15_000 })
+  const item = (list: HTMLElement, title: RegExp) => within(list).getAllByRole('listitem').find(li => title.test(li.textContent!))!
+  const newsCalls = () => state.calls.filter(c => c.path.startsWith('/companies/essex-lease-financial-corp/news'))
+
+  it('shows the confirmed date, or "Date not confirmed" with the source date; the sources by name; FR for French', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    const list = await newsList()
+    const lis = within(list).getAllByRole('listitem')
+    // API order: published_at, else source_date, else found_at.
+    expect(lis[0].textContent).toContain('Fixture : liste des dépôts')
+    const fr = item(list, /liste des dépôts/)
+    expect(fr.querySelector('[data-date="not-confirmed"]')!.textContent).toBe('Date not confirmedsource says 6 Nov 2026')
+    expect(within(fr).getByText('FR').getAttribute('title')).toBe('French')
+    expect(within(fr).getByText('Found by Google News')).toBeTruthy()
+    const office = item(list, /regional office/)
+    expect(within(office).getByText('5 Nov 2026')).toBeTruthy()
+    expect(within(office).getByText('Found by Google News, NewsCatcher')).toBeTruthy()
+    expect(within(office).queryByText('FR')).toBeNull()
+    expect(within(office).queryByText('Date not confirmed')).toBeNull()
+    const sub = document.getElementById('news')!.textContent!
+    expect(sub).toContain('Counts and alerts use only checked stories with a confirmed date.')
+    expect(newsCalls().map(c => c.path)).toEqual(['/companies/essex-lease-financial-corp/news?days=30'])
+  }, 60_000)
+
+  it('TAO sees the check: kept with its reason on hover and expanded, "Not checked yet" for older stories', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    const list = await newsList()
+    const office = item(list, /regional office/)
+    expect(office.getAttribute('data-check')).toBe('kept')
+    expect(within(office).getByText('Kept by the news check')).toBeTruthy()
+    const details = office.querySelector('details.co-check') as HTMLDetailsElement
+    expect(details.querySelector('summary')!.getAttribute('title')).toBe('Names Essex Lease Financial and its new office')
+    expect(details.open).toBe(false)
+    await userEvent.click(within(details).getByText('Why'))
+    expect(details.open).toBe(true)
+    expect(within(details).getByText(/Names Essex Lease Financial and its new office/).textContent).toContain('confidence 94%')
+    const old = item(list, /registry annual filing list/)
+    expect(old.getAttribute('data-check')).toBe('unchecked')
+    expect(within(old).getByText('Not checked yet')).toBeTruthy()
+    expect(within(list).queryByText('Excluded by the news check')).toBeNull()
+    expect(within(list).queryByText('Awaiting check')).toBeNull()
+  }, 60_000)
+
+  it('"Show excluded" refetches with include and lists excluded stories muted with the reason, and pending ones as "Awaiting check"', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await newsList()
+    const box = within(document.getElementById('news')!).getByRole('checkbox', { name: 'Show excluded' })
+    expect(within(document.getElementById('news')!).getByText('TAO only')).toBeTruthy()
+    await userEvent.click(box)
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'News items' })).getAllByRole('listitem')).toHaveLength(6))
+    expect(newsCalls().map(c => c.path)).toContain('/companies/essex-lease-financial-corp/news?days=30&include=all')
+    const list = screen.getByRole('list', { name: 'News items' })
+    const ex = item(list, /property market cools/)
+    expect(ex.className).toContain('is-excluded')
+    expect(within(ex).getByText('Excluded by the news check')).toBeTruthy()
+    expect(within(ex).getByText('About Essex County property, not the lender')).toBeTruthy()
+    expect(within(ex).getByText('Found by Brave, Event Registry')).toBeTruthy()
+    const pend = item(list, /third-quarter volumes/)
+    expect(pend.getAttribute('data-check')).toBe('pending')
+    expect(within(pend).getByText('Awaiting check')).toBeTruthy()
+    expect(within(pend).getByText('Date not confirmed')).toBeTruthy()
+    expect(within(pend).queryByText(/source says/)).toBeNull()
+    expect(within(pend).getByText('Found by Dow Jones, LexisNexis')).toBeTruthy()
+    expect(document.getElementById('news')!.textContent).toContain('Showing excluded stories and those awaiting the check (TAO only).')
+    // Off again: back to kept and unchecked.
+    await userEvent.click(box)
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'News items' })).getAllByRole('listitem')).toHaveLength(4))
+  }, 60_000)
+
+  it('"View as partner" drops the check, the toggle and the extra stories, and asks without include', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await newsList()
+    await userEvent.click(within(document.getElementById('news')!).getByRole('checkbox', { name: 'Show excluded' }))
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'News items' })).getAllByRole('listitem')).toHaveLength(6))
+    const before = newsCalls().length
+    await userEvent.click(screen.getByRole('button', { name: 'View as partner' }))
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'News items' })).getAllByRole('listitem')).toHaveLength(3))
+    expect(newsCalls().slice(before).map(c => c.path)).toEqual(['/companies/essex-lease-financial-corp/news?days=30'])
+    const news = document.getElementById('news')!
+    expect(within(news).queryByRole('checkbox', { name: 'Show excluded' })).toBeNull()
+    expect(within(news).queryByText(/Kept by the news check|Not checked yet|Awaiting check|Excluded by the news check/)).toBeNull()
+    expect(news.querySelector('[data-check]')).toBeNull()
+    expect(within(document.getElementById('record')!).queryByTestId('news-search')).toBeNull()
+  }, 60_000)
+
+  it('partners get kept stories only, with dates, sources and FR, and nothing TAO-only', async () => {
+    renderAt('/investor/companies/essex-lease-financial-corp', 'investor_viewer')
+    const list = await newsList()
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(list).queryByText(/registry annual filing list/)).toBeNull() // unchecked: TAO only
+    expect(within(item(list, /liste des dépôts/)).getByText('FR')).toBeTruthy()
+    expect(within(item(list, /liste des dépôts/)).getByText('source says 6 Nov 2026')).toBeTruthy()
+    expect(within(item(list, /regional office/)).getByText('Found by Google News, NewsCatcher')).toBeTruthy()
+    const news = document.getElementById('news')!
+    expect(within(news).queryByRole('checkbox')).toBeNull()
+    expect(within(news).queryByText('TAO only')).toBeNull()
+    expect(within(news).queryByText(/Kept by the news check|Not checked yet|Awaiting check|Excluded/)).toBeNull()
+    expect(newsCalls().every(c => !c.path.includes('include'))).toBe(true)
+    expect(within(document.getElementById('record')!).queryByText(/News search|Context words/)).toBeNull()
+  }, 60_000)
+})
+
+describe('News search settings (TAO Admin, decision E7)', () => {
+  it('shows the settings read-only in the record panel for TAO', async () => {
+    renderAt(ESSEX, 'tao_analyst')
+    await ready()
+    const s = within(document.getElementById('record')!).getByTestId('news-search')
+    expect(s.textContent).toContain('Context words: None')
+    expect(s.textContent).toContain('Exclusions: Essex County Council')
+    expect(s.textContent).toContain('Languages: English, French')
+  }, 60_000)
+
+  it('Edit record validates the news search and sends it, whole, only when changed', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit record' }))
+    const dlg = screen.getByRole('dialog', { name: /Edit record/ })
+    const group = within(dlg).getByTestId('news-search-edit')
+    expect(within(group).getByText(/For a generic name: a story must mention at least one of these, e.g. leasing, equipment, finance/)).toBeTruthy()
+    expect(within(group).getByText(/Phrases that always mean a different company/)).toBeTruthy()
+    expect((within(group).getByLabelText('Exclusion phrases') as HTMLTextAreaElement).value).toBe('Essex County Council')
+    fireEvent.change(within(dlg).getByLabelText(/Reason/), { target: { value: 'Generic name in French press' } })
+    // Too-short context word, no language: blocked.
+    fireEvent.change(within(group).getByLabelText('Context words'), { target: { value: 'leasing, x' } })
+    await userEvent.click(within(group).getByRole('checkbox', { name: 'English' }))
+    await userEvent.click(within(group).getByRole('checkbox', { name: 'French' }))
+    expect(within(group).getByText('Each context word needs at least 2 characters.')).toBeTruthy()
+    expect(within(group).getByText('Choose at least one language.')).toBeTruthy()
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save record' }))
+    expect(state.calls.some(c => c.method === 'PATCH')).toBe(false)
+    // Fixed: duplicates and blanks dropped, languages in contract order.
+    fireEvent.change(within(group).getByLabelText('Context words'), { target: { value: 'leasing, equipment, , Leasing' } })
+    await userEvent.click(within(group).getByRole('checkbox', { name: 'French' }))
+    fireEvent.change(within(group).getByLabelText('Exclusion phrases'), { target: { value: 'Essex County Council\nEssex Police' } })
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save record' }))
+    const patch = state.calls.find(c => c.method === 'PATCH')!
+    expect(patch.body).toEqual({
+      news_search: { context_terms: ['leasing', 'equipment'], exclusions: ['Essex County Council', 'Essex Police'], languages: ['fr'] },
+      reason: 'Generic name in French press',
+    })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const s = within(document.getElementById('record')!).getByTestId('news-search')
+    expect(s.textContent).toContain('Context words: leasing, equipment')
+    expect(s.textContent).toContain('Exclusions: Essex County Council; Essex Police')
+    expect(s.textContent).toContain('Languages: French')
+  }, 60_000)
+
+  it('putting the news search back as it was sends nothing for it', async () => {
+    renderAt(ESSEX, 'tao_admin')
+    await ready()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit record' }))
+    const dlg = screen.getByRole('dialog', { name: /Edit record/ })
+    const group = within(dlg).getByTestId('news-search-edit')
+    await userEvent.click(within(group).getByRole('checkbox', { name: 'English' }))
+    await userEvent.click(within(group).getByRole('checkbox', { name: 'English' })) // back on: now French, English
+    fireEvent.change(within(group).getByLabelText('Exclusion phrases'), { target: { value: ' Essex County Council \n' } })
+    fireEvent.change(within(dlg).getByLabelText('Website'), { target: { value: 'essexlease.example.com' } })
+    fireEvent.change(within(dlg).getByLabelText(/Reason/), { target: { value: 'Website from the CFO' } })
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save record' }))
+    expect(state.calls.find(c => c.method === 'PATCH')!.body).toEqual({ website: 'essexlease.example.com', reason: 'Website from the CFO' })
   }, 60_000)
 })
 
