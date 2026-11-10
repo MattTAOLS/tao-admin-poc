@@ -18,7 +18,7 @@ from .jobs import get_queue, get_news_queue
 from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
                      PublicationVersion, Correction, ValueEdit, AppUser, UserPref, SystemSetting, Notification, Thread, Comment, Company,
                      CompanyContact, CompanyNote, CompanyFollow, NewsRun, NewsItem, AdverseItem, new_id, utcnow)
-from . import views, review, rollup, pdf, migrate, auditlog, people, notify, threads, companies
+from . import views, review, rollup, pdf, migrate, auditlog, people, notify, threads, companies, news_sources
 
 log = logging.getLogger("api")
 
@@ -1633,6 +1633,7 @@ class CompanyPatchIn(BaseModel):
     relationship_since: Annotated[str, StringConstraints(pattern=PERIOD_RX)] | None = None
     owner_user_id: str | None = None
     deal_slugs: list[str] | None = None
+    news_search: dict | None = None                       # CompanyNewsSearch, checked in companies.check_news_search
     reason: Short
 
 
@@ -1711,9 +1712,15 @@ def patch_company(company_slug: str, body: CompanyPatchIn, c: Caller = Depends(c
     fields = body.model_dump(exclude_unset=True, exclude={"reason"})
     if not fields:
         raise err(422, "invalid", "send at least one field to change")
-    for k in ("name", "aliases", "deal_slugs"):
+    for k in ("name", "aliases", "deal_slugs", "news_search"):
         if k in fields and fields[k] is None:
             raise err(422, "invalid", f"{k} cannot be null")
+    search = None
+    if "news_search" in fields:
+        try:
+            search = companies.check_news_search(companies.news_search(co), fields.pop("news_search"))
+        except people.Refused as e:
+            raise _refused(e)
     if fields.get("owner_user_id") is not None:
         u = s.get(AppUser, fields["owner_user_id"].lower()) if _is_uuid(fields["owner_user_id"]) else None
         if u is None or u.status != "active" or u.role not in ("tao_admin", "tao_analyst"):
@@ -1722,11 +1729,13 @@ def patch_company(company_slug: str, body: CompanyPatchIn, c: Caller = Depends(c
     deals = _check_deals(s, fields.pop("deal_slugs")) if "deal_slugs" in fields else None
     if "aliases" in fields:
         fields["aliases"] = _aliases(fields["aliases"])
-    old = companies.record(co, [])
+    old = {**companies.record(co, []), "news_search": companies.news_search(co)}
     for k, v in fields.items():
         setattr(co, k, v)
+    if search is not None:
+        co.news_context_terms, co.news_exclusions, co.news_languages = search["context_terms"], search["exclusions"], search["languages"]
     s.flush()
-    new = companies.record(co, [])
+    new = {**companies.record(co, []), "news_search": companies.news_search(co)}
     changed = [k for k in new if new[k] != old[k]]
     if changed:
         co.updated_at = utcnow()
@@ -1753,24 +1762,29 @@ def company_insights(company_slug: str, deal_slug: str, c: Caller = Depends(comp
 
 @app.get(API + "/companies/{company_slug}/news")
 def company_news(company_slug: str, days: int = Query(default=30, ge=1, le=365), sentiment: Literal["positive", "neutral", "negative"] | None = None,
+                 include: Literal["excluded", "pending", "all"] | None = None,
                  c: Caller = Depends(company_caller), partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
+    """Partners: kept stories only (include ignored). TAO: kept and unchecked, plus excluded / pending with include. Newest
+    first by published_at, else source_date, else found_at; days filters on the same date."""
     co, _, _ = _company_view(s, partner, company_slug)
     if co is None:
         return []
-    q = select(NewsItem).where(NewsItem.company_slug == co.slug, companies.news_date() >= utcnow() - dt.timedelta(days=days))
+    q = select(NewsItem).where(NewsItem.company_slug == co.slug, companies.news_visible(c.is_tao, include if c.is_tao else None),
+                               companies.news_date() >= utcnow() - dt.timedelta(days=days))
     if sentiment:
         q = q.where(NewsItem.sentiment == sentiment)
-    return [companies.news_dict(n) for n in s.scalars(q.order_by(companies.news_date().desc(), NewsItem.id)).all()]
+    return [companies.news_dict(n, c.is_tao) for n in s.scalars(q.order_by(companies.news_date().desc(), NewsItem.id)).all()]
 
 
 @app.get(API + "/companies/{company_slug}/adverse")
 def company_adverse(company_slug: str, state: Literal["open", "reviewed", "dismissed"] | None = None, c: Caller = Depends(company_caller),
                     partner: str | None = Depends(partner_filter), s: Session = Depends(get_db)):
-    """TAO: every state. Partners: reviewed only (decision D6); open and dismissed never leave the TAO routes."""
+    """TAO: every state. Partners: reviewed only (decision D6); open and dismissed never leave the TAO routes. Wave E: items
+    whose story the check excluded or has not checked yet (pending) are hidden from everyone."""
     co, _, _ = _company_view(s, partner, company_slug)
     if co is None:
         return []
-    q = select(AdverseItem).where(AdverseItem.company_slug == co.slug)
+    q = select(AdverseItem).where(AdverseItem.company_slug == co.slug, companies.adverse_visible())
     if not c.is_tao:
         q = q.where(AdverseItem.state == "reviewed")
     if state:
@@ -1962,12 +1976,18 @@ def run_news_now(c: Caller = Depends(admin_caller), s: Session = Depends(get_db)
     cannot be reached the run is recorded as failed (errors say why) and still returned."""
     if not (people.get_setting(s, "company_feeds") or {}).get("enabled"):
         raise err(409, "feeds_off", "company feeds are switched off (System settings, company_feeds.enabled)")
+    return _queue_news_run(s, c, q, "manual")
+
+
+def _queue_news_run(s: Session, c: Caller, q, trigger: str) -> dict:
+    """A news_run row (status queued), its id LPUSHed to the news queue, a news_run audit entry. 409 run_active while another
+    run is queued or running."""
     active = s.scalars(select(NewsRun).where(NewsRun.status.in_(("queued", "running")))).first()
     if active is not None:
         raise err(409, "run_active", f"a news run is already {active.status} (queued {views.iso(active.queued_at)})")
-    r = NewsRun(id=new_id(), trigger="manual", status="queued", queued_at=utcnow(), companies=0, items_added=0, adverse_added=0, errors=[])
+    r = NewsRun(id=new_id(), trigger=trigger, status="queued", queued_at=utcnow(), companies=0, items_added=0, adverse_added=0, errors=[], stats={})
     s.add(r); s.flush()
-    views.audit(s, c, "news_run", detail={"run_id": r.id, "trigger": "manual"})
+    views.audit(s, c, "news_run", detail={"run_id": r.id, "trigger": trigger})
     s.commit()
     try:
         q.push(r.id)
@@ -1977,3 +1997,66 @@ def run_news_now(c: Caller = Depends(admin_caller), s: Session = Depends(get_db)
         r.errors = [{"company_slug": None, "source": "api", "message": f"news queue unavailable: {str(e)[:200]}"}]
         s.commit()
     return companies.run_dict(r)
+
+
+@app.post(API + "/news/recheck", status_code=202)
+def recheck_news(c: Caller = Depends(admin_caller), s: Session = Depends(get_db), q=Depends(get_news_queue)):
+    """Wave E (E9): re-check every stored story. A run with trigger recheck, queued like Run now; allowed while feeds are off."""
+    return _queue_news_run(s, c, q, "recheck")
+
+
+# ---- wave E: paid news sources (tao_admin). Secret values never leave the API: see app/news_sources.py ----
+def _provider(provider: str) -> str:
+    if provider not in news_sources.PROVIDERS:
+        raise err(404, "not_found", f"no news source {provider}")
+    return provider
+
+
+@app.get(API + "/news/sources")
+def list_news_sources(c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    out = news_sources.all_sources(s)
+    s.commit()                                            # rows added for providers a create_all database lacks
+    return out
+
+
+@app.put(API + "/news/sources/{provider}")
+async def put_news_source(provider: str, request: Request, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """The body is read by hand, not by a pydantic model, so a validation error can never echo a credential back
+    (the global 422 handler returns the offending input)."""
+    _provider(provider)
+    try:
+        body = json.loads(await request.body() or b"null")
+    except ValueError:
+        raise err(422, "invalid", "the body is not JSON")
+    try:
+        upd = news_sources.check_update(provider, body)
+        r = news_sources.row(s, provider)
+        detail = news_sources.apply_update(s, r, upd, c.user_id)
+    except people.Refused as e:
+        s.rollback()
+        raise _refused(e)
+    if detail.pop("changed"):
+        views.audit(s, c, "news_source_change", reason=upd["reason"], detail=detail)
+    s.commit()
+    return news_sources.source_dict(s, r)
+
+
+@app.post(API + "/news/sources/{provider}/test", status_code=202)
+def news_source_test(provider: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db), q=Depends(get_news_queue)):
+    """Queues a connection test for the news worker: the JSON string {"type":"test","provider":...} on the news queue. If the
+    queue cannot be reached the result is recorded on the source straight away."""
+    r = news_sources.row(s, _provider(provider))
+    try:
+        news_sources.check_testable(r)
+    except people.Refused as e:
+        s.rollback()
+        raise _refused(e)
+    s.commit()
+    try:
+        q.push(news_sources.test_message(provider))
+    except Exception as e:
+        log.error("news queue push failed for a %s test: %s", provider, type(e).__name__)
+        r.last_test_at, r.last_test_ok = utcnow(), False
+        r.last_test_message = "News worker queue unavailable; try again shortly"
+        s.commit()
+    return news_sources.source_dict(s, r)

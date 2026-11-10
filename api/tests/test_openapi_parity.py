@@ -14,4 +14,4 @@ def test_served_openapi_matches_contract(client):
     served = client.get("/api/v1/openapi.json").json()
     want, got = routes(contract), routes(served, "/api/v1")
     assert got == want, {"missing": sorted(want - got), "extra": sorted(got - want)}
-    assert len({p for p, _ in want}) == 62 and len(want) == 81
+    assert len({p for p, _ in want}) == 66 and len(want) == 85

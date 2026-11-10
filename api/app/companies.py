@@ -8,7 +8,7 @@ of its ratio_history (MOVE Trust: the collection_period; F-PIL 2.0: one month ea
 covenant-history cell for month M is "published" when the deal has a publication whose ratio month is M."""
 import calendar, datetime as dt, statistics
 from zoneinfo import ZoneInfo
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session
 from .models import (Company, CompanyContact, CompanyFollow, CompanyNote, Deal, Program, Publication, SetrepUpload, NewsItem, NewsRun,
                      AdverseItem, AppUser, utcnow)
@@ -180,11 +180,11 @@ def row(s: Session, slug: str, name: str, company: Company | None, deals: list[D
         if prior is not None:
             direction = "up" if v > prior + 1e-12 else "down" if v < prior - 1e-12 else "flat"
     ok = screened(s, company)
-    open_items = s.scalar(select(func.count()).select_from(AdverseItem).where(AdverseItem.company_slug == slug, AdverseItem.state == "open")) if company else 0
+    open_items = s.scalar(select(func.count()).select_from(AdverseItem).where(AdverseItem.company_slug == slug, AdverseItem.state == "open",
+                                                                             adverse_visible())) if company else 0
     news = 0
     if company is not None and ok:
-        news = s.scalar(select(func.count()).select_from(NewsItem).where(NewsItem.company_slug == slug,
-                                                                         news_date() >= utcnow() - dt.timedelta(days=7)))
+        news = s.scalar(select(func.count()).select_from(NewsItem).where(NewsItem.company_slug == slug, recent_confirmed(7)))
     state = "not_screened" if not ok else ("to_review" if tao and open_items else "clear")
     out = {"slug": slug, "name": name, "deals": refs, "industry": company.industry if company else None,
            "status": max(statuses, key=RANK.get) if statuses else None, "breach": breach, "watch": watch,
@@ -263,11 +263,57 @@ def company_dict(s: Session, c: Company | None, deals: list[Deal], tao: bool, us
                 "website": None, "relationship_since": since, "relationship_since_source": source, "owner": None,
                 "deals": [deal_ref(s, d, None, now) for d in deals], "contacts": [], "following": False,
                 "updated_at": views.iso(pub.published_at if pub else utcnow())}
-    return {"slug": c.slug, "name": c.name, "aliases": list(c.aliases or []), "industry": c.industry, "naics": c.naics,
-            "headquarters": c.headquarters, "website": c.website, "relationship_since": since, "relationship_since_source": source,
-            "owner": author(s, c.owner_user_id) if tao else None, "deals": [deal_ref(s, d, None, now) for d in deals],
-            "contacts": [contact_dict(x) for x in contacts(s, c.slug)], "following": _following(s, user_id, c.slug),
-            "updated_at": views.iso(c.updated_at)}
+    out = {"slug": c.slug, "name": c.name, "aliases": list(c.aliases or []), "industry": c.industry, "naics": c.naics,
+           "headquarters": c.headquarters, "website": c.website, "relationship_since": since, "relationship_since_source": source,
+           "owner": author(s, c.owner_user_id) if tao else None, "deals": [deal_ref(s, d, None, now) for d in deals],
+           "contacts": [contact_dict(x) for x in contacts(s, c.slug)], "following": _following(s, user_id, c.slug),
+           "updated_at": views.iso(c.updated_at)}
+    if tao:
+        out["news_search"] = news_search(c)
+    return out
+
+
+# ---- per-company news search settings (wave E, decision E7; TAO only) ----
+NEWS_LANGUAGES = ("en", "fr")
+MAX_TERMS = 30
+
+
+def news_search(c: Company) -> dict:
+    return {"context_terms": list(c.news_context_terms or []), "exclusions": list(c.news_exclusions or []),
+            "languages": list(c.news_languages or NEWS_LANGUAGES)}
+
+
+def check_news_search(current: dict, value) -> dict:
+    """CompanyNewsSearch, checked (people.Refused 422 invalid). Fields left out keep their current value. Terms are trimmed,
+    at least 2 characters, deduplicated ignoring case (the first spelling stays), at most 30 per list; languages a non-empty
+    subset of en, fr."""
+    if not isinstance(value, dict):
+        raise people.Refused(422, "invalid", "news_search is {context_terms, exclusions, languages}")
+    extra = set(value) - {"context_terms", "exclusions", "languages"}
+    if extra:
+        raise people.Refused(422, "invalid", f"news_search: unknown field(s) {', '.join(sorted(map(str, extra)))}")
+    out = dict(current)
+    for k in ("context_terms", "exclusions"):
+        if k not in value:
+            continue
+        xs = value[k]
+        if not isinstance(xs, list) or not all(isinstance(x, str) for x in xs):
+            raise people.Refused(422, "invalid", f"news_search.{k} is a list of words or phrases")
+        seen, terms = set(), []
+        for x in (" ".join(x.split()) for x in xs):
+            if len(x) < 2:
+                raise people.Refused(422, "invalid", f"news_search.{k}: each entry needs at least 2 characters")
+            if x.casefold() not in seen:
+                seen.add(x.casefold()); terms.append(x)
+        if len(terms) > MAX_TERMS:
+            raise people.Refused(422, "invalid", f"news_search.{k}: at most {MAX_TERMS} entries")
+        out[k] = terms
+    if "languages" in value:
+        langs = value["languages"]
+        if not isinstance(langs, list) or not langs or any(x not in NEWS_LANGUAGES for x in langs):
+            raise people.Refused(422, "invalid", "news_search.languages is a non-empty list drawn from en, fr")
+        out["languages"] = list(dict.fromkeys(langs))
+    return out
 
 
 # ---- notes, news, adverse ----
@@ -278,14 +324,48 @@ def note_dict(s: Session, n: CompanyNote) -> dict:
 
 
 def news_date():
-    """When a news item happened: its published date, or when the worker found it if the source gave none. Counts and
-    filters use this, so a first search that brings in older stories does not make them look new."""
-    return func.coalesce(NewsItem.published_at, NewsItem.found_at)
+    """When a news item happened, for sorting and the `days` filter: its confirmed published date, else the date the search
+    source gave (source_date), else when the worker found it. Counts and alerts do not use this: see recent_confirmed."""
+    return func.coalesce(NewsItem.published_at, NewsItem.source_date, NewsItem.found_at)
 
 
-def news_dict(n: NewsItem) -> dict:
-    return {"id": n.id, "company_slug": n.company_slug, "title": n.title, "url": n.url, "publisher": n.publisher,
-            "published_at": views.iso(n.published_at), "source": n.source, "sentiment": n.sentiment, "found_at": views.iso(n.found_at)}
+def recent_confirmed(days: int = 7):
+    """Wave E (E3): a story counts as recent (news_7d, negative_news / adverse_media) only when the Claude check kept it and
+    its publish date is confirmed and within `days`. Unchecked, pending and excluded stories never count."""
+    return and_(NewsItem.check_status == "kept", NewsItem.date_status == "confirmed", NewsItem.published_at.is_not(None),
+                NewsItem.published_at >= utcnow() - dt.timedelta(days=days))
+
+
+HIDDEN_CHECKS = ("excluded", "pending")
+NEWS_INCLUDE = {None: (), "excluded": ("excluded",), "pending": ("pending",), "all": HIDDEN_CHECKS}
+
+
+def news_visible(tao: bool, include: str | None = None):
+    """Partners: kept stories only. TAO: kept and unchecked (from before wave E), plus excluded and / or pending on request."""
+    if not tao:
+        return NewsItem.check_status == "kept"
+    return NewsItem.check_status.in_(("kept", "unchecked") + NEWS_INCLUDE[include])
+
+
+def adverse_visible():
+    """Adverse items whose story the check excluded, or has not checked yet (pending), are hidden from every list and count.
+    Items with no story, or an unchecked one from before wave E, stay."""
+    hidden = select(NewsItem.id).where(NewsItem.check_status.in_(HIDDEN_CHECKS))
+    return or_(AdverseItem.news_item_id.is_(None), AdverseItem.news_item_id.not_in(hidden))
+
+
+def news_dict(n: NewsItem, tao: bool = False) -> dict:
+    """NewsItem. url is the publisher URL where the worker resolved one. check: TAO only."""
+    out = {"id": n.id, "company_slug": n.company_slug, "title": n.title, "url": n.resolved_url or n.url, "publisher": n.publisher,
+           "published_at": views.iso(n.published_at), "source_date": views.iso(n.source_date),
+           "date_status": n.date_status or ("confirmed" if n.published_at else "unknown"), "source": n.source,
+           "sources": list(n.sources or []) or [n.source], "language": n.language if n.language in ("en", "fr") else None,
+           "sentiment": n.sentiment, "found_at": views.iso(n.found_at)}
+    if tao:
+        out["check"] = {"status": n.check_status or "unchecked",
+                        "confidence": float(n.check_confidence) if n.check_confidence is not None else None,
+                        "reason": n.check_reason, "model": n.check_model, "checked_at": views.iso(n.checked_at)}
+    return out
 
 
 def adverse_dict(s: Session, a: AdverseItem) -> dict:
@@ -297,7 +377,7 @@ def adverse_dict(s: Session, a: AdverseItem) -> dict:
 def run_dict(r: NewsRun) -> dict:
     return {"id": r.id, "trigger": r.trigger, "status": r.status, "queued_at": views.iso(r.queued_at), "started_at": views.iso(r.started_at),
             "finished_at": views.iso(r.finished_at), "companies": r.companies or 0, "items_added": r.items_added or 0,
-            "adverse_added": r.adverse_added or 0, "errors": list(r.errors or [])}
+            "adverse_added": r.adverse_added or 0, "errors": list(r.errors or []), "stats": dict(r.stats or {})}
 
 
 # ---- insights ----

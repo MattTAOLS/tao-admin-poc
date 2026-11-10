@@ -11,6 +11,9 @@ Who gets what:
   report late, to TAO users subscribed to the deal, once per deal and period). Partner followers only while both
   partner_notifications_enabled and company_profiles_partner_enabled are true, and only if a program of one of the
   company's deals is shared with their partner. A mention in a company note is kind mention (company_note_mentions).
+  Wave E: negative_news and the TAO adverse_media alert (item opened) only for a story the Claude check kept whose publish
+  date is confirmed and in the last 7 days (companies.recent_confirmed); the partner adverse_media alert (item reviewed)
+  for any kept story. Unchecked, pending and excluded stories, and adverse items with no story, never.
 A kind the user switched off is not created (required kinds cannot be switched off). Deactivated users get nothing.
 
 Status changes the worker makes (needs_review, extraction_failed) happen outside the API, so `sweep` notices them when
@@ -291,19 +294,26 @@ def company_sweep(s: Session) -> None:
     followers (adverse_reviewed:<id>). An item dismissed before the sweep saw it goes to nobody."""
     from . import companies
     names = {c.slug: c.name for c in s.scalars(select(Company)).all()}
+    # wave E (E3): the TAO alert when an item opens, and negative_news, need a story the Claude check kept with a confirmed
+    # publish date in the last 7 days. The partner alert once a TAO Admin marks an item reviewed needs only a kept story (a
+    # person has reviewed it: no date rule). Unchecked, pending and excluded stories, and items with no story, never alert;
+    # a story that becomes eligible later (re-check) alerts then, once.
+    recent = set(s.scalars(select(NewsItem.id).where(companies.recent_confirmed(7))).all())
+    kept = set(s.scalars(select(NewsItem.id).where(NewsItem.check_status == "kept")).all())
     sent = _sent(s, "adverse_")
     for a in s.scalars(select(AdverseItem).order_by(AdverseItem.found_at, AdverseItem.id)).all():
+        if a.news_item_id not in kept:
+            continue
         k_open, k_rev = f"adverse_open:{a.id}", f"adverse_reviewed:{a.id}"
         name = names.get(a.company_slug, a.company_slug)
-        if k_open not in sent and _once(s, k_open) and a.state == "open":
+        if a.news_item_id in recent and k_open not in sent and _once(s, k_open) and a.state == "open":
             to_followers(s, a.company_slug, "adverse_media", f"Adverse media to review: {name} · {a.category.capitalize()}",
                          f"{a.title}" + (f" ({a.publisher})" if a.publisher else ""), tao=True, partners=False)
         if a.state == "reviewed" and k_rev not in sent and _once(s, k_rev):
             to_followers(s, a.company_slug, "adverse_media", f"Adverse media reviewed by TAO: {name} · {a.category.capitalize()}",
                          f"{a.title}." + (f" TAO note: {a.note}" if a.note else ""), tao=False, partners=True)
     sent = _sent(s, "negative_news:")
-    recent = utcnow() - dt.timedelta(days=7)                  # a first search brings in older stories; alert only on recent ones
-    for n in s.scalars(select(NewsItem).where(NewsItem.sentiment == "negative", companies.news_date() >= recent)
+    for n in s.scalars(select(NewsItem).where(NewsItem.sentiment == "negative", companies.recent_confirmed(7))
                        .order_by(NewsItem.found_at, NewsItem.id)).all():
         key = f"negative_news:{n.id}"
         if key not in sent and _once(s, key):

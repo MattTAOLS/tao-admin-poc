@@ -61,10 +61,14 @@ def finished_run(status="ok", at=None):
         return r.id
 
 
-def news(slug, title, sentiment="neutral", url=None, found=None, run_id=None):
+def news(slug, title, sentiment="neutral", url=None, found=None, run_id=None, check="kept", confirmed=True, **extra):
+    """A story as the wave E news worker writes it: kept by the Claude check with a confirmed date, unless told otherwise
+    (confirmed=False: the search source's date only, in source_date)."""
+    at = found or utcnow()
     with db.session() as s:
         n = NewsItem(company_slug=slug, run_id=run_id, source="fixture", title=title, url=url or f"https://example.com/{uuid.uuid4().hex}",
-                     publisher="Sample wire", published_at=found or utcnow(), sentiment=sentiment, found_at=found or utcnow())
+                     publisher="Sample wire", published_at=at if confirmed else None, source_date=None if confirmed else at,
+                     date_status="confirmed" if confirmed else "source_only", sentiment=sentiment, found_at=at, check_status=check, **extra)
         s.add(n); s.commit()
         return n.id
 
@@ -396,7 +400,7 @@ def test_screened_only_by_a_run_after_the_company_was_created(client, published)
 def test_run_now(client, news_queue):
     assert code(client.post(V1 + "/news/runs", headers=TAO)) == (409, "feeds_off")
     feeds = setting(client, "company_feeds", {"enabled": True})
-    assert feeds == {"enabled": True, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"]}
+    assert feeds == {"enabled": True, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"], "daily_cap": 200}
     assert code(client.post(V1 + "/news/runs", headers=ANALYST)) == (403, "admin_only")
     r = client.post(V1 + "/news/runs", headers=H(A1))
     assert r.status_code == 202, r.text
@@ -450,14 +454,14 @@ def test_news_queue_lpushes_the_id_to_its_own_list(monkeypatch):
 # ---------- settings ----------
 def test_company_settings(client):
     got = {x["key"]: x for x in client.get(V1 + "/settings", headers=TAO).json()}
-    assert got["company_feeds"]["value"] == {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"]}
+    assert got["company_feeds"]["value"] == {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": ["google_news", "gdelt"], "daily_cap": 200}
     assert got["company_profiles_partner_enabled"]["value"] is False
     bad = [{"enabled": "yes"}, {"run_at": "6:00"}, {"run_at": "24:00"}, {"time_zone": "Mars/Base"}, {"sources": ["bing"]}, {"sources": "gdelt"},
            {"sources": ["gdelt", "gdelt"]}, {"extra": 1}, [], "on"]
     for v in bad:
         assert code(client.put(V1 + "/settings/company_feeds", headers=TAO, json={"value": v, "reason": "bad value"})) == (422, "invalid"), v
     assert setting(client, "company_feeds", {"run_at": "07:30", "sources": ["gdelt"]}) == {
-        "enabled": False, "run_at": "07:30", "time_zone": "America/Toronto", "sources": ["gdelt"]}
+        "enabled": False, "run_at": "07:30", "time_zone": "America/Toronto", "sources": ["gdelt"], "daily_cap": 200}
     assert setting(client, "company_feeds", {"time_zone": "Europe/London"})["run_at"] == "07:30"                    # others kept
     assert code(client.put(V1 + "/settings/company_profiles_partner_enabled", headers=TAO, json={"value": "true", "reason": "bad"})) == (422, "invalid")
     assert setting(client, "company_profiles_partner_enabled", True) is True

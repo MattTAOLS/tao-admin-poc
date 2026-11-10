@@ -359,6 +359,10 @@ class Company(Base):
     website: Mapped[str | None] = mapped_column(Text, nullable=True)
     relationship_since: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner_user_id: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
+    # 013 (wave E, decision E7): per-company search settings, TAO only
+    news_context_terms: Mapped[list] = mapped_column(Json, default=list, server_default=text("'[]'"))
+    news_exclusions: Mapped[list] = mapped_column(Json, default=list, server_default=text("'[]'"))
+    news_languages: Mapped[list] = mapped_column(Json, default=lambda: ["en", "fr"], server_default=text("'[\"en\", \"fr\"]'"))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
 
@@ -412,6 +416,7 @@ class NewsRun(Base):
     items_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     adverse_added: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     errors: Mapped[list] = mapped_column(Json, default=list)
+    stats: Mapped[dict] = mapped_column(Json, default=dict, server_default=text("'{}'"))       # 013
 
 
 class NewsItem(Base):
@@ -427,6 +432,18 @@ class NewsItem(Base):
     published_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sentiment: Mapped[str] = mapped_column(Text)
     found_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=func.now())
+    # 013 (wave E): dates (E3), where the story lives, the Claude check (E2)
+    source_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    date_status: Mapped[str] = mapped_column(Text, default="source_only", server_default=text("'source_only'"))
+    resolved_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sources: Mapped[list] = mapped_column(Json, default=list, server_default=text("'[]'"))
+    language: Mapped[str | None] = mapped_column(Text, nullable=True)
+    check_status: Mapped[str] = mapped_column(Text, default="unchecked", server_default=text("'unchecked'"))
+    check_confidence: Mapped[float | None] = mapped_column(Numeric(asdecimal=False), nullable=True)
+    check_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    check_model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AdverseItem(Base):
@@ -444,3 +461,21 @@ class AdverseItem(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     state_by: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
     state_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ---- wave E (013): paid news sources and the client's credentials ----
+class NewsSource(Base):
+    """One paid news source. secrets_enc is a Fernet token (NEWS_SECRET_KEY) over a JSON object of the provider's secret
+    fields; secrets_last4 maps each set secret field to its last four characters (null when shorter than 12). config holds
+    the non-secret fields. Secret values never leave the API (app/news_sources.py)."""
+    __tablename__ = "news_source"
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    secrets_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    secrets_last4: Mapped[dict] = mapped_column(Json, default=dict, server_default=text("'{}'"))
+    config: Mapped[dict] = mapped_column(Json, default=dict, server_default=text("'{}'"))
+    last_test_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_test_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)

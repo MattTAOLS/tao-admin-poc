@@ -48,7 +48,7 @@ DEFAULT_TEMPLATES = {
 SETTING_KEYS = ["partner_notifications_enabled", "reporting_calendar", "notification_defaults", "publish_note_templates", "company_feeds",
                 "company_profiles_partner_enabled"]
 FEED_SOURCES = ["google_news", "gdelt"]
-FEED_DEFAULTS = {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": list(FEED_SOURCES)}
+FEED_DEFAULTS = {"enabled": False, "run_at": "06:00", "time_zone": "America/Toronto", "sources": list(FEED_SOURCES), "daily_cap": 200}
 RUN_AT = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -126,10 +126,11 @@ def check_setting(s: Session, key: str, value):
 
 
 def check_feeds(current: dict, value) -> dict:
-    """company_feeds: {enabled: bool, run_at: 'HH:MM', time_zone: IANA, sources: subset of [google_news, gdelt]}. Fields left
+    """company_feeds: {enabled: bool, run_at: 'HH:MM', time_zone: IANA, sources: subset of [google_news, gdelt], daily_cap:
+    1-5000 requests per source per day (wave E, default 200)}. Fields left
     out keep their current value (the defaults while unset)."""
     if not isinstance(value, dict):
-        raise Refused(422, "invalid", "company_feeds is {enabled, run_at, time_zone, sources}")
+        raise Refused(422, "invalid", "company_feeds is {enabled, run_at, time_zone, sources, daily_cap}")
     extra = set(value) - set(FEED_DEFAULTS)
     if extra:
         raise Refused(422, "invalid", f"company_feeds: unknown field(s) {', '.join(sorted(extra))}")
@@ -144,6 +145,9 @@ def check_feeds(current: dict, value) -> dict:
     src = out["sources"]
     if not isinstance(src, list) or any(x not in FEED_SOURCES for x in src) or len(set(src)) != len(src):
         raise Refused(422, "invalid", "company_feeds.sources is a list drawn from google_news, gdelt, each once")
+    cap = out["daily_cap"]
+    if not isinstance(cap, int) or isinstance(cap, bool) or not 1 <= cap <= 5000:
+        raise Refused(422, "invalid", "company_feeds.daily_cap is a whole number of requests per source per day, 1 to 5000")
     return {k: out[k] for k in FEED_DEFAULTS}
 
 

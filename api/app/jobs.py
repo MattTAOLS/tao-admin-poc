@@ -27,15 +27,16 @@ def get_queue():
 
 
 class NewsQueue:
-    """Run now (wave D): LPUSH the news_run id to the Redis list NEWS_QUEUE (default "news"); the news worker block-pops it.
-    Its own list, never the extraction queue."""
+    """Run now (wave D) and Re-check (wave E): LPUSH the news_run id to the Redis list NEWS_QUEUE (default "news"); the news
+    worker block-pops it. Wave E also pushes a connection test as the JSON string {"type": "test", "provider": "<p>"}; a
+    bare run id is still a run. Its own list, never the extraction queue."""
     def __init__(self, url: str | None = None, name: str | None = None):
         self.url = url or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         self.name = name or os.environ.get("NEWS_QUEUE") or "news"
 
-    def push(self, run_id: str) -> None:
+    def push(self, message: str) -> None:
         import redis
-        redis.Redis.from_url(self.url, socket_connect_timeout=2).lpush(self.name, run_id)
+        redis.Redis.from_url(self.url, socket_connect_timeout=2).lpush(self.name, message)
 
 
 def get_news_queue():

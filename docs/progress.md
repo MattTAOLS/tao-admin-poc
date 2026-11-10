@@ -1405,3 +1405,36 @@ restart policy, log rotation, Redis saved to disk. No application code changed. 
 Tested: full e2e demo 38/38 against the production stack (`scripts/compose.prod-test.yml` for the news fixture);
 backup then restore brings back deleted rows and all files; a dev-stack export restored into it matches row for row
 and serves its PDFs and page images through nginx; the images hold no `.env`.
+
+## Data & API — wave E news screening version 2 (2026-11-10)
+
+Built to contract 72ff34e and migration 013. Models for the new news_item columns (source_date, date_status,
+resolved_url, sources, language, check_*), news_run.stats, company.news_* and the `news_source` table. Provider
+definitions, the credential store and the update/test checks live in `api/app/news_sources.py`.
+- `GET /news/sources`, `PUT /news/sources/{provider}`, `POST /news/sources/{provider}/test` (tao_admin; 404 unknown
+  provider). Credentials: `secrets_enc = Fernet(NEWS_SECRET_KEY).encrypt(json.dumps({secret field: value}).encode()).decode()`;
+  `secrets_last4[field]` = last 4 when the value is 12+ characters, else null; a field is set when it is a key of
+  secrets_last4. PUT merges secrets (string replaces, null removes, unsent kept) and config (only the keys sent change; null returns a field to its default).
+  409 `not_available`, `no_secret_key` (key unset or not a valid Fernet key), `missing_credentials` (also when a PUT
+  would leave an enabled source without a required secret); 422 `invalid`. The PUT body is parsed by hand so a 422 can
+  never echo a credential. `news_source_change` audit (Platform): provider, label, enabled before/after,
+  config_changed, secrets_set, secrets_removed (names only); no entry when nothing changed.
+- Test: LPUSH of the string `{"type":"test","provider":"<p>"}` on NEWS_QUEUE (default `news`); 202 with the NewsSource.
+  Queue down: last_test is set to ok false, "News worker queue unavailable; try again shortly".
+- `POST /news/recheck` (tao_admin): news_run trigger `recheck`, its id LPUSHed like Run now, `news_run` audit,
+  409 `run_active`; allowed with feeds off. NewsRun now returns `stats`.
+- NewsItem: source_date, date_status, sources (falls back to [source] for old rows), language, url = resolved_url
+  when set, `check` for TAO only. Partners see kept only; TAO kept + unchecked, `include=excluded|pending|all`.
+  Sort and `days` use coalesce(published_at, source_date, found_at). news_7d: kept, confirmed, published in 7 days.
+  Adverse lists and the to_review count hide items whose story is excluded or pending.
+- Alerts: negative_news and the TAO adverse_media alert (item opened) only when the story is kept with a confirmed
+  published_at in the last 7 days; the partner alert when TAO marks an item reviewed needs only a kept story (Lead's
+  decision: no date rule). An adverse item with no story never alerts. A story that becomes eligible later
+  (re-check) alerts then, once.
+- Company: `news_search` in GET for TAO, PATCH validates (terms trimmed, 2+ characters, deduplicated ignoring case,
+  at most 30; languages non-empty subset of en/fr) and records it in the company_change `record` entry.
+- `company_feeds.daily_cap` (1–5000, default 200).
+Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 23 tests). `cryptography==44.0.3` added.
+For News: the env var is `NEWS_SECRET_KEY` (the API already gets `.env`); the worker writes last_test_at/ok/message
+on the row; adverse items and alerts depend on check_status and date_status being written as above.
+For UI: GET /news/sources returns `secret_key_set`; poll it after a test until last_test.at changes.
