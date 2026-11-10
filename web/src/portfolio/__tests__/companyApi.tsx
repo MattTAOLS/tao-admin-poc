@@ -23,6 +23,8 @@ export const state = {
   following: [] as string[],
   /** Run now on a company profile: 'ok' answers a finished run, 'active' answers 409 run_active. */
   run: 'ok' as 'ok' | 'active',
+  /** Deals with no published report yet (CompanyDealRef.latest_period and worst_status null). */
+  unpublished: [] as string[],
 }
 
 function respond(status: number, body?: unknown) {
@@ -107,6 +109,7 @@ export function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
     if (!visibleCompany(m[1])) return respond(404, { code: 'not_found', message: 'not found' })
     const c = apiCompany(m[1], tao, { following: state.following.includes(m[1]) })
     if (!tao) c.deals = c.deals.filter(d => shared.includes(d.program_slug))
+    c.deals = c.deals.map(d => (state.unpublished.includes(d.deal_slug) ? { ...d, latest_period: null, worst_status: null } : d))
     if (method === 'PATCH') {
       const { reason: _r, owner_user_id, ...rest } = body
       return respond(200, { ...c, ...rest, ...(owner_user_id !== undefined ? { owner: TAO_USERS.find(u => u.id === owner_user_id) ?? null } : {}) })
@@ -117,7 +120,7 @@ export function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 export function setup() {
-  state.calls = []; state.shared = ['f-pil-2-0', 'move-trust']; state.partnerFeature = true; state.following = []; state.run = 'ok'
+  state.calls = []; state.shared = ['f-pil-2-0', 'move-trust']; state.partnerFeature = true; state.following = []; state.run = 'ok'; state.unpublished = []
   localStorage.clear(); sessionStore.reset()
   vi.stubGlobal('fetch', vi.fn(fakeFetch))
 }

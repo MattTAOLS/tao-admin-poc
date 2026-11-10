@@ -1,6 +1,6 @@
 /** /admin/companies/:companySlug and the partner equivalents: the Company profile (docs/phase2/designs/company-profile.html,
- * D6). One page for TAO and partners. `?deal=` picks the deal of a multi-deal company (TLFC has three; the first is the
- * default). Sections follow D6 order; TAO-only parts (Edit record, owner, adverse items not yet reviewed and their actions,
+ * D6). One page for TAO and partners. `?deal=` picks the deal of a multi-deal company (TLFC has three; the first
+ * published one is the default). Sections follow D6 order; TAO-only parts (Edit record, owner, adverse items not yet reviewed and their actions,
  * analyst notes, contact edits) disappear for partners and under "View as partner". A partner gets Not found on a 404. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -99,7 +99,9 @@ function Profile({ initial }: { initial: Company }) {
   const enc = encodeURIComponent(slug)
   const deals = company.deals
   const wanted = search.get('deal')
-  const ref: CompanyDealRef | undefined = deals.find(d => d.deal_slug === wanted) ?? deals[0]
+  // ?deal= wins; else the first deal with a published report (the list's status and balance come from published deals,
+  // so the profile must not open on an unpublished one: audit M16); else the first deal.
+  const ref: CompanyDealRef | undefined = deals.find(d => d.deal_slug === wanted) ?? deals.find(d => !!d.latest_period) ?? deals[0]
   const published = !!ref?.latest_period
 
   const dealLoad: Load<Deal> = usePublished<Deal>(ref && published ? paths.deal(ref.program_slug, ref.deal_slug) : null)
