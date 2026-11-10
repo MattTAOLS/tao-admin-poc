@@ -28,7 +28,7 @@ from sources import paid as paid_sources
 log = logging.getLogger("news")
 SETTING_KEY = "company_feeds"
 CHECK_EVERY = 60
-STALE_AFTER = dt.timedelta(hours=2)      # a run still `running` after this long belongs to a worker that is gone
+STALE_AFTER = dt.timedelta(minutes=10)   # a running run with no heartbeat for this long: its worker is gone
 TEST_TIMEOUT = 30
 TEST_QUERY = "equipment leasing"
 TEST_COUNT = 5
@@ -63,8 +63,8 @@ class Worker:
 
     def recover(self):
         """At start-up and on every pass: a run left `running` by a stopped worker is failed, so Run now is not
-        blocked for ever. Only runs older than STALE_AFTER: a younger one may be another worker's live run, and this
-        worker cannot tell (there is no heartbeat column). The price: after a crash, Run now stays blocked for up to
+        blocked for ever. Only a run whose heartbeat (news_run.heartbeat_at; started_at when it has none) is older
+        than STALE_AFTER: a fresher one is another worker's live run. After a crash, Run now is free again within
         STALE_AFTER."""
         with self.eng.begin() as conn:
             ids = store.fail_stale_running(conn, self.now(), STALE_AFTER)

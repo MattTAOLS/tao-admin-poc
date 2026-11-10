@@ -1546,8 +1546,8 @@ Tests: API (403/404/409, feeds off, audit), news worker (only that company is se
 
 ## News — bug audit fixes (2026-11-10)
 
-On `agent/news`, from `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`. Run: `cd news && python -m pytest -q` (256
-tests; 99 new). Detail in `news/README.md`.
+On `agent/news`, from `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`. Run: `cd news && python -m pytest -q` (259
+tests; 102 new). Detail in `news/README.md`.
 
 - H9. A story is on file under every URL it is known by. `news_item.url` now holds the link the source gave and
   `resolved_url` the publisher URL (the API already serves `resolved_url or url`); both are compared without scheme
@@ -1561,7 +1561,8 @@ tests; 99 new). Detail in `news/README.md`.
 - M12. A `<form>` wrapper no longer drops the article; `<header>` and `<footer>` are skipped only outside `<article>`.
 - L8. The first-search window is per company and source, recorded in `news_run.stats.first_search`.
 - L9. A check refused or cut off three times excludes the story; an outage or a missing key never counts.
-- L10. Atomic schedule insert; only runs `running` for over 2 hours are failed as interrupted.
+- L10. Atomic schedule insert; a `running` run is failed only when its heartbeat (`news_run.heartbeat_at`, migration
+  015, stamped on claim, after every company and before each page read and Claude check) is over 10 minutes old.
 - L11. Names, aliases, context words and exclusions: whole phrases, accents folded.
 - L12 and the prompt: verdict fields are not coerced; story and company text cannot write prompt tags.
 
@@ -1570,7 +1571,7 @@ insert) is exercised only on SQLite's single-statement path in the tests; it nee
 Nothing called a paid API or the Anthropic API.
 
 For the Lead: (1) `stats.first_search` is a new key inside `news_run.stats`; the contract lists the stats properties
-without closing the object, so nothing breaks, but it is not documented in `contracts/openapi.yaml`. (2) After a
-worker crash, Run now is blocked for up to 2 hours; a `news_run.heartbeat_at` column (migration) would let the bound
-drop to minutes. (3) A story has one `url`; remembering every source link would need a column
+without closing the object, so nothing breaks, but it is not documented in `contracts/openapi.yaml`. (2) Done by
+the Lead's migration 015 (`news_run.heartbeat_at`): after a worker crash, Run now is free again within 10 minutes.
+(3) A story has one `url`; remembering every source link would need a column
 (`news_item.source_urls jsonb`). (4) Existing rows keep the old shape (`url` = final URL); no migration is needed.

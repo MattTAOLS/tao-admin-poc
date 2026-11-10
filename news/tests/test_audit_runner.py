@@ -498,39 +498,107 @@ def test_two_workers_that_both_see_the_schedule_due_start_one_run(eng, monkeypat
     assert len(schedule_runs(eng)) == 1
 
 
-def test_a_second_worker_starting_up_leaves_a_live_run_alone(eng):
-    clock = Clock(NOW)
+def running(eng, clock, **values):
     with eng.begin() as c:
-        live = store.insert_run(c, "schedule", clock())
-        assert store.claim_run(c, live, clock())
-    clock.advance(minutes=30)
-    other = Worker(eng, env={}, now=clock)
-    other.recover()
-    other.tick()
+        rid = store.insert_run(c, "manual", clock())
+        assert store.claim_run(c, rid, clock())
+        if values:
+            c.execute(update(store.news_run).where(store.news_run.c.id == rid).values(**values))
+    return rid
+
+
+def status(eng, rid):
     with eng.connect() as c:
-        assert store.get_run(c, live)["status"] == "running"
-    # The first worker finishes its run normally.
+        return store.get_run(c, rid)
+
+
+def test_a_live_run_with_a_fresh_heartbeat_is_left_alone_by_a_second_worker(eng):
+    clock = Clock(NOW)
+    live = running(eng, clock)
+    assert store.as_utc(status(eng, live)["heartbeat_at"]) == NOW             # stamped by the claim
+    other = Worker(eng, env={}, now=clock)
+    for _ in range(6):                          # an hour-long run that stamps every 9 minutes
+        clock.advance(minutes=9)
+        other.recover()
+        other.tick()
+        assert status(eng, live)["status"] == "running"
+        with eng.begin() as c:
+            store.heartbeat(c, live, clock())
     with eng.begin() as c:
         store.finish_run(c, live, "ok", clock(), 3, 1, 0, [], {})
     clock.advance(hours=3)
     other.recover()
-    with eng.connect() as c:
-        assert store.get_run(c, live)["status"] == "ok"
+    assert status(eng, live)["status"] == "ok"
 
 
-def test_a_run_left_running_past_the_bound_is_failed_at_start_up_and_on_a_tick(eng):
+def test_a_run_whose_heartbeat_is_11_minutes_old_is_failed_at_start_up_and_on_a_tick(eng):
+    for how in ("recover", "tick"):
+        clock = Clock(NOW)
+        dead = running(eng, clock)
+        clock.advance(minutes=30)
+        with eng.begin() as c:
+            store.heartbeat(c, dead, clock())           # alive at 30 minutes, then nothing
+        w = Worker(eng, env={}, now=clock)
+        clock.advance(minutes=9, seconds=59)
+        getattr(w, how)()
+        assert status(eng, dead)["status"] == "running"
+        clock.advance(minutes=1, seconds=1)
+        getattr(w, how)()
+        row = status(eng, dead)
+        assert row["status"] == "failed" and row["finished_at"] is not None
+        assert row["errors"] == [{"company_slug": None, "source": "worker",
+                                  "message": "The news worker stopped during this run."}]
+    assert main.STALE_AFTER == dt.timedelta(minutes=10)
+
+
+def test_a_row_without_a_heartbeat_is_judged_by_its_start(eng):
     clock = Clock(NOW)
-    with eng.begin() as c:
-        dead = store.insert_run(c, "manual", clock())
-        assert store.claim_run(c, dead, clock())
-    clock.advance(hours=1, minutes=59)
-    w = Worker(eng, env={}, now=clock)
-    w.recover()
-    with eng.connect() as c:
-        assert store.get_run(c, dead)["status"] == "running"
+    old = running(eng, clock, heartbeat_at=None)            # a run from before the column
+    clock.advance(minutes=9)
+    young = running(eng, clock, heartbeat_at=None)
     clock.advance(minutes=2)
-    w.tick()
-    with eng.connect() as c:
-        row = store.get_run(c, dead)
-    assert row["status"] == "failed" and row["errors"][0]["source"] == "worker" and row["finished_at"] is not None
-    assert main.STALE_AFTER == dt.timedelta(hours=2)
+    Worker(eng, env={}, now=clock).recover()
+    assert status(eng, old)["status"] == "failed" and status(eng, young)["status"] == "running"
+    assert status(eng, old)["errors"][0]["message"] == "The news worker stopped during this run."
+
+
+def test_the_heartbeat_is_stamped_during_a_run(on, monkeypatch):
+    import runner
+    monkeypatch.setattr(runner.Run, "BEAT_EVERY", 0)       # no throttle: the test's clock is not real time
+    clock = Clock(NOW)
+    seen = {}
+
+    class Slow(Fake):
+        def fetch(self, query, now, window=None):
+            clock.advance(minutes=5)                        # the search took a while
+            return super().fetch(query, now, window)
+
+    def page(url, now):
+        with on.connect() as c:
+            [row] = [dict(r) for r in c.execute(select(store.news_run).where(store.news_run.c.status == "running"))
+                     .mappings()]
+        seen["page"] = store.as_utc(row["heartbeat_at"])
+        clock.advance(minutes=3)
+        raise SourceError("HTTP 404")
+    src = Slow("gdelt", {"tlfc": [story("TLFC wins", "https://pub.com/hb", source_date=NOW - DAY)]})
+    r = run(on, [src], pages=page, clock=clock)
+    assert seen["page"] == NOW + dt.timedelta(minutes=5)            # stamped before the page read, not just at claim
+    assert store.as_utc(r["heartbeat_at"]) == NOW + dt.timedelta(minutes=8)        # and after the company
+    assert r["status"] == "ok"
+
+
+def test_heartbeat_stamps_are_throttled(on, monkeypatch):
+    """Six stories handled inside 20 seconds of the last stamp (the claim, a company's save) cost no extra UPDATE;
+    without the throttle each page read and each check would stamp."""
+    import runner
+    stamps = []
+    real = store.heartbeat
+    monkeypatch.setattr(store, "heartbeat", lambda conn, rid, now: (stamps.append(now), real(conn, rid, now)))
+    src = Fake("gdelt", {"tlfc": [story(f"TLFC story {i}", f"https://pub.com/t{i}") for i in range(6)]})
+    assert runner.Run.BEAT_EVERY == 20
+    run(on, [src], pages=no_page)
+    assert len(stamps) <= 1
+    monkeypatch.setattr(runner.Run, "BEAT_EVERY", 0)
+    src2 = Fake("gdelt", {"tlfc": [story(f"TLFC story {i}", f"https://pub.com/u{i}") for i in range(6)]})
+    run(on, [src2], pages=no_page)
+    assert len(stamps) >= 12

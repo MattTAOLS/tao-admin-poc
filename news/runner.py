@@ -28,6 +28,7 @@ Rules added after the bug audit:
               and counted in check_reason; after check.MAX_ATTEMPTS the story is excluded with check.GAVE_UP (L9)."""
 import datetime as dt
 import logging
+import time
 
 from sqlalchemy.exc import IntegrityError
 
@@ -78,6 +79,7 @@ class Run:
         self.companies_n = 0
         self.started = now()
         self._check_errors = set()
+        self._beat_at = None
 
     # --- bookkeeping ---------------------------------------------------------------------------------------------
 
@@ -88,10 +90,26 @@ class Run:
     def err(self, slug, source, message):
         self.errors.append(self._clean({"company_slug": slug, "source": source, "message": message}))
 
+    BEAT_EVERY = 20         # seconds of real time between heartbeat stamps, at most
+
+    def beat(self):
+        """news_run.heartbeat_at = now, before each page read and each Claude check, so a long company never looks
+        dead to another worker's recover(). Throttled; a failed stamp never stops the run."""
+        tick = time.monotonic()
+        if self._beat_at is not None and tick - self._beat_at < self.BEAT_EVERY:
+            return
+        self._beat_at = tick
+        try:
+            with self.eng.begin() as conn:
+                store.heartbeat(conn, self.run_id, self.now())
+        except Exception:
+            log.warning("news run %s: heartbeat not written", self.run_id)
+
     def save(self):
         with self.eng.begin() as conn:
             store.save_progress(conn, self.run_id, self.companies_n, self.items_added, self.adverse_added, self.errors,
-                                self.stats)
+                                self.stats, self.now())
+        self._beat_at = time.monotonic()
 
     def finish(self):
         if not self.errors:
@@ -114,6 +132,7 @@ class Run:
     def judge(self, company, story):
         """A Verdict, or None when the check could not run (the story stays pending). A check that failed on this
         story itself (check.CheckFailed) marks the story `_check_failed`: it counts as an attempt."""
+        self.beat()
         try:
             v = self.checker.check(company, story)
         except check_mod.CheckUnavailable as exc:
@@ -161,6 +180,7 @@ class Run:
         target = story.get("resolved_url") or story["url"]
         if urls.host(target) == "news.google.com":          # an unresolved Google link is not the article
             return
+        self.beat()
         try:
             page = self.page_reader(target, self.started)
         except AssertionError:

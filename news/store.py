@@ -6,7 +6,7 @@ import os
 import uuid
 
 from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, Integer, MetaData, String, Table, Text,
-                        UniqueConstraint, Uuid, create_engine, literal, or_, select, text, update)
+                        UniqueConstraint, Uuid, create_engine, func, literal, or_, select, text, update)
 from sqlalchemy.dialects.postgresql import JSONB
 
 Json = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
@@ -53,6 +53,7 @@ news_run = Table(
     Column("errors", Json, nullable=False, default=list),
     Column("stats", Json, nullable=False, default=dict),
     Column("company_slug", Text),                 # 014: a manual run for one company; null = every company
+    Column("heartbeat_at", DateTime(timezone=True)),   # 015: last sign of life from the worker running it
 )
 
 news_item = Table(
@@ -304,7 +305,7 @@ def insert_schedule_run(conn, now, day_start, day_end):
 def claim_run(conn, run_id, now):
     """queued -> running. False when someone else already moved it."""
     res = conn.execute(update(news_run).where(news_run.c.id == run_id, news_run.c.status == "queued")
-                       .values(status="running", started_at=now))
+                       .values(status="running", started_at=now, heartbeat_at=now))
     return res.rowcount == 1
 
 
@@ -316,25 +317,38 @@ def finish_run(conn, run_id, status, now, companies_n, items, adverse, errors, s
     conn.execute(update(news_run).where(news_run.c.id == run_id).values(**values))
 
 
-def save_progress(conn, run_id, companies_n, items, adverse, errors, stats):
-    """Counts and stats as the run goes, so the screen (and the daily cap) see them before it ends."""
-    conn.execute(update(news_run).where(news_run.c.id == run_id).values(
-        companies=companies_n, items_added=items, adverse_added=adverse, errors=errors, stats=stats))
+def save_progress(conn, run_id, companies_n, items, adverse, errors, stats, now=None):
+    """Counts and stats as the run goes, so the screen (and the daily cap) see them before it ends. `now` also
+    stamps the heartbeat."""
+    values = dict(companies=companies_n, items_added=items, adverse_added=adverse, errors=errors, stats=stats)
+    if now is not None:
+        values["heartbeat_at"] = now
+    conn.execute(update(news_run).where(news_run.c.id == run_id).values(**values))
+
+
+def heartbeat(conn, run_id, now):
+    """The worker running this run is alive (one small UPDATE)."""
+    conn.execute(update(news_run).where(news_run.c.id == run_id, news_run.c.status == "running")
+                 .values(heartbeat_at=now))
+
+
+STOPPED = "The news worker stopped during this run."
 
 
 def fail_stale_running(conn, now, older_than):
-    """A run left `running` by a stopped worker would block Run now (409 run_active) for ever. Only a run that has
-    been running for longer than `older_than` is failed: a younger one may belong to another worker that is alive
-    (audit L10). The update repeats the test, so a run that finished in between is left alone."""
-    stale = (news_run.c.status == "running") & or_(news_run.c.started_at.is_(None),
-                                                   news_run.c.started_at < now - older_than)
+    """A run left `running` by a stopped worker would block Run now (409 run_active) for ever. A run is failed only
+    when its heartbeat is older than `older_than`; a fresher one belongs to a worker that is alive (audit L10). A row
+    with no heartbeat (a run from before the column, or one that died before its first stamp) is judged by
+    started_at, and one with neither is failed. The update repeats the test, so a run that finished or stamped in
+    between is left alone."""
+    seen = func.coalesce(news_run.c.heartbeat_at, news_run.c.started_at)
+    stale = (news_run.c.status == "running") & or_(seen.is_(None), seen < now - older_than)
     ids = [str(r[0]) for r in conn.execute(select(news_run.c.id).where(stale))]
     failed = []
     for rid in ids:
         res = conn.execute(update(news_run).where(news_run.c.id == rid, stale).values(
             status="failed", finished_at=now,
-            errors=[{"company_slug": None, "source": "worker",
-                     "message": "the run stopped without finishing (worker restarted or lost)"}]))
+            errors=[{"company_slug": None, "source": "worker", "message": STOPPED}]))
         if res.rowcount == 1:
             failed.append(rid)
     return failed

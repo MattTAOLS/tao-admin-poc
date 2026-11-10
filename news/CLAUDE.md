@@ -65,8 +65,9 @@ article page, date_status) → context terms → Claude check (check.py) → wri
 - URLs that come from the web (article pages, Google resolution) are fetched only through `sources.net.request` with
   `guard=PUBLIC` and a `deadline`. Never add an environment switch that turns the guard off.
 - Matching of names, aliases, context words and exclusions goes through `match.py` (whole phrase, accents folded).
-- Two workers must be safe: the schedule insert is `store.insert_schedule_run`; only runs older than
-  `main.STALE_AFTER` are failed as interrupted.
+- Two workers must be safe: the schedule insert is `store.insert_schedule_run`; a running run is failed only when
+  its `heartbeat_at` (migration 015; `started_at` when null) is older than `main.STALE_AFTER` (10 minutes). Any new
+  long step inside a run calls `Run.beat()` first.
 - `NEWS_SOURCE=fixture` implies `NEWS_CHECK=fixture`: no model call, no page reads, fixture items never dropped for age.
 - Paid credentials: decrypted per run from `news_source.secrets_enc` with `NEWS_SECRET_KEY`; never logged or stored;
   every error message passes `credentials.scrub`.

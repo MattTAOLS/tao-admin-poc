@@ -29,10 +29,14 @@ Queue messages on the Redis list `NEWS_QUEUE` (default `news`):
   at most 300 characters). It gives up after 30 seconds and records "No answer from the provider within 30 seconds".
 
 A queued manual run that meets `enabled: false` is failed with "company_feeds is off; nothing was fetched". A recheck run
-is allowed while the feed is off (it searches nothing). At start-up and on every pass, a run that has been `running`
-for more than 2 hours (`main.STALE_AFTER`) is marked `failed`; a younger one is left alone because it may be another
-worker's live run. The cost: after a crash, Run now answers 409 `run_active` for up to 2 hours. A heartbeat column
-would remove that wait; there is none today.
+is allowed while the feed is off (it searches nothing).
+
+**Heartbeat** (audit L10, migration 015). The worker stamps `news_run.heartbeat_at` when it claims a run, after every
+company, and before each page read and each Claude check (at most one small UPDATE every 20 seconds). At start-up and
+on every pass, a `running` run whose heartbeat is more than 10 minutes old (`main.STALE_AFTER`) is marked `failed`
+with "The news worker stopped during this run."; a row with no heartbeat is judged by `started_at`. A run with a
+fresh heartbeat is another worker's live run and is left alone. After a crash, Run now is free again within 10
+minutes.
 
 Status: `ok` with no errors; `partial` when something failed and something succeeded; `failed` when nothing succeeded.
 `errors` lists `{company_slug, source, message}`; `source` is `claude` when the check could not run, `worker` for the
