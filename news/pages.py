@@ -10,9 +10,9 @@ import re
 from html.parser import HTMLParser
 
 from sources.base import parse_dt
-from sources.net import SourceError, request
+from sources.net import PUBLIC, SourceError, request
 
-TIMEOUT = 10
+TIMEOUT = 10            # per read, and for the whole fetch (connect, redirects, headers, body)
 MAX_BYTES = 1_500_000
 TEXT_CHARS = 4000
 # Containers whose text is not the article. `form` is not one of them: ASP.NET sites wrap the whole page in a <form>
@@ -176,10 +176,11 @@ def _charset(ctype, body):
     return cs.decode("ascii", "ignore") if isinstance(cs, bytes) else cs
 
 
-def read(url, now=None, http=request):
-    """Fetch and extract one page: 10-second timeout, at most 1.5 MB read. SourceError when it cannot be read."""
+def read(url, now=None, http=request, guard=PUBLIC):
+    """Fetch and extract one page: 10 seconds in all, at most 1.5 MB read, public http(s) hosts only on every
+    redirect hop (`guard`, sources.net.PublicOnly). SourceError when it cannot or may not be read."""
     final, body, ctype = http(url, timeout=TIMEOUT, max_bytes=MAX_BYTES, truncate=True,
-                              headers={"Accept": "text/html,application/xhtml+xml"})
+                              headers={"Accept": "text/html,application/xhtml+xml"}, guard=guard, deadline=TIMEOUT)
     if ctype and "html" not in ctype.lower() and "xml" not in ctype.lower():
         raise SourceError(f"not an HTML page ({ctype.split(';')[0]})")
     try:

@@ -5,13 +5,14 @@ New-style ids decode to a token starting "AU_yqL"; those need Google's unofficia
 page, read data-n-a-sg (signature) and data-n-a-ts (timestamp), POST them to
 https://news.google.com/_/DotsSplashUi/data/batchexecute with rpcid Fbv4je. It is undocumented and often rate-limited,
 so it is tried once with a 10-second timeout and any failure keeps the Google link (the date then stays unconfirmed
-unless the page itself can be read)."""
+unless the page itself can be read). Both requests may be redirected, so they run under the public-hosts guard and the
+10-second total deadline (sources.net)."""
 import base64
 import json
 import re
 import urllib.parse
 
-from .net import request
+from .net import PUBLIC, request
 
 ARTICLE_RE = re.compile(r"^https?://news\.google\.com/(?:rss/)?(?:articles|read)/([A-Za-z0-9_\-]+)")
 BATCH_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute"
@@ -63,10 +64,11 @@ def _attrs(page):
     return (sg.group(1), ts.group(1)) if sg and ts else (None, None)
 
 
-def decode_online(aid, http=request, timeout=TIMEOUT):
+def decode_online(aid, http=request, timeout=TIMEOUT, guard=PUBLIC):
     """One try at the batchexecute call. None on any failure."""
     try:
-        page = http(f"https://news.google.com/rss/articles/{aid}", timeout=timeout)[1].decode("utf-8", "replace")
+        page = http(f"https://news.google.com/rss/articles/{aid}", timeout=timeout, guard=guard,
+                    deadline=timeout)[1].decode("utf-8", "replace")
         sg, ts = _attrs(page)
         if not sg:
             return None
@@ -74,7 +76,7 @@ def decode_online(aid, http=request, timeout=TIMEOUT):
                  f'"X","X",1,[1,1,1],1,1,null,0,0,null,0],"{aid}",{int(ts)},"{sg}"]')
         f_req = json.dumps([[["Fbv4je", inner, None, "generic"]]])
         body = urllib.parse.urlencode({"f.req": f_req}).encode("utf-8")
-        raw = http(BATCH_URL, timeout=timeout, method="POST", data=body,
+        raw = http(BATCH_URL, timeout=timeout, method="POST", data=body, guard=guard, deadline=timeout,
                    headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"})[1]
         text = raw.decode("utf-8", "replace")
         chunk = text.split("\n\n", 1)[1] if "\n\n" in text else text
