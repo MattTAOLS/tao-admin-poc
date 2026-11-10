@@ -1501,3 +1501,18 @@ panel shows the settings read-only for TAO. The `news_7d` column headers (Compan
 and cells carry "Checked stories with a confirmed date in the last 7 days". Fixtures: Essex news on file is six test
 stories covering every check status and date status; news search settings are test records. Run: `npx vitest run
 src/portfolio` in `web/`. Nothing stubbed; no requests.
+## QA & Demo — wave E, news screening version 2 (2026-11-10)
+
+On `agent/qa`, reset onto `integration/wave-e` (b166e53). Step 12 follows the new fixture: `STEP12.fixture.items` 11,
+the run message built from the facts ("11 news items and 7 adverse items added"), `docs/demo.md` 12c and 12g updated.
+New `tests/e2e/specs/13-news-screening.spec.ts` (6 tests, facts in `STEP13`) and demo.md Journey 8, step 13: News
+sources (five rows, Dow Jones and LexisNexis not available, a fake Brave key shown only as "ends in" plus the last four
+and absent from the page, every API response the page got and `GET /news/sources`; Test connection result; key
+removed; switch-on without a key refused with the plain-words `missing_credentials`; news_source_change audit without
+the key); Latest news ("Date not confirmed", "Found by", Show excluded with the reason, View as partner); partners
+(investor and manager, every company, `include=excluded|all|pending`: no excluded story, no check block, no reason);
+the Dynamic Capital news search words on the record; Re-check stories; the run's "Checks and calls".
+Run: as in `docs/demo.md` (needs `scripts/compose.news-fixture.yml` and `NEWS_SECRET_KEY` in `.env`). Two full runs
+from a fresh database: 44 of 44 both times (tests 18 min 36 s and 14 min 24 s). Screenshots for steps 12 and 13
+re-taken; the rest kept. Filed in `docs/requests.md` (QA & Demo, 2026-11-10): the Audit log shows news_source_change
+raw (no label, no subject, the detail hides what changed); a note that `stats.date_confirmed` counts excluded stories.
