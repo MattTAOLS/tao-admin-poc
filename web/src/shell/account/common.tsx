@@ -2,7 +2,8 @@ import { useLocation } from 'react-router-dom'
 import { Card, formatPeriod } from '@/design/components'
 import { roleLabel, type Role } from '../roles'
 import { useSession } from '../session'
-import type { DateFormat, DisplayPrefs, NotificationKind, NumberFormat } from '../types'
+import { ADMIN_PAGES, PARTNER_PAGES } from '../pages'
+import type { DateFormat, DisplayPrefs, Features, NotificationKind, NumberFormat } from '../types'
 
 export type ShellId = 'admin' | 'investor' | 'manager'
 export const shellFromPath = (pathname: string): ShellId =>
@@ -14,6 +15,24 @@ export const notificationsPath = (s: ShellId) => (s === 'admin' ? '/admin/notifi
 export const TAO_ONLY_KINDS: NotificationKind[] = ['report_late']
 
 export function useShell(): ShellId { return shellFromPath(useLocation().pathname) }
+
+const PORTAL_PREFIX = /^\/(admin|investor|manager)(?=[/?#]|$)/
+const routeRegex = (pattern: string) => new RegExp('^' + pattern.replace(/:[^/]+/g, '[^/]+') + '/?$')
+/** Where a notification's Open button goes. The API sends links with the portal prefix; one without it
+ * (`/settings/profile`) gets the current portal's. A link to a page this portal does not have, or that the role (or a
+ * feature that is off) cannot open, goes to the person's Profile instead of a No access or Not found page. */
+export function notificationTarget(link: string | null | undefined, shell: ShellId, role: string, features?: Features | null): string {
+  const fallback = profilePath(shell)
+  if (typeof link !== 'string' || !link.startsWith('/') || link.startsWith('//')) return fallback
+  const full = PORTAL_PREFIX.test(link) ? link : (shell === 'admin' ? '/admin' : '/' + shell) + link
+  const pathname = full.split(/[?#]/)[0]
+  const pages = shell === 'admin' ? ADMIN_PAGES : PARTNER_PAGES.map(p => ({ ...p, path: '/' + shell + p.path }))
+  const page = pages.find(p => routeRegex(p.path).test(pathname))
+  if (!page) return fallback
+  if (page.roles && !page.roles.includes(role)) return fallback
+  if (page.feature && features && !features[page.feature]) return fallback
+  return full
+}
 
 export const DEFAULT_DISPLAY: Required<DisplayPrefs> = { time_zone: 'America/Toronto', date_format: 'D MMM YYYY', number_format: '1,234.56' }
 export const withDefaults = (d: DisplayPrefs | undefined): Required<DisplayPrefs> => ({ ...DEFAULT_DISPLAY, ...(d ?? {}) })
@@ -47,7 +66,8 @@ export const dayKey = (iso: string, prefs?: DisplayPrefs) => { const p = parts(i
 /** An amount to the cent in the person's number format (1,234.56 or 1 234,56). Stored figures never change. */
 export function formatAmount(v: number | null | undefined, nf: NumberFormat = '1,234.56') {
   if (v == null || !Number.isFinite(v)) return '—'
-  const s = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  // A value that rounds to zero carries no minus sign (audit L21).
+  const s = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/^-(?=[0.,]*$)/, '')
   return nf === '1 234,56' ? s.replace(/,/g, ' ').replace('.', ',') : s
 }
 /** A collection period as Aug 2026, never as a day. */

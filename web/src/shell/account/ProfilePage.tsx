@@ -240,8 +240,10 @@ function SubscriptionsCard({ userId, companyAdmin }: { userId: string; companyAd
   const [names, setNames] = useState<Names>({ programs: {}, deals: {}, dealCount: {} })
   const [error, setError] = useState<string>()
   useEffect(() => {
-    api<Subscription[]>(`/users/${userId}/subscriptions`).then(setSubs).catch(e => setError((e as Error).message || 'Could not load your report subscriptions.'))
+    let live = true
+    api<Subscription[]>(`/users/${userId}/subscriptions`).then(s => { if (live) setSubs(s) }).catch(e => { if (live) setError((e as Error).message || 'Could not load your report subscriptions.') })
     api<PortfolioLite>('/published/portfolio').then(p => {
+      if (!live) return
       const n: Names = { programs: {}, deals: {}, dealCount: {} }
       for (const pr of p.programs ?? []) {
         if (!pr.program) continue
@@ -250,6 +252,7 @@ function SubscriptionsCard({ userId, companyAdmin }: { userId: string; companyAd
       }
       setNames(n)
     }).catch(() => { /* slugs are shown instead of names */ })
+    return () => { live = false }
   }, [userId])
   const byProgram = useMemo(() => {
     const m = new Map<string, Subscription[]>()
@@ -295,7 +298,9 @@ function ActivityCard({ me, shell }: { me: Me & { user: AppUser }; shell: ShellI
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     const q = `/audit?actor_user_id=${encodeURIComponent(me.user.id)}${tao ? '&scope=reports' : ''}&limit=10`
-    api<AuditRow[]>(q).then(setRows).catch(() => { setRows([]); setFailed(true) })
+    let live = true
+    api<AuditRow[]>(q).then(r => { if (live) setRows(r) }).catch(() => { if (live) { setRows([]); setFailed(true) } })
+    return () => { live = false }
   }, [me.user.id, tao])
   const columns: Column<AuditRow>[] = [
     { key: 'at', header: 'When', render: r => formatDateTime(r.at, me.display) },
