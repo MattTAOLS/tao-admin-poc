@@ -524,7 +524,7 @@ def test_next_report_fpil_same_month_and_move_following_month(client, published,
     m = rows(client, TAO)["moneda-capital-corp"]["deals"][0]["next_report"]
     assert m["late"] is True and m["business_days_late"] == 5
     ins = client.get(V1 + f"/companies/moneda-capital-corp/deals/{MONEDA}/insights", headers=TAO).json()
-    assert any(x["kind"] == "report_late" for x in ins["signals"])
+    assert next(x for x in ins["signals"] if x["kind"] == "report_late")["anchor"] == "record"      # audit L18: "Next report due" is there
     with db.session() as s:                                                     # an upload of that period: not late
         s.add(SetrepUpload(deal_slug=MONEDA, collection_period="2026-09", file_name="x.pdf", file_path="", uploaded_by="tao_admin", status="received"))
         s.commit()
@@ -580,6 +580,10 @@ def test_insights_essex_against_reference(client, published):
     near = next(x for x in ins["signals"] if x["kind"] == "covenant_near_limit")
     assert near["anchor"] == "chart-interest_coverage_ratio" and "MSA 8.1 (h)" in near["title"]
     assert "report_late" not in kinds
+    # audit L18: every anchor is a section id the company page has; losses point at the Rolling loss ratios card
+    charts = {f"chart-{x['metric']}" for x in ins["series"] if not x["metric"].startswith("rolling_")}
+    assert {x["anchor"] for x in ins["signals"]} <= charts | {"record", "loss-ratios", "obligors", "pool-balance", "covenant-history", "restatements"}
+    assert next(x for x in ins["signals"] if x["kind"] == "losses_high")["anchor"] == "loss-ratios"
     # loss peers: same program, same rolling field; TPine's rolling ratios run far past Essex's, so listed, not drawn
     lp = {(x["deal_slug"], x["metric"]): x for x in ins["loss_peers"]}
     assert {k[0] for k in lp} == {"move-trust-dynamic-capital", "move-trust-tpine-leasing-capital-corporation"}
