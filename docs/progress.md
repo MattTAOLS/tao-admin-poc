@@ -1405,3 +1405,11 @@ restart policy, log rotation, Redis saved to disk. No application code changed. 
 Tested: full e2e demo 38/38 against the production stack (`scripts/compose.prod-test.yml` for the news fixture);
 backup then restore brings back deleted rows and all files; a dev-stack export restored into it matches row for row
 and serves its PDFs and page images through nginx; the images hold no `.env`.
+
+## Lead — company chart hover readout (2026-11-10)
+
+Every company chart (performance, loss ratios, featured covenant, pool balance; on the page and full screen) shows a
+readout on hover: a guide line at the nearest month, a highlighted point on each line, and a box with the month and
+every line's value plus the limit. Pool balance shows the closing balance or "Not loaded". With the chart focused
+(Tab), Left/Right/Home/End move along the months and Escape clears. The readout is aria-hidden; screen readers keep
+the hidden data table. Native SVG tooltips removed. Two new tests in `profile.test.tsx`.
