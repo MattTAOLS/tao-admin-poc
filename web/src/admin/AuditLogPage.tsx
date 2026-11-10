@@ -10,6 +10,7 @@ import { useResource, useRole } from './hooks'
 import { LoadError, TextLink, dealOptions, errorText, uploadTarget } from './ui'
 import { ROLE_LABEL, USER_CHANGE_LABEL, subsText, usersApi, type AppUser } from './users'
 import { SETTING_LABEL, cap } from './settings'
+import { TZ, torontoMonth } from './toronto'
 
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 export const ACTION_LABEL: Record<string, string> = {
@@ -45,16 +46,9 @@ const SEARCH_ROWS = 5
 const SEARCH_OPEN_GROUPS = 3
 
 // ---- Months and times in Toronto (decision A5: everyone sees the same month) ----
-export const TZ = 'America/Toronto'
-const MONTH_PARTS = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' })
+export { TZ, torontoMonth }
 const TIME = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 const MONTH_NAME = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', month: 'long', year: 'numeric' })
-/** "YYYY-MM" of an instant, in Toronto: 23:30 on 31 October Toronto time stays in October. */
-export function torontoMonth(at: Date | string): string {
-  const d = typeof at === 'string' ? new Date(at) : at
-  const parts = MONTH_PARTS.formatToParts(d)
-  return `${parts.find(p => p.type === 'year')!.value}-${parts.find(p => p.type === 'month')!.value}`
-}
 /** "2026-11" → "November 2026". */
 export const monthName = (m: string) => MONTH_NAME.format(new Date(`${m}-15T12:00:00Z`))
 const when = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : TIME.format(d) }
@@ -154,9 +148,12 @@ export function adverseDecision(e: AuditEntry): { state: string; label: string; 
   return { state, ...s, note, item }
 }
 const actorName = (e: AuditEntry) => (e.actor_label && e.actor_label !== e.actor_role ? e.actor_label : ACTOR_LABEL[e.actor_role] ?? e.actor_role)
+/** "Manual run by A. Patel", and for Run now on a company profile "Manual run by A. Patel · Stride Capital only". */
 export function newsRunText(e: AuditEntry): string {
   const d = (e.detail ?? {}) as Record<string, unknown>
-  return d.trigger === 'schedule' ? 'Scheduled run' : `Manual run by ${actorName(e)}`
+  const head = d.trigger === 'schedule' ? 'Scheduled run' : `Manual run by ${actorName(e)}`
+  const cs = str(d.company_slug)
+  return cs ? `${head} · ${str(d.company_name) ?? cap(cs.replace(/-/g, ' '))} only` : head
 }
 const clip = (s: string, n = 80) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 

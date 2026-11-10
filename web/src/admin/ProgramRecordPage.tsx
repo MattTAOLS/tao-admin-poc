@@ -11,13 +11,15 @@ import {
 } from './master'
 import { CovenantDialog, DealDialog, ProgramDialog, changeSavedText, type CovenantMode } from './MasterDialogs'
 import { LoadError, formatDateTime } from './ui'
+import { torontoDate } from './toronto'
 
 const VERSION: Record<VersionState, { tone: Tone; label: string }> = {
   in_force: { tone: 'ok', label: 'In force' },
   superseded: { tone: 'neutral', label: 'Superseded' },
   scheduled: { tone: 'blue', label: 'Scheduled' },
 }
-const today = () => new Date().toISOString().slice(0, 10)
+/** Covenant dates are Toronto business dates: at 23:30 Toronto on the 31st it is still the 31st, not UTC's 1st. */
+const today = () => torontoDate()
 const UNIT = { fraction: 'Fraction', ratio: 'Ratio', currency: 'Currency' } as const
 
 /** Program / facility record: limits, deals with template id, covenant definitions with threshold or banded

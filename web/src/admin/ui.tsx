@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, KpiTile, StatePanel, formatNumber, type SelectOption } from '@/design/components'
 import type { ApiError, Deal, FindingCounts, Program, Upload } from './data'
+import { TZ, torontoMonth } from './toronto'
 import rulesYaml from '@contracts/rules.yaml?raw'
 import './admin.css'
 
@@ -137,13 +138,13 @@ export function TextLink({ to, children, label }: { to: string; children: ReactN
 
 export type QueueCounts = { received: number; extracting: number; needs_review: number; published_this_month: number }
 export function queueCounts(uploads: Upload[], now = new Date()): QueueCounts {
-  const month = isoMonth(now)
+  const month = torontoMonth(now) // "this month" is the Toronto month, as on the audit log
   const c: QueueCounts = { received: 0, extracting: 0, needs_review: 0, published_this_month: 0 }
   for (const u of uploads) {
     if (u.status === 'received') c.received++
     else if (u.status === 'extracting') c.extracting++
     else if (u.status === 'needs_review') c.needs_review++
-    if (u.status === 'published' && u.published_at && isoMonth(new Date(u.published_at)) === month) c.published_this_month++
+    if (u.status === 'published' && u.published_at && torontoMonth(u.published_at) === month) c.published_this_month++
   }
   return c
 }
@@ -158,7 +159,7 @@ export function QueueTiles({ uploads, loading }: { uploads?: Upload[]; loading?:
       <KpiTile label="Extracting" value={v(c?.extracting)} context="being read now" loading={loading} />
       <KpiTile label="Needs review" value={v(c?.needs_review)} tone={c && c.needs_review > 0 ? 'warn' : undefined}
         context={c && c.needs_review > 0 ? 'waiting for a TAO reviewer' : 'nothing waiting'} loading={loading} />
-      <KpiTile label="Published this month" value={v(c?.published_this_month)} context={new Intl.DateTimeFormat('en-CA', { month: 'long', year: 'numeric' }).format(new Date())} loading={loading} />
+      <KpiTile label="Published this month" value={v(c?.published_this_month)} context={new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: 'long', year: 'numeric' }).format(new Date())} loading={loading} />
     </>
   )
 }
