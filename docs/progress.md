@@ -1543,3 +1543,29 @@ migration 014) and works while the daily search is off; an every-company Run now
 reloads the news, adverse items and counts without clearing the screen. `run_active` reads "A news run is already in
 progress." System settings lists such a run as "Manual · <company> only"; the audit entry links to the company.
 Tests: API (403/404/409, feeds off, audit), news worker (only that company is searched), three UI tests.
+
+## UI-Admin / UI-Review — bug audit fixes on the TAO screens (2026-11-10)
+
+On `agent/ui-admin`, from the fixes base 1e3b4a5. Findings from `docs/audit/tao-admin-poc-bug-audit_Report_v1.md`.
+
+- M20 Extracted values (`web/src/review/components/ExtractedValues.tsx`): the loss and ratio tables use one column
+  catalogue for every layout and show a column when a row of the extraction holds a value for it. MOVE Trust reports
+  now show their own columns (semi-annual or annual period, tranches, period original balance, period CNL, reported
+  ratio, default trigger, spread, loss ratio, RVL ratio); F-PIL keeps its vintage table and gains the monthly
+  delinquency ratio it also prints. Leverage and interest coverage read "8.91x". The roll-forward and aging tables list
+  the MOVE-only terms (new funded, ineligible buyback, upward adjustment, balance adjustment, payment deferral) when
+  present. Edit, page links and comments work on the new columns. Edit and correction lists name a MOVE loss row by its
+  period (`lib/corrections.ts: pointerLabel`). Test: `review/__tests__/ExtractedValues.test.tsx` (Finloc and Moneda in
+  detail, then all 12 objects in `docs/dashboard-json`: one column per key that holds a value, no column all dashes).
+- M21 User drawer: compares against the list the last PUT returned. Test in `UserManagementPage.test.tsx`.
+- M22 Review page: a `?thread=` link opens its thread once and is then removed from the address. Test in `Comments.test.tsx`.
+- L23 Reporting calendar: rows stay in the order the page opened with while a day is typed; the typed text stays with
+  its "1 to 31" error. L24: System settings scrolls to `#set-...` once loaded and when the hash changes. L25: covenant
+  In force / Scheduled, "Export this month" and the "Published this month" tile read the date in America/Toronto
+  (`web/src/admin/toronto.ts`: `torontoMonth`, `torontoDate`). Audit log: a one-company news run reads
+  "Manual run by A. Patel · Stride Capital only". Tests: `admin/__tests__/AuditFixes.test.tsx`.
+
+Run: `cd web && npx vitest run src/admin src/review`. Nothing stubbed. Nothing needed from the API or the contracts.
+Left as is: timestamps on the review pages and in admin tables show in the viewer's own zone (display only, no month or
+day decision hangs on them); the roll-forward table still does not list `interest` and `recoveries` per month (the
+current month's are under Balances).
