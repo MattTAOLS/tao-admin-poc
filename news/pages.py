@@ -15,8 +15,13 @@ from sources.net import SourceError, request
 TIMEOUT = 10
 MAX_BYTES = 1_500_000
 TEXT_CHARS = 4000
-SKIP = {"script", "style", "noscript", "template", "svg", "nav", "header", "footer", "aside", "form", "button",
-        "iframe", "select"}
+# Containers whose text is not the article. `form` is not one of them: ASP.NET sites wrap the whole page in a <form>
+# (audit M12); the form controls themselves are skipped. `header` and `footer` are skipped only outside <article> and
+# <main>: inside, a <header> usually holds the headline and the dateline.
+SKIP = {"script", "style", "noscript", "template", "svg", "nav", "aside", "button", "iframe", "select", "textarea",
+        "datalist"}
+SKIP_OUTSIDE_ARTICLE = {"header", "footer"}
+ARTICLE = {"article", "main"}
 BLOCK = {"p", "div", "li", "h1", "h2", "h3", "h4", "br", "section", "article", "tr", "blockquote"}
 META_DATE = ("article:published_time", "og:published_time", "og:article:published_time", "datepublished",
              "pubdate", "publishdate", "dc.date.issued", "parsely-pub-date", "sailthru.date")
@@ -31,6 +36,8 @@ class _Reader(HTMLParser):
         self.ld = []
         self._ld_buf = None
         self.skip = 0
+        self.in_article = 0
+        self._chrome = {"header": [], "footer": []}     # per open tag: was it skipped?
         self.parts = []
         self.para = []
         self._in_p = 0
@@ -57,8 +64,14 @@ class _Reader(HTMLParser):
             return
         if tag == "title":
             self._in_title = True
+        if tag in ARTICLE:
+            self.in_article += 1
         if tag in SKIP:
             self.skip += 1
+        elif tag in SKIP_OUTSIDE_ARTICLE:
+            skipped = self.in_article == 0
+            self._chrome[tag].append(skipped)
+            self.skip += skipped
         elif tag == "p":
             self._in_p += 1
         if tag in BLOCK:
@@ -73,8 +86,13 @@ class _Reader(HTMLParser):
             return
         if tag == "title":
             self._in_title = False
+        if tag in ARTICLE:
+            self.in_article = max(0, self.in_article - 1)
         if tag in SKIP:
             self.skip = max(0, self.skip - 1)
+        elif tag in SKIP_OUTSIDE_ARTICLE:
+            if self._chrome[tag] and self._chrome[tag].pop():
+                self.skip = max(0, self.skip - 1)
         elif tag == "p" and self._in_p:
             self._in_p -= 1
             self.para.append("\n")
