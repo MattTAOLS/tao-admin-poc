@@ -1044,6 +1044,7 @@ components:
             date_confirmed: { type: integer }
             claude_input_tokens: { type: integer }
             claude_output_tokens: { type: integer }
+            first_search: { type: object, additionalProperties: { type: array, items: { type: string } }, description: 'per source, the company slugs whose first (long-window) search completed in this run; the worker reads it to decide which companies still need one' }
     NewsSource:
       type: object
       required: [provider, label, available, enabled, fields, secrets, config, last_test]

@@ -418,6 +418,7 @@ class NewsRun(Base):
     errors: Mapped[list] = mapped_column(Json, default=list)
     stats: Mapped[dict] = mapped_column(Json, default=dict, server_default=text("'{}'"))       # 013
     company_slug: Mapped[str | None] = mapped_column(Text, ForeignKey("company.slug"), nullable=True)   # 014: one-company run
+    heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # 015: stamped by the news worker
 
 
 class NewsItem(Base):
