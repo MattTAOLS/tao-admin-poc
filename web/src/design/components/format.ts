@@ -9,27 +9,30 @@ function nf(key: string, opts: Intl.NumberFormatOptions) {
 }
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const DASH = '—'
+/** A value that rounds to zero never carries a minus sign: -0.06 to the dollar is "$0", not "-$0" (audit L21, the
+ * reference renderer's rule). */
+const noNegZero = (s: string) => (/^-[^1-9]*$/.test(s) ? s.slice(1) : s)
 
 /** 1234567.891 → "$1,234,567.89"; `compact` → "$1.23M"; `decimals: 0` → "$1,234,568"; `symbol: false` drops "$". Null → "—". */
 export function formatCurrency(v: number | null | undefined, opts: { decimals?: number; compact?: boolean; symbol?: boolean } = {}) {
   if (!isNum(v)) return DASH
   const { decimals = 2, compact = false, symbol = true } = opts
   const style: Intl.NumberFormatOptions = symbol ? { style: 'currency', currency: 'USD' } : {}
-  if (compact) return nf(`cc${symbol}`, { ...style, notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v)
-  return nf(`c${decimals}${symbol}`, { ...style, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v)
+  if (compact) return noNegZero(nf(`cc${symbol}`, { ...style, notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v))
+  return noNegZero(nf(`c${decimals}${symbol}`, { ...style, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v))
 }
 
 /** Percent from a ratio or from points. formatPercent(0.0412) → "4.12%"; formatPercent(4.12, { points: true }) → "4.12%". */
 export function formatPercent(v: number | null | undefined, opts: { decimals?: number; points?: boolean } = {}) {
   if (!isNum(v)) return DASH
   const { decimals = 2, points = false } = opts
-  return nf(`n${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(points ? v : v * 100) + '%'
+  return noNegZero(nf(`n${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(points ? v : v * 100)) + '%'
 }
 
 /** Plain number with grouping: 1234 → "1,234". */
 export function formatNumber(v: number | null | undefined, decimals = 0) {
   if (!isNum(v)) return DASH
-  return nf(`n${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v)
+  return noNegZero(nf(`n${decimals}`, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v))
 }
 
 /** Signed difference: 12.5 → "+12.50", -3 → "−3.00" (a true minus sign so columns align), 0 → "0.00". */
