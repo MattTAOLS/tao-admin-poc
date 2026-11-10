@@ -624,6 +624,11 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
         so, sc = _sum(o), _sum(c)
         w.derived(["/contracts/opening", f"{ph}/opening_contracts"], so, "opening contracts, all pages", o)
         w.derived(["/contracts/closing", f"{ph}/closing_contracts"], sc, "closing contracts, all pages", c)
+        ch = [pg["total"].get("change") for pg in cps]
+        if all(f is not None and f.value is not None for f in ch):      # as printed; rule R06 closes the count with it
+            rec.derived("/contracts/change_reported", _sum(ch), "printed change, all pages", ch)
+        else:
+            rec.read("/contracts/change_reported", None)
         rec.derived("/contracts/change_abs", sc - so, "closing - opening", o + c)
         rec.derived("/contracts/change_pct", (sc - so) / so if so else None, "(closing - opening) / opening", o + c)
         rec.empty("/contracts/top_movers")
@@ -748,7 +753,8 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
     worst = _worst(p, cnl_limit)
     if p.tests and cur_month:
         covs = _covenants(p, s, cur_month, worst, cnl_limit, der, tpl)
-        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, cnl_limit, der, tpl, prior_deal=prior_deal)
+        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, cnl_limit, der, tpl, prior_deal=prior_deal,
+                                prior_month=True)
         for name, lst in (("covenants", covs), ("prior_covenants", prior_covs)):
             rec.empty(f"/{name}")
             for i, (c, srcs) in enumerate(lst):
@@ -919,7 +925,7 @@ def _metric(s: Series, series: str, month: str, window: Optional[int]) -> tuple[
 
 
 def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], cnl_limit: Optional[float], der: dict,
-               tpl: dict, prior_deal: dict | None = None) -> list[tuple[dict, dict]]:
+               tpl: dict, prior_deal: dict | None = None, prior_month: bool = False) -> list[tuple[dict, dict]]:
     sec = tpl["sections"]["quantitative_tests"]
     out = []
     for t in p.tests:
@@ -951,7 +957,7 @@ def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], cnl_limi
             if v is not None and thr:
                 util = round(v / thr, 4) if kind == "ceiling" else (round(thr / v, 4) if v else None)
             c.update({"current_value": v, "threshold": thr, "kind": kind, "utilization_pct": util, "trend": trend,
-                      "status": _status(v, thr, kind, der["watch_buffer_pct"]), "note": None})
+                      "status": _status(v, thr, kind, der["watch_buffer_pct"], prior_month), "note": None})
             if series == "cnl_worst_vintage":
                 c["worst_vintage"] = wv
             if vf is not None:

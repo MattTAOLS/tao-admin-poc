@@ -6,7 +6,7 @@ META = {"upload_id": "00000000-0000-4000-8000-000000000000", "pass": 1, "templat
 
 def deals():
     for f in sorted(glob.glob(str(ROOT / "docs/dashboard-json/*.dashboard.json"))):
-        if not pathlib.Path(f).name.startswith("program-"): yield pathlib.Path(f).name, json.load(open(f))
+        if not pathlib.Path(f).name.startswith("program-"): yield pathlib.Path(f).name, json.loads(pathlib.Path(f).read_text(encoding="utf-8"))   # UTF-8, not the host default: vintage labels carry U+2012
 
 def test_rules_load(): assert len(load_rules()["rules"]) == 22
 

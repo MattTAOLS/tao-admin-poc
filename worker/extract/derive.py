@@ -24,6 +24,7 @@ from typing import Optional
 
 from .mapper import F, Parsed
 from .provenance import Recorder
+from .status import status as _status      # one covenant-status function for every engine and rule R18
 from .text import norm
 
 MONTHS = {m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)}
@@ -177,6 +178,15 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
     if ct:
         rec.read("/contracts/opening", ct.get("opening"))
         rec.read("/contracts/closing", ct.get("closing"))
+        # the report's own change figure, as printed (rule R06 closes the count with it; change_abs is derived
+        # from opening and closing and cannot disagree with them)
+        if "change" in ct:
+            rec.read("/contracts/change_reported", ct["change"])
+        elif _v(ct.get("new_funded")) is not None and _v(ct.get("terminations")) is not None:
+            rec.derived("/contracts/change_reported", ct["new_funded"].value - ct["terminations"].value,
+                        "printed new funded - printed terminations", [ct["new_funded"], ct["terminations"]])
+        else:
+            rec.read("/contracts/change_reported", None)
         o, c = _v(ct.get("opening")), _v(ct.get("closing"))
         if o is not None and c is not None:
             rec.derived("/contracts/change_abs", c - o, "closing - opening", [ct["closing"], ct["opening"]])
@@ -347,7 +357,8 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
         worst = _worst_vintage(p, limits)
         covs = _covenants(p, s, cur_month, worst, der, tpl)
         prev_month = _prev_mon_yy(cur_month)
-        prior_covs = _covenants(p, s, prev_month, None, der, tpl, prior_deal=prior_deal, cnl_limit=(worst or {}).get("limit"))
+        prior_covs = _covenants(p, s, prev_month, None, der, tpl, prior_deal=prior_deal, cnl_limit=(worst or {}).get("limit"),
+                                prior_month=True)
         for name, lst in (("covenants", covs), ("prior_covenants", prior_covs)):
             rec.empty(f"/{name}")
             for i, (c, srcs) in enumerate(lst):
@@ -360,7 +371,7 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
                         rec.derived(ptr, v, f"{k} per covenant rules ({tid})", srcs.get("_inputs", []))
         counts = {"BREACH": 0, "WATCH": 0, "OK": 0, "AVAILABLE": 0}
         for c, _ in covs:
-            if c["status"] in counts:
+            if c["status"] in counts:       # a covenant with no status (value not read) is in none of the counts
                 counts[c["status"]] += 1
         ins = [x for _, sr in covs for x in sr.get("_inputs", [])][:1]
         for k, v in counts.items():
@@ -471,16 +482,6 @@ def _threshold(t: dict, series: str, s: Series, month: str, worst: Optional[dict
     return (pc[-1] if pc else None), src
 
 
-def _status(v, thr, kind, buffer) -> str:
-    if v is None or thr is None:
-        return "OK"
-    if (kind == "ceiling" and v > thr) or (kind == "floor" and v < thr):
-        return "BREACH"
-    if abs(thr - v) <= buffer * abs(thr):
-        return "WATCH"
-    return "OK"
-
-
 def _trend(cur, prev, band) -> str:
     if cur is None or prev is None:
         return "n/a"
@@ -490,7 +491,8 @@ def _trend(cur, prev, band) -> str:
 
 
 def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], der: dict, tpl: dict,
-               prior_deal: dict | None = None, cnl_limit: float | None = None) -> list[tuple[dict, dict]]:
+               prior_deal: dict | None = None, cnl_limit: float | None = None,
+               prior_month: bool = False) -> list[tuple[dict, dict]]:
     """Covenant rows for `month`. For the prior month (worst=None) the CNL value comes from the prior extraction
     when supplied (it is not on this report); its threshold is this report's limit for the current worst vintage."""
     sec = tpl["sections"]["quantitative_tests"]
@@ -532,7 +534,7 @@ def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], der: dic
                 util = round(v / thr, 4) if kind == "ceiling" else (round(thr / v, 4) if v else None)
             c.update({"current_value": v, "threshold": thr, "kind": kind, "utilization_pct": util,
                       "trend": "n/a" if series == "cnl_worst_vintage" else _trend(v, prev, der["trend_flat_band"]),
-                      "status": _status(v, thr, kind, der["watch_buffer_pct"]), "note": None})
+                      "status": _status(v, thr, kind, der["watch_buffer_pct"], prior_month), "note": None})
             if series == "cnl_worst_vintage":
                 c["worst_vintage"] = wv
             if vf is not None:

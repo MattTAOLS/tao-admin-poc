@@ -169,6 +169,7 @@ def test_m6_move_trust_aging_finding_names_the_aging_page_of_this_report():
     d["aging_history"][0]["closing_balance"] += 1000.0
     f = only("R07", ex_of(d, template_id="move-trust-settrep-v1"))[0]
     assert f["source_page"] == 15
+    assert "page 15 closing balance" in f["message"] and "page 11" not in f["message"]      # the sentence names this report's page too
 
 def test_m6_leaf_provenance_wins_over_the_section_page_and_the_hint():
     d = dynamic(); d["aging_history"][0]["closing_balance"] += 1000.0

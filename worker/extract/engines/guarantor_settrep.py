@@ -641,6 +641,7 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
         o, c = ct["total"].get("opening"), ct["total"].get("closing")
         w.read(["/contracts/opening", f"{ph}/opening_contracts"], o)
         w.read(["/contracts/closing", f"{ph}/closing_contracts"], c)
+        rec.read("/contracts/change_reported", ct["total"].get("change"))     # as printed; rule R06 closes the count with it
         rec.derived("/contracts/change_abs", _v(c) - _v(o), "closing - opening", [c, o])
         rec.derived("/contracts/change_pct", (_v(c) - _v(o)) / _v(o) if _v(o) else None, "(closing - opening) / opening", [c, o])
         rec.empty("/contracts/top_movers")
@@ -756,7 +757,8 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
     if p.tests and cur_month:
         ctx = _context(p)
         covs = _covenants(p, s, cur_month, worst, cnl_limit, ctx, der, tpl)
-        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, cnl_limit, {}, der, tpl, prior_deal=prior_deal)
+        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, cnl_limit, {}, der, tpl, prior_deal=prior_deal,
+                                prior_month=True)
         for name, lst in (("covenants", covs), ("prior_covenants", prior_covs)):
             rec.empty(f"/{name}")
             for i, (c, srcs) in enumerate(lst):
@@ -923,7 +925,7 @@ def _tranche_list(text: str) -> list[int]:
 
 
 def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], cnl_limit: Optional[float], ctx: dict,
-               der: dict, tpl: dict, prior_deal: dict | None = None) -> list[tuple[dict, dict]]:
+               der: dict, tpl: dict, prior_deal: dict | None = None, prior_month: bool = False) -> list[tuple[dict, dict]]:
     sec = tpl["sections"]["quantitative_tests"]
     notes = sec["binary_notes"]
     out = []
@@ -980,7 +982,7 @@ def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], cnl_limi
                 util = round(v / thr, der["utilization_decimals"]) if kind == "ceiling" else \
                     (round(thr / v, der["utilization_decimals"]) if v else None)
             c.update({"current_value": v, "threshold": thr, "kind": kind, "utilization_pct": util, "trend": trend,
-                      "status": _status(v, thr, kind, der["watch_buffer_pct"]), "note": None})
+                      "status": _status(v, thr, kind, der["watch_buffer_pct"], prior_month), "note": None})
             if series == "cnl_worst_vintage":
                 c["worst_vintage"] = wv
             if vf is not None:

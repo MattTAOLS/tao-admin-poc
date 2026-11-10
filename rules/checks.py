@@ -8,7 +8,7 @@ Conventions:
   keys our_value / report_value / difference (those are top-level finding fields).
 """
 import calendar, datetime as dt, math, re
-from .engine import finding, load_rules, settings_of
+from .engine import finding, load_rules, page_of, settings_of
 from .covenant_status import covenant_status
 
 EPS = 1e-9
@@ -346,9 +346,13 @@ def aging_buckets_sum(rule, ex, ctx, tol):
     with_wo = sum4 is not None and abs(sum4 - a["closing_balance"]) < abs(sum3 - a["closing_balance"])
     computed = sum4 if with_wo else sum3
     label = f"current + 31-60 + 61-90 + {a.get('written_off_bucket_label') or 'written off'}" if with_wo else "current + 31-60 + 61-90"
+    # the rules.yaml sentence names the F-PIL pages (11 and 2); say the pages of THIS report when they are known
+    ap, tp = page_of(f"/aging_history/{n}/closing_balance", ex) or page_of(f"/aging_history/{n}", ex), page_of("/tranche_balance/closing", ex)
+    kw = {"message": "Aging buckets ({bucket_label}) sum to {computed}; page {aging_page} closing balance is {closing_balance}; page {tranche_page} closing is {tranche_closing}"} if ap and tp else {}
     return [finding(rule, _uid(ex), our_value=round(computed, 2), report_value=a["closing_balance"], difference=round(a["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency",
                     context={"computed": round(computed, 2), "closing_balance": a["closing_balance"], "tranche_closing": _get(d, "/tranche_balance/closing"), "bucket_label": label,
-                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a.get("written_off")},
+                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a.get("written_off"),
+                             **({"aging_page": ap, "tranche_page": tp} if ap and tp else {})}, **kw,
                     targets=[f"/aging_history/{n}/closing_balance"], **({} if n == 0 else {"fields": [f"/aging_history/{n}", "/tranche_balance/closing"]}))]
 
 # ---------- R08 / R17 shared: CNL per vintage ----------
@@ -396,8 +400,10 @@ def losses_tie_out(rule, ex, ctx, tol):
         total = sum(r["cumulative_net_losses"] for r in rows)
         if not near(total, aging["cumulative_net_losses"], tol["currency"]):
             out.append(finding(rule, _uid(ex), our_value=_r(total), report_value=aging["cumulative_net_losses"], difference=_r(aging["cumulative_net_losses"] - total), tolerance=tol["currency"], unit="currency",
-                               fields=["/cnl_by_period", f"/aging_history/{an}/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows)}, targets=[f"/aging_history/{an}/cumulative_net_losses"],
-                               message="Vintage CNL total {vintage_total} does not equal the page-11 cumulative net losses {aging_cnl} (difference {difference})"))
+                               fields=["/cnl_by_period", f"/aging_history/{an}/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows),
+                                        "aging_page": page_of(f"/aging_history/{an}/cumulative_net_losses", ex) or page_of(f"/aging_history/{an}", ex) or 11},
+                               targets=[f"/aging_history/{an}/cumulative_net_losses"],
+                               message="Vintage CNL total {vintage_total} does not equal the page-{aging_page} cumulative net losses {aging_cnl} (difference {difference})"))
     return out
 
 # ---------- R09 ----------

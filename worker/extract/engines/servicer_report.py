@@ -561,7 +561,7 @@ def _build_ratio_tests(p: Parsed, rec: Recorder, rt: dict, tpl: dict, prior: dic
                      "description": cv[kind]["description"].format(title=r["title"].value,
                                                                    trigger=tf.raw if tf else "n/a"),
                      "current_value": v, "threshold": thr, "kind": "ceiling", "utilization_pct": util,
-                     "trend": _trend(v, _v(pf), band), "status": _status(v, thr, "ceiling", buf), "note": None}
+                     "trend": _trend(v, _v(pf), band), "status": _status(v, thr, "ceiling", buf, which > 0), "note": None}
                 a = r.get(ans_key)
                 if which == 0:
                     c["reported_triggered"] = answers.get(a.value.upper()) if a is not None else None
@@ -577,7 +577,7 @@ def _build_ratio_tests(p: Parsed, rec: Recorder, rt: dict, tpl: dict, prior: dic
         c = {"category": cv["category"], "legal_ref": cv["cnl"]["legal_ref"], "description": cv["cnl"]["description"],
              "current_value": v, "threshold": thr, "kind": "ceiling",
              "utilization_pct": round(v / thr, rnd) if v is not None and thr else None, "trend": "n/a",
-             "status": _status(v, thr, "ceiling", buf), "note": None,
+             "status": _status(v, thr, "ceiling", buf, not current), "note": None,
              "worst_vintage": w["period"].value if w else None}
         if current:
             c["reported_triggered"] = answers.get(a.value.upper()) if a is not None else None
