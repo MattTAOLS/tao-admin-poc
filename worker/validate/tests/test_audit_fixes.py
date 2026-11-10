@@ -134,3 +134,40 @@ def test_m8_threshold_from_the_environment(conn, monkeypatch):
     assert adapter.recover_stale(queued_ids=[], conn=conn, now=NOW) == []
     monkeypatch.setenv("WORKER_STALE_MINUTES", "3")
     assert adapter.recover_stale(queued_ids=[], conn=conn, now=NOW) == [uid]
+
+
+# ---------- finding identity (Lead note on H1 / H6) ----------
+def r11(month, field, prior_value, value):
+    return {"rule_id": "R11", "severity": "review", "fields": ["/period_history", "/ratio_history", "prior:/period_history"], "our_value": prior_value, "report_value": value,
+            "difference": value - prior_value, "unit": "percent_points", "status": "open", "resolution": None,
+            "context": {"month": month, "field": field, "prior_value": prior_value, "value": value, "prior_period": "July 2026", "restatement": True}}
+
+def test_key_tells_two_restatements_apart():
+    """Two R11 restatements share rule id and fields; month and field are the identity, as in api/app/review.finding_key."""
+    a, b, c = r11("May-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), r11("Jun-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), r11("May-26", "ratio_history.delinquency_ratio_pct", 0.01, 0.02)
+    assert len({adapter._key(a), adapter._key(b), adapter._key(c)}) == 3
+    assert adapter._key(a) == adapter._key(json.loads(json.dumps(a)))
+    assert adapter._key(a) == ("R11", tuple(a["fields"]), (("month", "May-26"), ("field", "ratio_history.loss_ratio_pct")))
+
+def test_resolution_carries_to_the_same_month_only():
+    accepted = {**r11("May-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), "status": "accepted_as_restatement", "resolution": {**RESOLUTION, "choice": "restatement"}}
+    new = [r11("Jun-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), r11("May-26", "ratio_history.loss_ratio_pct", 0.01, 0.02)]
+    pairs = adapter.carry_resolutions([accepted], new)
+    assert len(pairs) == 1 and [f["status"] for f in new] == ["open", "accepted_as_restatement"]
+
+def test_pass_2_resolves_only_the_restatement_that_went_away():
+    may, jun = {**r11("May-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), "id": "f-may"}, {**r11("Jun-26", "ratio_history.loss_ratio_pct", 0.01, 0.02), "id": "f-jun"}
+    cleared = adapter.resolved_by_pass_2([may, jun], [r11("Jun-26", "ratio_history.loss_ratio_pct", 0.01, 0.02)])
+    assert [f["id"] for f in cleared] == ["f-may"]
+
+def test_rules_are_idempotent_on_rerun(conn):
+    """Same stored extraction, run twice: the same findings in the same order with the same keys, fields and contexts."""
+    d = moneda_with_r05_error(); d["aging_history"][0]["closing_balance"] += 10.0; publish(conn, d["deal_slug"], "2026-07", mf.prior_from_history(d))
+    uid = new_upload(conn, status="extracting")
+    out = handle(conn, {"upload_id": uid, "pass": 1}, doc(d, pages_without_text=[9], unplaced=["aging.closing"]), enqueue=False)
+    store = adapter.SqlStore(conn)
+    strip = lambda fs: [{k: v for k, v in f.items() if k not in ("id", "created_at")} for f in fs]
+    one, two = adapter.validate_extraction(store, out["extraction_id"]), adapter.validate_extraction(store, out["extraction_id"])
+    assert strip(one) == strip(two) and len(one) >= 4
+    keys = [adapter._key(f) for f in one]
+    assert len(keys) == len(set(keys)), "every finding of one run has its own identity"

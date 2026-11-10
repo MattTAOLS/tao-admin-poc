@@ -237,7 +237,17 @@ def retry_pages(findings: list[dict], rules_doc: dict | None = None) -> list[int
     retry = {r["id"] for r in (rules_doc or load_rules())["rules"] if r.get("on_failure") == "retry_pass_2_then_review"}
     return sorted({f["source_page"] for f in findings if f["severity"] == "block" and f["rule_id"] in retry and f.get("source_page")})
 
-def _key(f): return (f["rule_id"], tuple(f.get("fields") or []), (f.get("context") or {}).get("vintage"), (f.get("context") or {}).get("legal_ref"))
+# Context keys that say WHICH thing a finding is about (not what its numbers are): every R11 restatement has the same
+# rule id and fields, and month + field tell them apart. Same list, order and encoding as api/app/review.py
+# IDENTITY_KEYS / finding_key, so the worker (pass 1 -> pass 2, carried resolutions) and the API's re-run identify
+# the same underlying finding.
+IDENTITY_KEYS = ("month", "field", "vintage", "legal_ref", "side", "tranche", "metric", "history_month", "currency", "limit_name")
+
+def _key(f):
+    ctx = f.get("context") if isinstance(f.get("context"), dict) else {}
+    ident = tuple((k, ctx[k] if isinstance(ctx[k], (str, int, float, bool)) else json.dumps(ctx[k], sort_keys=True, default=str))
+                  for k in IDENTITY_KEYS if ctx.get(k) is not None)
+    return (f["rule_id"], tuple(f.get("fields") or []), ident)
 
 def resolved_by_pass_2(pass1: list[dict], pass2: list[dict]) -> list[dict]:
     """Open pass-1 findings with no counterpart in pass 2, marked resolved_by_pass_2."""
