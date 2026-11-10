@@ -2,6 +2,7 @@
  * catalogue from contracts/rules.yaml. */
 import { api } from '@/shell/api'
 import type { Role } from '@/shell/roles'
+import { SOURCE_NAME, type RunStats } from './newsSources'
 
 export type SettingKey = 'partner_notifications_enabled' | 'reporting_calendar' | 'notification_defaults' | 'publish_note_templates' | 'company_feeds'
   | 'company_profiles_partner_enabled'
@@ -71,9 +72,10 @@ export const asBool = (v: unknown) => v === true
 
 // ---- Wave D: company_feeds (contracts/openapi.yaml Setting) and the news runs ----
 export type FeedSource = 'google_news' | 'gdelt'
-export type Feeds = { enabled: boolean; run_at: string; time_zone: string; sources: FeedSource[] }
+export type Feeds = { enabled: boolean; run_at: string; time_zone: string; sources: FeedSource[]; daily_cap: number }
 export const FEED_SOURCES: { id: FeedSource; label: string }[] = [{ id: 'google_news', label: 'Google News RSS' }, { id: 'gdelt', label: 'GDELT' }]
-export const FEEDS_DEFAULT: Feeds = { enabled: false, run_at: '06:00', time_zone: 'America/Toronto', sources: ['google_news', 'gdelt'] }
+export const FEEDS_DEFAULT: Feeds = { enabled: false, run_at: '06:00', time_zone: 'America/Toronto', sources: ['google_news', 'gdelt'], daily_cap: 200 }
+export const DAILY_CAP_MAX = 5000
 /** The saved value with the contract defaults for anything missing (an empty object reads as the defaults). */
 export function asFeeds(v: unknown): Feeds {
   const o = (v && typeof v === 'object' && !Array.isArray(v) ? v : {}) as Partial<Feeds>
@@ -83,12 +85,15 @@ export function asFeeds(v: unknown): Feeds {
     run_at: typeof o.run_at === 'string' ? o.run_at : FEEDS_DEFAULT.run_at,
     time_zone: typeof o.time_zone === 'string' && o.time_zone ? o.time_zone : FEEDS_DEFAULT.time_zone,
     sources,
+    daily_cap: typeof o.daily_cap === 'number' ? o.daily_cap : FEEDS_DEFAULT.daily_cap,
   }
 }
+export const validCap = (n: unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= DAILY_CAP_MAX
 export const validRunAt = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)
 /** Problems that block saving, by field. */
-export function feedsErrors(f: Feeds): { run_at?: string; sources?: string; time_zone?: string } {
-  const out: { run_at?: string; sources?: string; time_zone?: string } = {}
+export function feedsErrors(f: Feeds): { run_at?: string; sources?: string; time_zone?: string; daily_cap?: string } {
+  const out: { run_at?: string; sources?: string; time_zone?: string; daily_cap?: string } = {}
+  if (!validCap(f.daily_cap)) out.daily_cap = 'A whole number from 1 to 5,000.'
   if (!validRunAt(f.run_at)) out.run_at = 'Use 24-hour HH:MM, e.g. 06:00.'
   if (!f.sources.length) out.sources = 'Pick at least one source.'
   if (!f.time_zone) out.time_zone = 'Pick a time zone.'
@@ -105,14 +110,16 @@ export function timeZones(current?: string): string[] {
   if (current) out.add(current)
   return [...out].sort()
 }
-export const sourceLabel = (s: string) => FEED_SOURCES.find(x => x.id === s)?.label ?? s
+export const sourceLabel = (s: string) => FEED_SOURCES.find(x => x.id === s)?.label ?? SOURCE_NAME[s] ?? s
 
 export type NewsRunStatus = 'queued' | 'running' | 'ok' | 'partial' | 'failed'
 export type NewsRun = {
-  id: string; trigger: 'schedule' | 'manual' | string; status: NewsRunStatus | string
+  id: string; trigger: 'schedule' | 'manual' | 'recheck' | string; status: NewsRunStatus | string
   queued_at: string; started_at: string | null; finished_at: string | null
   companies: number; items_added: number; adverse_added: number
   errors: { company_slug?: string | null; source: string; message: string }[]
+  /** Wave E (E10); {} or absent for runs from before wave E. */
+  stats?: RunStats
 }
 export const RUN_STATUS: Record<string, { tone: 'ok' | 'warn' | 'bad' | 'blue' | 'neutral'; label: string }> = {
   queued: { tone: 'neutral', label: 'Queued' },
@@ -194,6 +201,7 @@ export function settingDiff(key: string, before: unknown, after: unknown, dealNa
     const src = (f: Feeds) => f.sources.map(sourceLabel).join(', ') || 'none'
     const rows: [string, string, string][] = [
       ['Search', b.enabled ? 'On' : 'Off', a.enabled ? 'On' : 'Off'], ['Run time', b.run_at, a.run_at], ['Time zone', b.time_zone, a.time_zone], ['Sources', src(b), src(a)],
+      ['Daily request cap per source', String(b.daily_cap), String(a.daily_cap)],
     ]
     return rows.filter(([, x, y]) => x !== y).map(([field, x, y]) => ({ field, before: x, after: y }))
   }

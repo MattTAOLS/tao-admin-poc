@@ -1460,3 +1460,28 @@ Verified only against recorded data: the paid adapters (responses shaped from th
 Claude check (recorded answers). Stubbed: Dow Jones and LexisNexis. Needs: QA to move step 12 to 11 news items (the
 fixture now has an excluded story and a kept story with an unconfirmed date); the API to send test messages and
 recheck runs as in `docs/requests.md` (News, 2026-11-10).
+## UI-Admin, wave E (2026-11-10)
+
+System settings (TAO Admin only), against the wave E contract (72ff34e):
+
+- **6 · News sources** (new section; Data retention to Maintenance move to 7–10). One row per provider from
+  `GET /news/sources`: label and note, status as dot plus word (Not available yet, then Key not set, then On or Off),
+  each key as "Set, ends in ••••last4" or "Not set", and the last test (OK or Failed, time, provider message). A banner
+  says when `secret_key_set` is false. **Edit** dialog: the provider's fields in order; secret fields are password boxes
+  that always start empty, with Remove (and Keep to undo); other fields by kind (text, url, integer, boolean switch); the
+  on/off switch, disabled with the reason when `available` is false; a summary of the change that never shows a key;
+  a reason of at least 3 characters. Save sends `PUT /news/sources/{provider}` with only what changed (`enabled`,
+  changed `config` keys, `secrets` as string or null). **Test connection** posts `.../test`, then polls
+  `GET /news/sources` every 2 s until that provider's `last_test.at` changes, for at most 40 s. The 409s
+  `no_secret_key`, `not_available`, `missing_credentials` read in plain words.
+- **Re-check stories** next to Run now in section 5, with the E9 explanation; a confirm dialog, then
+  `POST /news/recheck`; `run_active` reads "A news run is already in progress."; a queued re-check is watched like Run now.
+- **Daily request cap per source** in the company_feeds editor (1–5000, default 200), saved with the feed settings.
+- **News runs**: Re-check runs are named; a new "Checks and calls" column opens each run's `stats` (calls per source,
+  sources that hit the cap, candidates, kept, excluded, pending, dates confirmed, Claude tokens); runs from before
+  wave E show a dash. Section 5's text now says paid sources and the Claude check are involved.
+
+Files: `web/src/admin/newsSources.ts`, `web/src/admin/NewsSourcesSection.tsx`, `SystemSettingsPage.tsx`,
+`settings.ts`, `admin.css`; tests in `web/src/admin/__tests__/NewsSourcesSettings.test.tsx` (16 new).
+Run: `npx vitest run src/admin` in `web/`. Assumption to confirm with Data & API: a PUT with a partial `config`
+merges into the stored config (the contract says "only what is sent changes").

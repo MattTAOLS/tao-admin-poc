@@ -11,11 +11,13 @@ import {
   asDefaults, asFeeds, asTemplates, cap, feedsErrors, isRequired, newsApi, parseRules, prefillCalendar, runFinished, setPref, settingDiff, settingsApi,
   sourceLabel, timeZones, validDay, type Calendar, type Defaults, type Feeds, type NewsRun, type Setting, type Templates,
 } from './settings'
+import NewsSourcesSection, { RECHECK_TEXT, RecheckDialog, RunStatsCell } from './NewsSourcesSection'
+import { TRIGGER_LABEL } from './newsSources'
 
 const RULES = parseRules(rulesYaml)
 const SECTIONS = [
   ['programs', 'Programs and deals'], ['rules', 'Validation rules'], ['calendar', 'Reporting calendar'], ['notifications', 'Notifications'],
-  ['companies', 'Companies and news'], ['retention', 'Data retention and audit'], ['branding', 'Partner branding'], ['integrations', 'Integrations'], ['maintenance', 'Maintenance'],
+  ['companies', 'Companies and news'], ['sources', 'News sources'], ['retention', 'Data retention and audit'], ['branding', 'Partner branding'], ['integrations', 'Integrations'], ['maintenance', 'Maintenance'],
 ] as const
 
 type Draft = {
@@ -294,7 +296,12 @@ export default function SystemSettingsPage() {
           stampFeeds={stamp('company_feeds')} stampPartner={stamp('company_profiles_partner_enabled')} />
       </Section>
 
-      <Section id="retention" n={6} title="Data retention and audit" tag="shows" subtitle="Decided: kept indefinitely. TAO hosts the data; nothing here can delete it.">
+      <Section id="sources" n={6} title="News sources" tag="new"
+        subtitle="Paid news search with the client’s own accounts: on or off per source, keys, and a connection test. TAO Admin only.">
+        <NewsSourcesSection />
+      </Section>
+
+      <Section id="retention" n={7} title="Data retention and audit" tag="shows" subtitle="Decided: kept indefinitely. TAO hosts the data; nothing here can delete it.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Retention</caption>
           <thead><tr><th scope="col">Data</th><th scope="col">Kept for</th></tr></thead>
@@ -315,7 +322,7 @@ export default function SystemSettingsPage() {
         <p className="adm-hint">Each export is itself recorded on the Platform tab.</p>
       </Section>
 
-      <Section id="branding" n={7} title="Partner branding" tag="later" subtitle="Name, subtitle, logo and email footer per partner portal. Not built in phase 2.">
+      <Section id="branding" n={8} title="Partner branding" tag="later" subtitle="Name, subtitle, logo and email footer per partner portal. Not built in phase 2.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Partner branding</caption>
           <thead><tr><th scope="col">Partner</th><th scope="col">Portal name</th><th scope="col">Logo</th></tr></thead>
@@ -324,11 +331,11 @@ export default function SystemSettingsPage() {
         <p className="adm-hint">Colours stay on the portal’s tokens: status colours carry meaning (OK, WATCH, BREACH) and do not change per partner.</p>
       </Section>
 
-      <Section id="integrations" n={8} title="Integrations" tag="later" subtitle="API keys, webhooks and chat. After real sign-in exists.">
-        <p className="adm-muted">No keys and no webhooks. The POC API trusts the role switcher and has no keys. The news search has no key either; it is set up in <a href="#set-companies">Companies and news</a>.</p>
+      <Section id="integrations" n={9} title="Integrations" tag="later" subtitle="API keys, webhooks and chat. After real sign-in exists.">
+        <p className="adm-muted">No keys and no webhooks. The POC API trusts the role switcher and has no keys. The news search is set up in <a href="#set-companies">Companies and news</a>; keys for paid news sources are under <a href="#set-sources">News sources</a>.</p>
       </Section>
 
-      <Section id="maintenance" n={9} title="Maintenance" tag="shows" subtitle="Jobs that run by hand. None re-reads a PDF.">
+      <Section id="maintenance" n={10} title="Maintenance" tag="shows" subtitle="Jobs that run by hand. None re-reads a PDF.">
         <table className="adm-plain">
           <caption className="ds-visually-hidden">Maintenance jobs</caption>
           <thead><tr><th scope="col">Job</th><th scope="col">What it does</th><th scope="col">Where</th></tr></thead>
@@ -360,6 +367,9 @@ function CompaniesSection({ draft, partnerOn, savedFeeds, onFeeds, onPartner, st
   draft: Feeds; partnerOn: boolean; savedFeeds: Feeds; onFeeds: (f: Feeds) => void; onPartner: (v: boolean) => void; stampFeeds: string; stampPartner: string
 }) {
   const errs = feedsErrors(draft)
+  /** The cap as typed, so "12.5" or "abc" stay on screen with their error; follows the draft when it changes elsewhere (Discard). */
+  const [capText, setCapText] = useState(String(draft.daily_cap))
+  useEffect(() => { if (!Number.isNaN(draft.daily_cap) && Number(capText) !== draft.daily_cap) setCapText(String(draft.daily_cap)) }, [draft.daily_cap]) // eslint-disable-line react-hooks/exhaustive-deps
   const zones = useMemo(() => timeZones(draft.time_zone), [draft.time_zone])
   const toggleSource = (id: Feeds['sources'][number], on: boolean) =>
     onFeeds({ ...draft, sources: FEED_SOURCES.map(x => x.id).filter(x => (x === id ? on : draft.sources.includes(x))) })
@@ -374,8 +384,9 @@ function CompaniesSection({ draft, partnerOn, savedFeeds, onFeeds, onPartner, st
         <span className="adm-muted">{stampFeeds}</span>
       </div>
       <div id="set-feeds-what" className="adm-note">
-        Searches two free public sources, Google News RSS and GDELT, by each company’s name and aliases. Our own keyword screening sets
-        the sentiment and flags adverse media (litigation, regulatory, fraud, insolvency, sanctions). No paid supplier is involved.
+        Searches two free public sources, Google News RSS and GDELT, by each company’s name and aliases, plus any paid source switched on
+        under <a href="#set-sources">News sources</a>. Our own keyword screening is passed to the Claude check as a hint; the check decides
+        whether a story is about the company, sets the sentiment and flags adverse media (litigation, regulatory, fraud, insolvency, sanctions).
         Switching it on lets the news container reach the internet once a day, at the time below. Results never change deal numbers or covenant statuses.
       </div>
       <div className="adm-form__row">
@@ -395,6 +406,11 @@ function CompaniesSection({ draft, partnerOn, savedFeeds, onFeeds, onPartner, st
           ))}
           {errs.sources && <span className="ds-field__error" id="set-feeds-src-err" role="alert">{errs.sources}</span>}
         </fieldset>
+        <Field label="Daily request cap per source" error={errs.daily_cap} required
+          hint="1 to 5,000; default 200. Each source stops for the day at this many requests, so a mis-set company cannot use up a client’s credits.">
+          <Input numeric className="adm-int" value={capText}
+            onChange={e => { const t = e.target.value; setCapText(t); onFeeds({ ...draft, daily_cap: /^\s*\d+\s*$/.test(t) ? Number(t) : NaN }) }} />
+        </Field>
       </div>
 
       <h3 className="adm-section-title">News runs</h3>
@@ -430,6 +446,7 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<RunMsg | null>(null)
   const [watch, setWatch] = useState<{ id: string; until: number } | null>(null)
+  const [confirm, setConfirm] = useState(false)
   useEffect(() => { if (res.data) setRuns(res.data) }, [res.data])
 
   useEffect(() => {
@@ -444,7 +461,7 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
         const r = list.find(x => x.id === watch.id)
         if (r && runFinished(r)) {
           setWatch(null)
-          setMsg({ tone: r.status === 'ok' ? 'ok' : 'warn', text: `Run finished: ${RUN_STATUS[r.status]?.label ?? r.status}. ${formatNumber(r.items_added)} news item${r.items_added === 1 ? '' : 's'} and ${formatNumber(r.adverse_added)} adverse item${r.adverse_added === 1 ? '' : 's'} added.` })
+          setMsg({ tone: r.status === 'ok' ? 'ok' : 'warn', text: finishedText(r) })
           return
         }
       } catch { /* a failed refresh is retried on the next tick */ }
@@ -460,16 +477,16 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
     return () => { live = false; if (timer) clearTimeout(timer) }
   }, [watch])
 
+  const queued = (run: NewsRun, text: string) => {
+    setRuns(rs => [run, ...(rs ?? []).filter(x => x.id !== run.id)].slice(0, 10))
+    if (runFinished(run)) setMsg({ tone: 'ok', text: finishedText(run) })
+    else { setMsg({ tone: 'info', text }); setWatch({ id: run.id, until: Date.now() + POLL_MAX_MS }) }
+  }
+
   const runNow = async () => {
     setBusy(true); setMsg(null)
     try {
-      const run = await newsApi.runNow()
-      setRuns(rs => [run, ...(rs ?? []).filter(x => x.id !== run.id)].slice(0, 10))
-      if (runFinished(run)) setMsg({ tone: 'ok', text: 'Run finished.' })
-      else {
-        setMsg({ tone: 'info', text: 'Run queued. The news worker picks it up within seconds; this list refreshes every 5 seconds until it finishes.' })
-        setWatch({ id: run.id, until: Date.now() + POLL_MAX_MS })
-      }
+      queued(await newsApi.runNow(), 'Run queued. The news worker picks it up within seconds; this list refreshes every 5 seconds until it finishes.')
     } catch (err) {
       const e = err as ApiError
       setMsg({ tone: 'warn', text: (e.status === 409 && e.code && RUN_CONFLICT[e.code]) || `Run now failed: ${errorText(e)}` })
@@ -480,11 +497,17 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
     <div className="adm-stack adm-runs">
       <div className="adm-switchrow">
         <Button onClick={() => void runNow()} loading={busy} disabled={!!watch}>Run now</Button>
+        <Button variant="ghost" onClick={() => { setMsg(null); setConfirm(true) }} disabled={!!watch || busy}>Re-check stories</Button>
         <span className="adm-muted">
           {feedsOn ? `Runs every day at ${schedule}. Run now searches all companies once, outside the schedule, and is recorded in the Audit log.`
             : 'The saved setting is off, so nothing runs on schedule and Run now is refused.'}
         </span>
       </div>
+      <p className="adm-hint" id="set-recheck-what">Re-check stories: {RECHECK_TEXT} It works while the search is off.</p>
+      {confirm && (
+        <RecheckDialog onClose={() => setConfirm(false)}
+          onQueued={r => { setConfirm(false); queued(r, 'Re-check queued. The news worker picks it up within seconds; this list refreshes every 5 seconds until it finishes.') }} />
+      )}
       {msg && <div className={`adm-note${msg.tone === 'warn' ? ' adm-note--warn' : ''}`} role="status">{msg.text}</div>}
       {res.error && !runs ? <LoadError error={res.error} onRetry={res.reload} />
         : !runs ? <p className="adm-muted">Loading runs…</p>
@@ -495,13 +518,13 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
               <caption className="ds-visually-hidden">News runs, newest first</caption>
               <thead><tr>
                 <th scope="col">Trigger</th><th scope="col">Status</th><th scope="col">Started</th><th scope="col">Finished</th>
-                <th scope="col" className="adm-num">Companies</th><th scope="col" className="adm-num">Items added</th><th scope="col" className="adm-num">Adverse added</th><th scope="col">Errors</th>
+                <th scope="col" className="adm-num">Companies</th><th scope="col" className="adm-num">Items added</th><th scope="col" className="adm-num">Adverse added</th><th scope="col">Errors</th><th scope="col">Checks and calls</th>
               </tr></thead>
               <tbody>{runs.map(r => {
                 const st = RUN_STATUS[r.status] ?? { tone: 'neutral' as const, label: cap(String(r.status)) }
                 return (
                   <tr key={r.id}>
-                    <th scope="row">{r.trigger === 'manual' ? 'Manual' : r.trigger === 'schedule' ? 'Scheduled' : cap(String(r.trigger))}</th>
+                    <th scope="row">{TRIGGER_LABEL[r.trigger] ?? cap(String(r.trigger))}</th>
                     <td><StatusPill tone={st.tone} size="sm">{st.label}</StatusPill></td>
                     <td className="adm-nowrap">{r.started_at ? formatDateTime(r.started_at) : <span className="adm-muted">Queued {formatDateTime(r.queued_at)}</span>}</td>
                     <td className="adm-nowrap">{r.finished_at ? formatDateTime(r.finished_at) : <span className="adm-muted">—</span>}</td>
@@ -514,6 +537,7 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
                         <ul>{r.errors.map((x, i) => <li key={i}>{[x.company_slug ?? 'All companies', sourceLabel(x.source)].join(' · ')}: {x.message}</li>)}</ul>
                       </details>
                     )}</td>
+                    <td><RunStatsCell stats={r.stats} /></td>
                   </tr>
                 )
               })}</tbody>
@@ -522,6 +546,16 @@ function NewsRuns({ feedsOn, schedule }: { feedsOn: boolean; schedule: string })
         )}
     </div>
   )
+}
+
+/** The line shown when a watched run finishes. A re-check reports what the check kept and excluded. */
+function finishedText(r: NewsRun) {
+  const st = RUN_STATUS[r.status]?.label ?? r.status
+  if (r.trigger === 'recheck') {
+    const s = r.stats ?? {}
+    return `Re-check finished: ${st}. ${formatNumber(s.kept ?? 0)} kept, ${formatNumber(s.excluded ?? 0)} excluded, ${formatNumber(s.pending ?? 0)} pending.`
+  }
+  return `Run finished: ${st}. ${formatNumber(r.items_added)} news item${r.items_added === 1 ? '' : 's'} and ${formatNumber(r.adverse_added)} adverse item${r.adverse_added === 1 ? '' : 's'} added.`
 }
 
 /** One reason for every changed setting; one PUT (and one audit entry) per setting. Stops at the first failure and
