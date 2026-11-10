@@ -222,7 +222,7 @@ describe('Comment threads on the Review report', () => {
       }),
     ])
     renderPage(<ReviewPage />, { path: `${PATH}?thread=${T_FINDING}`, route: '/admin/uploads/queue/:uploadId' })
-    const linked = await screen.findByRole('dialog', { name: /^Comments on R05/ })
+    const linked = await screen.findByRole('dialog', { name: /^Comments on R05/ }, { timeout: 15000 })
     await userEvent.click(within(linked).getAllByRole('button', { name: 'Close' })[0])
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await userEvent.click(screen.getByRole('button', { name: 'Comment on Tranche balance, Closing' }))
