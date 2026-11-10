@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Card, DataTable, SkeletonBlock, type Column } from '@/design/components'
 import { usePublished } from '../data'
 import { useShell } from '../nav'
-import { AdverseCell, DelinquencyCell, NameCell, NewsCell, StatusCell } from './cells'
+import { AdverseCell, DelinquencyCell, NameCell, NewsCell, NewsHeader, StatusCell } from './cells'
 import type { CompanyRow } from './types'
 import { companyLinks, latestMonth, longMonth, programsOf, statusRank, useCompaniesEnabled } from './util'
 
@@ -30,7 +30,7 @@ function CompaniesSectionBody() {
     { key: 'month', header: 'Latest month', sortValue: r => latestMonth(r), render: r => <span className="pf-nowrap">{longMonth(latestMonth(r))}</span> },
     { key: 'status', header: 'Covenant status', sortValue: r => -statusRank(r.status), render: r => <StatusCell r={r} counts={false} /> },
     { key: 'delinquency', header: 'Delinquency', numeric: true, sortValue: r => r.delinquency.max, render: r => <DelinquencyCell d={r.delinquency} /> },
-    { key: 'news', header: 'News this week', numeric: true, sortValue: r => r.news_7d, render: r => <NewsCell n={r.news_7d} /> },
+    { key: 'news', header: <NewsHeader label="News this week" />, numeric: true, sortValue: r => r.news_7d, render: r => <NewsCell n={r.news_7d} /> },
     { key: 'adverse', header: 'Adverse media', render: r => <AdverseCell a={r.adverse} /> },
   ]
   return (

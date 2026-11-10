@@ -24,6 +24,8 @@ describe('Companies list (TAO)', () => {
     const t = await table()
     expect(bodyRows(t)).toHaveLength(10)
     expect(headers(t)).toContain('Notes')
+    const newsHead = within(t).getAllByRole('columnheader').find(h => h.textContent!.startsWith('News 7 days'))!
+    expect(within(newsHead).getByTitle('Checked stories with a confirmed date in the last 7 days')).toBeTruthy()
     const essex = bodyRows(t).find(r => r.textContent!.includes('Essex Lease Financial Corp.'))!
     expect(essex.textContent).toContain('$179,272,568')
     expect(essex.textContent).toContain('1.31%')
@@ -173,7 +175,11 @@ describe('Companies section on the Portfolio Executive Summary', () => {
     expect(headings.indexOf('Companies')).toBeGreaterThan(headings.indexOf('MOVE Trust'))
     expect(headings.indexOf('Companies')).toBeLessThan(headings.indexOf('Flagged deals'))
     expect(screen.getByText(/10 lending companies across 2 programs/)).toBeTruthy()
-    expect(headers(t)).toEqual(['Company', 'Program(s)', 'Industry', 'Latest month', 'Covenant status', 'Delinquency', 'News this week', 'Adverse media'])
+    expect(headers(t)).toEqual(['Company', 'Program(s)', 'Industry', 'Latest month', 'Covenant status', 'Delinquency',
+      'News this week: checked stories with a confirmed date in the last 7 days', 'Adverse media'])
+    // Wave E (decision E3): the tooltip says what news_7d counts.
+    const newsHead = within(t).getAllByRole('columnheader').find(h => h.textContent!.startsWith('News this week'))!
+    expect(within(newsHead).getByTitle('Checked stories with a confirmed date in the last 7 days')).toBeTruthy()
     await userEvent.click(bodyRows(t).find(r => r.textContent!.includes('Essex'))!)
     expect(where()).toBe('/admin/companies/essex-lease-financial-corp')
   }, 60_000)
