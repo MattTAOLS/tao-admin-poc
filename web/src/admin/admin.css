@@ -166,6 +166,9 @@ section:first-child > .adm-group { border-top: 0; }
 .adm-plain th, .adm-plain td { padding: 6px 10px; border-bottom: 1px solid var(--border-table); text-align: left; vertical-align: middle; font-variant-numeric: var(--tabular); }
 .adm-plain thead th { font: 600 10.5px var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .adm-plain tbody th { font-weight: 500; }
+/* Row headers in a plain table read as names, not as the grey caps of a column header (News sources, wave E). */
+.adm-plain tr[data-provider] > th[scope="row"] { font: 600 13px var(--font); text-transform: none; letter-spacing: normal; color: var(--indigo); }
+.adm-plain tr[data-provider] > th[scope="row"] .adm-srcnote { font: 400 var(--fs-small) var(--font); color: var(--muted); margin-top: 2px; }
 .adm-plain .adm-num { text-align: right; }
 .adm-cap { caption-side: top; text-align: left; font: 700 13px var(--font); padding: 0 0 6px; color: var(--text); }
 .adm-day { width: 64px; text-align: right; }
