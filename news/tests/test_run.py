@@ -37,7 +37,7 @@ def test_fixture_run_writes_items_adverse_and_counts(eng):
     assert worker(eng, clock).tick()[0] == rid
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "ok" and run["trigger"] == "manual"
-    assert run["companies"] == 10 and run["items_added"] == 10 and run["adverse_added"] == 7
+    assert run["companies"] == 10 and run["items_added"] == 11 and run["adverse_added"] == 7
     assert run["errors"] == [] and run["started_at"] is not None and run["finished_at"] is not None
 
     items = {i["url"].rsplit("/", 1)[1]: i for i in rows(eng, store.news_item)}
@@ -51,6 +51,17 @@ def test_fixture_run_writes_items_adverse_and_counts(eng):
     assert items["09-negative"]["sentiment"] == "negative"
     assert "11-false-friend" not in items and "12-false-friend" not in items       # TLFCX, Essex Lease Financing
     assert items["01-litigation"]["published_at"] is not None
+    assert items["01-litigation"]["date_status"] == "confirmed" and items["01-litigation"]["check_status"] == "kept"
+    # the two wave E fixture items: a wrong-company story the check excludes, a kept story with no confirmed date
+    wrong = items["13-wrong-company-excluded"]
+    assert wrong["company_slug"] == "dynamic-capital" and wrong["check_status"] == "excluded"
+    assert "city market" in wrong["check_reason"] and wrong["check_model"] == "fixture"
+    unconfirmed = items["14-kept-date-not-confirmed"]
+    assert unconfirmed["company_slug"] == "xpedite-leasing" and unconfirmed["check_status"] == "kept"
+    assert unconfirmed["date_status"] == "source_only" and unconfirmed["published_at"] is None
+    assert unconfirmed["source_date"] is not None
+    assert run["stats"]["kept"] == 11 and run["stats"]["excluded"] == 1 and run["stats"]["pending"] == 0
+    assert run["stats"]["date_confirmed"] == 11 and run["stats"]["calls"] == {"fixture": 10}
 
     adverse = rows(eng, store.adverse_item)
     cats = sorted((a["company_slug"], a["category"]) for a in adverse)
@@ -73,7 +84,7 @@ def test_second_run_dedupes_on_company_and_url(eng):
     w.tick()
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "ok" and run["items_added"] == 0 and run["adverse_added"] == 0
-    assert len(rows(eng, store.news_item)) == 10 and len(rows(eng, store.adverse_item)) == 7
+    assert len(rows(eng, store.news_item)) == 12 and len(rows(eng, store.adverse_item)) == 7
 
 
 def test_same_article_for_two_companies_is_two_rows(eng, tmp_path):
@@ -98,7 +109,7 @@ def test_partial_when_some_companies_fail(eng, tmp_path):
     worker(eng, clock, env={"NEWS_SOURCE": "fixture", "NEWS_FIXTURE": str(f)}).tick()
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "partial"
-    assert run["items_added"] == 8
+    assert run["items_added"] == 9
     assert sorted(e["company_slug"] for e in run["errors"]) == ["stride-capital", "tlfc"]
     assert all(e["source"] == "fixture" and e["message"] for e in run["errors"])
 
@@ -131,7 +142,7 @@ def test_per_source_errors_are_listed(eng):
     good, bad = Boom("google_news"), Boom("gdelt", fail_on={"*"})
     clock = Clock(NOON)
     rid = queue_manual(eng, clock())
-    worker(eng, clock, env={}, source_factory=lambda names, env: ([good, bad], [])).tick()
+    worker(eng, clock, env={}, source_factory=lambda names, env, paid=(): ([good, bad], [])).tick()
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "partial"
     assert {e["source"] for e in run["errors"]} == {"gdelt"} and len(run["errors"]) == 10
@@ -142,7 +153,7 @@ def test_disabled_fetches_nothing_and_fails_a_queued_run(eng):
     calls = []
     clock = Clock(NOON)
     rid = queue_manual(eng, clock())
-    w = worker(eng, clock, source_factory=lambda names, env: calls.append(1) or ([], []))
+    w = worker(eng, clock, source_factory=lambda names, env, paid=(): calls.append(1) or ([], []))
     w.tick()                                           # setting absent: defaults, enabled false
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "failed" and "off" in run["errors"][0]["message"]
@@ -166,7 +177,7 @@ def test_schedule_creates_one_run_per_local_day(eng):
         assert w.tick() == []
     clock.advance(hours=1)
     runs = rows(eng, store.news_run, trigger="schedule")
-    assert len(runs) == 1 and runs[0]["status"] == "ok" and runs[0]["items_added"] == 10
+    assert len(runs) == 1 and runs[0]["status"] == "ok" and runs[0]["items_added"] == 11
     assert len(w.tick()) == 1                                      # 06:00 the next local day
     assert len(rows(eng, store.news_run, trigger="schedule")) == 2
 
@@ -186,7 +197,7 @@ def test_queued_manual_runs_go_one_at_a_time_oldest_first(eng):
             order.append(len(running))
             return []
     spy = Spy("fixture")
-    done = worker(eng, clock, source_factory=lambda names, env: ([spy], [])).tick()
+    done = worker(eng, clock, source_factory=lambda names, env, paid=(): ([spy], [])).tick()
     assert done[:2] == [a, b]
     assert set(order) == {1}                     # never two running at once
     assert {r["status"] for r in rows(eng, store.news_run, trigger="manual")} == {"ok"}
@@ -218,7 +229,7 @@ def test_crash_inside_a_run_marks_it_failed(eng):
     class Broken(Boom):
         def queries(self, company):
             raise RuntimeError("bug")
-    worker(eng, clock, source_factory=lambda names, env: ([Broken("fixture")], [])).tick()
+    worker(eng, clock, source_factory=lambda names, env, paid=(): ([Broken("fixture")], [])).tick()
     run = rows(eng, store.news_run, id=rid)[0]
     assert run["status"] == "failed" and "bug" in run["errors"][0]["message"]
 

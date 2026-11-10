@@ -1,0 +1,16 @@
+{
+  "type": "news",
+  "query": {"original": "\"Stride Capital\""},
+  "results": [
+    {
+      "type": "news_result",
+      "title": "Test item: <strong>Stride Capital</strong> funds a fictional fleet",
+      "url": "https://example.com/brave/stride-fleet",
+      "description": "Fictional test data about <strong>Stride Capital</strong>, not a real report.",
+      "age": "2 days ago",
+      "page_age": "2026-11-04T16:00:00",
+      "meta_url": {"scheme": "https", "netloc": "example.com", "hostname": "example.com", "path": "› brave › stride-fleet"},
+      "extra_snippets": ["Stride Capital, an equipment leasing company, is a made-up subject in this test."]
+    }
+  ]
+}

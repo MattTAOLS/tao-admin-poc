@@ -53,3 +53,47 @@ class Clock:
 
     def advance(self, **kw):
         self.t += dt.timedelta(**kw)
+
+
+PROVIDERS = NEWS / "fixtures" / "providers"
+PAGES = NEWS / "fixtures" / "pages"
+
+
+def provider_body(name):
+    return (PROVIDERS / name).read_bytes()
+
+
+class FakeClaude:
+    """Stands in for anthropic.Anthropic(): client.messages.create(**kw). `answer(kw)` returns a dict (the model's
+    JSON), an exception to raise, or ("refusal", None) for a refusal stop."""
+
+    def __init__(self, answer, input_tokens=1200, output_tokens=80):
+        import types
+        self.calls = []
+        self._answer = answer
+        self._tokens = (input_tokens, output_tokens)
+        self.messages = types.SimpleNamespace(create=self._create)
+
+    def _create(self, **kw):
+        import types
+        self.calls.append(kw)
+        a = self._answer(kw) if callable(self._answer) else self._answer
+        if isinstance(a, Exception):
+            raise a
+        stop = "end_turn"
+        if isinstance(a, tuple):
+            stop, a = a
+        content = [] if a is None else [types.SimpleNamespace(type="text", text=json.dumps(a))]
+        return types.SimpleNamespace(stop_reason=stop, content=content,
+                                     usage=types.SimpleNamespace(input_tokens=self._tokens[0],
+                                                                 output_tokens=self._tokens[1]))
+
+
+def answer(about=True, confidence=0.9, adverse=False, categories=(), sentiment="neutral", published_on=None,
+           reason="About the lender"):
+    return {"about_company": about, "confidence": confidence, "adverse": adverse, "categories": list(categories),
+            "sentiment": sentiment, "published_on": published_on, "reason": reason}
+
+
+def user_prompt(kw):
+    return kw["messages"][0]["content"]

@@ -1,5 +1,5 @@
 {
-  "_note": "Test data only. Every headline is invented, starts with 'Test item:' and says nothing true about any real company. URLs point at example.com.",
+  "_note": "Test data only. Every headline is invented, starts with 'Test item:' and says nothing true about any real company. URLs point at example.com. _check stands in for the Claude answer in fixture mode (NEWS_CHECK=fixture); _date_status says what the date check found (default confirmed).",
   "fail_companies": [],
   "items": [
     {
@@ -85,6 +85,29 @@
       "publisher": "Test Wire",
       "published_at": "-1d",
       "description": "Fictional test data about a made-up company, not a real report."
+    },
+    {
+      "title": "Test item: a fictional city market called the dynamic capital of street food",
+      "url": "https://example.com/tao-news-test/13-wrong-company-excluded",
+      "publisher": "Test Wire",
+      "published_at": "-1d",
+      "description": "Fictional test data: the words Dynamic Capital describe a market, not the lender. Not a real report.",
+      "_check": {
+        "about_company": false,
+        "confidence": 0.95,
+        "adverse": false,
+        "categories": [],
+        "sentiment": "neutral",
+        "reason": "About a fictional city market, not the lender (labelled test answer)"
+      }
+    },
+    {
+      "title": "Test item: Xpedite Leasing sponsors a fictional trade show, date not confirmed",
+      "url": "https://example.com/tao-news-test/14-kept-date-not-confirmed",
+      "publisher": "Test Ledger",
+      "published_at": "-2d",
+      "description": "Fictional test data: the page gave no publication date, only the search date. Not a real report.",
+      "_date_status": "source_only"
     }
   ]
 }

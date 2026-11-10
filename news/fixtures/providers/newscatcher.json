@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "total_hits": 2,
+  "page": 1,
+  "total_pages": 1,
+  "page_size": 100,
+  "articles": [
+    {
+      "title": "Test item: TLFC reports a fictional quarter",
+      "author": "Test Desk",
+      "published_date": "2026-11-05 13:00:00",
+      "published_date_precision": "full",
+      "updated_date": null,
+      "link": "https://example.com/nc/tlfc-quarter#comments",
+      "domain_url": "example.com",
+      "name_source": "Test Wire",
+      "parse_date": "2026-11-06 02:10:00",
+      "description": "Fictional test data about TLFC, not a real report.",
+      "content": "Fictional test data. TLFC, an equipment finance lender, reports a made-up quarter. Not a real report.",
+      "language": "en",
+      "country": "CA",
+      "id": "nc-test-1",
+      "score": 12.5
+    },
+    {
+      "title": "Test item: Moneda Capital fait face à une poursuite fictive",
+      "published_date": "2026-11-02 08:30:00",
+      "published_date_precision": "date",
+      "link": "https://example.com/nc/moneda-poursuite",
+      "domain_url": "example.com",
+      "name_source": "Test Ledger",
+      "parse_date": "2026-11-02 11:00:00",
+      "description": "Données de test fictives sur Moneda Capital.",
+      "content": "Données de test fictives. Moneda Capital fait face à une poursuite inventée.",
+      "language": "fr",
+      "id": "nc-test-2"
+    }
+  ],
+  "user_input": {"q": "\"Moneda Capital\"", "lang": ["en", "fr"]}
+}

@@ -1438,3 +1438,25 @@ Run: `cd api && python -m pytest -q` (new: `tests/test_news_wave_e.py`, 23 tests
 For News: the env var is `NEWS_SECRET_KEY` (the API already gets `.env`); the worker writes last_test_at/ok/message
 on the row; adverse items and alerts depend on check_status and date_status being written as above.
 For UI: GET /news/sources returns `secret_key_set`; poll it after a test until last_test.at changes.
+## News — wave E, news screening version 2 (2026-11-10)
+
+Built in `news/` on `agent/news` against the wave E contract (72ff34e): per company, queries in English and French
+(name, aliases, name plus adverse terms), pooling by canonical URL, pre-filters (on file, exclusions, name match),
+Google link decoding, the article page read once for its date and text, `date_status`, context terms, the mandatory
+Claude check (`claude-haiku-5-5` by default, structured output, pending on failure and retried at the start of the next
+run), adverse items for kept stories only, search windows (3 months, 12 with a paid archive, then 7 days), a daily cap
+per source, `news_run.stats`, recheck runs, and Test connection messages. Paid sources: Event Registry, NewsCatcher,
+Brave news and web; Dow Jones and LexisNexis are slots that say "Needs the client's API documentation". Credentials are
+decrypted per run with `NEWS_SECRET_KEY` and scrubbed from every message. New dependencies: `anthropic==1.17.0`,
+`cryptography==44.0.3` (rebuild the news image).
+
+Run: `cd news && pip install -r requirements-dev.txt && python -m pytest -q` (156 tests, no network). The four Dynamic
+Capital stories are regression tests: the 2009 page is dropped by its page date before any check; the three
+ordinary-phrase stories are excluded by the (mocked) check. `python check_eval.py` runs a labelled set against the live
+model on demand (needs a key; not run yet).
+
+Verified only against recorded data: the paid adapters (responses shaped from the providers' published docs in
+`news/fixtures/providers/`; no client key yet), Google's new-style link decoding (unofficial call, mocked), and the
+Claude check (recorded answers). Stubbed: Dow Jones and LexisNexis. Needs: QA to move step 12 to 11 news items (the
+fixture now has an excluded story and a kept story with an unconfirmed date); the API to send test messages and
+recheck runs as in `docs/requests.md` (News, 2026-11-10).
