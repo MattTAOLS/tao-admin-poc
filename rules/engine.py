@@ -48,9 +48,47 @@ def check_failed(rule: dict, extraction: dict, error: Exception) -> dict:
     return finding({**rule, "severity": sev}, uid, context={"error": detail, "title": rule.get("title", rule["id"])},
                    message="{title} could not be checked on this extraction (" + detail.replace("{", "(").replace("}", ")") + "). Re-read the report (pass 2) or check it by hand in review.")
 
+# deal section (first pointer token) -> deal.source_pages key: where that section's heading was found in THIS report
+SECTION_PAGE_KEYS = {"tranche_balance": "tranche_balance", "period_history": "tranche_balance", "contracts": "outstanding_contracts",
+                     "tranche_amount": "tranche_amounts", "total_enhancement": "enhancement", "top10_obligors": "top10_obligor",
+                     "aging_history": "aging_summary", "ratio_history": "aggregate_performance", "cnl_by_period": "cumulative_losses",
+                     "covenants": "quantitative_tests", "covenant_summary": "quantitative_tests", "worst_status": "quantitative_tests",
+                     "financial_ratios": "financial_ratios"}
+
+def _is_page(v): return isinstance(v, int) and not isinstance(v, bool) and v >= 1
+
+def page_of(pointer: str, extraction: dict):
+    """The page of this report a deal pointer was read from, or None. First the provenance of the leaf itself
+    (extraction.sources[pointer].page), then of the first leaf under it (a row or a table: "/aging_history/0",
+    "/cnl_by_period/3"), then the page the section's heading was found on (deal.source_pages). Pointers into other
+    documents (prior:, master:, meta:) have no page here."""
+    if not isinstance(pointer, str) or not pointer.startswith("/"): return None
+    sources = extraction.get("sources") or {}
+    src = sources.get(pointer)
+    if isinstance(src, dict) and _is_page(src.get("page")): return src["page"]
+    under = [v["page"] for k, v in sources.items() if k.startswith(pointer + "/") and isinstance(v, dict) and _is_page(v.get("page"))]
+    if under:   # the page most of its leaves sit on (a covenant row: the tests page, not the page of one input); ties: the first
+        return max(sorted(set(under)), key=under.count)
+    key = SECTION_PAGE_KEYS.get(pointer.split("/")[1])
+    page = ((extraction.get("deal") or {}).get("source_pages") or {}).get(key) if key else None
+    return page if _is_page(page) else None
+
+def resolve_source_page(f: dict, rule: dict, extraction: dict):
+    """source_page for one finding. rules.yaml source_page_hint is an F-PIL page number (aging on 11, CNL on 12), so on
+    another layout it names the wrong page (Dynamic Capital prints aging on page 15). The page comes from where the
+    finding's own values were read in this extraction: its targets first, then its fields. The hint stands only when
+    no page is known for any of them. A page the check set itself (different from the hint) is kept."""
+    hint = rule.get("source_page_hint")
+    if f.get("source_page") != hint: return f.get("source_page")
+    for ptr in list(f.get("targets") or []) + list(f.get("fields") or []):
+        page = page_of(ptr, extraction)
+        if page: return page
+    return hint
+
 def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = None, only: set | None = None) -> list[dict]:
     """Evaluate every enabled rule in the given phases (or just the rule ids in `only`).
-    A rule function returns a list of findings (possibly empty)."""
+    A rule function returns a list of findings (possibly empty). Each finding's source_page is then resolved
+    against this extraction (resolve_source_page), so the worker and the API's re-run name the same page."""
     from . import checks
     rules_doc = rules_doc or load_rules()
     tol = rules_doc["tolerances"]; settings = settings_of(rules_doc); out = []
@@ -60,7 +98,11 @@ def run(extraction: dict, ctx: Context, phases=(1,), rules_doc: dict | None = No
         elif rule.get("phase", 1) not in phases: continue
         fn = getattr(checks, rule.get("fn") or "", None)
         if fn is None: continue   # not implemented: skipped so the pipeline runs (R16, R20-R22 in the POC)
-        try: out.extend(fn({**rule, "settings": settings}, extraction, ctx, tol))
+        try: found = fn({**rule, "settings": settings}, extraction, ctx, tol)
         except Exception as e:   # a check must never take the upload down: surface it to the reviewer instead
-            out.append(check_failed(rule, extraction, e))
+            found = [check_failed(rule, extraction, e)]
+        for f in found:
+            try: f["source_page"] = resolve_source_page(f, rule, extraction)
+            except Exception: pass   # the hint (or the check's own page) stands
+        out.extend(found)
     return out

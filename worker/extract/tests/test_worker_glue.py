@@ -79,11 +79,13 @@ def test_failure_in_extraction_marks_failed(store, monkeypatch):
 
 
 def test_failure_in_pass2_without_pages_marks_failed(store, monkeypatch):
+    """A pass-2 job with no pages and no pass-1 file runs as a full pass 1 (audit L7); with no source.pdf in the
+    store that fails like any extraction and the upload is marked failed."""
     fake = FakeValidate()
     monkeypatch.setattr(wm, "_validate_api", lambda: fake.api)
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         handle({"upload_id": UID, "pass": 2})
-    assert fake.events[-1] == ("failed", UID, "pass-2 job without pages")
+    assert fake.events[0] == ("extracting", UID) and fake.events[-1][:2] == ("failed", UID) and fake.events[-1][2]
 
 
 @needs_samples

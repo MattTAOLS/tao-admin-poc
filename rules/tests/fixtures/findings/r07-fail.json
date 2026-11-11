@@ -25,7 +25,9 @@
     "current_0_30": 14781278.24,
     "days_31_60": 103234.99,
     "days_61_90": 136458.29,
-    "written_off": 12828.67
+    "written_off": 12828.67,
+    "aging_page": 11,
+    "tranche_page": 2
   },
   "resolution": null,
   "targets": [

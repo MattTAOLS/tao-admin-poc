@@ -1671,3 +1671,75 @@ Run: `cd web && npx tsc --noEmit -p . && npx vitest run src/portfolio src/shell 
 `shell/__tests__/identity.test.tsx`, `shell/account/__tests__/inbox.test.tsx`.
 Stubbed: nothing. Needed from others: the API halves of L18 (anchors) and M19 (portal-prefixed links); the UI works
 with the old and the new values.
+## Rules + Extraction — bug-audit fixes H4, H5, H6, M4–M8, L6, L7, L27 (2026-11-10)
+
+Branch `agent/rules` on 1e3b4a5. `worker/extract/` opened for these fixes with Matt's go-ahead. Audit ids are from
+`docs/audit/tao-admin-poc-bug-audit_Report_v1.md`.
+
+What changed, by finding:
+
+- **H4** A page with no text layer no longer passes clean. R01 treats an empty required table (`/covenants`,
+  `/cnl_by_period`, `/aging_history`) as missing, requires an aging row for this collection period, and raises two
+  more block findings from the extraction's own record: `meta.pages_without_text` (names the pages) and
+  `meta.unplaced` (names the fields). R07 and R08 read the aging row of this period by its period, never index 0, so a
+  chained history cannot put last month's row under the check. R05 blocks when `period_history` holds only earlier
+  months. Moneda Aug-2026 with page 14 blank: three block findings instead of none.
+- **H5** Pass 2 parses the whole document and builds the deal object in full, then keeps only the leaves whose inputs
+  are all on the pages asked for (`Recorder.inputs`). `merge_patch` matches list rows by natural key
+  (`meta.row_keys`: month, period, vintage label, legal ref + description, ratio key, tranche, rank), appends a row the
+  base lacks, and never lets a null replace a pass-1 value. The audit's six cases merge to the full extraction with
+  zero differing leaves. Cost: a pass 2 now takes as long as a pass 1.
+- **H6** `handle_extraction` copies the reviewer's status and resolution from the upload's previous extraction to the
+  matching new finding (same identity, severity, targets, values and context). A finding whose values changed starts
+  open. Identity (`adapter._key`) is rule id, fields and the context values that name the row (month, field, vintage,
+  legal_ref, side, tranche, metric, history_month, currency, limit_name): the same list as the API's `finding_key`.
+- **M4** A ceiling or floor covenant with no value (or no threshold) has `status: null`, provenance confidence 0.5 on
+  that status, and is in none of the `covenant_summary` counts. R18 raises a review finding naming the covenant.
+  `prior_covenants` rows keep "OK" where the prior month's CNL is not printed on the report (unchanged; chaining
+  replaces the row).
+- **M5** Every engine writes the report's printed contract change to `/contracts/change_reported` (as printed: F-PIL
+  positive for a decrease, MOVE Trust negative; the multi-currency layout sums its pages). R06 closes the count with
+  it. `change_abs` is unchanged and is the fallback for objects without the printed figure.
+- **M6** `rules.run()` resolves each finding's `source_page` from this extraction: `sources` of its targets, then its
+  fields, then `deal.source_pages`, then the `rules.yaml` hint. The API's re-run gets the same pages because it calls
+  `run()`. Dynamic Capital Jul-2026 R07: page 15, and the pass-2 page set follows. The R07 and R08 sentences name the
+  report's own page.
+- **M7** One status function, `rules/covenant_status.py`, called by every engine (`worker/extract/status.py`) and by
+  R18. Floor band: WATCH when value <= threshold / (1 - buffer). Chosen because the published Essex object has
+  interest coverage 1.11 against a floor of 1.00 as WATCH, and the portal's own `displayStatus` uses the same
+  utilization test. The symmetric band (threshold x 1.1) is gone from `derive.py`.
+- **M8** `worker/main.py`: `serve()` wraps every loop pass; a Redis or database error is logged and retried after 5 s.
+  A job whose upload cannot be marked extracting goes back on the queue (5 attempts). `recover()` runs at start and
+  every 120 s: `validate.recover_stale` marks uploads left in `received` / `extracting` with no queued job and no
+  activity for `WORKER_STALE_MINUTES` (default 15) as `extraction_failed` with a plain reason and an audit row.
+- **L6** Model-fallback cells are checked before merging: asked-for fields only, no nulls, page inside the document
+  and among the pages shown, finite numbers, cover dates that parse. A rejected answer leaves the field unplaced with a
+  note in `meta.notes`.
+- **L7** A pass-2 job with no `extraction-pass1.json` (or no pages) runs a full pass 1 and is handed off as pass 1.
+- **L27** Not an extraction defect. The reports print vintages with a figure dash (U+2012); the extraction carries
+  that character and the worker writes JSON with `\u` escapes. "â€’" is those UTF-8 bytes read as cp1252 by a reader
+  on a Windows host. Regression test added; `scripts/check_contracts.py` and one rules test still open JSON without an
+  encoding (the rules test is fixed).
+
+How to run: `cd rules && python -m pytest -q`; `cd worker/validate && python -m pytest -q`;
+`EXTRACT_SAMPLES_DIR=<checkout with data/samples> python -m pytest -q worker/extract/tests` (add `EXTRACT_ALL=1` for
+the MOVE Trust cases).
+
+Needs from the Lead:
+
+1. `contracts/extraction.schema.json`: `covenants[].status` is `{"type": "string"}`. An extraction with an unreadable
+   covenant value now carries `status: null` and does not validate. Proposed: `"status": {"type": ["string", "null"],
+   "description": "OK | WATCH | BREACH | AVAILABLE; null when the value or threshold was not read"}` for `covenants`
+   and `prior_covenants`. Also add `contracts.change_reported` (`{"type": ["number", "null"], "description": "the
+   report's printed change on the Contract Totals row, as printed"}`); the object already allows extra keys.
+2. `contracts/rules.yaml`: the unread-page and unplaced-field findings are folded into R01. Proposed entry (needs the
+   `rule_id` pattern in `finding.schema.json` widened to R23):
+   `- id: R23 / layer: structural / phase: 1 / severity: block / title: Every page and field was read / fields:
+   [meta:/pages_without_text, meta:/unplaced] / fn: extraction_complete / on_failure: review / message: "{detail}"`.
+   R06's description still says "opening_contracts − change = closing_contracts"; the check now reads
+   `/contracts/change_reported`, worth adding to its `fields`.
+3. UI: a covenant with `status: null` renders the pill text "null" (`CovenantPill`, `String(status)`); it should read
+   "No value". New finding messages the review page will show: R01 "N page(s) of the report have no text layer and
+   were not read: ...", R01 "N field(s) the extraction could not place on the report: ...", R18 "<ref>: no current
+   value was read for this ceiling covenant ...", R06 "Opening contracts X and the printed change Y give Z ...".
+4. API: nothing required. `handle_extraction` now returns a `carried` count beside `counts`.

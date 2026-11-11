@@ -7,9 +7,11 @@ Python. Importable as `validate` (the container runs `python main.py` from /app)
 
 Worker entry points (worker/main.py calls these):
     mark_extracting(upload_id)                 received -> extracting when a job is taken
-    handle_extraction(job, extraction)         store the extraction, run the rules, store findings, set the status,
+    handle_extraction(job, extraction)         store the extraction, run the rules, store findings (carrying the reviewer's
+                                               resolutions over from the upload's previous extraction), set the status,
                                                queue the one automatic pass 2 when block findings ask for it
     mark_failed(upload_id, error)              -> extraction_failed, logged and audited
+    recover_stale(queued_ids)                  uploads left in received / extracting with no job waiting -> extraction_failed
 Each takes an optional SQLAlchemy Connection; without one it opens a transaction on DATABASE_URL and commits it.
 
 Context parity: build_context returns the same shape as api/app/review.py build_context (the override re-run), and
@@ -44,6 +46,15 @@ def _row(r, json_cols=()):
     return d
 
 def _dump(v): return None if v is None else json.dumps(v)
+
+def _ts(v) -> dt.datetime | None:
+    """A database timestamp (datetime on PostgreSQL, 'YYYY-MM-DD HH:MM:SS' text on SQLite, ISO text after _plain) as an
+    aware UTC datetime; None when it does not parse."""
+    if v is None: return None
+    if not isinstance(v, dt.datetime):
+        try: v = dt.datetime.fromisoformat(str(v).strip().replace("Z", "+00:00"))
+        except ValueError: return None
+    return v if v.tzinfo else v.replace(tzinfo=dt.timezone.utc)
 
 def period_end(period: str) -> dt.date:
     y, m = int(period[:4]), int(period[5:7])
@@ -114,8 +125,22 @@ class SqlStore:
         return out
     def publications(self, deal_slug):
         return self._all("select upload_id, collection_period, published_at, deal from publication where deal_slug = :slug order by collection_period", ("deal",), slug=deal_slug)
+    def previous_extraction(self, upload_id):
+        """The upload's newest stored extraction, whatever its pass (call it before inserting the next one)."""
+        return self._one("select id, upload_id, pass, meta, created_at from extraction where upload_id = :u order by created_at desc, pass desc", ("meta",), u=str(upload_id))
     def findings(self, extraction_id):
-        return self._all("select id, extraction_id, rule_id, severity, fields, context, status from finding where extraction_id = :e", ("fields", "context"), e=str(extraction_id))
+        targets = ", targets" if self._has_column("finding", "targets") else ""
+        return self._all(f"select id, extraction_id, rule_id, severity, fields, our_value, report_value, difference, unit, context, status, resolution{targets} from finding where extraction_id = :e",
+                         ("fields", "context", "our_value", "report_value", "resolution", "targets"), e=str(extraction_id))
+    def stuck_uploads(self):
+        """Uploads in received / extracting with the time anything last happened to them: the upload itself, its newest
+        extraction, its newest audit row (the API audits a re-extract when it queues one)."""
+        rows = self._all("select id, status, uploaded_at from setrep_upload where status in ('received', 'extracting')")
+        for r in rows:
+            ex = self.conn.execute(text("select max(created_at) from extraction where upload_id = :u"), {"u": str(r["id"])}).scalar()
+            act = self.conn.execute(text("select max(at) from review_action where upload_id = :u"), {"u": str(r["id"])}).scalar()
+            r["last_activity"] = max((t for t in (_ts(r.get("uploaded_at")), _ts(ex), _ts(act)) if t is not None), default=None)
+        return rows
     def open_counts(self, extraction_id):
         out = {"block": 0, "review": 0, "note": 0}
         for r in self.conn.execute(text("select severity, count(*) as n from finding where extraction_id = :e and status = 'open' group by severity"), {"e": str(extraction_id)}):
@@ -212,12 +237,59 @@ def retry_pages(findings: list[dict], rules_doc: dict | None = None) -> list[int
     retry = {r["id"] for r in (rules_doc or load_rules())["rules"] if r.get("on_failure") == "retry_pass_2_then_review"}
     return sorted({f["source_page"] for f in findings if f["severity"] == "block" and f["rule_id"] in retry and f.get("source_page")})
 
-def _key(f): return (f["rule_id"], tuple(f.get("fields") or []), (f.get("context") or {}).get("vintage"), (f.get("context") or {}).get("legal_ref"))
+# Context keys that say WHICH thing a finding is about (not what its numbers are): every R11 restatement has the same
+# rule id and fields, and month + field tell them apart. Same list, order and encoding as api/app/review.py
+# IDENTITY_KEYS / finding_key, so the worker (pass 1 -> pass 2, carried resolutions) and the API's re-run identify
+# the same underlying finding.
+IDENTITY_KEYS = ("month", "field", "vintage", "legal_ref", "side", "tranche", "metric", "history_month", "currency", "limit_name")
+
+def _key(f):
+    ctx = f.get("context") if isinstance(f.get("context"), dict) else {}
+    ident = tuple((k, ctx[k] if isinstance(ctx[k], (str, int, float, bool)) else json.dumps(ctx[k], sort_keys=True, default=str))
+                  for k in IDENTITY_KEYS if ctx.get(k) is not None)
+    return (f["rule_id"], tuple(f.get("fields") or []), ident)
 
 def resolved_by_pass_2(pass1: list[dict], pass2: list[dict]) -> list[dict]:
     """Open pass-1 findings with no counterpart in pass 2, marked resolved_by_pass_2."""
     still = {_key(f) for f in pass2}
     return [{**f, "status": "resolved_by_pass_2"} for f in pass1 if f.get("status", "open") == "open" and _key(f) not in still]
+
+# ---------- reviewer resolutions across re-extraction ----------
+CARRIED_STATUSES = ("overridden", "accepted_as_restatement")   # every status a reviewer's choice sets (api/app/review.CHOICE_STATUS)
+
+def _canon(v):
+    """A JSON value in a form that compares equal across a database round trip: numbers as floats rounded to 9 places
+    (numeric columns come back as Decimal / float, 12 and 12.0 are the same value), containers recursively."""
+    if isinstance(v, bool) or v is None or isinstance(v, str): return v
+    if isinstance(v, (int, float, decimal.Decimal)): return round(float(v), 9)
+    if isinstance(v, dict): return {str(k): _canon(x) for k, x in sorted(v.items(), key=lambda kv: str(kv[0]))}
+    if isinstance(v, (list, tuple)): return [_canon(x) for x in v]
+    return str(v)
+
+def same_finding(old: dict, new: dict) -> bool:
+    """The same underlying finding with nothing it compares changed: same rule, fields, vintage and legal ref (_key),
+    same severity, same targets (compared when the stored finding has them: the column arrives with migration 005),
+    same our_value / report_value / difference, and the same context (the terms of the identity the card shows).
+    Anything else is a different finding, or the same check on different numbers."""
+    if _key(old) != _key(new) or old.get("severity") != new.get("severity"): return False
+    return all(_canon(old.get(k)) == _canon(new.get(k)) for k in ("our_value", "report_value", "difference", "unit")) \
+        and ("targets" not in old or _canon(old.get("targets") or []) == _canon(new.get("targets") or []))         and _canon(old.get("context") or {}) == _canon(new.get("context") or {})
+
+def carry_resolutions(previous: list[dict], new: list[dict]) -> list[tuple[dict, dict]]:
+    """Give each new finding the reviewer's decision on the same finding in the upload's previous extraction: status
+    and resolution (who, when, choice, reason) are copied when same_finding holds; a finding whose values changed, or
+    that is new, stays open. One previous finding resolves at most one new finding. Mutates `new`; returns the
+    (previous, new) pairs carried."""
+    pool = [f for f in previous if f.get("status") in CARRIED_STATUSES and f.get("resolution")]
+    pairs = []
+    for nf in new:
+        if nf.get("status", "open") != "open": continue
+        old = next((f for f in pool if same_finding(f, nf)), None)
+        if old is None: continue
+        pool.remove(old)
+        nf["status"], nf["resolution"] = old["status"], copy.deepcopy(old["resolution"])
+        pairs.append((old, nf))
+    return pairs
 
 def counts(findings: list[dict]) -> dict:
     """finding_counts for the upload summary: open findings by severity."""
@@ -269,6 +341,29 @@ def mark_failed(upload_id, error: str, conn=None) -> None:
         c.execute(text("insert into review_action (id, upload_id, actor_role, actor_label, action, reason, detail) values (:id, :u, 'system', 'worker', 'extract', :r, :d)"),
                   {"id": str(uuid.uuid4()), "u": str(upload_id), "r": (error or "")[:1000], "d": json.dumps({"status": "extraction_failed"})})
 
+STALE_MINUTES = 15   # an extraction takes seconds to a few minutes; nothing waits this long with no job in the queue
+INTERRUPTED = ("Extraction did not finish: the worker stopped while this upload was waiting or being read, and no job is "
+               "queued for it. Re-extract to try again.")
+
+def recover_stale(queued_ids=(), older_than_minutes: float | None = None, conn=None, now: dt.datetime | None = None) -> list[str]:
+    """Uploads left in received / extracting whose job is gone: BLPOP takes a job off the queue before the work starts,
+    so a worker killed mid-job (or before it marked the upload) leaves the upload there for good. Any such upload with
+    no job waiting in the queue (`queued_ids`: upload ids of the jobs still in the list) and nothing recorded for it in
+    the last `older_than_minutes` (WORKER_STALE_MINUTES, default 15) is marked extraction_failed with a plain reason,
+    audited like any failed extraction, so the operator can re-extract. Called at worker start and every few minutes,
+    between jobs, so the calling worker's own job is never in flight. Returns the upload ids failed."""
+    if older_than_minutes is None:
+        try: older_than_minutes = float(os.environ.get("WORKER_STALE_MINUTES", STALE_MINUTES))
+        except ValueError: older_than_minutes = STALE_MINUTES
+    now = now or dt.datetime.now(dt.timezone.utc); queued = {str(q) for q in queued_ids}; failed = []
+    with _tx(conn) as c:
+        for u in SqlStore(c).stuck_uploads():
+            last = u.get("last_activity")
+            if str(u["id"]) in queued or (last is not None and (now - last).total_seconds() < older_than_minutes * 60): continue
+            mark_failed(u["id"], INTERRUPTED, conn=c)
+            failed.append(str(u["id"]))
+    return failed
+
 def chain_history(store: SqlStore, upload_id: str, extraction: dict, extend) -> dict:
     """extraction = extend(prior published deal, extraction), with the same prior build_context gives the rules.
     No prior (first upload for the deal): returned unchanged. If extend raises, the unchained extraction is returned
@@ -293,7 +388,9 @@ def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None, exte
     Pass 1: block findings that ask for a retry queue {"upload_id", "pass": 2, "pages"} (status stays extracting);
     otherwise, or if the queue is unavailable (enqueue=False or it raises), needs_review.
     Pass 2: open pass-1 findings pass 2 no longer produces become resolved_by_pass_2; needs_review.
-    Returns {"extraction_id", "status", "counts"}."""
+    Any re-extraction (automatic pass 2, or a re-extract during review): a finding the reviewer already resolved on the
+    upload's previous extraction keeps that resolution when it is the same finding on the same values (carry_resolutions).
+    Returns {"extraction_id", "status", "counts", "carried"}."""
     upload_id, pass_ = str(job["upload_id"]), int(job.get("pass", 1))
     eid = str(uuid.uuid4())
     with _tx(conn) as c:
@@ -301,12 +398,15 @@ def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None, exte
         if extend is not None: extraction = chain_history(store, upload_id, extraction, extend)
         meta = {**(extraction.get("meta") or {}), "upload_id": upload_id, "pass": pass_}
         prev = store.latest_extraction(upload_id, 1) if pass_ == 2 else None
+        last = store.previous_extraction(upload_id)   # before the insert: the extraction the reviewer has been working on
         c.execute(text("insert into extraction (id, upload_id, pass, meta, deal, sources, confidence) values (:id, :u, :p, :m, :d, :s, :conf)"),
                   {"id": eid, "u": upload_id, "p": pass_, "m": json.dumps(meta), "d": json.dumps(extraction["deal"]), "s": json.dumps(extraction.get("sources") or {}),
                    "conf": meta.get("confidence")})
         if meta.get("reporting_period"):
             c.execute(text("update setrep_upload set reporting_period = :r where id = :id"), {"r": meta["reporting_period"], "id": upload_id})
         findings = validate_extraction(store, eid)
+        carried = carry_resolutions(store.findings(last["id"]), findings) if last else []
+        if carried: log.info("upload %s: %d reviewer resolution(s) carried over to extraction %s", upload_id, len(carried), eid)
         insert_findings(c, findings)
         pages = retry_pages(findings) if pass_ == 1 else []
         if pass_ == 2 and prev:
@@ -322,4 +422,4 @@ def handle_extraction(job: dict, extraction: dict, conn=None, enqueue=None, exte
             log.error("pass-2 enqueue failed for %s: %s", upload_id, e)
             with _tx(conn) as c: _set_status(c, upload_id, "needs_review", ("extracting",))
             status = "needs_review"
-    return {"extraction_id": eid, "status": status, "counts": counts(findings)}
+    return {"extraction_id": eid, "status": status, "counts": counts(findings), "carried": len(carried)}

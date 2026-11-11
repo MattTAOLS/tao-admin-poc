@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from .. import mapper
-from ..derive import MONTHS, Series, _month_key, _prev_mon_yy, _prev_month, _threshold, _trend, _ym, parse_long_date, slugify
+from ..derive import MONTHS, Series, _month_key, _prev_mon_yy, _prev_month, _status, _threshold, _trend, _ym, parse_long_date, slugify
 from ..mapper import F, Doc, Parsed, _all_numeric, _first_number_after, _pick_variant
 from ..parse import DASHES, Cell, _edge, cells, is_advance_date, is_month, is_number, row_cells
 from ..provenance import Recorder
@@ -123,18 +123,6 @@ def _place(cs: list[Cell], anchors: list[float]) -> Optional[list[Optional[Cell]
             return None
         out[i] = c
     return out
-
-
-def _status(v, thr, kind, buffer) -> str:
-    """ceiling: BREACH above the threshold, WATCH at or above threshold x (1 - buffer); floor: BREACH below it,
-    WATCH at or below threshold / (1 - buffer), i.e. utilization (threshold / value) >= 1 - buffer. Same rule as
-    the covenant-status check in rules/checks.py."""
-    if v is None or thr is None:
-        return "OK"
-    eps = 1e-9
-    if kind == "ceiling":
-        return "BREACH" if v > thr + eps else "WATCH" if v >= thr * (1 - buffer) - eps else "OK"
-    return "BREACH" if v < thr - eps else "WATCH" if v <= thr / (1 - buffer) + eps else "OK"
 
 
 def _v(f: Optional[F]) -> float:
@@ -721,6 +709,7 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
         o, c = ctt.get("opening"), ctt.get("closing")
         w.read(["/contracts/opening", f"{ph}/opening_contracts"], o)
         w.read(["/contracts/closing", f"{ph}/closing_contracts"], c)
+        rec.read("/contracts/change_reported", ctt.get("change"))     # as printed; rule R06 closes the count with it
         rec.derived("/contracts/change_abs", _v(c) - _v(o), "closing - opening", [c, o])
         rec.derived("/contracts/change_pct", (_v(c) - _v(o)) / _v(o) if _v(o) else None, "(closing - opening) / opening", [c, o])
         rec.empty("/contracts/top_movers")
@@ -863,7 +852,7 @@ def build(p: Parsed, rec: Recorder, *, prior: dict | None = None, partial: bool 
     worst = _worst(p, limit_fn)
     if p.tests and cur_month:
         covs = _covenants(p, s, cur_month, worst, der, tpl)
-        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, der, tpl, prior_deal=prior_deal)
+        prior_covs = _covenants(p, s, _prev_mon_yy(cur_month), None, der, tpl, prior_deal=prior_deal, prior_month=True)
         for name, lst in (("covenants", covs), ("prior_covenants", prior_covs)):
             rec.empty(f"/{name}")
             for i, (c, srcs) in enumerate(lst):
@@ -1045,7 +1034,7 @@ def _expand(lst: str) -> list[int]:
 
 
 def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], der: dict, tpl: dict,
-               prior_deal: dict | None = None) -> list[tuple[dict, dict]]:
+               prior_deal: dict | None = None, prior_month: bool = False) -> list[tuple[dict, dict]]:
     sec = tpl["sections"]["quantitative_tests"]
     out = []
     for t in p.tests:
@@ -1112,7 +1101,7 @@ def _covenants(p: Parsed, s: Series, month: str, worst: Optional[dict], der: dic
                     util = round(v / thr, der["utilization_round"]) if kind == "ceiling" else \
                         (round(thr / v, der["utilization_round"]) if v else None)
                 c.update({"current_value": v, "threshold": thr, "kind": kind, "utilization_pct": util, "trend": trend,
-                          "status": _status(v, thr, kind, der["watch_buffer_pct"]), "note": None})
+                          "status": _status(v, thr, kind, der["watch_buffer_pct"], prior_month), "note": None})
                 if series == "cnl_worst_vintage":
                     c["worst_vintage"] = wv
                 if vf is not None:

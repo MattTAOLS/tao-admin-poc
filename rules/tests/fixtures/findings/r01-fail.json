@@ -15,10 +15,11 @@
   "difference": null,
   "tolerance": null,
   "unit": null,
-  "source_page": null,
+  "source_page": 2,
   "context": {
     "count": 1,
-    "missing": "/tranche_balance/closing"
+    "missing": "/tranche_balance/closing",
+    "period": "August 2026"
   },
   "resolution": null
 }

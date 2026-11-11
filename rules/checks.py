@@ -8,7 +8,8 @@ Conventions:
   keys our_value / report_value / difference (those are top-level finding fields).
 """
 import calendar, datetime as dt, math, re
-from .engine import finding, load_rules, settings_of
+from .engine import finding, load_rules, page_of, settings_of
+from .covenant_status import covenant_status
 
 EPS = 1e-9
 
@@ -71,6 +72,22 @@ def _current_index(d):
     """Index of the current period's row in period_history (3 in a chained 4-month object, 0 in a single upload)."""
     return next((i for i, p in enumerate(d.get("period_history", [])) if p.get("collection_period") == d.get("collection_period")), None)
 
+def _current_aging(d):
+    """(index, row) of the aging_history row for the deal's collection period, or (None, None).
+    aging_history is newest first, so the current row is normally index 0; after history chaining, a report whose
+    aging page was not read would otherwise leave LAST month's row there. A row that names no period at all (an object
+    built by hand) is taken as the current one only at index 0."""
+    rows = d.get("aging_history") or []
+    cp = period_key(d.get("collection_period"))
+    for i, a in enumerate(rows):
+        if not isinstance(a, dict): continue
+        k = period_key(a.get("period")) or period_key(a.get("collection_period"))
+        if k is None and a.get("period") is None and a.get("collection_period") is None:
+            if i == 0: return 0, a
+            continue
+        if cp is not None and k == cp: return i, a
+    return None, None
+
 def missing_terms(rule, ex, where, missing, fields, source_page=None):
     """A block finding for an arithmetic check whose required terms are null or not numbers: names them and asks for
     pass 2 / review instead of raising. The rule's own severity is kept (block for every arithmetic rule)."""
@@ -95,12 +112,42 @@ def _targets(d, primary, candidates, value, unit="currency"):
 # ---------- R01 ----------
 NUMERIC = {"/tranche_balance/opening", "/tranche_balance/closing", "/contracts/opening", "/contracts/closing", "/program/program_limit", "/program/program_amount"}
 
+def _empty(v): return isinstance(v, (list, dict, str)) and len(v) == 0
+
 def required_fields_present(rule, ex, ctx, tol):
-    missing = []
+    """Every required field is present, numeric where numeric, not null and not empty: a required table with no rows
+    (covenants, CNL by period, aging) is missing, not present. aging_history must hold a row for THIS collection period
+    (after history chaining, an unread aging page would leave only earlier months' rows).
+    Two more block findings come from the extraction's own record of what it could not read, both under R01 because
+    rules.yaml has no rule for them (docs/progress.md has the rule entry proposed to the Lead):
+    meta.pages_without_text (pages with no text layer: nothing on them was read) and meta.unplaced (fields the parser
+    found no cell for). They name the pages / fields; the reviewer checks them by hand and acknowledges, or rejects."""
+    d = ex["deal"]; meta = ex.get("meta") or {}; out = []
+    missing, stale_aging = [], False
     for ptr in rule["fields"]:
-        v = _get(ex["deal"], ptr)
-        if v is None or (ptr in NUMERIC and not _num(v)): missing.append(ptr)
-    return [finding(rule, _uid(ex), context={"count": len(missing), "missing": ", ".join(missing)}, fields=missing)] if missing else []
+        v = _get(d, ptr)
+        if v is None or _empty(v) or (ptr in NUMERIC and not _num(v)): missing.append(ptr)
+        elif ptr == "/aging_history" and isinstance(v, list) and _current_aging(d)[0] is None:
+            missing.append(ptr); stale_aging = True
+    if missing:
+        kw = {}
+        if stale_aging:
+            kw["message"] = ("{count} required field(s) missing or non-numeric: {missing}. /aging_history has no row for {period}: "
+                             "the rows it holds are earlier months carried over from the published history.")
+        out.append(finding(rule, _uid(ex), context={"count": len(missing), "missing": ", ".join(missing), "period": d.get("collection_period")}, fields=missing, **kw))
+    pages = sorted({p for p in meta.get("pages_without_text") or [] if isinstance(p, int) and not isinstance(p, bool)})
+    if pages:
+        out.append(finding(rule, _uid(ex), fields=["meta:/pages_without_text"], source_page=pages[0],
+                           context={"pages": pages, "pages_list": ", ".join(str(p) for p in pages), "count": len(pages), "page_count": meta.get("page_count")},
+                           message="{count} page(s) of the report have no text layer and were not read: {pages_list}. Every value printed there is missing "
+                                   "from this extraction. Upload a PDF with a text layer, or check those pages by hand in review."))
+    unplaced = [str(u) for u in meta.get("unplaced") or [] if u]
+    if unplaced:
+        out.append(finding(rule, _uid(ex), fields=["meta:/unplaced"],
+                           context={"unplaced": unplaced, "unplaced_list": ", ".join(unplaced), "count": len(unplaced)},
+                           message="{count} field(s) the extraction could not place on the report: {unplaced_list}. "
+                                   "Find them on the report and check or enter the values in review."))
+    return out
 
 # ---------- R02 ----------
 def _report_currency(d, meta):
@@ -207,7 +254,12 @@ def tranche_rollforward(rule, ex, ctx, tol):
     page-2 portfolio / NBV adjustment column whose downward part is charge_off; TLFC LP July +2,782.68) and
     balance_adjustment (signed, Meridian's "Tranche Contract Balance Adjustment")."""
     d = ex["deal"]; period = _current_row(d)
-    if not period: return []
+    if not period:
+        # no period_history at all (an object without it): nothing to check. Rows for other months only (the balance
+        # page of this report was not read and history chaining carried the earlier rows): block, naming the gap.
+        if not d.get("period_history"): return []
+        return [missing_terms(rule, ex, f"the roll-forward: /period_history has no row for {d.get('collection_period')}",
+                              ["opening_balance", "principal", "principal_prepayments", "losses", "closing_balance"], ["/period_history"])]
     i = _current_index(d)
     need = [k for k in ("opening_balance", "principal", "principal_prepayments", "losses", "closing_balance") if not _num(period.get(k))]
     if need:
@@ -238,13 +290,26 @@ def tranche_rollforward(rule, ex, ctx, tol):
 
 # ---------- R06 ----------
 def contracts_rollforward(rule, ex, ctx, tol):
-    """opening + change_abs = closing exactly (change_abs is signed); each top_movers row closes on
-    opening − change (F-PIL prints decreases as positive) or opening + change (MOVE Trust prints them negative);
-    the movers' decreases cannot exceed the deal's net decrease."""
+    """The report's own printed change on the Contract Totals row (contracts.change_reported, as printed) closes the
+    count: opening − change = closing (F-PIL prints a decrease as a positive number) or opening + change = closing
+    (MOVE Trust prints it negative), exactly. change_abs is NOT used for this when the printed figure is there: every
+    extraction engine derives change_abs = closing − opening, so opening + change_abs = closing cannot fail. An object
+    without change_reported (the published reference objects, a layout that prints no change column) falls back to
+    change_abs, which still catches an edited opening or closing. Each top_movers row closes the same way; the
+    movers' decreases cannot exceed the deal's net decrease."""
     d = ex["deal"]; c = d.get("contracts") or {}; out = []
-    o, cl, ch = c.get("opening"), c.get("closing"), c.get("change_abs")
-    if _num(o) and _num(cl) and _num(ch) and not near(o + ch, cl, tol["count"]):
-        i = _current_index(d)
+    o, cl, ch, printed = c.get("opening"), c.get("closing"), c.get("change_abs"), c.get("change_reported")
+    i = _current_index(d)
+    if _num(o) and _num(cl) and _num(printed):
+        if not (near(o - printed, cl, tol["count"]) or near(o + printed, cl, tol["count"])):
+            computed = o - abs(printed) if cl <= o else o + abs(printed)
+            tg = _targets(d, ["/contracts/closing"], [f"/period_history/{i}/closing_contracts"] if i is not None else [], cl, "count")
+            out.append(finding(rule, _uid(ex), our_value=computed, report_value=cl, difference=cl - computed, tolerance=tol["count"], unit="count",
+                               fields=["/contracts/opening", "/contracts/closing", "/contracts/change_reported"],
+                               context={"opening": o, "change": printed, "computed": computed, "closing": cl, "closing_minus_opening": cl - o}, targets=tg,
+                               message="Opening contracts {opening} and the printed change {change} give {computed}, report says closing {closing} "
+                                       "(closing − opening is {closing_minus_opening})"))
+    elif _num(o) and _num(cl) and _num(ch) and not near(o + ch, cl, tol["count"]):
         tg = _targets(d, ["/contracts/closing"], [f"/period_history/{i}/closing_contracts"] if i is not None else [], cl, "count")
         out.append(finding(rule, _uid(ex), our_value=o + ch, report_value=cl, difference=cl - (o + ch), tolerance=tol["count"], unit="count",
                            context={"opening": o, "change": -ch, "computed": o + ch, "closing": cl}, targets=tg))
@@ -271,20 +336,24 @@ def aging_buckets_sum(rule, ex, ctx, tol):
     deals include the written-off / 91+ bucket in the closing balance. Either must tie to the aging closing balance.
     The aging closing vs page-2 tranche closing comparison is recorded in context (Meridian OneCap differs by its
     deemed defaults) and left to R17/R18, not blocked here."""
-    d = ex["deal"]; a = (d.get("aging_history") or [None])[0]
-    if not isinstance(a, dict): return []   # no aging table extracted: R01 owns presence
+    d = ex["deal"]; n, a = _current_aging(d)
+    if not isinstance(a, dict): return []   # no aging row for this period (none extracted, or only earlier months): R01 owns presence
     need = [k for k in ("current_0_30", "days_31_60", "days_61_90", "closing_balance") if not _num(a.get(k))]
-    if need: return [missing_terms(rule, ex, "the current aging row (/aging_history/0)", need, [f"/aging_history/0/{k}" for k in need])]
+    if need: return [missing_terms(rule, ex, f"the current aging row (/aging_history/{n})", need, [f"/aging_history/{n}/{k}" for k in need])]
     sum3 = a["current_0_30"] + a["days_31_60"] + a["days_61_90"]
     sum4 = sum3 + a["written_off"] if _num(a.get("written_off")) else None
     if near(sum3, a["closing_balance"], tol["currency"]) or near(sum4, a["closing_balance"], tol["currency"]): return []
     with_wo = sum4 is not None and abs(sum4 - a["closing_balance"]) < abs(sum3 - a["closing_balance"])
     computed = sum4 if with_wo else sum3
     label = f"current + 31-60 + 61-90 + {a.get('written_off_bucket_label') or 'written off'}" if with_wo else "current + 31-60 + 61-90"
+    # the rules.yaml sentence names the F-PIL pages (11 and 2); say the pages of THIS report when they are known
+    ap, tp = page_of(f"/aging_history/{n}/closing_balance", ex) or page_of(f"/aging_history/{n}", ex), page_of("/tranche_balance/closing", ex)
+    kw = {"message": "Aging buckets ({bucket_label}) sum to {computed}; page {aging_page} closing balance is {closing_balance}; page {tranche_page} closing is {tranche_closing}"} if ap and tp else {}
     return [finding(rule, _uid(ex), our_value=round(computed, 2), report_value=a["closing_balance"], difference=round(a["closing_balance"] - computed, 2), tolerance=tol["currency"], unit="currency",
                     context={"computed": round(computed, 2), "closing_balance": a["closing_balance"], "tranche_closing": _get(d, "/tranche_balance/closing"), "bucket_label": label,
-                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a.get("written_off")},
-                    targets=["/aging_history/0/closing_balance"])]
+                             "current_0_30": a["current_0_30"], "days_31_60": a["days_31_60"], "days_61_90": a["days_61_90"], "written_off": a.get("written_off"),
+                             **({"aging_page": ap, "tranche_page": tp} if ap and tp else {})}, **kw,
+                    targets=[f"/aging_history/{n}/closing_balance"], **({} if n == 0 else {"fields": [f"/aging_history/{n}", "/tranche_balance/closing"]}))]
 
 # ---------- R08 / R17 shared: CNL per vintage ----------
 _CNL_PAIRS = [("cumulative_net_losses", "original_finance_contract_npv"), ("cumulative_net_losses", "original_finance_contract_nbv"),
@@ -326,13 +395,15 @@ def losses_tie_out(rule, ex, ctx, tol):
                                fields=[f"/cnl_by_period/{i}"], context=dict(ctx_row),
                                targets=[f"/cnl_by_period/{i}/" + ("cnl_ratio_reported_pct" if _num(r.get("cnl_ratio_reported_pct")) else "cnl_ratio_pct")],
                                message="{vintage}: CNL {cnl} ÷ original balance {base} = {ratio_ours}, report says {ratio_report}"))
-    aging = (d.get("aging_history") or [None])[0] or {}
+    an, aging = _current_aging(d); aging = aging or {}
     if rows and all(_num(r.get("gross_losses")) and _num(r.get("cumulative_net_losses")) for r in rows) and _num(aging.get("cumulative_net_losses")):
         total = sum(r["cumulative_net_losses"] for r in rows)
         if not near(total, aging["cumulative_net_losses"], tol["currency"]):
             out.append(finding(rule, _uid(ex), our_value=_r(total), report_value=aging["cumulative_net_losses"], difference=_r(aging["cumulative_net_losses"] - total), tolerance=tol["currency"], unit="currency",
-                               fields=["/cnl_by_period", "/aging_history/0/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows)}, targets=["/aging_history/0/cumulative_net_losses"],
-                               message="Vintage CNL total {vintage_total} does not equal the page-11 cumulative net losses {aging_cnl} (difference {difference})"))
+                               fields=["/cnl_by_period", f"/aging_history/{an}/cumulative_net_losses"], context={"vintage_total": _r(total), "aging_cnl": aging["cumulative_net_losses"], "vintages": len(rows),
+                                        "aging_page": page_of(f"/aging_history/{an}/cumulative_net_losses", ex) or page_of(f"/aging_history/{an}", ex) or 11},
+                               targets=[f"/aging_history/{an}/cumulative_net_losses"],
+                               message="Vintage CNL total {vintage_total} does not equal the page-{aging_page} cumulative net losses {aging_cnl} (difference {difference})"))
     return out
 
 # ---------- R09 ----------
@@ -724,14 +795,10 @@ def derive_status(value, threshold, kind, buffer):
     """ceiling: BREACH if value > threshold, WATCH if value ≥ threshold × (1 − buffer);
     floor: BREACH if value < threshold, WATCH if value ≤ threshold ÷ (1 − buffer), i.e. utilization
     (threshold ÷ value) ≥ 1 − buffer. The floor form reproduces Essex (ICR 1.11 vs 1.00 → WATCH); the symmetric
-    |threshold − value| ≤ buffer × threshold in rules.yaml would call it OK (see docs/requests.md)."""
-    if kind == "ceiling":
-        if value > threshold + EPS: return "BREACH"
-        return "WATCH" if value >= threshold * (1 - buffer) - EPS else "OK"
-    if kind == "floor":
-        if value < threshold - EPS: return "BREACH"
-        return "WATCH" if value <= threshold / (1 - buffer) + EPS else "OK"
-    return None
+    |threshold − value| ≤ buffer × threshold in rules.yaml would call it OK (see docs/requests.md).
+    This is rules/covenant_status.py covenant_status: the function every extraction engine calls for
+    covenants[].status, so the extractor and this rule cannot disagree on a band."""
+    return covenant_status(value, threshold, kind, buffer)
 
 def covenant_status_matches(rule, ex, ctx, tol):
     """Per ceiling / floor covenant: derived status = covenants[].status. Then worst_status and covenant_summary must
@@ -741,7 +808,16 @@ def covenant_status_matches(rule, ex, ctx, tol):
     d = ex["deal"]; buf = d.get("watch_buffer_pct") if _num(d.get("watch_buffer_pct")) else 0.1; out = []
     for i, c in enumerate(d.get("covenants") or []):
         v, th, k = c.get("current_value"), c.get("threshold"), c.get("kind")
-        if k not in ("ceiling", "floor") or not (_num(v) and _num(th)) or c.get("status") == "AVAILABLE": continue
+        if k not in ("ceiling", "floor") or c.get("status") == "AVAILABLE": continue
+        if v is None:
+            # no value read: the status cannot be derived, so whatever status the object carries is not evidence
+            out.append(finding(rule, _uid(ex), our_value=None, report_value=c.get("status"), unit="text", fields=[f"/covenants/{i}/current_value", f"/covenants/{i}"],
+                               context={"legal_ref": c.get("legal_ref"), "value": None, "threshold": th, "kind": k, "watch_buffer_pct": buf, "description": c.get("description"),
+                                        "status": c.get("status") or "none", "missing_value": True},
+                               message="{legal_ref}: no current value was read for this {kind} covenant, so its status cannot be derived "
+                                       "(the extraction carries status {status}). Read the value from the report and enter it in review."))
+            continue
+        if not (_num(v) and _num(th)): continue
         ours = derive_status(v, th, k, buf)
         if ours != c.get("status"):
             out.append(finding(rule, _uid(ex), our_value=ours, report_value=c.get("status"), unit="text", fields=[f"/covenants/{i}"],
