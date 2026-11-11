@@ -106,8 +106,8 @@ rules:
     phase: 1
     severity: block
     title: Contract count roll-forward
-    description: "Page 2 prints o = m − n. opening_contracts − change = closing_contracts, exactly; also the sum of top_movers changes ≤ opening − closing."
-    fields: [/contracts/opening, /contracts/closing, /contracts/top_movers]
+    description: "Page 2 prints o = m − n. opening_contracts − the report's printed change = closing_contracts, exactly (change_reported; the derived change_abs only when the report prints none); also the sum of top_movers changes ≤ opening − closing."
+    fields: [/contracts/opening, /contracts/closing, /contracts/change_reported, /contracts/top_movers]
     fn: contracts_rollforward
     tolerance: { unit: count }
     on_failure: retry_pass_2_then_review

@@ -21,10 +21,10 @@ meta = {"upload_id": "00000000-0000-4000-8000-000000000000", "pass": 1, "templat
 files = [f for f in sorted(glob.glob(str(root/"docs/dashboard-json/*.dashboard.json"))) if not pathlib.Path(f).name.startswith("program-")]
 bad = []
 for f in files:
-    try: jsonschema.validate({"meta": meta, "deal": json.load(open(f)), "sources": {}}, ext)
+    try: jsonschema.validate({"meta": meta, "deal": json.load(open(f, encoding="utf-8")), "sources": {}}, ext)
     except Exception as e: bad.append(pathlib.Path(f).name + ": " + str(e)[:120])
 report(f"{len(files)} reference deals validate", not bad, "; ".join(bad))
 for f in sorted(glob.glob(str(root/"rules/tests/fixtures/findings/*.json"))):
-    try: jsonschema.validate(json.load(open(f)), fin); report(pathlib.Path(f).name, True)
+    try: jsonschema.validate(json.load(open(f, encoding="utf-8")), fin); report(pathlib.Path(f).name, True)
     except Exception as e: report(pathlib.Path(f).name, False, str(e)[:150])
 sys.exit(0 if ok else 1)

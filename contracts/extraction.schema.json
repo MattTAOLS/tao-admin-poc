@@ -759,6 +759,13 @@
             "closing": {
               "type": "number"
             },
+            "change_reported": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "the report's printed change on the Contract Totals row, as printed; rule R06 closes the count with it (audit M5)"
+            },
             "change_abs": {
               "type": "number"
             },
@@ -1477,7 +1484,11 @@
                 "type": "string"
               },
               "status": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "OK | WATCH | BREACH | AVAILABLE; null when the covenant's value or threshold was not read (audit M4)"
               },
               "note": {
                 "type": [
@@ -1579,7 +1590,11 @@
                 "type": "string"
               },
               "status": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "OK | WATCH | BREACH | AVAILABLE; null when the covenant's value or threshold was not read (audit M4)"
               },
               "note": {
                 "type": [

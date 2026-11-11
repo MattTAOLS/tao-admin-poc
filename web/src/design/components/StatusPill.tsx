@@ -80,7 +80,9 @@ export const COVENANT_STATUS: Record<CovenantStatus, { tone: Tone; label: string
   breach: { tone: 'bad', label: 'BREACH' },
   available: { tone: 'neutral', label: 'AVAILABLE' },
 }
-export function CovenantPill({ status, ...rest }: { status: CovenantStatus | Uppercase<CovenantStatus> | string } & Omit<StatusPillProps, 'tone' | 'children'>) {
+/** A covenant whose value or threshold could not be read has no status (null): it reads "No value", never "null". */
+export function CovenantPill({ status, ...rest }: { status: CovenantStatus | Uppercase<CovenantStatus> | string | null | undefined } & Omit<StatusPillProps, 'tone' | 'children'>) {
+  if (status == null || status === '' || status === 'null') return <StatusPill tone="neutral" {...rest}>No value</StatusPill>
   const s = COVENANT_STATUS[String(status).toLowerCase() as CovenantStatus] ?? { tone: 'neutral' as Tone, label: String(status) }
   return <StatusPill tone={s.tone} {...rest}>{s.label}</StatusPill>
 }
