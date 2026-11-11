@@ -8,6 +8,7 @@
   "fields": [
     "/contracts/opening",
     "/contracts/closing",
+    "/contracts/change_reported",
     "/contracts/top_movers"
   ],
   "status": "open",
