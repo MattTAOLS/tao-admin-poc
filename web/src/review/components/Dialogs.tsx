@@ -298,7 +298,7 @@ export const NOT_REASON: Record<NotReason, string> = {
   not_subscribed: 'does not receive this deal',
   deactivated: 'deactivated',
   not_visible: 'the program is not shared with their partner',
-  switched_off: 'turned off report notifications',
+  switched_off: 'switched this off in their Profile',
   partner_notifications_off: 'partner notifications are off',
 }
 export const NOTIFICATIONS_OFF = 'Partner notifications are off, so no partner is notified.'
