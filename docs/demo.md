@@ -1,7 +1,7 @@
 # TAO Admin POC — demo walkthrough
 
 The build plan's demo script (section "Demo script and acceptance", steps 1–7), then MOVE Trust month by month (step
-9), the wave B editing steps (step 10) and the wave C people steps (step 11), the wave D company pages (step 12) and the wave E news screening (step 13), run in order from a fresh database,
+9), the wave B editing steps (step 10) and the wave C people steps (step 11), the wave D company pages (step 12), the wave E news screening (step 13) and Save for later with per-person notify choices (step 14), run in order from a fresh database,
 with the screenshots the Playwright tests capture on every run (`docs/demo/*.png`). Each step below is one test (or a
 few) in `tests/e2e/specs/`; the negative tests sit between the steps where their state exists. Every number here comes from
 the real SetRep PDFs in `data/samples/` and the shared dashboard objects in `docs/dashboard-json/`.
@@ -19,7 +19,7 @@ docker compose exec api python -m app.seed  # Git Bash: prefix MSYS_NO_PATHCONV=
 cd tests/e2e
 npm ci
 npx playwright install chromium
-npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-13, 40-70 minutes on a busy host
+npm run test:e2e                            # setup + steps 1-7 + negatives + steps 9-14, 40-70 minutes on a busy host
 npm run lighthouse                          # optional: accessibility on the four main pages, after test:e2e
 ```
 
@@ -381,10 +381,11 @@ notification. Partners get 403 on the threads route.
 
 **11d. Publish note and partner notifications.** A. Patel subscribes D. Alvarez to Essex in User management. Partner
 notifications are off by default, so Publish to partner › Who gets notified says "Partner notifications are off" and
-lists D. Alvarez under Not notified with "partner notifications are off" (M. Chen, not subscribed, is listed with
-that reason). Cancel. System settings › Partner notifications on, with a reason (a settings_change on the Platform
-tab). Publish again: D. Alvarez is under Notified; type a note to partners; Approve and publish. The Publish audit
-entry carries the note and the recipients. Signed in as D. Alvarez, Notifications shows "Report published: Essex Lease
+shows D. Alvarez's row as Not notified, "Locked: partner notifications are off", with its switch disabled (M. Chen,
+not subscribed, reads the same). Cancel. System settings › Partner notifications on, with a reason (a settings_change
+on the Platform tab). Publish again: D. Alvarez's row reads "Will be notified · In-app"; M. Chen and the Manager users
+read Not notified, "does not receive this deal"; type a note to partners; Approve and publish. The Publish audit
+entry carries the note and exactly the recipients the pop-up listed. Step 14 covers switching people by hand. Signed in as D. Alvarez, Notifications shows "Report published: Essex Lease
 Financial Corp. · July 2026" with "Note from TAO" and the note as typed; Open report goes to the deal at
 `?period=2026-07`. No comment text reaches her, in the page or the API. The Manager users, not subscribed, get
 nothing about it.
@@ -548,6 +549,72 @@ nothing to change.
 pending 0, dates confirmed 11 (the 12 stored stories, excluded one included, less the Xpedite story) and Claude tokens "0 in, 0 out" (fixture mode makes no call).
 
 ![Run stats](demo/13-run-stats.png)
+
+## Journey 9 — save for later and who gets notified
+
+### Step 14. Save (On hold), and per-person choices in the Publish pop-up
+
+A TAO Admin can park a report that is not ready to publish, and can decide person by person who is told about one
+publish. `specs/14-hold-and-notify.spec.ts`, on its own report: TLFC LP (Leases) 2026-07, the month after step 9's
+June, uploaded by J. Moreau. The spec first switches partner notifications off through the API (step 11 left them on)
+and subscribes J. Moreau and R. Okafor to the deal, so the publish has TAO subscribers. The notes and reasons are test
+data.
+
+**14a. Save…, the queue, the marker.** Signed in as A. Patel, the review page's action bar reads Re-extract pages…,
+Save…, Reject…, Publish to partner…. Save… opens "Save for later" with one optional field, "Why is it waiting?". Type
+a note; Save and close. A toast says "Saved. On hold in the Approval queue." and the Approval queue opens. The row
+keeps its Needs review status and gains an On hold pill, the note in quotes and "A. Patel, <date time>". The chips
+above the table read "All N" and "On hold 1"; On hold filters to this row. Nothing was published: the Investor still
+has June for the deal (`published_period` 2026-06, the program page says "As of Jun 2026") and no user has a
+report_published notification for the upload.
+
+![Save for later](demo/14-save-for-later.png)
+![Approval queue, On hold](demo/14-queue-on-hold.png)
+
+The review page shows the On hold pill beside the status and the line "On hold since <date time> by A. Patel:
+“<note>”" with Release hold. J. Moreau (analyst) sees the pill and the line, but no Save… and no Release hold ("Read
+only."); the API answers her 403 `admin_only` on both. D. Alvarez (Investor) is sent back to her own portfolio from
+the queue and the review URL, and every partner user and partner role gets 403 on `GET /uploads`, the upload, its
+recipients and the hold routes. A. Patel saves again: the dialog starts from the stored note, and the new note
+replaces it in the queue. Release hold clears the pill and the line; the report stays in Needs review, the On hold
+chip reads 0 ("Nothing on hold"), and a second release is 409 `bad_state`. The audit trail has two "Saved for later
+(On hold)" entries with their notes and one "Hold released".
+
+![Review page, On hold](demo/14-review-on-hold.png)
+![The analyst sees the marker](demo/14-analyst-sees-hold.png)
+
+**14b. Who gets notified, partner notifications off.** Publish to partner… lists one row per person under TAO,
+Investor and Manager: a switch, the name, "Will be notified" or "Not notified", then the channel or the reason. The
+header counts the people who will be told. With partner notifications off, the four partner users read "Locked:
+partner notifications are off" and their switches do not move. S. Lindqvist-Berg, a TAO user who "does not receive
+this deal", is switched on: "Added for this report", and the count goes up by one. R. Okafor, a subscriber, is
+switched off: "Left out for this report", and the count goes back down. The line "2 changes for this report only.
+Subscriptions are not changed." has Reset, which puts both rows back. With the two choices made again and a note to
+partners typed, Save for later (in the pop-up's footer, between Cancel and Approve and publish) shows the same toast
+and opens the queue: the row is On hold with no note. `Upload.draft` holds the note and the choices. Reopening the
+report ("On hold since … by A. Patel.") and the pop-up shows the same note and the same two switched rows. Asking the
+API to add a locked person, on Save or on Approve, is 422 `invalid`: "K. Novak cannot be added: partner notifications
+are switched off in System settings".
+
+![Choices with partner notifications off](demo/14-publish-choices-notifications-off.png)
+![The draft, reopened](demo/14-publish-draft-reopened.png)
+
+**14c. Partner notifications on, and the publish.** D. Alvarez switches "Report published" off in her Profile. A.
+Patel turns Partner notifications on in System settings, with a reason. In the pop-up the banner is gone; M. Chen and
+the Manager users, who can see the deal and do not receive it, can now be switched on; D. Alvarez stays "Locked:
+switched this off in their Profile", and the API refuses her by name (422: "D. Alvarez cannot be added: they switched
+this notification off in their profile") with nothing published. M. Chen is switched on: 3 changes. Approve and
+publish. The report is published, and its hold and draft are gone. S. Lindqvist-Berg and M. Chen (added) each have
+exactly one "Report published" notification carrying the note; J. Moreau (untouched subscriber) has one; R. Okafor
+(left out), D. Alvarez (locked) and the Manager users have none. Every user's subscriptions are what they were before
+the publish: the added people still do not receive the deal and R. Okafor still does. The Publish audit entry reads
+"Added by hand: S. Lindqvist-Berg, M. Chen" and "Left out: R. Okafor", and its recipients are exactly the people
+told. A published report cannot be held (409 `bad_state`). The spec then switches D. Alvarez's notification back on;
+partner notifications stay on, as step 11 left them.
+
+![Partner notifications on](demo/14-publish-partners-on.png)
+![Audit: added by hand, left out](demo/14-audit-added-left-out.png)
+![The added partner user is told](demo/14-added-partner-notification.png)
 
 ## Acceptance (build plan), measured 2026-11-04
 

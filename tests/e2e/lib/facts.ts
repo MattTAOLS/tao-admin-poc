@@ -183,3 +183,19 @@ export const STEP13 = {
   },
   search: { context: ['leasing', 'equipment', 'finance'], exclusion: 'dynamic capital of street food', reason: 'QA demo: news search words for a generic company name' },
 }
+
+/** Step 14: Save for later (On hold) and per-person notify choices. TLFC LP (Leases) July 2026, the month after step 9's
+ * June, is saved, released, saved again from the Publish pop-up and published with two people added by hand and one
+ * left out. The spec subscribes J. Moreau and R. Okafor to the deal first, so there is a subscriber to leave out and
+ * one to leave alone. Notes and reasons are test data. */
+export const STEP14 = {
+  review: { deal: 'tlfcLp' as DealKey, month: '202607', period: '2026-07', prior: '2026-06', dealName: 'TLFC LP (Leases)' },
+  holdNote: 'QA demo: waiting for the servicer to confirm the July figures',
+  holdNote2: 'QA demo: servicer confirmed by phone; publish on Monday',
+  noteToPartners: 'QA demo note to partners: the July report for TLFC LP (Leases) is published.',
+  offReason: 'QA demo: partner notifications off before the hold-and-notify step',
+  onReason: 'QA demo: partner notifications back on for the hold-and-notify step',
+  lockedOff: 'Locked: partner notifications are off',
+  lockedProfile: 'Locked: switched this off in their Profile',
+  notReceiving: 'does not receive this deal',
+}
