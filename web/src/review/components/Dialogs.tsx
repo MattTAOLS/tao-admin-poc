@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Button, Dialog, Field, Textarea, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Button, Dialog, Field, StatusPill, Textarea, icons, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
 import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
-import type { ApiError, Extraction, Finding, NotReason, OverrideChoice, Recipients, Upload, ValueEdit } from '../lib/types'
+import type { ApiError, Extraction, Finding, HoldRequest, NotifyChoices, NotReason, OverrideChoice, Recipients, Upload, ValueEdit } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { EditsTable } from './Corrections'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
@@ -141,7 +141,38 @@ export function RejectDialog({ upload, open, title, onClose, onDone }: { upload:
 
 export const NOTE_MAX = 2000
 
-export function PublishDialog({ upload, open, title, partner, findings, ex, edits = [], reissue, replacedPublishedAt, threadCount = 0, onClose, onDone, onGoTo }: {
+export const HOLD_NOTE_MAX = 1000
+export const SAVED_TOAST = 'Saved. On hold in the Approval queue.'
+
+/** "Save…" on the action bar: marks the report On hold with an optional note. Sends only `note`; the stored draft
+ * (publish note and notification choices) is not part of this body, so it stays as it is. */
+export function SaveDialog({ upload, open, onClose, onDone }: { upload: Upload; open: boolean; onClose: () => void; onDone: (u: Upload) => void }) {
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string>()
+  useEffect(() => { if (open) { setNote(upload.hold?.note ?? ''); setErr(undefined) } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  const submit = async () => {
+    setBusy(true); setErr(undefined)
+    try { onDone(await reviewApi.holdUpload(upload.id, { note: note.trim() || null })) }
+    catch (e) { setErr(errorText(e)) }
+    finally { setBusy(false) }
+  }
+  return (
+    <Dialog open={open} onClose={onClose} dismissable={!busy} title="Save for later" size="sm"
+      footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Save and close</Button></>}>
+      <div className="rv-dialog-body">
+        <Field label="Why is it waiting? (optional)"
+          hint={<>Shown in the Approval queue. <span className="rv-counter" data-testid="hold-note-count">{note.length.toLocaleString('en-US')} / {HOLD_NOTE_MAX.toLocaleString('en-US')}</span></>}>
+          <Textarea rows={3} value={note} maxLength={HOLD_NOTE_MAX} onChange={e => setNote(e.target.value)} />
+        </Field>
+        <p className="rv-hint">The report stays in the Approval queue marked On hold. Nothing is sent to partners. Your draft note and notification choices are kept.</p>
+        {err && <div className="rv-dialog-error" role="alert">{err}</div>}
+      </div>
+    </Dialog>
+  )
+}
+
+export function PublishDialog({ upload, open, title, partner, findings, ex, edits = [], reissue, replacedPublishedAt, threadCount = 0, onClose, onDone, onSaved, onGoTo }: {
   upload: Upload; open: boolean; title: string; partner: string; findings: Finding[]; ex?: Extraction
   /** Comment threads on the upload: internal, never sent; the dialog says so. */
   threadCount?: number
@@ -149,12 +180,27 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   edits?: ValueEdit[]
   reissue?: ReissueInfo | null; replacedPublishedAt?: string | null
   onClose: () => void; onDone: (u: Upload) => void; onGoTo: (findingId: string) => void
+  /** "Save for later" in the footer (needs_review only): the note and the choices were stored as the draft. */
+  onSaved?: (u: Upload) => void
 }) {
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'publish' | 'save' | null>(null)
   const [err, setErr] = useState<ApiError>()
   const [note, setNote] = useState('')
-  useEffect(() => { if (open) { setErr(undefined); setNote('') } }, [open])
+  // What was switched by hand, as user ids. Starts from the stored draft; a choice the recipients no longer allow
+  // (the person cannot be changed any more, or is already in that state) is dropped by notifyChoices below.
+  const [picked, setPicked] = useState<{ add: string[]; remove: string[] }>({ add: [], remove: [] })
+  useEffect(() => {
+    if (!open) return
+    setErr(undefined); setBusy(null)
+    setNote(upload.draft?.note_to_partners ?? '')
+    setPicked({ add: [...(upload.draft?.notify?.add ?? [])], remove: [...(upload.draft?.notify?.remove ?? [])] })
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const recipients = useLoad(() => reviewApi.recipients(upload.id), [upload.id, open], open)
+  const notify = useMemo(() => notifyChoices(recipients.data, picked), [recipients.data, picked])
+  const toggle = (userId: string, wasNotified: boolean) => setPicked(p => {
+    const key = wasNotified ? 'remove' : 'add'
+    return { ...p, [key]: p[key].includes(userId) ? p[key].filter(x => x !== userId) : [...p[key], userId] }
+  })
   const resolved = findings.filter(f => f.status !== 'open').length
   const openReview = findings.filter(f => f.status === 'open' && f.severity === 'review').length
   const openNotes = findings.filter(f => f.status === 'open' && f.severity === 'note').length
@@ -163,11 +209,22 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   const unchanged = [...new Set(writes.map(w => w.finding.id))].filter(id => !changes.some(c => c.finding.id === id))
   const byId = (id: string) => findings.find(f => f.id === id)
   const submit = async () => {
-    setBusy(true); setErr(undefined)
-    try { onDone(await reviewApi.approve(upload.id, note.trim() || null)) }
+    setBusy('publish'); setErr(undefined)
+    try { onDone(await reviewApi.approve(upload.id, note.trim() || null, notify)) }
     catch (e) { setErr(e as ApiError) }
-    finally { setBusy(false) }
+    finally { setBusy(null) }
   }
+  // Save for later: the note and the choices become the stored draft. The hold note is sent only when one exists.
+  // While the recipients are not loaded the choices cannot be checked, so the stored ones go back unchanged.
+  const save = async () => {
+    setBusy('save'); setErr(undefined)
+    const body: HoldRequest = { note_to_partners: note.trim() || null, notify: recipients.data ? notify : { add: picked.add, remove: picked.remove } }
+    if (upload.hold?.note) body.note = upload.hold.note
+    try { onSaved?.(await reviewApi.holdUpload(upload.id, body)) }
+    catch (e) { setErr(e as ApiError) }
+    finally { setBusy(null) }
+  }
+  const canSave = !!onSaved && upload.status === 'needs_review'
   const goTo = (id: string) => {
     const f = byId(id)
     return f ? <Button key={id} size="sm" onClick={() => onGoTo(id)}>Go to {f.rule_id}</Button> : null
@@ -175,7 +232,11 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   return (
     <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size="lg"
       description={`${title} goes to ${partner}. Partner portals show it straight away and the program roll-up regenerates.`}
-      footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Approve and publish</Button></>}>
+      footer={<>
+        <Button onClick={onClose} disabled={!!busy}>Cancel</Button>
+        {canSave && <Button loading={busy === 'save'} disabled={busy === 'publish'} onClick={save}>Save for later</Button>}
+        <Button variant="primary" loading={busy === 'publish'} disabled={busy === 'save'} onClick={submit}>Approve and publish</Button>
+      </>}>
       <ul className="rv-summary">
         <li>Collection period {formatPeriod(upload.collection_period)}{upload.reporting_period && <>, reporting period {formatPeriod(upload.reporting_period)}</>}</li>
         {reissue && (
@@ -225,7 +286,7 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
           <Textarea rows={3} value={note} maxLength={NOTE_MAX} onChange={e => setNote(e.target.value)} />
         </Field>
       </div>
-      <RecipientsList load={recipients} threadCount={threadCount} />
+      <RecipientsList load={recipients} threadCount={threadCount} choices={notify} onToggle={toggle} onReset={() => setPicked({ add: [], remove: [] })} disabled={!!busy} />
       {err && <PublishError err={err} findings={findings} ex={ex} goTo={goTo} />}
     </Dialog>
   )
@@ -243,38 +304,83 @@ export const NOT_REASON: Record<NotReason, string> = {
 export const NOTIFICATIONS_OFF = 'Partner notifications are off, so no partner is notified.'
 const channelText = (c: string) => (c === 'email' ? 'Email (coming later)' : c === 'in_app' ? 'In-app' : c)
 
-/** D7 c "Who gets notified": GET /uploads/{id}/recipients, worked out by the API from subscriptions, partner
- * visibility, user status, prefs and the partner notifications setting. Shows what it says; decides nothing. */
-export function RecipientsList({ load, threadCount = 0 }: { load: { data?: Recipients; error: unknown; loading: boolean; reload: () => void }; threadCount?: number }) {
+type Person = { user_id: string; name: string; partner_slug: string | null; notified: boolean; locked: boolean; reason?: NotReason; channels: string[] }
+
+/** Everyone the API listed, as one row each: who is notified by default, and whether the row may be switched. */
+export function recipientPeople(r: Recipients | undefined): Person[] {
+  if (!r) return []
+  return [
+    ...r.notified.map(x => ({ user_id: x.user_id, name: x.name, partner_slug: x.partner_slug ?? null, notified: true, locked: x.can_change === false, channels: x.channels ?? [] })),
+    ...r.not_notified.map(x => ({ user_id: x.user_id, name: x.name, partner_slug: x.partner_slug ?? null, notified: false, locked: x.can_change !== true, reason: x.reason, channels: [] as string[] })),
+  ]
+}
+
+/** The choices that still apply: add only for people who are not notified and can be changed, remove only for people
+ * who are notified. Anything else (a stale saved choice) is dropped without a word. */
+export function notifyChoices(r: Recipients | undefined, picked: NotifyChoices): { add: string[]; remove: string[] } {
+  const people = recipientPeople(r)
+  const can = (id: string, notified: boolean) => people.some(p => p.user_id === id && p.notified === notified && !p.locked)
+  return { add: [...new Set(picked.add ?? [])].filter(id => can(id, false)), remove: [...new Set(picked.remove ?? [])].filter(id => can(id, true)) }
+}
+
+/** "Who gets notified": GET /uploads/{id}/recipients, worked out by the API from subscriptions, partner visibility,
+ * user status, prefs and the partner notifications setting. One row per person, TAO first, then each partner. A row
+ * with can_change can be switched for this publish only; the others are locked with the API's reason. */
+export function RecipientsList({ load, threadCount = 0, choices, onToggle, onReset, disabled }: {
+  load: { data?: Recipients; error: unknown; loading: boolean; reload: () => void }; threadCount?: number
+  /** Choices in force (already checked against the list). Without onToggle the list is read-only. */
+  choices?: { add: string[]; remove: string[] }
+  onToggle?: (userId: string, wasNotified: boolean) => void; onReset?: () => void; disabled?: boolean
+}) {
   const r = load.data
   const off = !!r && r.not_notified.some(x => x.reason === 'partner_notifications_off')
-  const partners = r ? new Set(r.notified.map(x => x.partner_slug ?? '')).size : 0
+  const add = choices?.add ?? [], remove = choices?.remove ?? []
+  const people = recipientPeople(r)
+  const isOn = (p: Person) => (p.notified ? !remove.includes(p.user_id) : add.includes(p.user_id))
+  const n = people.filter(isOn).length
+  const changed = add.length + remove.length
+  const slugs = [...new Set(people.map(p => p.partner_slug))].sort((a, b) => (a === null ? -1 : b === null ? 1 : partnerName(a).localeCompare(partnerName(b))))
   return (
     <section className="rv-notify" aria-label="Who gets notified" data-testid="recipients">
-      <h3 className="rv-section__title">Who gets notified{r && <span className="rv-muted"> · {r.notified.length === 0 ? 'nobody' : `${r.notified.length} ${r.notified.length === 1 ? 'person' : 'people'} at ${partners} partner${partners === 1 ? '' : 's'}`}</span>}</h3>
+      <h3 className="rv-section__title">Who gets notified{r && <span className="rv-muted" data-testid="notify-count"> · {n === 0 ? 'nobody' : `${n} ${n === 1 ? 'person' : 'people'}`}</span>}</h3>
       {load.error != null && !r ? (
         <p className="rv-hint" role="status">Could not load the recipients: {errorText(load.error)} Publishing still works. <button type="button" className="rv-linkbtn" onClick={() => load.reload()}>Retry</button></p>
       ) : !r ? (
         <p className="rv-hint" aria-busy="true">Loading recipients…</p>
       ) : <>
-        {off && <p className="rv-notify__off" data-testid="notifications-off"><b>{NOTIFICATIONS_OFF}</b> A TAO Admin can turn them on in System settings.</p>}
-        {r.notified.length > 0 && (
-          <div className="rv-scroll">
-            <table className="ds-table ds-table--compact" aria-label="Notified">
-              <thead><tr><th scope="col">Partner</th><th scope="col">User</th><th scope="col">Channel</th></tr></thead>
-              <tbody>
-                {r.notified.map(x => <tr key={x.user_id}><td>{partnerName(x.partner_slug)}</td><td>{x.name}</td><td>{x.channels.map(channelText).join(' · ')}</td></tr>)}
-              </tbody>
-            </table>
-          </div>
+        {changed > 0 && (
+          <p className="rv-hint" data-testid="notify-changes">{changed} change{changed === 1 ? '' : 's'} for this report only. Subscriptions are not changed.{' '}
+            <button type="button" className="rv-linkbtn" onClick={onReset} disabled={disabled}>Reset</button></p>
         )}
-        {r.notified.length === 0 && !off && <p className="rv-hint">Nobody is notified: no active partner user receives this deal.</p>}
-        {r.not_notified.length > 0 && <>
-          <h4 className="rv-section__title">Not notified ({r.not_notified.length})</h4>
-          <ul className="rv-summary" aria-label="Not notified">
-            {r.not_notified.map(x => <li key={x.user_id}><b>{x.name}</b>{x.partner_slug !== undefined && <> · {partnerName(x.partner_slug)}</>}: {NOT_REASON[x.reason] ?? x.reason.replace(/_/g, ' ')}.</li>)}
-          </ul>
-        </>}
+        {off && <p className="rv-notify__off" data-testid="notifications-off"><b>{NOTIFICATIONS_OFF}</b> A TAO Admin can turn them on in System settings.</p>}
+        {n === 0 && !off && <p className="rv-hint">Nobody is notified: no active partner user receives this deal.</p>}
+        {slugs.map(slug => (
+          <div key={slug ?? 'tao'} className="rv-people">
+            <h4 className="rv-people__group">{partnerName(slug)}</h4>
+            <ul className="rv-people__list" aria-label={partnerName(slug)}>
+              {people.filter(p => p.partner_slug === slug).map(p => {
+                const on = isOn(p)
+                const why = p.reason ? NOT_REASON[p.reason] ?? p.reason.replace(/_/g, ' ') : null
+                const hand = on !== p.notified
+                return (
+                  <li key={p.user_id} className={'rv-person' + (p.locked ? ' rv-person--locked' : '')} data-testid={`recipient-${p.user_id}`}>
+                    <input type="checkbox" role="switch" className="rv-switch" aria-label={p.name} checked={on} disabled={p.locked || !onToggle || disabled}
+                      onChange={() => onToggle?.(p.user_id, p.notified)} />
+                    <span className="rv-person__name">{p.name}</span>
+                    <span className="rv-person__side">{partnerName(slug)}</span>
+                    <StatusPill tone={on ? 'ok' : 'neutral'} size="sm">{on ? 'Will be notified' : 'Not notified'}</StatusPill>
+                    <span className="rv-person__why">
+                      {hand ? <b>{on ? 'Added for this report' : 'Left out for this report'}</b>
+                        : p.locked ? <><icons.IconLock width={12} height={12} /> Locked: {why ?? 'cannot be changed'}</>
+                        : !on ? why
+                        : p.channels.map(channelText).join(' · ')}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
       </>}
       <p className="rv-hint">{threadCount > 0 ? `The ${threadCount} internal comment thread${threadCount === 1 ? '' : 's'} on this upload ${threadCount === 1 ? 'is' : 'are'} not sent.` : 'Comments on this upload are internal and never sent.'}</p>
     </section>

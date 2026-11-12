@@ -328,12 +328,12 @@ describe('Comment threads on the Review report', () => {
 describe('Publish dialog: note to partners and who gets notified', () => {
   const recipients = {
     notified: [
-      { user_id: users[4].id, name: 'M. Chen', partner_slug: 'investor', channels: ['in_app'] },
-      { user_id: users[6].id, name: 'K. Novak', partner_slug: 'manager', channels: ['in_app', 'email'] },
+      { user_id: users[4].id, name: 'M. Chen', partner_slug: 'investor', channels: ['in_app'], can_change: true },
+      { user_id: users[6].id, name: 'K. Novak', partner_slug: 'manager', channels: ['in_app', 'email'], can_change: true },
     ],
     not_notified: [
-      { user_id: users[5].id, name: 'D. Alvarez', partner_slug: 'investor', reason: 'not_subscribed' },
-      { user_id: users[7].id, name: 'L. Haddad', partner_slug: 'manager', reason: 'deactivated' },
+      { user_id: users[5].id, name: 'D. Alvarez', partner_slug: 'investor', reason: 'not_subscribed', can_change: true },
+      { user_id: users[7].id, name: 'L. Haddad', partner_slug: 'manager', reason: 'deactivated', can_change: false },
     ],
   }
   const ready = () => { const s = fresh(); s.findings = clone(overrideFx); s.upload = { ...s.upload, finding_counts: { block: 0, review: 0, note: 0 } }; return s }
@@ -350,12 +350,13 @@ describe('Publish dialog: note to partners and who gets notified', () => {
     // The existing content stays
     expect(within(dlg).getByText(/1 finding resolved with a reason/)).toBeTruthy()
     const who = within(dlg).getByRole('region', { name: 'Who gets notified' })
-    const table = await within(who).findByRole('table', { name: 'Notified' })
-    expect(within(table).getAllByRole('row').slice(1).map(r => r.textContent)).toEqual(['InvestorM. ChenIn-app', 'ManagerK. NovakIn-app · Email (coming later)'])
-    expect(within(who).getByText(/2 people at 2 partners/)).toBeTruthy()
-    const not = within(who).getByRole('list', { name: 'Not notified' })
-    expect(within(not).getAllByRole('listitem').map(li => li.textContent)).toEqual([
-      'D. Alvarez · Investor: does not receive this deal.', 'L. Haddad · Manager: deactivated.'])
+    // One list per partner, one row per person: name, side, status word, then the channel or the reason.
+    const investor = await within(who).findByRole('list', { name: 'Investor' })
+    expect(within(investor).getAllByRole('listitem').map(li => li.textContent)).toEqual([
+      'M. ChenInvestorWill be notifiedIn-app', 'D. AlvarezInvestorNot notifieddoes not receive this deal'])
+    expect(within(within(who).getByRole('list', { name: 'Manager' })).getAllByRole('listitem').map(li => li.textContent)).toEqual([
+      'K. NovakManagerWill be notifiedIn-app · Email (coming later)', 'L. HaddadManagerNot notified Locked: deactivated'])
+    expect(within(who).getByTestId('notify-count').textContent).toBe(' · 2 people')
     expect(within(who).getByText('The 2 internal comment threads on this upload are not sent.')).toBeTruthy()
     expect(within(who).queryByTestId('notifications-off')).toBeNull()
     const note = within(dlg).getByRole('textbox', { name: /Note to partners/ }) as HTMLTextAreaElement
@@ -369,7 +370,7 @@ describe('Publish dialog: note to partners and who gets notified', () => {
 
   it('says plainly when partner notifications are off, and an empty note is sent as null', async () => {
     const state = ready()
-    const off = { notified: [], not_notified: recipients.notified.map(r => ({ user_id: r.user_id, name: r.name, partner_slug: r.partner_slug, reason: 'partner_notifications_off' })) }
+    const off = { notified: [], not_notified: recipients.notified.map(r => ({ user_id: r.user_id, name: r.name, partner_slug: r.partner_slug, reason: 'partner_notifications_off', can_change: false })) }
     const calls = stack(state, [
       on('GET', new RegExp(`^/uploads/${ID}/recipients$`), () => ({ body: off })),
       on('POST', /\/approve$/, () => ({ body: { ...state.upload, status: 'published' } })),
@@ -378,8 +379,9 @@ describe('Publish dialog: note to partners and who gets notified', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Publish to partner…' }))
     const dlg = await screen.findByRole('dialog', { name: 'Publish to partner' })
     expect((await within(dlg).findByTestId('notifications-off')).textContent).toMatch(/^Partner notifications are off, so no partner is notified\./)
-    expect(within(dlg).queryByRole('table', { name: 'Notified' })).toBeNull()
-    expect(within(within(dlg).getByRole('list', { name: 'Not notified' })).getAllByRole('listitem')[0].textContent).toBe('M. Chen · Investor: partner notifications are off.')
+    expect(within(dlg).getByTestId('notify-count').textContent).toBe(' · nobody')
+    expect(within(within(dlg).getByRole('list', { name: 'Investor' })).getAllByRole('listitem')[0].textContent).toBe('M. ChenInvestorNot notified Locked: partner notifications are off')
+    expect(within(dlg).getByRole('switch', { name: 'M. Chen' })).toHaveProperty('disabled', true)
     await userEvent.click(within(dlg).getByRole('button', { name: 'Approve and publish' }))
     await waitFor(() => expect(posts(calls, /\/approve$/)).toHaveLength(1))
     expect(posts(calls, /\/approve$/)[0].body).toEqual({ note_to_partners: null })

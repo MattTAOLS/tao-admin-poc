@@ -4,7 +4,7 @@ import { api, apiBlob, API_BASE, roleHeaders } from '@/shell/api'
 import { loadRole, type Role } from '@/shell/roles'
 import type {
   AppUser, AuditEntry, Comment, Correction, CorrectionDetail, CorrectionRequest, CorrectionStatus, Deal, Extraction, Finding, Me, OverrideChoice, Program,
-  Recipients, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult,
+  HoldRequest, NotifyChoices, Recipients, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult,
 } from './types'
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
@@ -17,14 +17,21 @@ export const reviewApi = {
   override: (id: string, findingId: string, choice: OverrideChoice, reason: string) =>
     api<Finding[]>(`/uploads/${id}/findings/${findingId}/override`, json({ choice, reason })),
   /** Own fetch so a 409's `conflicts` / `findings` reach the dialog (the shell client keeps only code and status). */
-  approve: async (id: string, noteToPartners: string | null = null): Promise<Upload> => {
+  approve: async (id: string, noteToPartners: string | null = null, notify?: NotifyChoices): Promise<Upload> => {
+    // notify is left out when nothing was changed by hand, so the body is the same as before the per-person choices.
+    const changed = !!notify && ((notify.add?.length ?? 0) > 0 || (notify.remove?.length ?? 0) > 0)
     const res = await fetch(`${API_BASE}/uploads/${id}/approve`, {
-      method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ note_to_partners: noteToPartners }),
+      method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(changed ? { note_to_partners: noteToPartners, notify: { add: notify!.add ?? [], remove: notify!.remove ?? [] } } : { note_to_partners: noteToPartners }),
     })
     const body = await res.json().catch(() => ({ code: 'http_' + res.status, message: res.statusText }))
     if (!res.ok) throw Object.assign(new Error(body.message), { code: body.code, status: res.status, conflicts: body.conflicts, findings: body.findings })
     return body as Upload
   },
+  /** Save for later: marks a needs_review upload On hold. Keys left out of the body are not sent at all. */
+  holdUpload: (id: string, body: HoldRequest = {}) => api<Upload>(`/uploads/${id}/hold`, json(body)),
+  /** Release the hold: back to plain needs_review; the draft is kept. */
+  releaseHold: (id: string) => api<Upload>(`/uploads/${id}/hold`, { method: 'DELETE' }),
   reject: (id: string, reason: string) => api<Upload>(`/uploads/${id}/reject`, json({ reason })),
   reextract: (id: string, pages: number[]) => api<Upload>(`/uploads/${id}/reextract`, json({ pages })),
   deals: () => api<Deal[]>('/master/deals'),

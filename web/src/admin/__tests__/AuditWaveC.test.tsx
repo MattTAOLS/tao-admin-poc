@@ -91,3 +91,56 @@ describe('wave C audit actions', () => {
     expect(within(rep).getByText('Servicer confirmed the closing balance.')).toBeInTheDocument()
   })
 })
+
+describe('Save for later (On hold) audit actions', () => {
+  const HOLD = e({ id: 'h1', at: at(2, 16), action: 'hold', upload_id: UPLOAD, deal_slug: 'f-pil-2-0-moneda-capital-corp', collection_period: '2026-08',
+    detail: { note: 'Waiting for the servicer to confirm tranche 52.', has_draft_note: true, notify_add: ['00000000-0000-4000-8000-000000000002'], notify_remove: ['00000000-0000-4000-8000-000000000005'] } })
+  const RELEASE = e({ id: 'h2', at: at(2, 17), action: 'hold_release', upload_id: UPLOAD })
+  const PUBLISH = e({ id: 'h3', at: at(2, 18), action: 'publish', upload_id: UPLOAD,
+    detail: { replaced_upload_id: null, notified_added: [{ id: '00000000-0000-4000-8000-000000000002', name: 'R. Okafor' }], notified_removed: [{ id: '00000000-0000-4000-8000-000000000005', name: 'M. Chen' }, { id: '00000000-0000-4000-8000-000000000007', name: 'K. Novak' }] } })
+
+  it('labels hold and hold_release and keeps them on the Reports tab and in the action filter', () => {
+    expect(ACTION_LABEL.hold).toBe('Saved for later (On hold)')
+    expect(ACTION_LABEL.hold_release).toBe('Hold released')
+    for (const a of ['hold', 'hold_release']) {
+      expect(AUDIT_ACTIONS).toContain(a)
+      expect(REPORT_ACTIONS).toContain(a)
+      expect(PLATFORM_ACTIONS).not.toContain(a)
+      expect(auditScope({ action: a, upload_id: null })).toBe('reports')
+    }
+  })
+  it('summarises a hold by its note and what was kept as the draft', () => {
+    expect(summary(HOLD)).toBe('“Waiting for the servicer to confirm tranche 52.” · draft note kept · 2 notification changes')
+    expect(summary({ ...HOLD, detail: { note: null, has_draft_note: false, notify_add: [], notify_remove: [] } })).toBe('No note')
+    expect(summary({ ...HOLD, detail: { note: 'x'.repeat(120), notify_add: ['a'] } })).toBe(`“${'x'.repeat(79)}…” · 1 notification change`)
+    // The note may arrive as the entry's reason, and the choices as counts.
+    expect(summary({ ...HOLD, reason: 'Waiting on legal', detail: { has_draft_note: true, notify_add: 0, notify_remove: 3 } })).toBe('“Waiting on legal” · draft note kept · 3 notification changes')
+    expect(summary(RELEASE)).toBe('Hold released; back to Needs review')
+  })
+  it('a publish entry names the people added or left out by hand', () => {
+    expect(summary(PUBLISH)).toBe('Published to partners · Added by hand: R. Okafor · Left out: M. Chen, K. Novak')
+    expect(summary({ ...PUBLISH, detail: { replaced_upload_id: null, notified_added: [], notified_removed: ['M. Chen'] } })).toBe('Published to partners · Left out: M. Chen')
+    expect(summary({ ...PUBLISH, detail: { replaced_upload_id: null } })).toBe('Published to partners')
+  })
+  it('the Reports tab lists them, the filter offers them, and the expanded publish entry spells the choices out', async () => {
+    mockApi.mockImplementation(fakeApi({
+      'GET /master/deals': DEALS, 'GET /master/programs': PROGRAMS, 'GET /uploads': [], 'GET /users': [],
+      'GET /audit': (p: string) => {
+        const q = new URLSearchParams(p.split('?')[1] ?? '')
+        return [PUBLISH, RELEASE, HOLD].filter(x => !q.get('scope') || auditScope(x) === q.get('scope')).filter(x => !q.get('action') || x.action === q.get('action'))
+      },
+      'GET /audit/months': () => [{ month: CUR, count: 3 }],
+    }))
+    renderPage(PATH, [[PATH, <AuditLogPage />]])
+    const table = await screen.findByRole('table', { name: 'Audit log' })
+    const hold = (await within(table).findByText('Saved for later (On hold)')).closest('tr')!
+    expect(hold).toHaveTextContent('“Waiting for the servicer to confirm tranche 52.” · draft note kept · 2 notification changes')
+    expect(within(table).getByText('Hold released').closest('tr')!).toHaveTextContent('Hold released; back to Needs review')
+    const pub = within(table).getByText('Published to partners · Added by hand: R. Okafor · Left out: M. Chen, K. Novak').closest('tr')!
+    const options = [...document.querySelectorAll('option')].map(o => o.textContent)
+    expect(options).toEqual(expect.arrayContaining(['Saved for later (On hold)', 'Hold released']))
+    await userEvent.click(pub)
+    await waitFor(() => expect(table).toHaveTextContent('Added by hand: R. Okafor (this publish only)'))
+    expect(table).toHaveTextContent('Left out: M. Chen, K. Novak (this publish only)')
+  })
+})

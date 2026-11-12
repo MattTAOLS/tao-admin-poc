@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Button, Card, FindingCard, SeverityPill, StatusPill, SkeletonBlock, StatePanel, UploadStatusPill, useToast, formatPeriod, type Severity,
 } from '@/design/components'
@@ -13,12 +13,12 @@ import { formatDateTime, formatMessage, pct, text } from './lib/format'
 import type { AppUser, Correction, Finding, OverrideChoice, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
-import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, WriteEffect } from './components/Dialogs'
+import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, SAVED_TOAST, SaveDialog, WriteEffect } from './components/Dialogs'
 import { hasTargets, isValueChoice, pointerLabel } from './lib/corrections'
 import { isReissueFinding, reissueInfo } from './lib/reissue'
 import { ReissueBanner } from './components/Reissue'
 import { Activity } from './components/Activity'
-import { FindingCountPills } from './QueuePage'
+import { FindingCountPills, OnHoldPill, QUEUE_PATH } from './QueuePage'
 import { EditProvider, EditValueDialog, RevertDialog, type EditMode, type EditTarget } from './components/EditValue'
 import { CorrectionDialog, CorrectionReview, CorrectionsCard, correctionPath } from './components/Corrections'
 import { editsByPointer, plural, reviewEdits, type EditState } from './lib/edits'
@@ -43,6 +43,7 @@ function NoAccess() {
 function Review({ uploadId }: { uploadId: string }) {
   const { admin, role } = access()
   const { toast } = useToast()
+  const nav = useNavigate()
   const upload = useLoad(() => reviewApi.upload(uploadId), [uploadId])
   const findings = useLoad(() => reviewApi.findings(uploadId), [uploadId])
   const extraction = useLoad(() => reviewApi.extraction(uploadId), [uploadId])
@@ -96,7 +97,8 @@ function Review({ uploadId }: { uploadId: string }) {
 
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [override, setOverride] = useState<{ finding: Finding; choice: OverrideChoice } | null>(null)
-  const [dialog, setDialog] = useState<'reject' | 'publish' | 'reextract' | null>(null)
+  const [dialog, setDialog] = useState<'reject' | 'publish' | 'reextract' | 'save' | null>(null)
+  const [releasing, setReleasing] = useState(false)
 
   const u = upload.data
   const list = findings.data ?? []
@@ -125,7 +127,7 @@ function Review({ uploadId }: { uploadId: string }) {
   usePageHeader({
     title: u ? dealName(u.deal_slug) : 'Review report',
     actions: u ? <Button onClick={() => setPanel({ kind: 'all' })} aria-label={`Comments (${threadN})`}>Comments ({threadN})</Button> : undefined,
-    status: u ? <UploadStatusPill status={u.status} /> : undefined,
+    status: u ? <span className="rv-pills"><UploadStatusPill status={u.status} />{u.hold && <OnHoldPill />}</span> : undefined,
     subtitle: u ? `${programName(u.program_slug)} · ${u.file_name}` : undefined,
     crumbs: [{ label: 'TAO Admin' }, { label: 'Uploads', href: '/admin/uploads' }, { label: 'Approval queue', href: '/admin/uploads/queue' }, { label: title }],
   })
@@ -175,6 +177,24 @@ function Review({ uploadId }: { uploadId: string }) {
     if (verb === 'rejected') toast({ tone: 'warn', title: 'Report rejected', message: title })
     if (verb === 'reextract') toast({ tone: 'blue', title: 'Re-extraction queued', message: 'Findings refresh when the second pass finishes.' })
     refresh()
+  }
+  // Save for later (the action bar's Save… and the Publish pop-up's Save for later): the report is On hold and the
+  // reviewer goes back to the Approval queue.
+  const onSaved = (next: Upload) => {
+    upload.setData(next); setDialog(null)
+    toast({ tone: 'ok', title: SAVED_TOAST, message: title })
+    nav(QUEUE_PATH)
+  }
+  const releaseHold = async () => {
+    setReleasing(true)
+    try {
+      upload.setData(await reviewApi.releaseHold(uploadId))
+      toast({ tone: 'ok', title: 'Hold released', message: title })
+      if (admin) audit.reload()
+    } catch (e) {
+      toast({ tone: 'bad', title: 'The hold was not released', message: errorText(e) })
+      upload.reload()
+    } finally { setReleasing(false) }
   }
   // A thread came back from the API: merge it into the list, and reload the audit (comment entries are Reports).
   const onThread = (t: Thread) => {
@@ -235,6 +255,12 @@ function Review({ uploadId }: { uploadId: string }) {
     <EditProvider value={editCtx}>
     <CommentsProvider value={commentsCtx}>
     <div className="rv-page">
+      {u.hold && (
+        <p className="rv-hold" role="note" aria-label="On hold" data-testid="hold-line">
+          <span>On hold since {formatDateTime(u.hold.at)} by {u.hold.by_label}{u.hold.note ? <>: <q>{u.hold.note}</q></> : '.'}</span>
+          {admin && <button type="button" className="rv-linkbtn" onClick={releaseHold} disabled={releasing}>Release hold</button>}
+        </p>
+      )}
       {correctionId && <CorrectionReview correctionId={correctionId} uploadId={uploadId} ex={ex} title={title} onOpen={setViewer} onChanged={refresh} />}
       {!correctionId && u.pending_correction_id && (
         <div className="rv-banner rv-banner--warn" role="note" aria-label="Correction waiting">
@@ -293,7 +319,7 @@ function Review({ uploadId }: { uploadId: string }) {
 
       {admin && <Activity entries={audit.data ?? []} findings={list} loading={audit.loading} deal={ex?.deal} />}
 
-      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} edited={editedValues} onCorrect={mode === 'correct' ? () => setCorrecting({ pointer: null }) : undefined} onReextract={() => setDialog('reextract')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
+      <Footer upload={u} admin={admin} openBlocks={openBlocks.length} edited={editedValues} onCorrect={mode === 'correct' ? () => setCorrecting({ pointer: null }) : undefined} onReextract={() => setDialog('reextract')} onSave={() => setDialog('save')} onReject={() => setDialog('reject')} onPublish={() => setDialog('publish')} />
 
       <ThreadPanel uploadId={uploadId} target={panel} threads={threads.data} me={noUser ? null : me} role={role} users={mentionUsers}
         currentVersion={u.published_version} labelFor={labelFor} onClose={() => setPanel(null)} onTarget={setPanel} onThread={onThread} loadError={threads.error} />
@@ -301,7 +327,8 @@ function Review({ uploadId }: { uploadId: string }) {
       {admin && <>
         <OverrideDialog uploadId={uploadId} finding={override?.finding ?? null} ex={ex} initialChoice={override?.choice ?? 'use_ours'} onClose={() => setOverride(null)} onDone={onOverrideDone} />
         <RejectDialog upload={u} open={dialog === 'reject'} title={title} onClose={() => setDialog(null)} onDone={onDecision('rejected')} />
-        <PublishDialog upload={u} open={dialog === 'publish'} threadCount={threadN} title={title} partner={partnersLabel(u)} findings={list} ex={ex} edits={pending} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onGoTo={goToFinding} />
+        <PublishDialog upload={u} open={dialog === 'publish'} threadCount={threadN} title={title} partner={partnersLabel(u)} findings={list} ex={ex} edits={pending} reissue={reissue} replacedPublishedAt={replaced.data?.published_at} onClose={() => setDialog(null)} onDone={onDecision('published')} onSaved={onSaved} onGoTo={goToFinding} />
+        <SaveDialog upload={u} open={dialog === 'save'} onClose={() => setDialog(null)} onDone={onSaved} />
         <ReextractDialog upload={u} open={dialog === 'reextract'} suggested={suggestedPages} editedPages={editedPages} onClose={() => setDialog(null)} onDone={onDecision('reextract')} />
         {ex && <EditValueDialog uploadId={uploadId} title={title} ex={ex} findings={list} target={editing} state={editing ? states.get(editing.pointer) : undefined}
           onClose={() => setEditing(null)} onOpen={setViewer} onDone={onEditDone('edited')} />}
@@ -338,8 +365,8 @@ export function partnersLabel(u: Pick<Upload, 'partner_slug' | 'partner_slugs'>)
   return `the ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} portals`
 }
 
-function Footer({ upload: u, admin, openBlocks, edited, onCorrect, onReextract, onReject, onPublish }: {
-  upload: Upload; admin: boolean; openBlocks: number; edited: number; onCorrect?: () => void; onReextract: () => void; onReject: () => void; onPublish: () => void
+function Footer({ upload: u, admin, openBlocks, edited, onCorrect, onReextract, onSave, onReject, onPublish }: {
+  upload: Upload; admin: boolean; openBlocks: number; edited: number; onCorrect?: () => void; onReextract: () => void; onSave: () => void; onReject: () => void; onPublish: () => void
 }) {
   const reason = useMemo(() => openBlocks > 0 ? `${openBlocks} block finding${openBlocks === 1 ? ' is' : 's are'} open. Resolve ${openBlocks === 1 ? 'it' : 'them'} before publishing.` : null, [openBlocks])
   let note: ReactNode
@@ -362,6 +389,7 @@ function Footer({ upload: u, admin, openBlocks, edited, onCorrect, onReextract, 
         {(u.status === 'needs_review' || u.status === 'approved') && edited > 0 && <StatusPill tone="blue" size="sm" data-testid="edited-count">{plural(edited, 'value')} edited</StatusPill>}</span>
       {actionable && <>
         <Button onClick={onReextract}>Re-extract pages…</Button>
+        {u.status === 'needs_review' && <Button onClick={onSave}>Save…</Button>}
         <Button variant="danger" onClick={onReject}>Reject…</Button>
         <Button variant="primary" onClick={onPublish} disabled={openBlocks > 0} aria-describedby="rv-publish-reason">Publish to partner…</Button>
       </>}

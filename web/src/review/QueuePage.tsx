@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { DataTable, StatePanel, Button, UploadStatusPill, SeverityPill, formatPeriod, type Column } from '@/design/components'
+import { DataTable, StatePanel, StatusPill, Button, UploadStatusPill, SeverityPill, formatPeriod, type Column } from '@/design/components'
 import { usePageHeader } from '@/shell/header'
 import { access, errorText, reviewApi } from './lib/api'
 import { useLoad } from './lib/useLoad'
@@ -10,7 +11,14 @@ import { ReissueTag } from './components/Reissue'
 import { CorrectionTag, correctionPath } from './components/Corrections'
 import './review.css'
 
-export const reviewPath = (id: string) => `/admin/uploads/queue/${id}`
+export const QUEUE_PATH = '/admin/uploads/queue'
+export const reviewPath = (id: string) => `${QUEUE_PATH}/${id}`
+
+/** The On hold marker: a TAO Admin saved the report for later. A marker beside the status, never a status itself. */
+export function OnHoldPill({ size }: { size?: 'md' | 'sm' }) {
+  return <StatusPill tone="neutral" size={size} data-testid="on-hold">On hold</StatusPill>
+}
+const clip = (s: string, n = 60) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s)
 
 /** Uploads waiting for a reviewer: needs_review, plus approved-but-unpublished if that state is ever used.
  * Oldest first, so the report that has waited longest is at the top. */
@@ -55,6 +63,7 @@ export default function QueuePage() {
 function Queue() {
   const nav = useNavigate()
   const q = useLoad(loadQueueRows, [])
+  const [show, setShow] = useState<'all' | 'hold'>('all')
   const { dealName, programName, deals } = useMasterNames()
   const href = (r: QueueRow) => (r.kind === 'upload' ? reviewPath(r.upload.id) : correctionPath(r.correction.upload_id, r.correction.id))
   const slug = (r: QueueRow) => (r.kind === 'upload' ? r.upload.deal_slug : r.correction.deal_slug ?? '')
@@ -75,20 +84,37 @@ function Queue() {
     { key: 'program', header: 'Program', render: r => programName(program(r)) },
     { key: 'period', header: 'Collection period', sortValue: r => period(r),
       render: r => <>{formatPeriod(period(r))}{r.kind === 'upload' && r.upload.reporting_period && <span className="rv-sub">reporting {formatPeriod(r.upload.reporting_period)}</span>}</> },
-    { key: 'status', header: 'Status', render: r => <UploadStatusPill status={r.kind === 'upload' ? r.upload.status : 'needs_review'} size="sm" /> },
+    { key: 'status', header: 'Status', render: r => {
+      const hold = r.kind === 'upload' ? r.upload.hold : null
+      return <>
+        <span className="rv-pills"><UploadStatusPill status={r.kind === 'upload' ? r.upload.status : 'needs_review'} size="sm" />{hold && <OnHoldPill size="sm" />}</span>
+        {hold?.note && <span className="rv-sub" title={hold.note} data-testid="hold-note">“{clip(hold.note)}”</span>}
+        {hold && <span className="rv-sub" data-testid="hold-by">{hold.by_label}, {formatDateTime(hold.at)}</span>}
+      </>
+    } },
     { key: 'findings', header: 'Findings', sortValue: r => { const c = counts(r) ?? {}; return -((c.block ?? 0) * 1e6 + (c.review ?? 0) * 1e3 + (c.note ?? 0)) },
       render: r => <FindingCountPills counts={counts(r)} /> },
     { key: 'uploaded_by', header: 'Uploaded by', render: r => (r.kind === 'upload' ? r.upload.uploaded_by : r.correction.created_by) },
     { key: 'uploaded_at', header: 'Uploaded', numeric: true, sortValue: r => r.at, render: r => formatDateTime(r.at) },
   ]
 
+  const all = q.data ?? []
+  const held = all.filter(r => r.kind === 'upload' && !!r.upload.hold)
+  const rows = show === 'hold' ? held : all
+
   return (
     <div className="rv-page">
+      <div className="rv-sections" role="group" aria-label="Show reports">
+        <button type="button" className="rv-chip" aria-pressed={show === 'all'} onClick={() => setShow('all')}>All{q.data ? ` ${all.length}` : ''}</button>
+        <button type="button" className="rv-chip" aria-pressed={show === 'hold'} onClick={() => setShow('hold')}>On hold{q.data ? ` ${held.length}` : ''}</button>
+      </div>
       <DataTable<QueueRow>
         caption="Reports waiting for review" captionHidden
-        columns={columns} rows={q.data ?? []} rowKey={r => r.key} loading={q.loading && !q.data}
+        columns={columns} rows={rows} rowKey={r => r.key} loading={q.loading && !q.data}
         onRowClick={r => nav(href(r))} rowLabel={label}
-        empty={{ title: 'Nothing waiting for review', message: 'New uploads appear here once extraction and validation finish.' }}
+        empty={show === 'hold' && all.length > 0
+          ? { title: 'Nothing on hold', message: 'A report is On hold after a TAO Admin saves it for later on the review page.' }
+          : { title: 'Nothing waiting for review', message: 'New uploads appear here once extraction and validation finish.' }}
       />
     </div>
   )
