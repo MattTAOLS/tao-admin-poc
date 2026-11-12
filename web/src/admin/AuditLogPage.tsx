@@ -163,12 +163,14 @@ const listSize = (v: unknown) => (Array.isArray(v) ? v.length : typeof v === 'nu
 /** People in a detail ({id, name} or plain names) as names. */
 export const peopleNames = (v: unknown): string[] =>
   (Array.isArray(v) ? v.map(x => (typeof x === 'string' ? x : x && typeof x === 'object' ? String((x as { name?: unknown }).name ?? '') : '')).filter(Boolean) : [])
-/** hold: why it is waiting, and what was kept as the draft of the publish pop-up. */
+/** hold: what was kept as the draft of the publish pop-up. The note itself is the entry's reason (the Reason column)
+ * and is shown here only when no reason came with the entry. */
 export function holdSummary(e: AuditEntry): string {
   const d = (e.detail ?? {}) as Record<string, unknown>
-  const note = str(d.note) ?? str(e.reason)
+  const note = str(e.reason) ? undefined : str(d.note)
   const n = listSize(d.notify_add) + listSize(d.notify_remove)
-  return [note ? `“${clip(note)}”` : 'No note', d.has_draft_note === true ? 'draft note kept' : null, n > 0 ? `${n} notification change${n === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')
+  const kept = [d.has_draft_note === true ? 'draft note kept' : null, n > 0 ? `${n} notification change${n === 1 ? '' : 's'}` : null].filter(Boolean)
+  return [note ? `“${clip(note)}”` : null, kept.length ? kept.join(' · ') : 'No draft'].filter(Boolean).join(' · ')
 }
 /** publish: people added or left out by hand for that publish only. */
 export function publishChoices(d: Record<string, unknown>): string[] {
@@ -370,6 +372,8 @@ function EntryDetail({ e, c }: { e: AuditEntry; c: Ctx }) {
   const d = { ...((e.detail ?? {}) as Record<string, unknown>) }
   const ch = entryChanges(e, c)
   if (ch.length) { delete d.before; delete d.after; delete d.old_value; delete d.new_value; delete d.edits }
+  // A hold's note is its reason: shown once, under Reason.
+  if ((e.action === 'hold' || e.action === 'hold_release') && e.reason && d.note === e.reason) delete d.note
   const rest = Object.entries(d)
   const u = e.upload_id ? c.uploads.get(e.upload_id) : undefined
   const s = subject(e, c)
