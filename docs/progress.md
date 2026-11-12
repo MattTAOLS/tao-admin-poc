@@ -1743,3 +1743,36 @@ Needs from the Lead:
    were not read: ...", R01 "N field(s) the extraction could not place on the report: ...", R18 "<ref>: no current
    value was read for this ceiling covenant ...", R06 "Opening contracts X and the printed change Y give Z ...".
 4. API: nothing required. `handle_extraction` now returns a `carried` count beside `counts`.
+
+## Data & API — Save (On hold) and per-person notify choices (2026-11-11)
+
+Built to contract 1aaf359 and migration 016, on `agent/api`.
+
+- **Hold.** `POST /uploads/{id}/hold` (tao_admin, `needs_review` only, row-locked like the other review actions) sets
+  `held_at`, `held_by`, `held_by_label`, `hold_note` and the draft (`draft_note_to_partners`, `draft_notify`).
+  `DELETE /uploads/{id}/hold` clears the four hold fields and keeps the draft. A hold is a marker, never a status.
+  `Upload.hold` and `Upload.draft` are in every Upload the API returns (list, detail, every action that returns one).
+- **Body rules on Save.** `note` is replaced on every save (not sent or blank = null). `note_to_partners` and `notify`
+  keep their stored value when not sent and are cleared when sent as null. `notify` is validated as approve validates it.
+- **Clearing.** `_transition` clears the hold on every move to a status other than `needs_review`, and the draft on
+  `approved` and `rejected`, so no action can leave a hold behind. A re-extract whose queue push fails puts the hold back
+  with the status. `Upload.hold` also reads null whenever the status is not `needs_review`.
+- **Recipients.** `can_change` on both lists. One reason changed order: a person who switched report_published off now
+  reads `switched_off` whether subscribed or not (before, an unsubscribed one read `not_subscribed`), so
+  `not_subscribed` always means "would receive it if added".
+- **Approve with `notify`.** Validated before anything is published (422 `invalid`, a message naming the person). The
+  notifications go to (notified − remove) + add. The publish audit detail always carries `notified_added` and
+  `notified_removed` ({id, name} lists, empty when there are none); `recipients` is who was notified.
+  The stored draft is never applied by the API: the UI sends `notify` with approve.
+- **Audit.** `hold` (reason = the note; detail {note, has_draft_note, notify_add, notify_remove}) and `hold_release`
+  (detail {note}); both carry the upload id, so they are in the Reports scope and the upload's activity trail.
+
+How to run: `cd api && python -m pytest -q -p no:cacheprovider tests/test_hold_notify.py` (25 tests); the whole suite
+the same way without the file name.
+
+Stubbed: nothing. Corrections take no notify choices (out of scope).
+
+Needs from others: UI-Review reads `Upload.hold`, `Upload.draft` and `Recipients.can_change`; role-only mode shows
+`by_label` "TAO Admin" with `by` null. A draft may name someone who can no longer be changed (deactivated since the
+save): the API returns it as stored and approve refuses it with the person's name, so the UI should reconcile the draft
+against `/recipients` when it opens the pop-up.
