@@ -408,7 +408,7 @@ test('step 14c: partner notifications on: who becomes addable, who stays locked;
     for (const res of [await patel.post(`/uploads/${u.id}/approve`, { note_to_partners: S.noteToPartners, notify: { add: [USERS.alvarez.id], remove: [] } }),
       await patel.post(`/uploads/${u.id}/hold`, { notify: { add: [USERS.alvarez.id], remove: [] } })]) {
       expect(res.status).toBe(422)
-      expect(res.body).toMatchObject({ code: 'invalid', message: `${USERS.alvarez.name} cannot be added: they switched this notification off in their profile` })
+      expect(res.body).toMatchObject({ code: 'invalid', message: `${USERS.alvarez.name} cannot be added: they switched this off in their Profile` })
     }
     expect(await upload(u.id)).toMatchObject({ status: 'needs_review', hold: expect.objectContaining({ by_label: USERS.patel.name }) })
     expect((await investor.get(`/published/programs/${MOVE.program}/deals/${slug}`)).body.published_period).toBe(r.prior)

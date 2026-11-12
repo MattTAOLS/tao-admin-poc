@@ -114,7 +114,7 @@ def recipients(s: Session, deal_slug: str, kind: str = "report_published") -> di
 
 
 LOCKED = {"deactivated": "their account is deactivated", "not_visible": "they may not see this deal",
-          "switched_off": "they switched this notification off in their profile",
+          "switched_off": "they switched this off in their Profile",
           "partner_notifications_off": "partner notifications are switched off in System settings"}
 
 

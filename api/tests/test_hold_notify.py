@@ -210,7 +210,7 @@ def test_notify_choices_that_are_refused(client, people):
         ({"remove": [GHOST]}, f"notify.remove names an unknown user: {GHOST}"),
         ({"add": [AN]}, "J. Moreau cannot be added: their account is deactivated"),
         ({"add": [MV]}, "L. Haddad cannot be added: they may not see this deal"),
-        ({"add": [AN2]}, "S. Lindqvist cannot be added: they switched this notification off in their profile"),
+        ({"add": [AN2]}, "S. Lindqvist cannot be added: they switched this off in their Profile"),
         ({"add": [IV]}, "D. Alvarez cannot be added: partner notifications are switched off in System settings"),   # subscribed partner user
         ({"add": [IA]}, "M. Chen cannot be added: partner notifications are switched off in System settings"),      # the global switch wins
         ({"add": [A1]}, "A. Patel is already notified; they cannot be added"),
