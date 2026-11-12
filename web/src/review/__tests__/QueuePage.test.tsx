@@ -62,7 +62,9 @@ describe('Approval queue', () => {
     expect(within(rows[1]).getByText('On hold')).toBeTruthy()
     const note = within(rows[1]).getByTestId('hold-note')
     expect(note.getAttribute('title')).toBe(long)
-    expect(note.textContent).toBe('“Waiting for the servicer to confirm the tranche 52 opening…”')
+    // The whole note is in the cell; the column clips it with CSS (two lines), never by a character count.
+    expect(note.textContent).toBe(`“${long}”`)
+    expect(note.className).toContain('rv-holdnote')
     expect(within(rows[1]).getByTestId('hold-by').textContent).toMatch(/^A\. Patel, \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
 
     const filter = screen.getByRole('group', { name: 'Show reports' })

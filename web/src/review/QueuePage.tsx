@@ -18,7 +18,6 @@ export const reviewPath = (id: string) => `${QUEUE_PATH}/${id}`
 export function OnHoldPill({ size }: { size?: 'md' | 'sm' }) {
   return <StatusPill tone="neutral" size={size} data-testid="on-hold">On hold</StatusPill>
 }
-const clip = (s: string, n = 60) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s)
 
 /** Uploads waiting for a reviewer: needs_review, plus approved-but-unpublished if that state is ever used.
  * Oldest first, so the report that has waited longest is at the top. */
@@ -88,7 +87,7 @@ function Queue() {
       const hold = r.kind === 'upload' ? r.upload.hold : null
       return <>
         <span className="rv-pills"><UploadStatusPill status={r.kind === 'upload' ? r.upload.status : 'needs_review'} size="sm" />{hold && <OnHoldPill size="sm" />}</span>
-        {hold?.note && <span className="rv-sub" title={hold.note} data-testid="hold-note">“{clip(hold.note)}”</span>}
+        {hold?.note && <span className="rv-sub rv-holdnote" title={hold.note} data-testid="hold-note">“{hold.note}”</span>}
         {hold && <span className="rv-sub" data-testid="hold-by">{hold.by_label}, {formatDateTime(hold.at)}</span>}
       </>
     } },
