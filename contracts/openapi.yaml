@@ -196,6 +196,39 @@ components:
         active_edit_count: { type: integer, description: 'values with an edit in force on this upload (a chain of edits on one pointer counts once)' }
         published_version: { type: [integer, 'null'], description: 'current publication version of this upload; null until published' }
         pending_correction_id: { type: [string, 'null'], format: uuid, description: 'a correction waiting in the approval queue' }
+        hold:
+          description: 'Set while a TAO Admin has saved the report for later (On hold). Only on needs_review uploads; a marker, not a status. null when not on hold.'
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [at, by, by_label, note]
+              properties:
+                at: { type: string, format: date-time }
+                by: { oneOf: [ { $ref: '#/components/schemas/CommentAuthor' }, { type: 'null' } ], description: 'null in role-only mode' }
+                by_label: { type: string, description: 'the name to show, e.g. "A. Patel" or "TAO Admin"' }
+                note: { type: [string, 'null'], description: 'why it is waiting' }
+        draft:
+          description: 'What the TAO Admin had entered in the publish pop-up when they last saved: kept until the report is published or rejected. null when nothing is saved. TAO only.'
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [note_to_partners, notify]
+              properties:
+                note_to_partners: { type: [string, 'null'] }
+                notify: { $ref: '#/components/schemas/NotifyChoices' }
+    NotifyChoices:
+      type: object
+      description: 'Per-person choices for one publish, on top of what subscriptions and settings decide (GET /uploads/{id}/recipients). They change this publish only, never a subscription.'
+      properties:
+        add: { type: array, uniqueItems: true, items: { type: string, format: uuid }, default: [], description: 'people in not_notified with can_change true who should be notified this time' }
+        remove: { type: array, uniqueItems: true, items: { type: string, format: uuid }, default: [], description: 'people in notified who should not be notified this time' }
+    HoldRequest:
+      type: object
+      description: 'Save for later. Everything is optional; an empty body just marks the report On hold.'
+      properties:
+        note: { type: [string, 'null'], maxLength: 1000, description: 'why it is waiting; shown in the Approval queue' }
+        note_to_partners: { type: [string, 'null'], maxLength: 2000, description: 'draft of the publish note' }
+        notify: { $ref: '#/components/schemas/NotifyChoices' }
     Extraction:
       description: See contracts/extraction.schema.json (meta, deal, sources) plus id.
       type: object
@@ -470,7 +503,7 @@ components:
         actor_role: { type: string }
         actor_label: { type: string }
         actor_user_id: { type: [string, 'null'], format: uuid, description: 'set when the caller sent X-User; null in demo mode' }
-        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen, company_change, company_note, company_note_edit, adverse_change, news_run, news_source_change] }
+        action: { type: string, enum: [upload, extract, reextract, override, restate, approve, reject, publish, regenerate, master_change, export, value_edit, value_edit_revert, correction, correction_approve, correction_reject, user_change, prefs_change, settings_change, comment, comment_edit, thread_resolve, thread_reopen, company_change, company_note, company_note_edit, adverse_change, news_run, news_source_change, hold, hold_release] }
         upload_id: { type: [string, 'null'], format: uuid }
         finding_id: { type: [string, 'null'], format: uuid }
         reason: { type: [string, 'null'] }
@@ -695,9 +728,10 @@ components:
         mentions: { type: array, items: { type: string, format: uuid }, default: [] }
     ApproveRequest:
       type: object
-      description: 'Optional body; an empty body (as today) is the same as note_to_partners null.'
+      description: 'Optional body; an empty body (as today) is the same as note_to_partners null and no per-person choices.'
       properties:
         note_to_partners: { type: [string, 'null'], maxLength: 2000 }
+        notify: { $ref: '#/components/schemas/NotifyChoices' }
     Recipients:
       type: object
       required: [notified, not_notified]
@@ -710,22 +744,24 @@ components:
           type: array
           items:
             type: object
-            required: [user_id, name, partner_slug, channels]
+            required: [user_id, name, partner_slug, channels, can_change]
             properties:
               user_id: { type: string, format: uuid }
               name: { type: string }
               partner_slug: { type: [string, 'null'] }
               channels: { type: array, items: { type: string, enum: [in_app, email] } }
+              can_change: { type: boolean, description: 'always true: anyone who would be notified can be left out of this publish (NotifyChoices.remove)' }
         not_notified:
           type: array
           items:
             type: object
-            required: [user_id, name, reason]
+            required: [user_id, name, reason, can_change]
             properties:
               user_id: { type: string, format: uuid }
               name: { type: string }
               partner_slug: { type: [string, 'null'] }
               reason: { type: string, enum: [not_subscribed, deactivated, not_visible, switched_off, partner_notifications_off] }
+              can_change: { type: boolean, description: 'true only for not_subscribed: the person can be added to this publish by hand (NotifyChoices.add). false, and shown locked with the reason, for deactivated (cannot receive), not_visible (may not see the deal), switched_off (their own choice in Profile) and partner_notifications_off (the System setting wins for every partner user).' }
     CompanyDealRef:
       type: object
       required: [deal_slug, deal_name, program_slug, program_name, latest_period, worst_status, next_report]
@@ -1196,7 +1232,10 @@ paths:
     post:
       summary: Approve; applies use_ours / use_report values (see OverrideRequest), publishes and regenerates dashboards (tao_admin only; refused while block findings are open)
       description: >
-        Optional body {note_to_partners}. The note is stored on the publication version (PublicationVersion.note_to_partners)
+        Optional body {note_to_partners, notify}. notify (NotifyChoices) adds or leaves out named people for this publish
+        only: add must name people whose Recipients.can_change is true (else 422 `invalid`); the publish audit entry
+        records `notified_added` and `notified_removed` (names and ids). Approve clears any hold and the saved draft.
+        The note is stored on the publication version (PublicationVersion.note_to_partners)
         and sent as note_from_tao in the report_published notifications to the recipients GET /uploads/{upload_id}/recipients
         lists; the publish audit entry records the note and the recipients.
       parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/UploadId' } ]
@@ -1307,6 +1346,27 @@ paths:
       responses:
         '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Correction' } } } }
         '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`' }
+  /uploads/{upload_id}/hold:
+    post:
+      summary: 'Save for later: mark a needs_review upload On hold with an optional note, and keep the draft publish note and per-person notify choices (tao_admin). Saving again replaces the note and the draft. Approve, reject and re-extract clear the hold; approve and reject also clear the draft. hold audit entry (Reports).'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UploadId' } ]
+      requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/HoldRequest' } } } }
+      responses:
+        '200': { description: On hold, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`: only a needs_review upload can be held' }
+        '422': { $ref: '#/components/responses/Invalid', description: '`invalid`: a notify choice names someone who cannot be changed (see Recipients.can_change) or an unknown user' }
+    delete:
+      summary: 'Release the hold: the report goes back to plain needs_review; the draft is kept (tao_admin). hold_release audit entry.'
+      parameters: [ { $ref: '#/components/parameters/XRole' }, { $ref: '#/components/parameters/XUser' }, { $ref: '#/components/parameters/UploadId' } ]
+      responses:
+        '200': { description: Released, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict', description: '`bad_state`: the upload is not on hold' }
   /uploads/{upload_id}/reject:
     post:
       summary: Reject with a reason (tao_admin only)
