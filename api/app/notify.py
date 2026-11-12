@@ -80,7 +80,10 @@ def _subs_by_user(s: Session) -> dict[str, list[Subscription]]:
 
 
 def recipients(s: Session, deal_slug: str, kind: str = "report_published") -> dict:
-    """Who a publish of this deal would notify, and who not and why (contract Recipients), over every user."""
+    """Who a publish of this deal would notify, and who not and why (contract Recipients), over every user.
+    can_change (016): anyone notified can be left out of one publish; of the others only a not_subscribed person can be
+    added by hand. A person who switched the kind off reads switched_off whether subscribed or not (their own choice
+    outranks a missing subscription), so not_subscribed always means the person would receive it if added."""
     deal = s.get(Deal, deal_slug)
     program = s.get(Program, deal.program_slug)
     shared = set(views.partner_slugs(s, program))
@@ -98,15 +101,56 @@ def recipients(s: Session, deal_slug: str, kind: str = "report_published") -> di
             reason = "not_visible"
         elif partner and not partners_on:             # the system switch outranks a missing subscription
             reason = "partner_notifications_off"
-        elif channels is None:
-            reason = "not_subscribed"
         elif not people.wants(s, u, kind):
             reason = "switched_off"
+        elif channels is None:
+            reason = "not_subscribed"
         if reason:
-            not_notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "reason": reason})
+            not_notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "reason": reason,
+                                 "can_change": reason == "not_subscribed"})
         else:
-            notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "channels": channels})
+            notified.append({"user_id": u.id, "name": u.name, "partner_slug": u.partner_slug, "channels": channels, "can_change": True})
     return {"notified": notified, "not_notified": not_notified}
+
+
+LOCKED = {"deactivated": "their account is deactivated", "not_visible": "they may not see this deal",
+          "switched_off": "they switched this notification off in their profile",
+          "partner_notifications_off": "partner notifications are switched off in System settings"}
+
+
+class BadChoice(ValueError):
+    """A notify choice that cannot be honoured; str(e) is the plain message for the 422."""
+
+
+def check_choices(s: Session, deal_slug: str, add: list[str], remove: list[str]) -> tuple[list[dict], list[dict]]:
+    """Validate NotifyChoices against the recipients as computed now (approve and Save both call this, before writing):
+    every id a known user; add only people in not_notified with can_change; remove only people in notified; nobody in
+    both. Returns the (added, removed) Recipients entries, in the order sent."""
+    add, remove = [x.lower() for x in add], [x.lower() for x in remove]
+    for name, ids in (("add", add), ("remove", remove)):
+        if len(set(ids)) != len(ids):
+            raise BadChoice(f"notify.{name} names the same person twice")
+    if not add and not remove:
+        return [], []
+    rec = recipients(s, deal_slug)
+    yes = {r["user_id"]: r for r in rec["notified"]}
+    no = {r["user_id"]: r for r in rec["not_notified"]}
+    for name, ids in (("add", add), ("remove", remove)):
+        for i in ids:
+            if i not in yes and i not in no:
+                raise BadChoice(f"notify.{name} names an unknown user: {i}")
+    for i in add:
+        if i in remove:
+            raise BadChoice(f"{(yes.get(i) or no[i])['name']} is in both the add and the remove list")
+    for i in add:
+        if i in yes:
+            raise BadChoice(f"{yes[i]['name']} is already notified; they cannot be added")
+        if not no[i]["can_change"]:
+            raise BadChoice(f"{no[i]['name']} cannot be added: {LOCKED[no[i]['reason']]}")
+    for i in remove:
+        if i not in yes:
+            raise BadChoice(f"{no[i]['name']} is not on the notified list; they cannot be left out")
+    return [no[i] for i in add], [yes[i] for i in remove]
 
 
 def subscribed_tao(s: Session, deal_slug: str) -> list[AppUser]:
@@ -151,16 +195,21 @@ def _deal_name(s: Session, slug: str) -> str:
 
 # ---- events ----
 def published(s: Session, u_up: SetrepUpload, version: int, by: str, note: str | None, changes: list[dict] | None = None,
-              correction: bool = False) -> list[str]:
-    """report_published (approve) or correction_published: one per notified recipient. Returns the recipient user ids."""
+              correction: bool = False, add: list[str] | None = None, remove: list[str] | None = None) -> list[str]:
+    """report_published (approve) or correction_published: one per notified recipient. Returns the recipient user ids.
+    add / remove (016, approve only, already validated by check_choices): this publish goes to (notified - remove) + add;
+    an added person gets the same notification; nobody's subscriptions or prefs change."""
     kind = "correction_published" if correction else "report_published"
     rec = recipients(s, u_up.deal_slug, kind)
     name, label = _deal_name(s, u_up.deal_slug), month_label(u_up.collection_period)
     title = f"{'Correction' if correction else 'Report'} published: {name} · {label}"
     body = (f"Version {version} published by {by}." if correction else f"Published by {by}.")
+    left_out, extra = set(remove or []), set(add or [])
+    to = [r["user_id"] for r in rec["notified"] if r["user_id"] not in left_out]
+    to += [r["user_id"] for r in rec["not_notified"] if r["user_id"] in extra and r["can_change"]]
     ids = []
-    for r in rec["notified"]:
-        u = s.get(AppUser, r["user_id"])
+    for uid in to:
+        u = s.get(AppUser, uid)
         n = create(s, u, kind, title, report_link(s, u, u_up.deal_slug, u_up.collection_period), body=body, upload_id=u_up.id,
                    deal_slug=u_up.deal_slug, collection_period=u_up.collection_period, version=version, note_from_tao=note,
                    changes=changes if correction else None)
