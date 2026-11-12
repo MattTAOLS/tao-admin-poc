@@ -106,6 +106,13 @@ class SetrepUpload(Base):
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     replaces_upload_id: Mapped[str | None] = mapped_column(Id, ForeignKey("setrep_upload.id"), nullable=True)   # 006
     uploaded_by_user_id: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)      # 010
+    # 016: Save (On hold) is a marker on a needs_review upload, not a status; the draft keeps the publish pop-up's entries
+    held_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    held_by: Mapped[str | None] = mapped_column(Id, ForeignKey("app_user.id"), nullable=True)
+    held_by_label: Mapped[str | None] = mapped_column(Text, nullable=True)                                      # role-only mode has no user id
+    hold_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    draft_note_to_partners: Mapped[str | None] = mapped_column(Text, nullable=True)
+    draft_notify: Mapped[dict | None] = mapped_column(Json, nullable=True)                                      # {"add": [user ids], "remove": [user ids]}
 
 
 class Extraction(Base):
