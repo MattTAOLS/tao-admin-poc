@@ -33,7 +33,20 @@ export type Upload = {
   published_version?: number | null
   /** Wave B: a correction waiting in the approval queue. */
   pending_correction_id?: string | null
+  /** Set while a TAO Admin has saved the report for later (On hold): a marker on a needs_review upload, not a status. */
+  hold?: Hold | null
+  /** What was in the publish pop-up when it was last saved; kept until the report is published or rejected. */
+  draft?: PublishDraft | null
 }
+
+/** contracts/openapi.yaml › NotifyChoices: per-person choices for one publish only, never a subscription. */
+export type NotifyChoices = { add?: string[]; remove?: string[] }
+/** contracts/openapi.yaml › Upload.hold. `by` is null in role-only mode; `by_label` is the name to show. */
+export type Hold = { at: string; by: { id: string; name: string } | null; by_label: string; note: string | null }
+/** contracts/openapi.yaml › Upload.draft. */
+export type PublishDraft = { note_to_partners: string | null; notify: NotifyChoices }
+/** contracts/openapi.yaml › HoldRequest: every key is optional. */
+export type HoldRequest = { note?: string | null; note_to_partners?: string | null; notify?: NotifyChoices }
 
 /** `targets`: JSON pointers approve writes to on use_ours / use_report (finding.schema.json). */
 export type Finding = FindingView & { extraction_id?: string; created_at?: string; targets?: string[] }
@@ -179,6 +192,8 @@ export type Me = { user: AppUser | null; role: string; partner_slug: string | nu
 export type RecipientChannel = 'in_app' | 'email'
 export type NotReason = 'not_subscribed' | 'deactivated' | 'not_visible' | 'switched_off' | 'partner_notifications_off'
 export type Recipients = {
-  notified: { user_id: string; name: string; partner_slug: string | null; channels: RecipientChannel[] }[]
-  not_notified: { user_id: string; name: string; partner_slug?: string | null; reason: NotReason }[]
+  /** can_change: the person can be left out of this publish (always true on the contract API). */
+  notified: { user_id: string; name: string; partner_slug: string | null; channels: RecipientChannel[]; can_change?: boolean }[]
+  /** can_change: true only for not_subscribed (the person can be added by hand); false rows are shown locked. */
+  not_notified: { user_id: string; name: string; partner_slug?: string | null; reason: NotReason; can_change?: boolean }[]
 }
