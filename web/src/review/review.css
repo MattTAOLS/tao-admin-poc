@@ -202,3 +202,20 @@
 .rv-notify__off { margin: 0; padding: 8px 10px; border-radius: var(--r-control); background: var(--warn-bg); color: var(--text); font-size: var(--fs-table); }
 .rv-notify__off b { color: var(--warn); }
 .rv-counter { font-family: var(--data); font-feature-settings: var(--tabular); }
+
+/* ---- Save for later: the On hold line, and the per-person switches in the Publish pop-up ---- */
+.rv-hold { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 16px; border-radius: var(--r-panel);
+  border: 1px solid var(--border-card); background: var(--card); color: var(--text); font-size: var(--fs-table); }
+.rv-hold q { color: var(--muted); }
+.rv-people { display: flex; flex-direction: column; gap: 2px; }
+.rv-people__group { margin: 6px 0 0; font: 600 var(--fs-small) var(--font); color: var(--muted); }
+.rv-people__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-card); }
+.rv-person { display: grid; grid-template-columns: 28px minmax(120px, 1.2fr) 80px 132px minmax(0, 2fr); align-items: center; gap: 8px; min-height: 32px;
+  padding: 3px 0; border-bottom: 1px solid var(--border-card); font-size: var(--fs-table); }
+.rv-person__name { font-weight: 600; }
+.rv-person__side, .rv-person__why { color: var(--muted); font-size: var(--fs-small); }
+.rv-person__why b { color: var(--text); }
+.rv-person__why svg { vertical-align: -1px; }
+.rv-person--locked .rv-person__name { color: var(--muted); }
+.rv-switch { width: 16px; height: 16px; margin: 0 4px; accent-color: var(--purple); cursor: pointer; }
+.rv-switch:disabled { cursor: not-allowed; }
