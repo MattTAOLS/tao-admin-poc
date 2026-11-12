@@ -77,7 +77,7 @@ export type CovenantChangeResult = { definition: CovenantDefinition; superseded_
 export const AUDIT_ACTIONS = ['upload', 'extract', 'reextract', 'override', 'restate', 'approve', 'reject', 'publish', 'regenerate', 'master_change', 'export',
   'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
   'user_change', 'prefs_change', 'settings_change', 'comment', 'comment_edit', 'thread_resolve', 'thread_reopen',
-  'company_change', 'company_note', 'company_note_edit', 'adverse_change', 'news_run', 'news_source_change'] as const
+  'company_change', 'company_note', 'company_note_edit', 'adverse_change', 'news_run', 'news_source_change', 'hold', 'hold_release'] as const
 export type AuditAction = typeof AUDIT_ACTIONS[number]
 /** The two audit tabs. The API derives the scope from the action (contracts/openapi.yaml /audit): reports = entries
  * with an upload_id, plus publish and regenerate; platform = everything else. */
@@ -89,7 +89,7 @@ export const PLATFORM_ACTIONS: readonly string[] = ['master_change', 'export', '
 export const REPORT_ACTIONS: readonly string[] = AUDIT_ACTIONS.filter(a => !PLATFORM_ACTIONS.includes(a))
 /** Wave B actions about one report: always on the Reports tab, even if an entry arrives without an upload_id. */
 const REPORT_ONLY: readonly string[] = ['publish', 'regenerate', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
-  'comment', 'comment_edit', 'thread_resolve', 'thread_reopen']
+  'comment', 'comment_edit', 'thread_resolve', 'thread_reopen', 'hold', 'hold_release']
 export const auditScope = (e: Pick<AuditEntry, 'action' | 'upload_id'>): AuditScope =>
   e.upload_id || REPORT_ONLY.includes(e.action) ? 'reports' : 'platform'
 export type AuditQuery = {

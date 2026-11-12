@@ -27,6 +27,8 @@ export const ACTION_LABEL: Record<string, string> = {
   adverse_change: 'Adverse media decision', news_run: 'News run',
   // wave E: Platform (paid news sources; the detail names fields, never key values)
   news_source_change: 'News source change',
+  // Save for later: Reports (a marker on a needs_review report, not a status)
+  hold: 'Saved for later (On hold)', hold_release: 'Hold released',
 }
 /** Actions whose detail carries before → after values (shown in the Detail cell and the expanded row). */
 const CHANGE_ACTIONS: readonly string[] = ['master_change', 'value_edit', 'value_edit_revert', 'correction', 'correction_approve', 'correction_reject',
@@ -156,6 +158,23 @@ export function newsRunText(e: AuditEntry): string {
   return cs ? `${head} · ${str(d.company_name) ?? cap(cs.replace(/-/g, ' '))} only` : head
 }
 const clip = (s: string, n = 80) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+/** A list in a detail as a count: an array (ids or people) or a number. */
+const listSize = (v: unknown) => (Array.isArray(v) ? v.length : typeof v === 'number' ? v : 0)
+/** People in a detail ({id, name} or plain names) as names. */
+export const peopleNames = (v: unknown): string[] =>
+  (Array.isArray(v) ? v.map(x => (typeof x === 'string' ? x : x && typeof x === 'object' ? String((x as { name?: unknown }).name ?? '') : '')).filter(Boolean) : [])
+/** hold: why it is waiting, and what was kept as the draft of the publish pop-up. */
+export function holdSummary(e: AuditEntry): string {
+  const d = (e.detail ?? {}) as Record<string, unknown>
+  const note = str(d.note) ?? str(e.reason)
+  const n = listSize(d.notify_add) + listSize(d.notify_remove)
+  return [note ? `“${clip(note)}”` : 'No note', d.has_draft_note === true ? 'draft note kept' : null, n > 0 ? `${n} notification change${n === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')
+}
+/** publish: people added or left out by hand for that publish only. */
+export function publishChoices(d: Record<string, unknown>): string[] {
+  const added = peopleNames(d.notified_added), removed = peopleNames(d.notified_removed)
+  return [added.length ? `Added by hand: ${added.join(', ')}` : null, removed.length ? `Left out: ${removed.join(', ')}` : null].filter((x): x is string => !!x)
+}
 
 /** changes() with names from the context: a subscription list reads as programs and deals, a calendar row as the
  * deal, and a one-value setting as the setting's name. */
@@ -223,6 +242,8 @@ export function summary(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs'> & { u
   if (e.action === 'comment') return typeof d.body === 'string' ? (d.body.length > 80 ? d.body.slice(0, 79) + '…' : d.body) : 'Comment'
   if (e.action === 'thread_resolve') return 'Thread resolved'
   if (e.action === 'thread_reopen') return 'Thread reopened'
+  if (e.action === 'hold') return holdSummary(e)
+  if (e.action === 'hold_release') return 'Hold released; back to Needs review'
   if (e.action === 'master_change') {
     const ch = changes(d)
     const head = [d.entity, d.key, typeof d.mode === 'string' ? MODE_LABEL[d.mode] ?? d.mode : null, d.effective_from ? `effective ${d.effective_from}` : null].filter(Boolean).join(' ')
@@ -236,7 +257,7 @@ export function summary(e: AuditEntry, c?: Pick<Ctx, 'deals' | 'programs'> & { u
   }
   if (e.action === 'regenerate') return [d.program_slug ?? 'all programs', d.publications != null ? `${d.publications} publications` : null, d.trigger].filter(Boolean).join(' · ')
   if (e.action === 'override' || e.action === 'restate') return [d.rule_id, d.choice].filter(Boolean).join(' · ')
-  if (e.action === 'publish') return d.replaced_upload_id ? 'Re-issue published; replaces the earlier publication' : 'Published to partners'
+  if (e.action === 'publish') return [d.replaced_upload_id ? 'Re-issue published; replaces the earlier publication' : 'Published to partners', ...publishChoices(d)].join(' · ')
   if (e.action === 'export') return [d.scope, d.month, d.rows != null ? `${d.rows} rows` : null].filter(Boolean).join(' · ')
   if (typeof d.status === 'string') return d.status
   const keys = Object.keys(d)
@@ -371,6 +392,11 @@ function EntryDetail({ e, c }: { e: AuditEntry; c: Ctx }) {
             </div>
           ) : null
         })()}
+        {e.action === 'publish' && publishChoices((e.detail ?? {}) as Record<string, unknown>).map(line => {
+          const [head, ...tail] = line.split(': ')
+          return <div key={head} className="adm-reason"><b>{head}</b>: {tail.join(': ')} (this publish only)</div>
+        })}
+        {e.action === 'hold' && <div className="adm-reason"><b>Saved for later</b>: {holdSummary(e)}</div>}
         {e.reason && <div className="adm-reason"><b>Reason</b>: {e.reason}</div>}
         {rest.length > 0 && (
           <dl className="adm-dl">
