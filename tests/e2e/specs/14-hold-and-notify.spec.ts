@@ -58,13 +58,12 @@ const people = (n: number) => new RegExp(`· ${n === 0 ? 'nobody' : `${n} ${n ==
 const decision = (page: Page) => page.getByRole('region', { name: 'Decision' })
 const queueRow = (page: Page, id: string) =>
   page.getByRole('table', { name: 'Reports waiting for review' }).getByRole('row').filter({ has: page.locator(`a[href$="/${id}"]`) })
-/** The queue shows the hold note in quotes, clipped at 60 characters, with the full text in the title. */
+/** The queue shows the whole hold note in quotes (clipped to two lines by CSS, never by character count), with the full
+ * text in the title. */
 async function expectQueueNote(row: Locator, note: string) {
   const cell = row.getByTestId('hold-note')
   await expect(cell).toHaveAttribute('title', note)
-  if (note.length <= 60) return expect(cell).toHaveText(`“${note}”`)
-  await expect(cell).toContainText(`“${note.slice(0, 50)}`)
-  await expect(cell).toContainText('…”')
+  await expect(cell).toHaveText(`“${note}”`)
 }
 const savedToast = (page: Page) => page.getByRole('status').filter({ hasText: 'Saved. On hold in the Approval queue.' })
 async function openPublish(page: Page, id: string): Promise<{ pub: Locator; who: Locator }> {
@@ -306,6 +305,9 @@ test('step 14b: Publish pop-up, partner notifications off: locked rows, add and 
   await who.scrollIntoViewIfNeeded()
   await shot(page, '14-publish-choices-notifications-off')
   await pub.getByRole('button', { name: 'Save for later' }).click()
+  // The first press asks why it is waiting (optional); nothing is sent until Save and close.
+  await expect(pub.getByLabel(/Why is it waiting/)).toBeVisible()
+  await pub.getByRole('button', { name: 'Save and close' }).click()
   await expect(savedToast(page)).toBeVisible()
   await expect(page).toHaveURL(QUEUE)
   const row = queueRow(page, u.id)
