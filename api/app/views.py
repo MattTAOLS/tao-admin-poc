@@ -3,7 +3,7 @@ import datetime as dt
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from .models import (Partner, Program, ProgramPartner, Deal, CovenantDefinition, SetrepUpload, Extraction, Finding, ReviewAction, Publication,
-                     PublicationVersion, Correction, ValueEdit)
+                     PublicationVersion, Correction, ValueEdit, AppUser)
 
 
 def iso(t: dt.datetime | None) -> str | None:
@@ -73,7 +73,39 @@ def upload_dict(s: Session, u: SetrepUpload) -> dict:
                                                                             SetrepUpload.status == "published")).first(),
             "active_edit_count": active_edit_count(s, u.id), "published_version": published_version(s, u, pub),
             "pending_correction_id": s.scalars(select(Correction.id).where(Correction.upload_id == u.id,
-                                                                          Correction.status == "needs_review")).first()}
+                                                                          Correction.status == "needs_review")).first(),
+            "hold": hold_dict(s, u), "draft": draft_dict(u)}
+
+
+HOLD_FIELDS = ("held_at", "held_by", "held_by_label", "hold_note")
+DRAFT_FIELDS = ("draft_note_to_partners", "draft_notify")
+ROLE_LABELS = {"tao_admin": "TAO Admin", "tao_analyst": "TAO Analyst"}
+
+
+def on_hold(u: SetrepUpload) -> bool:
+    """A hold is a marker on a needs_review upload (016), never a status."""
+    return u.held_at is not None and u.status == "needs_review"
+
+
+def hold_dict(s: Session, u: SetrepUpload) -> dict | None:
+    """Upload.hold: null unless on hold. `by` is the user (null in role-only mode); by_label the name to show."""
+    if not on_hold(u):
+        return None
+    who = s.get(AppUser, u.held_by) if u.held_by else None
+    label = who.name if who else (u.held_by_label or ROLE_LABELS["tao_admin"])
+    return {"at": iso(u.held_at), "by": {"id": who.id, "name": who.name} if who else None, "by_label": label, "note": u.hold_note}
+
+
+def notify_choices(v: dict | None) -> dict:
+    return {"add": list((v or {}).get("add") or []), "remove": list((v or {}).get("remove") or [])}
+
+
+def draft_dict(u: SetrepUpload) -> dict | None:
+    """Upload.draft (TAO only; uploads are TAO routes): what was in the publish pop-up at the last save, else null."""
+    notify = notify_choices(u.draft_notify)
+    if u.draft_note_to_partners is None and not (notify["add"] or notify["remove"]):
+        return None
+    return {"note_to_partners": u.draft_note_to_partners, "notify": notify}
 
 
 def active_edit_count(s: Session, upload_id: str) -> int:
