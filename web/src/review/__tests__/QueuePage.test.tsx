@@ -8,6 +8,7 @@ import QueuePage from '../QueuePage'
 import queue from './fixtures/queue.json'
 import deals from './fixtures/deals.json'
 import programs from './fixtures/programs.json'
+import type { Upload } from '../lib/types'
 
 const master = [on('GET', /^\/master\/deals/, () => ({ body: deals })), on('GET', /^\/master\/programs/, () => ({ body: programs }))]
 
@@ -42,6 +43,52 @@ describe('Approval queue', () => {
     const rows = screen.getAllByRole('row')
     await userEvent.click(within(rows[2]).getByText('Stride Capital').closest('tr')!)
     expect(screen.getByTestId('where').textContent).toBe(`/admin/uploads/queue/${queue[0].id}`)
+  })
+
+  it('marks held reports with an On hold pill, the note and who saved it, and filters to them', async () => {
+    const long = 'Waiting for the servicer to confirm the tranche 52 opening balance before this goes to the partners.'
+    const held = clone(queue) as Upload[]
+    // Stride (second by upload time) is on hold; Moneda is not.
+    held[0] = { ...held[0], hold: { at: '2026-11-11T15:04:00+00:00', by: { id: '00000000-0000-4000-8000-000000000001', name: 'A. Patel' }, by_label: 'A. Patel', note: long } }
+    held[1] = { ...held[1], hold: null }
+    mockApi([on('GET', /^\/uploads\?status=/, c => ({ body: c.path.includes('needs_review') ? held : [] })), ...master])
+    renderPage(<QueuePage />)
+    await screen.findByText('Stride Capital')
+    // Held reports stay in the default list, in the same order.
+    let rows = screen.getAllByRole('row').slice(1)
+    expect(rows.map(r => within(r).getByRole('link').textContent)).toEqual(['Moneda Capital Corp.', 'Stride Capital'])
+    expect(within(rows[0]).queryByText('On hold')).toBeNull()
+    expect(within(rows[1]).getByText('Needs review')).toBeTruthy()
+    expect(within(rows[1]).getByText('On hold')).toBeTruthy()
+    const note = within(rows[1]).getByTestId('hold-note')
+    expect(note.getAttribute('title')).toBe(long)
+    expect(note.textContent).toBe('“Waiting for the servicer to confirm the tranche 52 opening…”')
+    expect(within(rows[1]).getByTestId('hold-by').textContent).toMatch(/^A\. Patel, \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+
+    const filter = screen.getByRole('group', { name: 'Show reports' })
+    expect(within(filter).getAllByRole('button').map(b => `${b.textContent}:${b.getAttribute('aria-pressed')}`)).toEqual(['All 2:true', 'On hold 1:false'])
+    await userEvent.click(within(filter).getByRole('button', { name: 'On hold 1' }))
+    rows = screen.getAllByRole('row').slice(1)
+    expect(rows.map(r => within(r).getByRole('link').textContent)).toEqual(['Stride Capital'])
+    await userEvent.click(within(filter).getByRole('button', { name: 'All 2' }))
+    expect(screen.getAllByRole('row').slice(1)).toHaveLength(2)
+  })
+
+  it('a hold without a note shows who and when; the On hold filter says so when nothing is held', async () => {
+    const held = clone(queue) as Upload[]
+    held[0] = { ...held[0], hold: { at: '2026-11-11T15:04:00+00:00', by: null, by_label: 'TAO Admin', note: null } }
+    mockApi([on('GET', /^\/uploads\?status=/, c => ({ body: c.path.includes('needs_review') ? held : [] })), ...master])
+    const a = renderPage(<QueuePage />)
+    const row = (await screen.findByText('Stride Capital')).closest('tr')!
+    expect(within(row).queryByTestId('hold-note')).toBeNull()
+    expect(within(row).getByTestId('hold-by').textContent).toMatch(/^TAO Admin, /)
+    a.unmount()
+
+    mockApi([on('GET', /^\/uploads\?status=/, c => ({ body: c.path.includes('needs_review') ? queue : [] })), ...master])
+    renderPage(<QueuePage />)
+    await screen.findByText('Stride Capital')
+    await userEvent.click(screen.getByRole('button', { name: 'On hold 0' }))
+    expect(await screen.findByText('Nothing on hold')).toBeTruthy()
   })
 
   it('shows the empty state', async () => {
