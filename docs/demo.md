@@ -665,3 +665,10 @@ step 13 added: two full runs from `down -v`, up, seed and `npx playwright test -
 step 13 about 1 min 10 s. Run 2, 44 of 44: 16 min 6 s (start and seed 1 min 33 s, tests 14 min 24 s); step 12 about 2 min
 6 s, step 13 about 1 min 9 s. Test connection with the fake Brave key ended Failed both times ("HTTP 422: The provided
 subscription token is invalid.") within a few seconds.
+
+**Save on hold and notify choices runs, 2026-11-11.** On `integration/hold-notify` (6e0f0c6) with step 11d moved to the
+new Publish pop-up and step 14 added: two full runs from `down -v`, up, seed and `npx playwright test --project=demo`
+(stack with `scripts/compose.news-fixture.yml`, images already built). Run 1, 47 of 47: 14 min 55 s (start and seed
+48 s, tests 14 min 7 s); step 14 about 1 min 43 s. Run 2, 47 of 47: 14 min 31 s (1 min 0 s, 13 min 31 s); step 14
+about 1 min 40 s. Before step 14 existed, the 44 earlier tests with the updated step 11d also passed 44 of 44 from a
+fresh database (tests 21 min 18 s, while the images had just been built).

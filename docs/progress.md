@@ -1809,3 +1809,43 @@ partner", "turned off report notifications").
 
 Needs from others: none beyond the contract. The UI relies on POST hold keeping `note_to_partners` and `notify`
 when they are not sent (Save… sends only `note`).
+
+## QA & Demo — Save (On hold) and per-person notify choices (2026-11-11)
+
+On `agent/qa`, reset onto `integration/hold-notify` (6e0f0c6).
+
+- **Step 11d** (`tests/e2e/specs/11-people.spec.ts`) reads the new Publish pop-up: one row per person
+  (`recipient-<user id>` inside the TAO / Investor / Manager lists). Off: the Investor rows read Not notified, "Locked:
+  partner notifications are off", switch disabled, and the API says `can_change` false. On: D. Alvarez reads "Will be
+  notified", In-app; M. Chen and the Manager users read "does not receive this deal"; the header count equals the
+  API's notified list; the publish audit recipients equal that list exactly (before: only "contains D. Alvarez") and
+  `notified_added` / `notified_removed` are empty. No other spec read the old markup.
+- **Step 14** (`tests/e2e/specs/14-hold-and-notify.spec.ts`, 3 tests, facts in `STEP14`; `docs/demo.md` Journey 9 with
+  9 screenshots). Its own report, TLFC LP (Leases) 2026-07, uploaded in the spec after step 13, so no earlier step's
+  report is touched. 14a: Save… (action bar order, note, toast, queue row with pill, note, who and when, the On hold
+  chip, nothing published, no notification), the marker on the review page, the analyst (marker, no Save…, no Release
+  hold, 403 `admin_only`), partners (sent back to their shell; 403 on `GET /uploads`, the upload, recipients and both
+  hold routes), save again replaces the note, Release hold (needs_review kept, second release 409), audit. 14b,
+  partner notifications off: locked partner rows that do not move, a TAO user added, a subscriber left out, the count,
+  Reset, Save for later with a note and choices, the draft in `Upload.draft` and back in the reopened pop-up, 422 on
+  adding a locked person through hold and approve. 14c: D. Alvarez switches Report published off in Profile; Partner
+  notifications on in System settings with a reason; M. Chen and the Manager users become addable, D. Alvarez stays
+  locked (422 by name); Approve and publish with S. Lindqvist-Berg and M. Chen added and R. Okafor left out: one
+  report_published each with the note for the added and the untouched subscribers, none for the rest, every user's
+  subscriptions unchanged, `notified_added` / `notified_removed` and the exact recipients in the publish entry, "Added
+  by hand" / "Left out" in the Audit log, hold and draft null on the published upload, hold on it 409.
+- **Settings it changes.** The spec switches partner notifications off through the API at its start and on through
+  System settings in 14c, so it ends as step 11 left them (on). It subscribes J. Moreau and R. Okafor to the deal (kept)
+  and restores D. Alvarez's Profile choice in a `finally`.
+
+How to run: as in `docs/demo.md` ("Run it"). Step 14 alone on a stack that has already run steps 1–13:
+`npx playwright test specs/14-hold-and-notify.spec.ts --project=demo --no-deps` (once per database: it publishes its
+report).
+
+Runs: two full runs from a fresh database, 47 of 47 both times (tests 14 min 7 s and 13 min 31 s; step 14 about
+1 min 40 s). Screenshots committed for step 14 and the two pop-up screens of step 11d; the rest kept.
+
+Stubbed: nothing. Not covered: a 422 shown inside the pop-up (the UI never offers a locked person, so the test asks
+the API directly), and a saved draft that names someone who has since become locked.
+
+Needs from others: nothing blocks. Rough edges in the new screens are in `docs/requests.md` (QA & Demo, 2026-11-11).
