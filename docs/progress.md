@@ -1743,3 +1743,37 @@ Needs from the Lead:
    were not read: ...", R01 "N field(s) the extraction could not place on the report: ...", R18 "<ref>: no current
    value was read for this ceiling covenant ...", R06 "Opening contracts X and the printed change Y give Z ...".
 4. API: nothing required. `handle_extraction` now returns a `carried` count beside `counts`.
+
+## UI-Review / UI-Admin: Save for later (On hold) and per-person notify choices (2026-11-11)
+
+Built against contract commit 1aaf359 (`Upload.hold`, `Upload.draft`, `NotifyChoices`, `HoldRequest`,
+`ApproveRequest.notify`, `Recipients.can_change`, POST and DELETE `/uploads/{id}/hold`, audit `hold`, `hold_release`).
+
+- **Review page, action bar** (TAO Admin, needs_review): Re-extract pages…, **Save…**, Reject…, Publish to partner….
+  Save… opens "Save for later": one optional "Why is it waiting?" note (max 1,000, pre-filled with the stored hold
+  note), Cancel and "Save and close". The POST body is `{note}` only, so the stored draft is not touched. On success:
+  toast "Saved. On hold in the Approval queue." and the Approval queue opens.
+- **On hold marker**: an "On hold" pill beside the status pill and a line at the top of the page, "On hold since
+  <date time> by <by_label>" plus the note in quotes, with **Release hold** (TAO Admin; DELETE, then the marker goes).
+- **Publish pop-up**: one row per person, grouped TAO then each partner: switch, name, side tag, "Will be notified" /
+  "Not notified", then the channel, the reason, or "Locked: <reason>" when `can_change` is false. A switched row reads
+  "Added for this report" / "Left out for this report". Header "Who gets notified · N people" (live), and
+  "N changes for this report only. Subscriptions are not changed." with Reset. The stored draft is applied on open;
+  choices the recipients no longer allow are dropped. Approve sends `{note_to_partners, notify: {add, remove}}`
+  (`notify` left out when nothing was switched). **Save for later** in the footer (needs_review only) posts
+  `{note_to_partners, notify}` plus the existing hold note, then toast and queue. A 422 shows the API message.
+- **Approval queue**: "On hold" pill beside the status, the note (clipped at 60, full text in the title) and
+  "<by_label>, <date time>"; chips "All N" / "On hold N" above the table. Held reports stay in the default list.
+- **Audit log**: `hold` "Saved for later (On hold)" and `hold_release` "Hold released" on the Reports tab and in the
+  action filter. Hold summary: the note, "draft note kept", "N notification changes". Publish summary and expanded
+  row: "Added by hand: …", "Left out: …". The review page's Activity card shows the same.
+
+How to run: `cd web && npx tsc --noEmit -p . && npx vitest run src/review src/admin` (23 files, 351 tests).
+New tests: `web/src/review/__tests__/Hold.test.tsx`, two in `QueuePage.test.tsx`, four in
+`src/admin/__tests__/AuditWaveC.test.tsx`; the two publish-dialog tests in `Comments.test.tsx` follow the new markup.
+
+Stubbed: nothing. The not-notified reasons keep the existing wording ("the program is not shared with their
+partner", "turned off report notifications").
+
+Needs from others: none beyond the contract. The UI relies on POST hold keeping `note_to_partners` and `notify`
+when they are not sent (Save… sends only `note`).
