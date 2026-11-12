@@ -635,6 +635,28 @@ The Lead reads this at every merge.
   the key is absent. Also for the record (not a bug): a run's `stats.date_confirmed` counts every stored story with a
   confirmed date, excluded ones included (`news/runner.py` line 359), so the fixture run shows 11 kept and 11 dates
   confirmed although one kept story (Xpedite) has no confirmed date; say if the column should count kept stories only.
+- 2026-11-11 — QA & Demo to Lead / UI-Review / UI-Admin / Data & API (Save on hold and per-person notify, step 14;
+  nothing blocks the demo, no test fails on these). Rough edges seen while writing `specs/14-hold-and-notify.spec.ts`:
+  (1) The per-person "switch" is a 16 px checkbox (`web/src/review/review.css` line 220, `.rv-switch`); it has
+  `role="switch"` but looks like the checkboxes elsewhere, and the status pill beside it stretches to the full 132 px
+  grid column (`.rv-person`, line 213), so "Will be notified" reads as a bar. See
+  `docs/demo/14-publish-partners-on.png`. (2) Order inside a group: people who are notified by default come first, then
+  the others, each sorted by the whole name string, so by initial (`recipientPeople`,
+  `web/src/review/components/Dialogs.tsx` line 310; `api/app/notify.py` line 93). The TAO group reads J. Moreau, Q.
+  Tester, R. Okafor, A. Patel, S. Lindqvist-Berg, and a person keeps their place when switched, so the order looks
+  arbitrary. Suggest one list per group sorted by surname. (3) "Save for later" in the pop-up cannot take a "Why is it
+  waiting?" note: on a report that is not yet on hold the queue row then shows On hold with no reason, and the only way
+  to add one is to reopen the report and use Save…. (4) The Save… dialog always says "Your draft note and notification
+  choices are kept." (`Dialogs.tsx` line 168), also when nothing has been drafted. (5) After Release hold nothing on the
+  review page says a draft note and choices are still stored; they only show when the pop-up is opened. (6) The queue
+  clips the hold note at 60 characters mid-word ("…the July figur…", `web/src/review/QueuePage.tsx` lines 21 and 91)
+  although the Status column has room for about twice that at 1440 px. (7) Wording differs between places: the Audit
+  log says "Added by hand: …" / "Left out: …", the review page's Activity card says "added by hand: …" / "left out: …"
+  (`web/src/review/components/Activity.tsx` lines 77-78); the pop-up says "switched this off in their Profile", the
+  API's 422 says "they switched this notification off in their profile" (`api/app/notify.py` line 117). (8) In the
+  Audit log a hold entry shows the note twice, in Reason and again in Detail (`web/src/admin/AuditLogPage.tsx` lines
+  245 and 440). (9) Not new, but visible on the same screen: the queue's "Uploaded by" column prints the role
+  (`tao_analyst`) while the hold line beside it and the Audit log print the person (J. Moreau), `QueuePage.tsx` line 97.
 
 ## News
 - 2026-11-06 — To Data & API (no contract change needed): Run now = insert `news_run` (trigger `manual`, status `queued`), then `LPUSH news <run id as a plain string>` (list name from `NEWS_QUEUE`, default `news`). The worker BRPOPs and treats the message as a wake-up only: it runs every queued row oldest first, so the payload shape is not load-bearing and a lost push still runs within a minute. `run_active` should look at both `queued` and `running`; the worker fails any row left `running` when it restarts, and fails a queued row with `{company_slug: null, source: "worker", message: "company_feeds is off; nothing was fetched"}` if the setting was switched off before it started. The worker reads companies from the `company` table only: seeding `seed/companies.json` into it is on the API side.
