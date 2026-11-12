@@ -353,9 +353,9 @@ describe('Publish dialog: note to partners and who gets notified', () => {
     // One list per partner, one row per person: name, side, status word, then the channel or the reason.
     const investor = await within(who).findByRole('list', { name: 'Investor' })
     expect(within(investor).getAllByRole('listitem').map(li => li.textContent)).toEqual([
-      'M. ChenInvestorWill be notifiedIn-app', 'D. AlvarezInvestorNot notifieddoes not receive this deal'])
+      'D. AlvarezInvestorNot notifieddoes not receive this deal', 'M. ChenInvestorWill be notifiedIn-app'])
     expect(within(within(who).getByRole('list', { name: 'Manager' })).getAllByRole('listitem').map(li => li.textContent)).toEqual([
-      'K. NovakManagerWill be notifiedIn-app · Email (coming later)', 'L. HaddadManagerNot notified Locked: deactivated'])
+      'L. HaddadManagerNot notified Locked: deactivated', 'K. NovakManagerWill be notifiedIn-app · Email (coming later)'])
     expect(within(who).getByTestId('notify-count').textContent).toBe(' · 2 people')
     expect(within(who).getByText('The 2 internal comment threads on this upload are not sent.')).toBeTruthy()
     expect(within(who).queryByTestId('notifications-off')).toBeNull()

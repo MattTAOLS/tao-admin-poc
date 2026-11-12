@@ -1849,3 +1849,25 @@ Stubbed: nothing. Not covered: a 422 shown inside the pop-up (the UI never offer
 the API directly), and a saved draft that names someone who has since become locked.
 
 Needs from others: nothing blocks. Rough edges in the new screens are in `docs/requests.md` (QA & Demo, 2026-11-11).
+
+## UI-Review / UI-Admin: polish pass on Save for later and the notify switches (2026-11-11)
+
+From QA's rough edges (`docs/requests.md`, step 14):
+
+- The per-person switches are drawn as switches (track and thumb, on / off, focus ring, dashed when locked); still a
+  checkbox with `role="switch"` and the person's name. The status pill keeps its own width.
+- People are sorted by surname, then given name or initial, one alphabetical list per group (sorted in the UI).
+- "Save for later" in the Publish pop-up is two presses: the first shows "Why is it waiting? (optional)" (pre-filled
+  with the stored hold note) and the footer becomes Back / "Save and close"; the second posts `note` with the draft.
+- The Save… dialog mentions the draft only when one is stored; otherwise "The report stays in the Approval queue
+  marked On hold. Nothing is sent to partners."
+- A stored draft is named above the action bar on a needs_review report, on hold or not: "A draft note to partners
+  and notification choices are saved for this report." (or the note, or the choices, alone).
+- The queue shows the whole hold note, clipped by CSS to two lines of the column; the full text is in the title.
+- "Added by hand:" and "Left out:" read the same in the Audit log and the Activity card.
+- A hold entry shows its note once, under Reason; the detail reads "draft note kept · N notification changes" or
+  "No draft".
+
+How to run: `cd web && npx tsc --noEmit -p . && npx vitest run src/review src/admin`.
+For QA: the e2e spec needs "Save and close" after "Save for later" in the pop-up, and the queue note no longer
+ends in "…”" for long notes (the cell holds the full text).

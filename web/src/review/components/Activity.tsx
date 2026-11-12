@@ -68,14 +68,16 @@ function Detail({ e, unit, deal }: { e: AuditEntry; unit: Finding['unit']; deal?
   if (Array.isArray(d.mentions) && d.mentions.length > 0) parts.push(<span key="mn">{d.mentions.length} mention{d.mentions.length === 1 ? '' : 's'}</span>)
   // Save for later: why it is waiting, and what was kept as the draft of the publish pop-up.
   if (e.action === 'hold') {
-    if (typeof d.note === 'string' && d.note) parts.push(<span key="hn">“{clip(d.note)}”</span>)
+    // The note is the entry's reason (the Reason column); it is repeated here only if no reason came with it.
+    if (!e.reason && typeof d.note === 'string' && d.note) parts.push(<span key="hn">“{clip(d.note)}”</span>)
     if (d.has_draft_note === true) parts.push(<span key="hd">draft note kept</span>)
     const n = size(d.notify_add) + size(d.notify_remove)
     if (n > 0) parts.push(<span key="hc">{n} notification change{n === 1 ? '' : 's'}</span>)
+    if (d.has_draft_note !== true && n === 0) parts.push(<span key="hz">No draft</span>)
   }
   // Publish: people added or left out by hand for that publish only.
-  if (names(d.notified_added).length) parts.push(<span key="na">added by hand: {names(d.notified_added).join(', ')}</span>)
-  if (names(d.notified_removed).length) parts.push(<span key="nr">left out: {names(d.notified_removed).join(', ')}</span>)
+  if (names(d.notified_added).length) parts.push(<span key="na">Added by hand: {names(d.notified_added).join(', ')}</span>)
+  if (names(d.notified_removed).length) parts.push(<span key="nr">Left out: {names(d.notified_removed).join(', ')}</span>)
   if (typeof d.note_to_partners === 'string' && d.note_to_partners) parts.push(<span key="nt">note to partners “{clip(d.note_to_partners)}”</span>)
   if (Array.isArray(d.recipients)) parts.push(<span key="rc">{d.recipients.length} recipient{d.recipients.length === 1 ? '' : 's'} notified</span>)
   if (typeof d.version === 'number') parts.push(<span key="ver">version {d.version}</span>)

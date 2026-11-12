@@ -210,12 +210,30 @@
 .rv-people { display: flex; flex-direction: column; gap: 2px; }
 .rv-people__group { margin: 6px 0 0; font: 600 var(--fs-small) var(--font); color: var(--muted); }
 .rv-people__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-card); }
-.rv-person { display: grid; grid-template-columns: 28px minmax(120px, 1.2fr) 80px 132px minmax(0, 2fr); align-items: center; gap: 8px; min-height: 32px;
+.rv-person { display: grid; grid-template-columns: 40px minmax(120px, 1.2fr) 80px 132px minmax(0, 2fr); align-items: center; gap: 8px; min-height: 32px;
   padding: 3px 0; border-bottom: 1px solid var(--border-card); font-size: var(--fs-table); }
 .rv-person__name { font-weight: 600; }
+.rv-person__status { justify-self: start; }
 .rv-person__side, .rv-person__why { color: var(--muted); font-size: var(--fs-small); }
 .rv-person__why b { color: var(--text); }
 .rv-person__why svg { vertical-align: -1px; }
 .rv-person--locked .rv-person__name { color: var(--muted); }
-.rv-switch { width: 16px; height: 16px; margin: 0 4px; accent-color: var(--purple); cursor: pointer; }
-.rv-switch:disabled { cursor: not-allowed; }
+/* A switch: a track with a thumb. Still a checkbox with role="switch", so Space toggles it and the name is its label. */
+.rv-switch { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 32px; height: 18px; margin: 0 4px; border-radius: 9px;
+  border: 1px solid var(--muted); background: var(--card); cursor: pointer;
+  transition: background var(--t-control) var(--ease), border-color var(--t-control) var(--ease); }
+.rv-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted);
+  transition: transform var(--t-control) var(--ease), background var(--t-control) var(--ease); }
+.rv-switch:checked { background: var(--purple); border-color: var(--purple); }
+.rv-switch:checked::before { transform: translateX(14px); background: var(--card); }
+.rv-switch:hover:not(:disabled) { border-color: var(--purple); }
+.rv-switch:focus-visible { outline: none; box-shadow: var(--focus); }
+.rv-switch:disabled { cursor: not-allowed; border-style: dashed; border-color: var(--border); background: var(--canvas-deep); }
+.rv-switch:disabled::before { background: var(--border); }
+.rv-switch:disabled:checked { background: var(--lav-2); border-style: solid; border-color: var(--lav-2); }
+.rv-switch:disabled:checked::before { background: var(--card); }
+.rv-savestep { padding-top: 12px; border-top: 1px solid var(--border-card); }
+/* The hold note in the queue: the column's width, two lines at most, the full text in the title. */
+.rv-holdnote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; white-space: normal;
+  overflow-wrap: anywhere; min-width: 180px; max-width: 360px; }
+.rv-footer__draft { flex: 0 0 100%; margin: 0; color: var(--muted); font-size: var(--fs-small); }

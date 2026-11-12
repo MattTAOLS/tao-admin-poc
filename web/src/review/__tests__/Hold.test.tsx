@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
 import { mockApi, on, renderPage, setRole, clone, type Call } from './helpers'
 import ReviewPage from '../ReviewPage'
-import { notifyChoices } from '../components/Dialogs'
+import { bySurname, draftLine, notifyChoices, savedHint, surnameKey } from '../components/Dialogs'
 import type { Hold, Recipients, Upload } from '../lib/types'
 import uploadFx from './fixtures/upload-moneda.json'
 import findingsFx from './fixtures/findings-moneda.json'
@@ -90,7 +90,9 @@ describe('Save… on the action bar', () => {
     expect(within(bar).getByText('All block findings are resolved. Ready to publish.')).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Save…' }))
     const dlg = await screen.findByRole('dialog', { name: 'Save for later' })
-    expect(within(dlg).getByText('The report stays in the Approval queue marked On hold. Nothing is sent to partners. Your draft note and notification choices are kept.')).toBeTruthy()
+    // Nothing is drafted, so the line does not speak of a draft; nor does the action bar.
+    expect(within(dlg).getByTestId('save-hint').textContent).toBe('The report stays in the Approval queue marked On hold. Nothing is sent to partners.')
+    expect(screen.queryByTestId('draft-line')).toBeNull()
     const note = within(dlg).getByRole('textbox', { name: /Why is it waiting\?/ }) as HTMLTextAreaElement
     expect(note.maxLength).toBe(1000)
     expect(note.required).toBe(false)
@@ -109,6 +111,7 @@ describe('Save… on the action bar', () => {
     show()
     await userEvent.click(await screen.findByRole('button', { name: 'Save…' }))
     const dlg = await screen.findByRole('dialog', { name: 'Save for later' })
+    expect(within(dlg).getByTestId('save-hint').textContent).toBe('The report stays in the Approval queue marked On hold. Nothing is sent to partners. Your draft note and notification choices are kept.')
     await userEvent.type(within(dlg).getByRole('textbox', { name: /Why is it waiting\?/ }), '  Waiting for the servicer.  ')
     expect(within(dlg).getByTestId('hold-note-count').textContent).toBe('29 / 1,000')
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save and close' }))
@@ -182,6 +185,51 @@ describe('On hold marker on the review page', () => {
     expect(del).toHaveLength(1)
     expect(del[0].method).toBe('DELETE')
     expect(screen.queryByTestId('where')).toBeNull()
+  }, 40000)
+
+  it('says a draft is stored, on hold and after Release hold', async () => {
+    const state = fresh({ hold: HOLD, draft: { note_to_partners: 'Tranche 52 is in the opening balance.', notify: { add: [OKAFOR.id], remove: [] } } })
+    // DELETE keeps the draft.
+    stack(state)
+    show()
+    const bar = await screen.findByRole('region', { name: 'Decision' })
+    expect((await within(bar).findByTestId('draft-line')).textContent).toBe('A draft note to partners and notification choices are saved for this report.')
+    expect(within(bar).getByText('All block findings are resolved. Ready to publish.')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Release hold' }))
+    await waitFor(() => expect(screen.queryByTestId('hold-line')).toBeNull())
+    expect(within(bar).getByTestId('draft-line').textContent).toBe('A draft note to partners and notification choices are saved for this report.')
+  }, 40000)
+
+  it('the draft line names only what is stored, and is not shown once the report is published', async () => {
+    stack(fresh({ draft: { note_to_partners: null, notify: { add: [], remove: [CHEN.id] } } }))
+    const a = show()
+    expect((await screen.findByTestId('draft-line')).textContent).toBe('Notification choices are saved for this report.')
+    a.unmount()
+    stack(fresh({ status: 'published', published_at: '2026-11-11T16:20:00+00:00', draft: { note_to_partners: 'x', notify: { add: [], remove: [] } } }))
+    show()
+    await screen.findByRole('region', { name: 'Decision' })
+    await screen.findByRole('article', { name: /Tranche balance roll-forward/ })
+    expect(screen.queryByTestId('draft-line')).toBeNull()
+  }, 40000)
+
+  it('the Activity card shows a hold note once, and the by-hand choices with the Audit log wording', async () => {
+    const state = fresh()
+    stack(state, [on('GET', /^\/audit\?upload_id=/, () => ({ body: [
+      { id: 'h1', at: '2026-11-11T15:04:00+00:00', actor_role: 'tao_admin', actor_label: 'A. Patel', action: 'hold', upload_id: ID, reason: 'Waiting for legal.',
+        detail: { note: 'Waiting for legal.', has_draft_note: true, notify_add: ['R. Okafor'], notify_remove: [] } },
+      { id: 'h2', at: '2026-11-11T15:10:00+00:00', actor_role: 'tao_admin', actor_label: 'A. Patel', action: 'hold', upload_id: ID, reason: null,
+        detail: { note: null, has_draft_note: false, notify_add: [], notify_remove: [] } },
+      { id: 'h3', at: '2026-11-11T16:20:00+00:00', actor_role: 'tao_admin', actor_label: 'A. Patel', action: 'publish', upload_id: ID, reason: null,
+        detail: { notified_added: [{ id: OKAFOR.id, name: 'R. Okafor' }], notified_removed: [{ id: CHEN.id, name: 'M. Chen' }] } },
+    ] }))])
+    show()
+    const act = await screen.findByRole('region', { name: 'Activity' })
+    await within(act).findAllByText('Saved for later (On hold)')
+    const rows = within(act).getAllByRole('row').slice(1).map(r => r.textContent ?? '')
+    expect(rows[0]).toContain('Added by hand: R. Okafor · Left out: M. Chen')
+    expect(rows[1]).toContain('No draft')
+    expect(rows[2]).toContain('draft note kept · 1 notification change')
+    expect(rows[2].match(/Waiting for legal\./g)).toHaveLength(1)
   }, 40000)
 
   it('without a note the line ends after the name', async () => {
@@ -308,6 +356,47 @@ describe('Publish pop-up: who gets notified, per person', () => {
     expect(writes(calls, /\/approve$/)[0].body).toEqual({ note_to_partners: 'Tranche 52 is in the opening balance.', notify: { add: [OKAFOR.id], remove: [NOVAK.id] } })
   }, 40000)
 
+  it('sorts each group by surname, then the given name or initial', async () => {
+    expect(surnameKey('A. Patel')).toBe('patel a.')
+    expect(surnameKey('S. Lindqvist-Berg')).toBe('lindqvist-berg s.')
+    expect(['R. Okafor', 'A. Patel', 'B. Patel', 'S. Lindqvist-Berg', 'Ana Maria Costa'].map(name => ({ name })).sort(bySurname).map(x => x.name))
+      .toEqual(['Ana Maria Costa', 'S. Lindqvist-Berg', 'R. Okafor', 'A. Patel', 'B. Patel'])
+    // The API lists notified people first; the pop-up shows one alphabetical list per group.
+    stack(fresh())
+    show()
+    const dlg = await openPublish()
+    const namesIn = (group: string) => within(within(dlg).getByRole('list', { name: group })).getAllByRole('switch').map(x => x.getAttribute('aria-label'))
+    expect(namesIn('TAO')).toEqual(['R. Okafor', 'A. Patel'])
+    expect(namesIn('Investor')).toEqual(['D. Alvarez', 'M. Chen'])
+    expect(namesIn('Manager')).toEqual(['L. Haddad', 'K. Novak'])
+    // Each row is a real switch with the person's name, and its pill keeps its own width.
+    const s = sw(dlg, 'A. Patel')
+    expect(s.type).toBe('checkbox')
+    expect(s.className).toBe('rv-switch')
+    s.focus()
+    await userEvent.keyboard(' ')
+    expect(s.checked).toBe(false)
+    expect(within(dlg).getByTestId(`recipient-${PATEL.id}`).querySelector('.ds-pill')!.className).toContain('rv-person__status')
+  }, 40000)
+
+  it('words the draft line and the save hint for what is stored', () => {
+    const both = { note_to_partners: 'x', notify: { add: ['a'], remove: [] } }
+    const noteOnly = { note_to_partners: 'x', notify: { add: [], remove: [] } }
+    const choicesOnly = { note_to_partners: null, notify: { add: [], remove: ['b'] } }
+    const empty = { note_to_partners: '  ', notify: { add: [], remove: [] } }
+    expect(draftLine(both)).toBe('A draft note to partners and notification choices are saved for this report.')
+    expect(draftLine(noteOnly)).toBe('A draft note to partners is saved for this report.')
+    expect(draftLine(choicesOnly)).toBe('Notification choices are saved for this report.')
+    expect(draftLine(empty)).toBeNull()
+    expect(draftLine(null)).toBeNull()
+    const stays = 'The report stays in the Approval queue marked On hold. Nothing is sent to partners.'
+    expect(savedHint(null)).toBe(stays)
+    expect(savedHint(empty)).toBe(stays)
+    expect(savedHint(noteOnly)).toBe(`${stays} Your draft note is kept.`)
+    expect(savedHint(choicesOnly)).toBe(`${stays} Your notification choices are kept.`)
+    expect(savedHint(both)).toBe(`${stays} Your draft note and notification choices are kept.`)
+  })
+
   it('notifyChoices keeps only what the recipients still allow', () => {
     const r = recipients()
     expect(notifyChoices(r, { add: [OKAFOR.id, OKAFOR.id, HADDAD.id, CHEN.id, 'unknown'], remove: [NOVAK.id, ALVAREZ.id] })).toEqual({ add: [OKAFOR.id], remove: [NOVAK.id] })
@@ -338,17 +427,31 @@ describe('Publish pop-up: who gets notified, per person', () => {
     await userEvent.type(within(dlg).getByRole('textbox', { name: /Note to partners/ }), 'Draft note.')
     await userEvent.click(sw(dlg, 'R. Okafor'))
     await userEvent.click(sw(dlg, 'M. Chen'))
+    // First press: the optional reason appears, nothing is sent yet.
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save for later' }))
+    const step = within(dlg).getByRole('region', { name: 'Save for later' })
+    const why = within(step).getByRole('textbox', { name: /Why is it waiting\?/ }) as HTMLTextAreaElement
+    expect(why.value).toBe('')
+    expect(why.maxLength).toBe(1000)
+    expect(document.activeElement).toBe(why)
+    expect([...dlg.querySelectorAll('.ds-dialog__foot button')].map(b => b.textContent)).toEqual(['Back', 'Save and close'])
+    expect(writes(calls, /\/hold$/)).toHaveLength(0)
+    // Back returns to the pop-up with the choices as they were.
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Back' }))
+    expect(within(dlg).queryByRole('region', { name: 'Save for later' })).toBeNull()
+    expect(sw(dlg, 'R. Okafor').checked).toBe(true)
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save for later' }))
+    await userEvent.type(within(dlg).getByRole('textbox', { name: /Why is it waiting\?/ }), 'Waiting for legal.')
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save and close' }))
     expect(await screen.findByText('Saved. On hold in the Approval queue.')).toBeTruthy()
     expect((await screen.findByTestId('where')).textContent).toBe('Approval queue')
     const posts = writes(calls, /\/hold$/)
     expect(posts).toHaveLength(1)
-    // No hold note is stored, so none is sent.
-    expect(posts[0].body).toEqual({ note_to_partners: 'Draft note.', notify: { add: [OKAFOR.id], remove: [CHEN.id] } })
+    expect(posts[0].body).toEqual({ note: 'Waiting for legal.', note_to_partners: 'Draft note.', notify: { add: [OKAFOR.id], remove: [CHEN.id] } })
     expect(writes(calls, /\/approve$/)).toHaveLength(0)
   }, 40000)
 
-  it('Save for later sends the existing hold note along; Cancel discards the dialog and posts nothing', async () => {
+  it('Save for later starts from the existing hold note; Cancel discards the dialog and posts nothing', async () => {
     const state = fresh({ hold: HOLD, draft: { note_to_partners: 'Stored note.', notify: { add: [OKAFOR.id], remove: [] } } })
     const calls = stack(state)
     show()
@@ -363,6 +466,8 @@ describe('Publish pop-up: who gets notified, per person', () => {
     expect((within(dlg).getByRole('textbox', { name: /Note to partners/ }) as HTMLTextAreaElement).value).toBe('Stored note.')
     expect(sw(dlg, 'R. Okafor').checked).toBe(true)
     await userEvent.click(within(dlg).getByRole('button', { name: 'Save for later' }))
+    expect((within(dlg).getByRole('textbox', { name: /Why is it waiting\?/ }) as HTMLTextAreaElement).value).toBe(HOLD.note)
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Save and close' }))
     await screen.findByTestId('where')
     expect(writes(calls, /\/hold$/)[0].body).toEqual({ note: HOLD.note, note_to_partners: 'Stored note.', notify: { add: [OKAFOR.id], remove: [] } })
   }, 40000)

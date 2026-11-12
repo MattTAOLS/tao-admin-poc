@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button, Dialog, Field, StatusPill, Textarea, icons, formatByUnit, formatDiffByUnit, formatPeriod } from '@/design/components'
 import { errorText, reviewApi } from '../lib/api'
 import { ruleTitle } from '../lib/rules'
-import type { ApiError, Extraction, Finding, HoldRequest, NotifyChoices, NotReason, OverrideChoice, Recipients, Upload, ValueEdit } from '../lib/types'
+import type { ApiError, Extraction, Finding, HoldRequest, NotifyChoices, NotReason, OverrideChoice, PublishDraft, Recipients, Upload, ValueEdit } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { EditsTable } from './Corrections'
 import { CLOSING_RULES, hasTargets, isValueChoice, listLabels, plannedCorrections, pointerLabel, writesFor } from '../lib/corrections'
@@ -144,6 +144,39 @@ export const NOTE_MAX = 2000
 export const HOLD_NOTE_MAX = 1000
 export const SAVED_TOAST = 'Saved. On hold in the Approval queue.'
 
+/** What a stored draft holds: a note to partners, notification choices, both or neither. */
+export function draftParts(d: PublishDraft | null | undefined): { note: boolean; choices: boolean } {
+  return { note: !!d?.note_to_partners?.trim(), choices: (d?.notify?.add?.length ?? 0) + (d?.notify?.remove?.length ?? 0) > 0 }
+}
+/** "A draft note to partners and notification choices are saved for this report.", worded for what is stored; null
+ * when nothing is. */
+export function draftLine(d: PublishDraft | null | undefined): string | null {
+  const { note, choices } = draftParts(d)
+  if (note && choices) return 'A draft note to partners and notification choices are saved for this report.'
+  if (note) return 'A draft note to partners is saved for this report.'
+  if (choices) return 'Notification choices are saved for this report.'
+  return null
+}
+const STAYS = 'The report stays in the Approval queue marked On hold. Nothing is sent to partners.'
+/** The line under the "Why is it waiting?" field: the draft is mentioned only when one is stored. */
+export function savedHint(d: PublishDraft | null | undefined): string {
+  const { note, choices } = draftParts(d)
+  if (note && choices) return `${STAYS} Your draft note and notification choices are kept.`
+  if (note) return `${STAYS} Your draft note is kept.`
+  if (choices) return `${STAYS} Your notification choices are kept.`
+  return STAYS
+}
+
+/** The optional reason for a hold: the same field in the Save… dialog and in the Publish pop-up's save step. */
+function HoldNoteField({ note, onChange, autoFocus }: { note: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  return (
+    <Field label="Why is it waiting? (optional)"
+      hint={<>Shown in the Approval queue. <span className="rv-counter" data-testid="hold-note-count">{note.length.toLocaleString('en-US')} / {HOLD_NOTE_MAX.toLocaleString('en-US')}</span></>}>
+      <Textarea rows={3} value={note} maxLength={HOLD_NOTE_MAX} autoFocus={autoFocus} onChange={e => onChange(e.target.value)} />
+    </Field>
+  )
+}
+
 /** "Save…" on the action bar: marks the report On hold with an optional note. Sends only `note`; the stored draft
  * (publish note and notification choices) is not part of this body, so it stays as it is. */
 export function SaveDialog({ upload, open, onClose, onDone }: { upload: Upload; open: boolean; onClose: () => void; onDone: (u: Upload) => void }) {
@@ -161,11 +194,8 @@ export function SaveDialog({ upload, open, onClose, onDone }: { upload: Upload; 
     <Dialog open={open} onClose={onClose} dismissable={!busy} title="Save for later" size="sm"
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit}>Save and close</Button></>}>
       <div className="rv-dialog-body">
-        <Field label="Why is it waiting? (optional)"
-          hint={<>Shown in the Approval queue. <span className="rv-counter" data-testid="hold-note-count">{note.length.toLocaleString('en-US')} / {HOLD_NOTE_MAX.toLocaleString('en-US')}</span></>}>
-          <Textarea rows={3} value={note} maxLength={HOLD_NOTE_MAX} onChange={e => setNote(e.target.value)} />
-        </Field>
-        <p className="rv-hint">The report stays in the Approval queue marked On hold. Nothing is sent to partners. Your draft note and notification choices are kept.</p>
+        <HoldNoteField note={note} onChange={setNote} />
+        <p className="rv-hint" data-testid="save-hint">{savedHint(upload.draft)}</p>
         {err && <div className="rv-dialog-error" role="alert">{err}</div>}
       </div>
     </Dialog>
@@ -189,9 +219,14 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   // What was switched by hand, as user ids. Starts from the stored draft; a choice the recipients no longer allow
   // (the person cannot be changed any more, or is already in that state) is dropped by notifyChoices below.
   const [picked, setPicked] = useState<{ add: string[]; remove: string[] }>({ add: [], remove: [] })
+  // "Save for later" is two presses: the first shows the optional reason for the hold, the second saves.
+  const [saving, setSaving] = useState(false)
+  const [holdNote, setHoldNote] = useState('')
+  const saveStep = useRef<HTMLElement>(null)
+  useEffect(() => { if (saving && typeof saveStep.current?.scrollIntoView === 'function') saveStep.current.scrollIntoView({ block: 'nearest' }) }, [saving])
   useEffect(() => {
     if (!open) return
-    setErr(undefined); setBusy(null)
+    setErr(undefined); setBusy(null); setSaving(false); setHoldNote(upload.hold?.note ?? '')
     setNote(upload.draft?.note_to_partners ?? '')
     setPicked({ add: [...(upload.draft?.notify?.add ?? [])], remove: [...(upload.draft?.notify?.remove ?? [])] })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -214,12 +249,11 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
     catch (e) { setErr(e as ApiError) }
     finally { setBusy(null) }
   }
-  // Save for later: the note and the choices become the stored draft. The hold note is sent only when one exists.
+  // Save for later: the reason for the hold, and the note and the choices as the stored draft, in one request.
   // While the recipients are not loaded the choices cannot be checked, so the stored ones go back unchanged.
   const save = async () => {
     setBusy('save'); setErr(undefined)
-    const body: HoldRequest = { note_to_partners: note.trim() || null, notify: recipients.data ? notify : { add: picked.add, remove: picked.remove } }
-    if (upload.hold?.note) body.note = upload.hold.note
+    const body: HoldRequest = { note: holdNote.trim() || null, note_to_partners: note.trim() || null, notify: recipients.data ? notify : { add: picked.add, remove: picked.remove } }
     try { onSaved?.(await reviewApi.holdUpload(upload.id, body)) }
     catch (e) { setErr(e as ApiError) }
     finally { setBusy(null) }
@@ -232,10 +266,13 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
   return (
     <Dialog open={open} onClose={onClose} dismissable={!busy} title="Publish to partner" size="lg"
       description={`${title} goes to ${partner}. Partner portals show it straight away and the program roll-up regenerates.`}
-      footer={<>
+      footer={saving ? <>
+        <Button onClick={() => setSaving(false)} disabled={!!busy}>Back</Button>
+        <Button variant="primary" loading={busy === 'save'} onClick={save}>Save and close</Button>
+      </> : <>
         <Button onClick={onClose} disabled={!!busy}>Cancel</Button>
-        {canSave && <Button loading={busy === 'save'} disabled={busy === 'publish'} onClick={save}>Save for later</Button>}
-        <Button variant="primary" loading={busy === 'publish'} disabled={busy === 'save'} onClick={submit}>Approve and publish</Button>
+        {canSave && <Button disabled={!!busy} onClick={() => { setErr(undefined); setSaving(true) }}>Save for later</Button>}
+        <Button variant="primary" loading={busy === 'publish'} onClick={submit}>Approve and publish</Button>
       </>}>
       <ul className="rv-summary">
         <li>Collection period {formatPeriod(upload.collection_period)}{upload.reporting_period && <>, reporting period {formatPeriod(upload.reporting_period)}</>}</li>
@@ -287,6 +324,13 @@ export function PublishDialog({ upload, open, title, partner, findings, ex, edit
         </Field>
       </div>
       <RecipientsList load={recipients} threadCount={threadCount} choices={notify} onToggle={toggle} onReset={() => setPicked({ add: [], remove: [] })} disabled={!!busy} />
+      {saving && (
+        <section ref={saveStep} className="rv-notify rv-savestep" aria-label="Save for later" data-testid="save-step">
+          <h3 className="rv-section__title">Save for later</h3>
+          <HoldNoteField note={holdNote} onChange={setHoldNote} autoFocus />
+          <p className="rv-hint">The report stays in the Approval queue marked On hold. Nothing is sent to partners. The note to partners and the notification choices above are kept as a draft.</p>
+        </section>
+      )}
       {err && <PublishError err={err} findings={findings} ex={ex} goTo={goTo} />}
     </Dialog>
   )
@@ -314,6 +358,13 @@ export function recipientPeople(r: Recipients | undefined): Person[] {
     ...r.not_notified.map(x => ({ user_id: x.user_id, name: x.name, partner_slug: x.partner_slug ?? null, notified: false, locked: x.can_change !== true, reason: x.reason, channels: [] as string[] })),
   ]
 }
+
+/** "A. Patel" sorts as "patel a."; "S. Lindqvist-Berg" as "lindqvist-berg s.": the surname is the last word. */
+export function surnameKey(name: string): string {
+  const words = name.trim().split(/\s+/)
+  return [words[words.length - 1], ...words.slice(0, -1)].join(' ').toLowerCase()
+}
+export const bySurname = (a: { name: string }, b: { name: string }) => surnameKey(a.name).localeCompare(surnameKey(b.name), 'en')
 
 /** The choices that still apply: add only for people who are not notified and can be changed, remove only for people
  * who are notified. Anything else (a stale saved choice) is dropped without a word. */
@@ -358,7 +409,7 @@ export function RecipientsList({ load, threadCount = 0, choices, onToggle, onRes
           <div key={slug ?? 'tao'} className="rv-people">
             <h4 className="rv-people__group">{partnerName(slug)}</h4>
             <ul className="rv-people__list" aria-label={partnerName(slug)}>
-              {people.filter(p => p.partner_slug === slug).map(p => {
+              {people.filter(p => p.partner_slug === slug).sort(bySurname).map(p => {
                 const on = isOn(p)
                 const why = p.reason ? NOT_REASON[p.reason] ?? p.reason.replace(/_/g, ' ') : null
                 const hand = on !== p.notified
@@ -368,7 +419,7 @@ export function RecipientsList({ load, threadCount = 0, choices, onToggle, onRes
                       onChange={() => onToggle?.(p.user_id, p.notified)} />
                     <span className="rv-person__name">{p.name}</span>
                     <span className="rv-person__side">{partnerName(slug)}</span>
-                    <StatusPill tone={on ? 'ok' : 'neutral'} size="sm">{on ? 'Will be notified' : 'Not notified'}</StatusPill>
+                    <StatusPill tone={on ? 'ok' : 'neutral'} size="sm" className="rv-person__status">{on ? 'Will be notified' : 'Not notified'}</StatusPill>
                     <span className="rv-person__why">
                       {hand ? <b>{on ? 'Added for this report' : 'Left out for this report'}</b>
                         : p.locked ? <><icons.IconLock width={12} height={12} /> Locked: {why ?? 'cannot be changed'}</>

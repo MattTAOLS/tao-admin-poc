@@ -94,6 +94,7 @@ describe('wave C audit actions', () => {
 
 describe('Save for later (On hold) audit actions', () => {
   const HOLD = e({ id: 'h1', at: at(2, 16), action: 'hold', upload_id: UPLOAD, deal_slug: 'f-pil-2-0-moneda-capital-corp', collection_period: '2026-08',
+    reason: 'Waiting for the servicer to confirm tranche 52.',
     detail: { note: 'Waiting for the servicer to confirm tranche 52.', has_draft_note: true, notify_add: ['00000000-0000-4000-8000-000000000002'], notify_remove: ['00000000-0000-4000-8000-000000000005'] } })
   const RELEASE = e({ id: 'h2', at: at(2, 17), action: 'hold_release', upload_id: UPLOAD })
   const PUBLISH = e({ id: 'h3', at: at(2, 18), action: 'publish', upload_id: UPLOAD,
@@ -109,12 +110,14 @@ describe('Save for later (On hold) audit actions', () => {
       expect(auditScope({ action: a, upload_id: null })).toBe('reports')
     }
   })
-  it('summarises a hold by its note and what was kept as the draft', () => {
-    expect(summary(HOLD)).toBe('“Waiting for the servicer to confirm tranche 52.” · draft note kept · 2 notification changes')
-    expect(summary({ ...HOLD, detail: { note: null, has_draft_note: false, notify_add: [], notify_remove: [] } })).toBe('No note')
-    expect(summary({ ...HOLD, detail: { note: 'x'.repeat(120), notify_add: ['a'] } })).toBe(`“${'x'.repeat(79)}…” · 1 notification change`)
-    // The note may arrive as the entry's reason, and the choices as counts.
-    expect(summary({ ...HOLD, reason: 'Waiting on legal', detail: { has_draft_note: true, notify_add: 0, notify_remove: 3 } })).toBe('“Waiting on legal” · draft note kept · 3 notification changes')
+  it('summarises a hold by what was kept as the draft; the note is the reason and is not repeated', () => {
+    expect(summary(HOLD)).toBe('draft note kept · 2 notification changes')
+    expect(summary({ ...HOLD, detail: { note: HOLD.reason, has_draft_note: false, notify_add: [], notify_remove: [] } })).toBe('No draft')
+    expect(summary({ ...HOLD, reason: null, detail: { note: null, has_draft_note: false, notify_add: [], notify_remove: [] } })).toBe('No draft')
+    expect(summary({ ...HOLD, detail: { note: HOLD.reason, notify_add: ['R. Okafor'] } })).toBe('1 notification change')
+    // The choices may arrive as counts. A note that came without a reason is still shown, once.
+    expect(summary({ ...HOLD, detail: { has_draft_note: true, notify_add: 0, notify_remove: 3 } })).toBe('draft note kept · 3 notification changes')
+    expect(summary({ ...HOLD, reason: null, detail: { note: 'x'.repeat(120), notify_add: ['a'] } })).toBe(`“${'x'.repeat(79)}…” · 1 notification change`)
     expect(summary(RELEASE)).toBe('Hold released; back to Needs review')
   })
   it('a publish entry names the people added or left out by hand', () => {
@@ -134,11 +137,17 @@ describe('Save for later (On hold) audit actions', () => {
     renderPage(PATH, [[PATH, <AuditLogPage />]])
     const table = await screen.findByRole('table', { name: 'Audit log' })
     const hold = (await within(table).findByText('Saved for later (On hold)')).closest('tr')!
-    expect(hold).toHaveTextContent('“Waiting for the servicer to confirm tranche 52.” · draft note kept · 2 notification changes')
+    expect(hold).toHaveTextContent('draft note kept · 2 notification changes')
+    expect(hold.textContent!.match(/Waiting for the servicer to confirm tranche 52\./g)).toHaveLength(1)
     expect(within(table).getByText('Hold released').closest('tr')!).toHaveTextContent('Hold released; back to Needs review')
     const pub = within(table).getByText('Published to partners · Added by hand: R. Okafor · Left out: M. Chen, K. Novak').closest('tr')!
     const options = [...document.querySelectorAll('option')].map(o => o.textContent)
     expect(options).toEqual(expect.arrayContaining(['Saved for later (On hold)', 'Hold released']))
+    // Expanded, the hold still shows its note once (Reason), not again as a detail field.
+    await userEvent.click(hold)
+    await waitFor(() => expect(table).toHaveTextContent('Saved for later: draft note kept · 2 notification changes'))
+    expect(table.textContent!.match(/Waiting for the servicer to confirm tranche 52\./g)).toHaveLength(2)
+    await userEvent.click(hold)
     await userEvent.click(pub)
     await waitFor(() => expect(table).toHaveTextContent('Added by hand: R. Okafor (this publish only)'))
     expect(table).toHaveTextContent('Left out: M. Chen, K. Novak (this publish only)')

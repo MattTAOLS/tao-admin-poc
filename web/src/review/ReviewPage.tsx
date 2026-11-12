@@ -13,7 +13,7 @@ import { formatDateTime, formatMessage, pct, text } from './lib/format'
 import type { AppUser, Correction, Finding, OverrideChoice, Thread, ThreadAnchor, Upload, ValueEdit, ValueEditResult } from './lib/types'
 import { PageCrop, PageViewer, type ViewerTarget } from './components/PageImage'
 import { ExtractedValues } from './components/ExtractedValues'
-import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, SAVED_TOAST, SaveDialog, WriteEffect } from './components/Dialogs'
+import { CHOICES, NO_TARGET_REASON, OverrideDialog, PublishDialog, ReextractDialog, RejectDialog, SAVED_TOAST, SaveDialog, WriteEffect, draftLine } from './components/Dialogs'
 import { hasTargets, isValueChoice, pointerLabel } from './lib/corrections'
 import { isReissueFinding, reissueInfo } from './lib/reissue'
 import { ReissueBanner } from './components/Reissue'
@@ -383,8 +383,11 @@ function Footer({ upload: u, admin, openBlocks, edited, onCorrect, onReextract, 
   else note = reason ?? 'All block findings are resolved. Ready to publish.'
 
   const actionable = admin && (u.status === 'needs_review' || u.status === 'approved')
+  // A draft outlives Release hold and a re-extract, so it is named here whether or not the report is on hold.
+  const draft = u.status === 'needs_review' ? draftLine(u.draft) : null
   return (
     <div className="rv-footer" role="region" aria-label="Decision">
+      {draft && <p className="rv-footer__draft" data-testid="draft-line">{draft}</p>}
       <span id="rv-publish-reason" className={'rv-footer__note' + (actionable && reason ? ' rv-footer__note--bad' : '')}>{note}
         {(u.status === 'needs_review' || u.status === 'approved') && edited > 0 && <StatusPill tone="blue" size="sm" data-testid="edited-count">{plural(edited, 'value')} edited</StatusPill>}</span>
       {actionable && <>
