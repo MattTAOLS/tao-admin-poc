@@ -7,7 +7,7 @@ import { openReview, pageTitle, shot, signInAsUser } from '../lib/ui'
 /** Demo step 11 (phase 2, wave C): people.
  * 11a users (sign in as a seeded user, User management, add / subscribe / deactivate / reactivate, refusals, audit);
  * 11b a partner's Team members; 11c comments and @mentions on a report in review; 11d the publish note, who gets
- * notified and partner notifications; 11e Profile. Runs after step 10 (Essex published to June). */
+ * notified (one row per person in the Publish pop-up) and partner notifications; 11e Profile. Runs after step 10 (Essex published to June). */
 test.describe.configure({ mode: 'serial' })
 
 type U = (typeof USERS)[keyof typeof USERS]
@@ -17,6 +17,8 @@ const r = STEP11.review
 const slug = DEALS[r.deal].slug
 
 const noAccess = (page: Page) => page.getByRole('heading', { name: 'You don’t have access' })
+/** The live count beside "Who gets notified" in the Publish pop-up. */
+const people = (n: number) => (n === 0 ? ' · nobody' : ` · ${n} ${n === 1 ? 'person' : 'people'}`)
 
 test('step 11a: users: sign in as a seeded user, manage users and subscriptions, refusals, audit', async ({ page }) => {
   await signInAsUser(page, USERS.patel)
@@ -211,20 +213,28 @@ test('step 11d: publish note: who gets notified, partner notifications on, the v
   await expect.poll(async () => (await patel.get(`/users/${USERS.alvarez.id}/subscriptions`)).body).toEqual(
     [expect.objectContaining({ program_slug: MOVE.program, deal_slug: slug })])
 
-  // With partner notifications off: nobody at a partner is notified. D. Alvarez (subscribed) is under Not notified
-  // with the "off" reason; so is M. Chen (not subscribed): the system switch ranks first.
+  // With partner notifications off: nobody at a partner is notified. D. Alvarez (subscribed) is not notified, with the
+  // "off" reason; so is M. Chen (not subscribed): the system switch ranks first. Neither can be switched on by hand.
   const before = (await patel.get(`/uploads/${u.id}/recipients`)).body
   expect(before.notified.filter((x: any) => x.partner_slug)).toEqual([])
   expect(before.not_notified).toContainEqual(expect.objectContaining({ user_id: USERS.alvarez.id, reason: 'partner_notifications_off' }))
   expect(before.not_notified).toContainEqual(expect.objectContaining({ user_id: USERS.chen.id, reason: 'partner_notifications_off' }))
+  expect(before.not_notified.filter((x: any) => x.partner_slug).every((x: any) => x.can_change === false)).toBe(true)
   await openReview(page, u.id)
   await page.getByRole('region', { name: 'Decision' }).getByRole('button', { name: 'Publish to partner…' }).click()
   let pub = page.getByRole('dialog', { name: 'Publish to partner' })
   let who = pub.getByRole('region', { name: 'Who gets notified' })
   await expect(who.getByTestId('notifications-off')).toContainText('Partner notifications are off')
-  const notList = who.getByRole('list', { name: 'Not notified' })
-  await expect(notList.getByRole('listitem').filter({ hasText: USERS.alvarez.name })).toContainText('partner notifications are off')
-  await expect(notList.getByRole('listitem').filter({ hasText: USERS.chen.name })).toBeVisible()
+  // One row per person, grouped TAO then each partner. Every Investor row reads Not notified and is locked with the reason.
+  await expect(who.getByTestId('notify-count')).toHaveText(people(before.notified.length))
+  for (const p of [USERS.alvarez, USERS.chen]) {
+    const row = who.getByRole('list', { name: 'Investor' }).getByTestId(`recipient-${p.id}`)
+    await expect(row).toContainText(p.name)
+    await expect(row).toContainText('Not notified')
+    await expect(row).toContainText('Locked: partner notifications are off')
+    await expect(row.getByRole('switch', { name: p.name })).not.toBeChecked()
+    await expect(row.getByRole('switch', { name: p.name })).toBeDisabled()
+  }
   await shot(page, '11-publish-notifications-off')
   await pub.getByRole('button', { name: 'Cancel' }).click()
 
@@ -244,14 +254,35 @@ test('step 11d: publish note: who gets notified, partner notifications on, the v
   await page.getByRole('region', { name: 'Decision' }).getByRole('button', { name: 'Publish to partner…' }).click()
   pub = page.getByRole('dialog', { name: 'Publish to partner' })
   who = pub.getByRole('region', { name: 'Who gets notified' })
-  await expect(who.getByRole('table', { name: 'Notified' })).toContainText(USERS.alvarez.name)
+  await expect(who.getByTestId('notifications-off')).toHaveCount(0)
+  const after = (await patel.get(`/uploads/${u.id}/recipients`)).body
+  expect(after.notified).toContainEqual(expect.objectContaining({ user_id: USERS.alvarez.id, partner_slug: 'investor', channels: ['in_app'] }))
+  await expect(who.getByTestId('notify-count')).toHaveText(people(after.notified.length))
+  const investor = who.getByRole('list', { name: 'Investor' })
+  const alvarezRow = investor.getByTestId(`recipient-${USERS.alvarez.id}`)
+  await expect(alvarezRow).toContainText('Will be notified')
+  await expect(alvarezRow).toContainText('In-app')
+  await expect(alvarezRow.getByRole('switch', { name: USERS.alvarez.name })).toBeChecked()
+  // Who is not notified, and why: M. Chen and the Manager users can see the deal but do not receive it.
+  await expect(investor.getByTestId(`recipient-${USERS.chen.id}`)).toContainText('Not notified')
+  await expect(investor.getByTestId(`recipient-${USERS.chen.id}`)).toContainText('does not receive this deal')
+  for (const m of [USERS.novak, USERS.haddad]) {
+    expect(after.not_notified).toContainEqual(expect.objectContaining({ user_id: m.id, reason: 'not_subscribed' }))
+    const row = who.getByRole('list', { name: 'Manager' }).getByTestId(`recipient-${m.id}`)
+    await expect(row).toContainText('Not notified')
+    await expect(row).toContainText('does not receive this deal')
+    await expect(row.getByRole('switch', { name: m.name })).not.toBeChecked()
+  }
+  await expect(who.getByTestId('notify-changes')).toHaveCount(0)
   await pub.getByLabel(/^Note to partners/).fill(STEP11.note)
   await shot(page, '11-publish-with-note')
   await pub.getByRole('button', { name: 'Approve and publish' }).click()
   await expect(page.getByText('Published to partner').first()).toBeVisible()
   const entry = ((await patel.get(`/audit?scope=reports&upload_id=${u.id}&action=publish`)).body as any[])[0]
   expect(entry.detail).toMatchObject({ note_to_partners: STEP11.note })
-  expect(JSON.stringify(entry.detail.recipients)).toContain(USERS.alvarez.id)
+  expect([...entry.detail.recipients].sort()).toEqual(after.notified.map((x: any) => x.user_id).sort())
+  expect(entry.detail.recipients).toContain(USERS.alvarez.id)
+  expect(entry.detail).toMatchObject({ notified_added: [], notified_removed: [] })
 
   // D. Alvarez: "Report published" with the note as typed; Open goes to the deal at its month.
   await signInAsUser(page, USERS.alvarez)
