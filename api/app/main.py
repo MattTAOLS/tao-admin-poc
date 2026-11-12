@@ -190,8 +190,14 @@ def _still(s: Session, u: SetrepUpload, allowed: tuple[str, ...]) -> None:
 
 def _transition(s: Session, u: SetrepUpload, allowed: tuple[str, ...], to: str, **values) -> None:
     """Move the upload to `to` only if it still is in one of `allowed`: one conditional UPDATE, so of two requests that
-    both read the old status exactly one moves it; the other rolls back and gets 409 bad_state (audit H3)."""
-    done = s.execute(update(SetrepUpload).where(SetrepUpload.id == u.id, SetrepUpload.status.in_(allowed)).values(status=to, **values)
+    both read the old status exactly one moves it; the other rolls back and gets 409 bad_state (audit H3).
+    A hold (016) is a marker on needs_review only: every move to another status clears it here, whichever action moves
+    the upload; a decision (approved, rejected) also clears the saved draft."""
+    if to != "needs_review":
+        values = {**dict.fromkeys(views.HOLD_FIELDS), **values}
+    if to in ("approved", "rejected"):
+        values = {**dict.fromkeys(views.DRAFT_FIELDS), **values}
+    done =s.execute(update(SetrepUpload).where(SetrepUpload.id == u.id, SetrepUpload.status.in_(allowed)).values(status=to, **values)
                      .execution_options(synchronize_session=False)).rowcount
     if done != 1:
         s.rollback()
@@ -363,6 +369,7 @@ def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_ca
     if any(p < 1 or (u.page_count and p > u.page_count) for p in pages):
         raise err(422, "invalid", f"pages must be within 1..{u.page_count or 'page count'}")
     deal_slug, period, template_id = u.deal_slug, u.collection_period, s.get(Deal, u.deal_slug).template_id
+    hold = {k: getattr(u, k) for k in views.HOLD_FIELDS}       # re-extract clears the hold; a failed push puts it back
     try:
         _transition(s, u, (was,), "extracting")
         views.audit(s, c, "reextract", upload_id=u.id, detail={"pages": pages})
@@ -375,27 +382,106 @@ def reextract(upload_id: str, body: ReextractRequest, c: Caller = Depends(tao_ca
         q.push({"upload_id": u.id, "pass": 2, "pages": pages, "template_id": template_id})
     except Exception as e:                                    # queue down: put the upload back, say so, lose nothing
         log.error("queue push failed for %s: %s", u.id, e)
-        _transition(s, u, ("extracting",), was)
+        _transition(s, u, ("extracting",), was, **(hold if was == "needs_review" else {}))
         views.audit(s, c, "extract", upload_id=u.id, reason="queue unavailable", detail={"error": str(e)[:200], "pass": 2})
         s.commit()
         raise err(503, "queue_unavailable", "the extraction queue is not reachable; the upload is unchanged, try again")
     return views.upload_dict(s, u)
 
 
+UserId = Annotated[str, StringConstraints(pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")]
+
+
+class NotifyChoices(BaseModel):
+    """Per-person choices for one publish; they never change a subscription."""
+    add: list[UserId] = Field(default_factory=list)
+    remove: list[UserId] = Field(default_factory=list)
+
+
 class ApproveRequest(BaseModel):
     note_to_partners: str | None = Field(default=None, max_length=2000)
+    notify: NotifyChoices | None = None
+
+
+class HoldRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
+    note_to_partners: str | None = Field(default=None, max_length=2000)
+    notify: NotifyChoices | None = None
+
+
+def _notify_choices(s: Session, u: SetrepUpload, choices: NotifyChoices | None) -> tuple[list[dict], list[dict]]:
+    """The (added, removed) Recipients entries of valid choices; 422 `invalid` naming the person otherwise. Approve and
+    Save validate the same way, before anything is written."""
+    if choices is None:
+        return [], []
+    try:
+        return notify.check_choices(s, u.deal_slug, choices.add, choices.remove)
+    except notify.BadChoice as e:
+        raise err(422, "invalid", str(e))
+
+
+@app.post(API + "/uploads/{upload_id}/hold")
+def hold_upload(upload_id: str, body: HoldRequest | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """Save for later: mark a needs_review upload On hold (a marker, not a status). The note is replaced on every save;
+    note_to_partners and notify are the draft of the publish pop-up: a field not sent keeps what is stored, sent as null
+    it is cleared. The draft's notify choices are validated as approve validates them."""
+    admin_only(c)
+    body = body or HoldRequest()
+    u = lock_upload(s, upload_id)
+    if u.status != "needs_review":
+        raise err(409, "bad_state", f"upload is {u.status}; only a report that needs review can be put on hold")
+    _still(s, u, ("needs_review",))
+    sent = body.model_fields_set
+    if "notify" in sent:
+        added, removed = _notify_choices(s, u, body.notify)
+        u.draft_notify = {"add": [x["user_id"] for x in added], "remove": [x["user_id"] for x in removed]} if added or removed else None
+    if "note_to_partners" in sent:
+        u.draft_note_to_partners = body.note_to_partners if (body.note_to_partners or "").strip() else None
+    u.held_at, u.held_by, u.held_by_label = utcnow(), c.user_id, c.label or views.ROLE_LABELS.get(c.role, c.role)
+    u.hold_note = (body.note or "").strip() or None
+    stored = views.notify_choices(u.draft_notify)
+    views.audit(s, c, "hold", upload_id=u.id, reason=u.hold_note,
+                detail={"note": u.hold_note, "has_draft_note": u.draft_note_to_partners is not None,
+                        "notify_add": _names(s, stored["add"]), "notify_remove": _names(s, stored["remove"])})
+    s.commit()
+    return views.upload_dict(s, u)
+
+
+@app.delete(API + "/uploads/{upload_id}/hold")
+def release_hold(upload_id: str, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
+    """Release the hold: back to plain needs_review. The draft (publish note, notify choices) is kept."""
+    admin_only(c)
+    u = lock_upload(s, upload_id)
+    if not views.on_hold(u):
+        raise err(409, "bad_state", "the upload is not on hold")
+    _still(s, u, ("needs_review",))
+    note = u.hold_note
+    for k in views.HOLD_FIELDS:
+        setattr(u, k, None)
+    views.audit(s, c, "hold_release", upload_id=u.id, detail={"note": note})
+    s.commit()
+    return views.upload_dict(s, u)
+
+
+def _names(s: Session, ids: list[str]) -> list[str]:
+    """User names for an audit detail, in the order given; an id that names nobody any more stays as the id."""
+    users = [s.get(AppUser, i) for i in ids]
+    return [who.name if who else i for who, i in zip(users, ids)]
 
 
 @app.post(API + "/uploads/{upload_id}/approve")
 def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depends(admin_caller), s: Session = Depends(get_db)):
-    """Optional body {note_to_partners}: stored on the publication (its version) and sent as note_from_tao in the
-    report_published notifications; the publish entry records the note and the recipients."""
+    """Optional body {note_to_partners, notify}: the note is stored on the publication (its version) and sent as
+    note_from_tao in the report_published notifications; the publish entry records the note and the recipients.
+    notify adds or leaves out named people for this publish only (validated before anything is published; the publish
+    entry records notified_added / notified_removed). Approve clears any hold and the saved draft (_transition)."""
     admin_only(c)
     note = body.note_to_partners if body else None
     u = lock_upload(s, upload_id)
     if u.status != "needs_review":
         raise err(409, "bad_state", f"upload is {u.status}; only needs_review can be approved")
     _still(s, u, ("needs_review",))
+    added, removed = _notify_choices(s, u, body.notify if body else None)
     ex = views.latest_extraction(s, u.id)
     if ex is None:
         raise err(409, "no_extraction", "nothing extracted to approve")
@@ -443,9 +529,12 @@ def approve(upload_id: str, body: ApproveRequest | None = None, c: Caller = Depe
     s.flush()
     _transition(s, u, ("approved",), "published")
     rerun = _rerun_open_reviews(s, u.deal_slug, after_period=u.collection_period)     # their prior changed (audit H2)
-    told = notify.published(s, u, pub.version, c.label or c.role, note)
+    told = notify.published(s, u, pub.version, c.label or c.role, note, add=[x["user_id"] for x in added],
+                            remove=[x["user_id"] for x in removed])
     views.audit(s, c, "publish", upload_id=u.id, detail={"deal_slug": u.deal_slug, "collection_period": u.collection_period, "replaced_upload_id": replaced,
                                                          "version": pub.version, "note_to_partners": note, "recipients": told,
+                                                         "notified_added": [{"id": x["user_id"], "name": x["name"]} for x in added],
+                                                         "notified_removed": [{"id": x["user_id"], "name": x["name"]} for x in removed],
                                                          "rerun_upload_ids": rerun})
     program_slug = s.get(Deal, u.deal_slug).program_slug
     views.audit(s, c, "regenerate", upload_id=u.id, detail={"program_slug": program_slug, "trigger": "approve"})
